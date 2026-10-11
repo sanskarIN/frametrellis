@@ -41,7 +41,7 @@ jobs:
           update: true
           pacboy: >-
             cc:p cmake:p ninja:p pkgconf:p python:p
-            qt6-base:p qt6-declarative:p qt6-svg:p
+            qt6-base:p qt6-declarative:p qt6-svg:p qt6-imageformats:p
             mlt:p ffmpeg:p SDL2:p
       - name: Record the toolchain and library versions
         run: |

@@ -130,7 +130,8 @@ Write-Host "Extracted $Zip to $portable"
 foreach ($file in 'frametrellis.exe', 'frametrellis-render.exe', 'qt.conf', 'LICENSE.txt',
     'README.txt', 'BUNDLED_COMPONENTS.txt', 'SOURCES.txt', 'THIRD_PARTY_NOTICES.md',
     'lib\mlt\libmltcore.dll', 'lib\mlt\libmltavformat.dll', 'share\mlt\profiles',
-    'plugins\platforms\qwindows.dll', 'qml\QtQuick') {
+    'plugins\platforms\qwindows.dll', 'plugins\imageformats\qjpeg.dll',
+    'plugins\imageformats\qtiff.dll', 'plugins\imageformats\qwebp.dll', 'qml\QtQuick') {
     Check (Test-Path (Join-Path $portable $file)) "ZIP contains $file"
 }
 $licenseCount = @(Get-ChildItem (Join-Path $portable 'licenses') -Recurse -File).Count

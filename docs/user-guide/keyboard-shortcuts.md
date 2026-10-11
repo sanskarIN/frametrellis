@@ -8,7 +8,8 @@
 | Up / Down | Previous / next edit point |
 | Home / End | Go to start / end |
 | S | Split at playhead |
-| Delete | Delete selected clips |
+| T | Add a transition after the selected clip |
+| Delete | Delete selected clips or the selected transition |
 | Shift+Delete | Ripple delete |
 | Ctrl+A | Select all clips |
 | N | Toggle snapping |

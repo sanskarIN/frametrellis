@@ -5,16 +5,19 @@ import QtQuick.Controls.Basic
 import QtQuick.Layouts
 import FrameTrellis
 
-// Properties of the selected clip, or an overview of the project when nothing is selected.
+// Properties of the selected clip or transition, or an overview of the project when nothing is
+// selected.
 PanelFrame {
     id: panel
 
     required property AppController app
     readonly property var clip: app.timeline.selectedClip
     readonly property bool hasClip: clip.count === 1
+    readonly property var transition: app.timeline.selectedTransition
+    readonly property bool hasTransition: transition.count === 1
     readonly property real fps: Math.max(1, app.timeline.frameRate)
 
-    title: hasClip ? qsTr("Clip") : qsTr("Project")
+    title: hasClip ? qsTr("Clip") : (hasTransition ? qsTr("Transition") : qsTr("Project"))
 
     function setProp(name, value) {
         app.timeline.setClipProperty(clip.clipId, name, value)
@@ -33,7 +36,7 @@ PanelFrame {
 
             // ---- Project overview ----
             ColumnLayout {
-                visible: !panel.hasClip
+                visible: !panel.hasClip && !panel.hasTransition
                 Layout.fillWidth: true
                 spacing: Theme.spacingS
                 Text {
@@ -66,11 +69,62 @@ PanelFrame {
                 Rectangle { Layout.fillWidth: true; height: 1; color: Theme.border; Layout.topMargin: Theme.spacingS }
                 Text {
                     text: panel.clip.count > 1 ? qsTr("%1 clips selected").arg(panel.clip.count)
-                                               : qsTr("Select a clip on the timeline to adjust its volume, fades and picture.")
+                                               : qsTr("Select a clip on the timeline to adjust its volume, fades and picture, or a transition to change its length.")
                     color: Theme.textMuted
                     font.pixelSize: Theme.fontSize
                     wrapMode: Text.WordWrap
                     Layout.fillWidth: true
+                }
+            }
+
+            // ---- Transition ----
+            ColumnLayout {
+                objectName: "transitionInspector"
+                visible: panel.hasTransition
+                enabled: !(panel.transition.locked || false)
+                Layout.fillWidth: true
+                spacing: Theme.spacingS
+                Text {
+                    text: panel.transition.kind || ""
+                    color: Theme.text
+                    font.pixelSize: Theme.fontSizeLarge
+                    font.weight: Font.DemiBold
+                    Layout.fillWidth: true
+                }
+                Text {
+                    text: qsTr("From “%1” to “%2” on %3, centred on the cut at %4.")
+                              .arg(panel.transition.fromName || "").arg(panel.transition.toName || "")
+                              .arg(panel.transition.trackName || "").arg(panel.transition.cutText || "")
+                    color: Theme.textMuted
+                    font.pixelSize: Theme.fontSizeSmall
+                    wrapMode: Text.WordWrap
+                    Layout.fillWidth: true
+                }
+                ValueSlider {
+                    objectName: "transitionLength"
+                    label: qsTr("Length")
+                    from: panel.transition.minDuration || 2
+                    to: Math.max(from + 1, panel.transition.maxDuration || 2)
+                    stepSize: 1
+                    defaultValue: Math.min(to, panel.fps)
+                    value: panel.transition.duration || 2
+                    format: v => (v / panel.fps).toFixed(2) + " s"
+                    onMoved: v => panel.app.timeline.setTransitionDuration(panel.transition.transitionId, Math.round(v))
+                    onCommitted: panel.app.timeline.endEdit()
+                }
+                Text {
+                    text: qsTr("The longest possible transition is %1 s; it is limited by the length of the clips and the media available beyond the cut.")
+                              .arg(((panel.transition.maxDuration || 0) / panel.fps).toFixed(2))
+                    color: Theme.textFaint
+                    font.pixelSize: Theme.fontSizeSmall
+                    wrapMode: Text.WordWrap
+                    Layout.fillWidth: true
+                }
+                FtButton {
+                    text: qsTr("Remove transition")
+                    iconName: "trash"
+                    destructive: true
+                    onClicked: panel.app.timeline.removeTransition(panel.transition.transitionId)
                 }
             }
 
@@ -114,6 +168,19 @@ PanelFrame {
                             Text { text: modelData[1] || ""; color: Theme.text; font.pixelSize: Theme.fontSizeSmall; font.family: Theme.monoFamily }
                         }
                     }
+                }
+            }
+
+            // ---- Transition after this clip ----
+            ColumnLayout {
+                visible: panel.hasClip
+                enabled: !panel.clip.locked
+                Layout.fillWidth: true
+                spacing: Theme.spacingS
+                FtButton {
+                    text: qsTr("Add transition to next clip")
+                    iconName: "transition"
+                    onClicked: panel.app.timeline.addTransition(panel.clip.clipId)
                 }
             }
 

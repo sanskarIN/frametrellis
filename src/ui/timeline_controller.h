@@ -29,6 +29,8 @@ class TimelineController : public QObject
     Q_PROPERTY(bool snapping READ snapping WRITE setSnapping NOTIFY snappingChanged)
     Q_PROPERTY(QStringList selection READ selection NOTIFY selectionChanged)
     Q_PROPERTY(QVariantMap selectedClip READ selectedClip NOTIFY selectedClipChanged)
+    Q_PROPERTY(
+        QVariantMap selectedTransition READ selectedTransition NOTIFY selectedTransitionChanged)
     Q_PROPERTY(double duration READ duration NOTIFY durationChanged)
     Q_PROPERTY(double frameRate READ frameRate NOTIFY durationChanged)
     Q_PROPERTY(bool empty READ empty NOTIFY durationChanged)
@@ -84,6 +86,15 @@ public:
     Q_INVOKABLE bool resetPictureAdjustments(const QString& clipId);
     Q_INVOKABLE void endEdit();
 
+    // Transitions
+    [[nodiscard]] QVariantMap selectedTransition() const;
+    /// Adds a transition (one second, or less if the media does not allow it) at the cut after
+    /// the clip, or after the single selected clip when clipId is empty, and selects it.
+    Q_INVOKABLE bool addTransition(const QString& clipId = {});
+    Q_INVOKABLE void selectTransition(const QString& transitionId);
+    Q_INVOKABLE bool setTransitionDuration(const QString& transitionId, double frames);
+    Q_INVOKABLE bool removeTransition(const QString& transitionId);
+
     // Tracks
     Q_INVOKABLE bool addTrack(const QString& kind);
     Q_INVOKABLE bool removeTrack(const QString& trackId);
@@ -102,12 +113,14 @@ signals:
     void snappingChanged();
     void selectionChanged();
     void selectedClipChanged();
+    void selectedTransitionChanged();
     void durationChanged();
     void statusMessage(const QString& message);
 
 private:
     void onProjectChanged(const ChangeSet& changes);
     void pruneSelection();
+    void setTransitionSelection(const Id& transitionId);
     [[nodiscard]] FrameCount stillDuration() const;
     [[nodiscard]] const Project& project() const;
     [[nodiscard]] std::optional<FrameCount> placementLength(const MediaAsset& asset) const;
@@ -116,6 +129,7 @@ private:
     PlaybackController* m_playback;
     TimelineModel m_model;
     QSet<Id> m_selection;
+    Id m_selectedTransition;
     double m_pixelsPerFrame = 2.0;
     bool m_snapping = true;
     double m_lastFit = 0;

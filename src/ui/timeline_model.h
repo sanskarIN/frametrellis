@@ -86,6 +86,7 @@ public:
         LockedRole,
         ClipsRole,
         ProjectIndexRole,
+        TransitionsRole,
     };
 
     explicit TimelineModel(QObject* parent = nullptr);
@@ -98,6 +99,7 @@ public:
     void update(const Project& project, bool structural, bool refreshAll, const QSet<Id>& tracks,
                 const QSet<Id>& selection);
     void updateSelection(const QSet<Id>& selection);
+    void setSelectedTransition(const Id& transitionId);
     Q_INVOKABLE int rowOfTrack(const QString& trackId) const;
 
 signals:
@@ -111,6 +113,7 @@ private:
         std::unique_ptr<ClipListModel> clips;
     };
     std::vector<Row> m_rows;
+    Id m_selectedTransition;
 };
 
 } // namespace ft::ui

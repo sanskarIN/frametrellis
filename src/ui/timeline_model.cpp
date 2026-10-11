@@ -4,6 +4,8 @@
 
 #include <QFileInfo>
 
+#include <algorithm>
+
 namespace ft::ui {
 
 ClipListModel::ClipListModel(QObject* parent)
@@ -169,6 +171,25 @@ QVariant TimelineModel::data(const QModelIndex& index, int role) const
         return QVariant::fromValue(static_cast<QObject*>(row.clips.get()));
     case ProjectIndexRole:
         return row.projectIndex;
+    case TransitionsRole: {
+        QVariantList list;
+        for (const Transition& tr : row.track.transitions) {
+            const auto from = std::find_if(row.track.clips.begin(), row.track.clips.end(),
+                                           [&](const Clip& c) { return c.id == tr.fromClip; });
+            if (from == row.track.clips.end()) {
+                continue;
+            }
+            const FrameCount cut = from->end();
+            list.append(QVariantMap{
+                {QStringLiteral("transitionId"), tr.id},
+                {QStringLiteral("start"), static_cast<double>(cut - tr.before())},
+                {QStringLiteral("duration"), static_cast<double>(tr.duration)},
+                {QStringLiteral("cut"), static_cast<double>(cut)},
+                {QStringLiteral("selected"), tr.id == m_selectedTransition},
+            });
+        }
+        return list;
+    }
     default:
         return {};
     }
@@ -176,10 +197,15 @@ QVariant TimelineModel::data(const QModelIndex& index, int role) const
 
 QHash<int, QByteArray> TimelineModel::roleNames() const
 {
-    return {{IdRole, "trackId"},    {NameRole, "name"},
-            {KindRole, "kind"},     {MutedRole, "muted"},
-            {HiddenRole, "hidden"}, {LockedRole, "locked"},
-            {ClipsRole, "clips"},   {ProjectIndexRole, "projectIndex"}};
+    return {{IdRole, "trackId"},
+            {NameRole, "name"},
+            {KindRole, "kind"},
+            {MutedRole, "muted"},
+            {HiddenRole, "hidden"},
+            {LockedRole, "locked"},
+            {ClipsRole, "clips"},
+            {ProjectIndexRole, "projectIndex"},
+            {TransitionsRole, "transitions"}};
 }
 
 void TimelineModel::update(const Project& project, bool structural, bool refreshAll,
@@ -234,6 +260,24 @@ void TimelineModel::updateSelection(const QSet<Id>& selection)
 {
     for (Row& row : m_rows) {
         row.clips->updateSelection(selection);
+    }
+}
+
+void TimelineModel::setSelectedTransition(const Id& transitionId)
+{
+    if (transitionId == m_selectedTransition) {
+        return;
+    }
+    const Id previous = m_selectedTransition;
+    m_selectedTransition = transitionId;
+    for (size_t r = 0; r < m_rows.size(); ++r) {
+        const auto& transitions = m_rows[r].track.transitions;
+        if (std::any_of(transitions.begin(), transitions.end(), [&](const Transition& tr) {
+                return tr.id == previous || tr.id == transitionId;
+            })) {
+            emit dataChanged(index(static_cast<int>(r)), index(static_cast<int>(r)),
+                             {TransitionsRole});
+        }
     }
 }
 

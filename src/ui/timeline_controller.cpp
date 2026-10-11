@@ -28,6 +28,7 @@ TimelineController::TimelineController(ProjectController* project, PlaybackContr
             &TimelineController::onProjectChanged);
     connect(m_project, &ProjectController::documentReplaced, this, [this] {
         m_selection.clear();
+        setTransitionSelection({});
         emit selectionChanged();
         emit selectedClipChanged();
     });
@@ -46,6 +47,7 @@ void TimelineController::onProjectChanged(const ChangeSet& changes)
                    changes.tracks, m_selection);
     emit durationChanged();
     emit selectedClipChanged();
+    emit selectedTransitionChanged();
     if (changes.settings) {
         emit zoomChanged();
     }
@@ -65,6 +67,19 @@ void TimelineController::pruneSelection()
     if (changed) {
         emit selectionChanged();
     }
+    if (!m_selectedTransition.isEmpty() && !project().timeline().transition(m_selectedTransition)) {
+        setTransitionSelection({});
+    }
+}
+
+void TimelineController::setTransitionSelection(const Id& transitionId)
+{
+    if (transitionId == m_selectedTransition) {
+        return;
+    }
+    m_selectedTransition = transitionId;
+    m_model.setSelectedTransition(transitionId);
+    emit selectedTransitionChanged();
 }
 
 void TimelineController::setPixelsPerFrame(double value)
@@ -359,6 +374,9 @@ bool TimelineController::splitAtPlayhead()
 
 bool TimelineController::deleteSelection(bool ripple)
 {
+    if (m_selection.isEmpty() && !m_selectedTransition.isEmpty()) {
+        return removeTransition(m_selectedTransition);
+    }
     if (m_selection.isEmpty()) {
         emit statusMessage(QStringLiteral("Select one or more clips to delete."));
         return false;
@@ -388,6 +406,7 @@ void TimelineController::select(const QString& clipId, bool toggle)
     } else {
         m_selection = {clipId};
     }
+    setTransitionSelection({});
     m_model.updateSelection(m_selection);
     emit selectionChanged();
     emit selectedClipChanged();
@@ -395,6 +414,7 @@ void TimelineController::select(const QString& clipId, bool toggle)
 
 void TimelineController::clearSelection()
 {
+    setTransitionSelection({});
     if (m_selection.isEmpty()) {
         return;
     }
@@ -406,6 +426,7 @@ void TimelineController::clearSelection()
 
 void TimelineController::selectAll()
 {
+    setTransitionSelection({});
     m_selection.clear();
     for (const Track& track : project().timeline().tracks()) {
         for (const Clip& clip : track.clips) {
@@ -474,6 +495,112 @@ bool TimelineController::resetPictureAdjustments(const QString& clipId)
 void TimelineController::endEdit()
 {
     m_project->document()->breakMerge();
+}
+
+QVariantMap TimelineController::selectedTransition() const
+{
+    const Timeline& timeline = project().timeline();
+    const Transition* tr = timeline.transition(m_selectedTransition);
+    const Track* track = tr ? timeline.trackOfClip(tr->fromClip) : nullptr;
+    const Clip* from = tr ? timeline.clip(tr->fromClip) : nullptr;
+    const Clip* to = tr ? timeline.clip(tr->toClip) : nullptr;
+    if (!tr || !track || !from || !to) {
+        return {{QStringLiteral("count"), 0}};
+    }
+    const auto nameOf = [&](const Clip* clip) {
+        const MediaAsset* asset = project().asset(clip->assetId);
+        return asset ? asset->name : QStringLiteral("(missing media)");
+    };
+    const FrameRate& rate = project().settings().frameRate;
+    const FrameCount longest = std::max(
+        timeline.maxTransitionDuration(tr->fromClip, project().sourceLookup()), tr->duration);
+    return {
+        {QStringLiteral("count"), 1},
+        {QStringLiteral("transitionId"), tr->id},
+        {QStringLiteral("kind"), track->kind == TrackKind::Video ? QStringLiteral("Dissolve")
+                                                                 : QStringLiteral("Crossfade")},
+        {QStringLiteral("trackName"), track->name},
+        {QStringLiteral("locked"), track->locked},
+        {QStringLiteral("fromName"), nameOf(from)},
+        {QStringLiteral("toName"), nameOf(to)},
+        {QStringLiteral("duration"), static_cast<double>(tr->duration)},
+        {QStringLiteral("durationText"), timecode::formatClock(tr->duration, rate)},
+        {QStringLiteral("minDuration"), static_cast<double>(kMinTransitionFrames)},
+        {QStringLiteral("maxDuration"), static_cast<double>(longest)},
+        {QStringLiteral("cutText"), timecode::format(from->end(), rate)},
+    };
+}
+
+bool TimelineController::addTransition(const QString& clipId)
+{
+    Id fromClip = clipId;
+    if (fromClip.isEmpty() && m_selection.size() == 1) {
+        fromClip = *m_selection.cbegin();
+    }
+    const Timeline& timeline = project().timeline();
+    if (fromClip.isEmpty() || !timeline.clip(fromClip)) {
+        emit statusMessage(
+            QStringLiteral("Select the clip before a cut to add a transition after it."));
+        return false;
+    }
+    if (const Transition* existing = timeline.transitionAfter(fromClip)) {
+        selectTransition(existing->id);
+        emit statusMessage(QStringLiteral("This cut already has a transition."));
+        return false;
+    }
+    const FrameCount longest = timeline.maxTransitionDuration(fromClip, project().sourceLookup());
+    if (longest < kMinTransitionFrames) {
+        emit statusMessage(QStringLiteral(
+            "A transition needs a next clip that starts exactly where this one ends, and unused "
+            "media on both sides of the cut. Trim the clips to make room."));
+        return false;
+    }
+    // One second by default, or as much as the media allows.
+    const FrameCount length = std::min<FrameCount>(longest, nominalRate());
+    const Id id = createId();
+    if (!m_project->execute(edits::addTransition(fromClip, length, id))) {
+        return false;
+    }
+    m_selection.clear();
+    m_model.updateSelection(m_selection);
+    emit selectionChanged();
+    emit selectedClipChanged();
+    setTransitionSelection(id);
+    emit statusMessage(QStringLiteral("Added a %1 transition.")
+                           .arg(timecode::formatClock(length, project().settings().frameRate)));
+    return true;
+}
+
+void TimelineController::selectTransition(const QString& transitionId)
+{
+    if (!project().timeline().transition(transitionId)) {
+        return;
+    }
+    if (!m_selection.isEmpty()) {
+        m_selection.clear();
+        m_model.updateSelection(m_selection);
+        emit selectionChanged();
+        emit selectedClipChanged();
+    }
+    setTransitionSelection(transitionId);
+}
+
+bool TimelineController::setTransitionDuration(const QString& transitionId, double frames)
+{
+    if (!std::isfinite(frames)) {
+        return false;
+    }
+    return m_project->execute(
+        edits::setTransitionDuration(transitionId, static_cast<FrameCount>(std::llround(frames))));
+}
+
+bool TimelineController::removeTransition(const QString& transitionId)
+{
+    if (!m_project->execute(edits::removeTransition(transitionId))) {
+        return false;
+    }
+    setTransitionSelection({});
+    return true;
 }
 
 bool TimelineController::addTrack(const QString& kind)

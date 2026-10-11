@@ -193,6 +193,7 @@ PanelFrame {
                             required property bool hidden
                             required property bool muted
                             required property var clips
+                            required property var transitions
                             width: lanesContent.width
                             height: panel.trackHeight
                             color: kind === "audio" ? Theme.trackAudio : Theme.trackVideo
@@ -208,6 +209,50 @@ PanelFrame {
                                     trackId: lane.trackId
                                     trackLocked: lane.locked
                                     opacity: (lane.hidden || lane.muted) ? 0.55 : (lane.locked ? 0.6 : 1)
+                                }
+                            }
+
+                            // Transitions sit on top of the clips they blend.
+                            Repeater {
+                                model: lane.transitions
+                                delegate: Rectangle {
+                                    id: transitionItem
+                                    required property var modelData
+                                    objectName: "transition:" + modelData.transitionId
+                                    x: modelData.start * panel.ppf
+                                    y: 3
+                                    width: Math.max(8, modelData.duration * panel.ppf)
+                                    height: panel.trackHeight - 7
+                                    radius: 4
+                                    color: modelData.selected ? Qt.rgba(Theme.selection.r, Theme.selection.g, Theme.selection.b, 0.35) : "#66000000"
+                                    border.width: modelData.selected ? 2 : 1
+                                    border.color: modelData.selected ? Theme.selection : Theme.clipText
+                                    Accessible.role: Accessible.Button
+                                    Accessible.name: qsTr("Transition, %1 long").arg(panel.timeline.clock(modelData.duration))
+
+                                    // A bow tie marks the blend between the two clips.
+                                    Canvas {
+                                        anchors.fill: parent
+                                        anchors.margins: 4
+                                        onPaint: {
+                                            const ctx = getContext("2d")
+                                            ctx.reset()
+                                            ctx.strokeStyle = String(Theme.clipText)
+                                            ctx.globalAlpha = 0.8
+                                            ctx.lineWidth = 1.2
+                                            ctx.beginPath()
+                                            ctx.moveTo(0, 0); ctx.lineTo(width, height)
+                                            ctx.moveTo(0, height); ctx.lineTo(width, 0)
+                                            ctx.stroke()
+                                        }
+                                        onWidthChanged: requestPaint()
+                                        onHeightChanged: requestPaint()
+                                    }
+                                    MouseArea {
+                                        anchors.fill: parent
+                                        cursorShape: Qt.PointingHandCursor
+                                        onPressed: panel.timeline.selectTransition(transitionItem.modelData.transitionId)
+                                    }
                                 }
                             }
                         }

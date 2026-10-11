@@ -1,0 +1,7 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
+# Lint settings for the Python tooling (packaging scripts and their tests).
+line-length = 100
+target-version = "py311"
+
+[lint]
+select = ["E", "W", "F", "B", "PIE", "UP", "EXE", "SIM", "RUF100"]

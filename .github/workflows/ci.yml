@@ -30,6 +30,16 @@ jobs:
           clang-format --version
           git ls-files '*.cpp' '*.h' | xargs clang-format --dry-run --Werror
 
+  scripts:
+    name: Packaging scripts
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v6
+      - name: Lint with ruff
+        run: pipx run ruff==0.16.8 check
+      - name: Unit tests
+        run: python3 -m unittest discover -s packaging/tests -v
+
   linux:
     name: Linux (GCC, debug, warnings as errors)
     runs-on: ubuntu-24.04

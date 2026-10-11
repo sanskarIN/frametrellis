@@ -45,6 +45,23 @@ void clampFades(ClipProperties& p, FrameCount duration)
     p.fadeOut = std::clamp<FrameCount>(p.fadeOut, 0, duration - p.fadeIn);
 }
 
+const Clip* clipIn(const Track& t, const Id& clipId)
+{
+    const auto it =
+        std::find_if(t.clips.begin(), t.clips.end(), [&](const Clip& c) { return c.id == clipId; });
+    return it == t.clips.end() ? nullptr : &*it;
+}
+
+void sortTransitions(Track& t)
+{
+    const auto cutOf = [&](const Transition& tr) {
+        const Clip* from = clipIn(t, tr.fromClip);
+        return from ? from->end() : FrameCount{0};
+    };
+    std::stable_sort(t.transitions.begin(), t.transitions.end(),
+                     [&](const Transition& a, const Transition& b) { return cutOf(a) < cutOf(b); });
+}
+
 } // namespace
 
 int Timeline::trackIndex(const Id& trackId) const
@@ -167,6 +184,150 @@ std::vector<Id> Timeline::clipsUsingAsset(const Id& assetId) const
         }
     }
     return ids;
+}
+
+const Transition* Timeline::transition(const Id& transitionId) const
+{
+    for (const Track& t : m_tracks) {
+        for (const Transition& tr : t.transitions) {
+            if (tr.id == transitionId) {
+                return &tr;
+            }
+        }
+    }
+    return nullptr;
+}
+
+Transition* Timeline::mutableTransition(const Id& transitionId, Track** owner)
+{
+    for (Track& t : m_tracks) {
+        for (Transition& tr : t.transitions) {
+            if (tr.id == transitionId) {
+                *owner = &t;
+                return &tr;
+            }
+        }
+    }
+    return nullptr;
+}
+
+const Transition* Timeline::transitionAfter(const Id& fromClipId) const
+{
+    const Track* t = trackOfClip(fromClipId);
+    if (!t) {
+        return nullptr;
+    }
+    const auto it = std::find_if(t->transitions.begin(), t->transitions.end(),
+                                 [&](const Transition& tr) { return tr.fromClip == fromClipId; });
+    return it == t->transitions.end() ? nullptr : &*it;
+}
+
+FrameCount Timeline::maxTransitionDuration(const Id& fromClipId, const SourceLookup& sources) const
+{
+    const auto location = findClip(fromClipId);
+    if (!location) {
+        return 0;
+    }
+    const Track& t = m_tracks[static_cast<size_t>(location->track)];
+    const auto index = static_cast<size_t>(location->clip);
+    if (index + 1 >= t.clips.size() || t.clips[index + 1].start != t.clips[index].end()) {
+        return 0;
+    }
+    const Clip& from = t.clips[index];
+    const Clip& to = t.clips[index + 1];
+    // Room before the cut (taken from the outgoing clip and the incoming clip's handle) and after
+    // it (taken from the incoming clip and the outgoing clip's handle).
+    FrameCount roomBefore = from.duration;
+    FrameCount roomAfter = to.duration;
+    for (const Transition& other : t.transitions) {
+        if (other.toClip == from.id) {
+            roomBefore -= other.after();
+        }
+        if (other.fromClip == to.id) {
+            roomAfter -= other.before();
+        }
+    }
+    const std::optional<SourceLimits> a = sources(from.assetId);
+    const std::optional<SourceLimits> b = sources(to.assetId);
+    if (!a || !b) {
+        return 0;
+    }
+    if (a->length) {
+        roomAfter = std::min(roomAfter, *a->length - from.sourceOut());
+    }
+    if (b->length) {
+        roomBefore = std::min(roomBefore, to.sourceIn);
+    }
+    // before() = d / 2 must fit roomBefore and after() = d - d / 2 must fit roomAfter.
+    const FrameCount longest = std::min(2 * roomBefore + 1, 2 * roomAfter);
+    return longest >= kMinTransitionFrames ? longest : 0;
+}
+
+Status Timeline::checkTransition(const Track& t, const Transition& tr, const SourceLookup* sources)
+{
+    if (tr.duration < kMinTransitionFrames || tr.duration > kMaxTimelineFrames) {
+        return makeError(ErrorCode::OutOfRange,
+                         QStringLiteral("A transition must be at least two frames long."));
+    }
+    const Clip* from = clipIn(t, tr.fromClip);
+    const Clip* to = clipIn(t, tr.toClip);
+    if (!from || !to) {
+        return notFound(QStringLiteral("A clip of the transition"));
+    }
+    if (from->end() != to->start) {
+        return makeError(ErrorCode::Conflict,
+                         QStringLiteral("A transition needs two clips that touch."));
+    }
+    if (tr.before() > from->duration || tr.after() > to->duration) {
+        return makeError(ErrorCode::OutOfRange,
+                         QStringLiteral("The transition is longer than one of its clips."));
+    }
+    for (const Transition& other : t.transitions) {
+        if (other.id == tr.id) {
+            continue;
+        }
+        if (other.fromClip == tr.fromClip || other.toClip == tr.toClip) {
+            return makeError(ErrorCode::Conflict,
+                             QStringLiteral("There is already a transition at this cut."));
+        }
+        if ((other.toClip == tr.fromClip && other.after() + tr.before() > from->duration) ||
+            (other.fromClip == tr.toClip && tr.after() + other.before() > to->duration)) {
+            return makeError(
+                ErrorCode::OutOfRange,
+                QStringLiteral("The transitions at both ends of a clip would overlap."));
+        }
+    }
+    if (sources) {
+        const std::optional<SourceLimits> a = (*sources)(from->assetId);
+        const std::optional<SourceLimits> b = (*sources)(to->assetId);
+        if (!a || !b) {
+            return notFound(QStringLiteral("The media of a transition clip"));
+        }
+        if (a->length && from->sourceOut() + tr.after() > *a->length) {
+            return makeError(ErrorCode::OutOfRange,
+                             QStringLiteral("The first clip has no more media after the cut. "
+                                            "Trim its end to make room for the transition."));
+        }
+        if (b->length && to->sourceIn < tr.before()) {
+            return makeError(ErrorCode::OutOfRange,
+                             QStringLiteral("The second clip has no more media before the cut. "
+                                            "Trim its start to make room for the transition."));
+        }
+    }
+    return {};
+}
+
+void Timeline::pruneTransitions(Track& t, const SourceLookup* sources)
+{
+    std::vector<Transition> kept;
+    kept.reserve(t.transitions.size());
+    for (const Transition& tr : t.transitions) {
+        if (checkTransition(t, tr, sources)) {
+            kept.push_back(tr);
+        }
+    }
+    t.transitions = std::move(kept);
+    sortTransitions(t);
 }
 
 Status Timeline::checkEditable(const Track& t) const
@@ -374,6 +535,7 @@ Result<Clip> Timeline::removeClip(const Id& clipId)
     }
     Clip removed = t.clips[static_cast<size_t>(location->clip)];
     t.clips.erase(t.clips.begin() + location->clip);
+    pruneTransitions(t, nullptr);
     return removed;
 }
 
@@ -392,6 +554,7 @@ Result<Clip> Timeline::rippleRemoveClip(const Id& clipId)
     for (auto it = t.clips.begin() + location->clip; it != t.clips.end(); ++it) {
         it->start -= removed.duration;
     }
+    pruneTransitions(t, nullptr);
     return removed;
 }
 
@@ -430,6 +593,10 @@ Status Timeline::moveClip(const Id& clipId, const Id& targetTrackId, FrameCount 
     }
     from.clips.erase(from.clips.begin() + location->clip);
     insertSorted(*to, std::move(moved));
+    pruneTransitions(from, &sources);
+    if (to != &from) {
+        pruneTransitions(*to, &sources);
+    }
     return {};
 }
 
@@ -465,6 +632,7 @@ Status Timeline::trimClipStart(const Id& clipId, FrameCount newStart, const Sour
                          QStringLiteral("The clip would overlap its neighbour."));
     }
     t.clips[static_cast<size_t>(location->clip)] = std::move(trimmed);
+    pruneTransitions(t, &sources);
     return {};
 }
 
@@ -492,6 +660,7 @@ Status Timeline::trimClipEnd(const Id& clipId, FrameCount newEnd, const SourceLo
                          QStringLiteral("The clip would overlap its neighbour."));
     }
     t.clips[static_cast<size_t>(location->clip)] = std::move(trimmed);
+    pruneTransitions(t, &sources);
     return {};
 }
 
@@ -526,7 +695,15 @@ Result<Id> Timeline::splitClip(const Id& clipId, FrameCount frame, const Id& new
     left.properties.fadeOut = 0;
     clampFades(left.properties, left.duration);
 
+    // A transition out of the clip now belongs to its right part.
+    const Id leftId = left.id;
+    for (Transition& tr : t.transitions) {
+        if (tr.fromClip == leftId) {
+            tr.fromClip = rightId;
+        }
+    }
     t.clips.insert(t.clips.begin() + location->clip + 1, std::move(right));
+    pruneTransitions(t, nullptr);
     return rightId;
 }
 
@@ -546,6 +723,75 @@ Status Timeline::setClipProperties(const Id& clipId, const ClipProperties& prope
     }
     c.properties = properties;
     return {};
+}
+
+Result<Id> Timeline::addTransition(const Id& fromClipId, FrameCount duration,
+                                   const SourceLookup& sources, const Id& newTransitionId)
+{
+    const auto location = findClip(fromClipId);
+    if (!location) {
+        return notFound(QStringLiteral("The clip"));
+    }
+    Track& t = m_tracks[static_cast<size_t>(location->track)];
+    if (const Status editable = checkEditable(t); !editable) {
+        return editable.error();
+    }
+    const auto index = static_cast<size_t>(location->clip);
+    if (index + 1 >= t.clips.size() || t.clips[index + 1].start != t.clips[index].end()) {
+        return makeError(ErrorCode::Conflict,
+                         QStringLiteral("A transition needs a clip that starts exactly where this "
+                                        "one ends. Close the gap first."));
+    }
+    Transition tr;
+    tr.id = newTransitionId.isEmpty() ? createId() : newTransitionId;
+    tr.fromClip = t.clips[index].id;
+    tr.toClip = t.clips[index + 1].id;
+    tr.duration = duration;
+    if (!isValidId(tr.id) || transition(tr.id) || findClip(tr.id)) {
+        return makeError(ErrorCode::InvalidArgument,
+                         QStringLiteral("The transition id is invalid."));
+    }
+    if (const Status valid = checkTransition(t, tr, &sources); !valid) {
+        return valid.error();
+    }
+    t.transitions.push_back(tr);
+    sortTransitions(t);
+    return tr.id;
+}
+
+Status Timeline::setTransitionDuration(const Id& transitionId, FrameCount duration,
+                                       const SourceLookup& sources)
+{
+    Track* t = nullptr;
+    Transition* tr = mutableTransition(transitionId, &t);
+    if (!tr) {
+        return notFound(QStringLiteral("The transition"));
+    }
+    if (const Status editable = checkEditable(*t); !editable) {
+        return editable;
+    }
+    Transition changed = *tr;
+    changed.duration = duration;
+    if (const Status valid = checkTransition(*t, changed, &sources); !valid) {
+        return valid;
+    }
+    *tr = changed;
+    return {};
+}
+
+Result<Transition> Timeline::removeTransition(const Id& transitionId)
+{
+    Track* t = nullptr;
+    const Transition* tr = mutableTransition(transitionId, &t);
+    if (!tr) {
+        return notFound(QStringLiteral("The transition"));
+    }
+    if (const Status editable = checkEditable(*t); !editable) {
+        return editable.error();
+    }
+    Transition removed = *tr;
+    t->transitions.erase(std::find(t->transitions.begin(), t->transitions.end(), removed));
+    return removed;
 }
 
 void Timeline::restoreTrack(const Track& t)
@@ -595,6 +841,17 @@ Status Timeline::validate(const SourceLookup& sources) const
             if (const Status source = checkSourceRange(c, t, sources); !source) {
                 return makeError(ErrorCode::InvalidDocument, source.error().message,
                                  QStringLiteral("clip %1").arg(c.id));
+            }
+        }
+        for (const Transition& tr : t.transitions) {
+            if (!isValidId(tr.id) || ids.contains(tr.id)) {
+                return makeError(ErrorCode::InvalidDocument,
+                                 QStringLiteral("A transition has a missing or duplicate id."));
+            }
+            ids.insert(tr.id);
+            if (const Status valid = checkTransition(t, tr, &sources); !valid) {
+                return makeError(ErrorCode::InvalidDocument, valid.error().message,
+                                 QStringLiteral("transition %1").arg(tr.id));
             }
         }
     }

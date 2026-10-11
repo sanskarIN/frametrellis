@@ -102,6 +102,12 @@ def parse_db_file(path: Path) -> dict[str, list[str]]:
     return fields
 
 
+def first(fields: dict[str, list[str]], key: str, default: str = "") -> str:
+    """The first value of a database field; fields may be present but empty."""
+    values = fields.get(key)
+    return values[0] if values else default
+
+
 def read_package_database(msys_root: Path) -> tuple[dict[str, Package], dict[str, str]]:
     """Reads pacman's local database directly; returns packages and a file-owner map."""
     database = msys_root / "var" / "lib" / "pacman" / "local"
@@ -114,13 +120,15 @@ def read_package_database(msys_root: Path) -> tuple[dict[str, Package], dict[str
         if not desc.is_file():
             continue
         fields = parse_db_file(desc)
-        name = fields["NAME"][0]
+        name = first(fields, "NAME")
+        if not name:
+            continue
         package = Package(
             name=name,
-            version=fields["VERSION"][0],
-            base=fields.get("BASE", [name])[0],
-            description=fields.get("DESC", [""])[0],
-            url=fields.get("URL", [""])[0],
+            version=first(fields, "VERSION"),
+            base=first(fields, "BASE", name),
+            description=first(fields, "DESC"),
+            url=first(fields, "URL"),
             licenses=fields.get("LICENSE", []),
         )
         files_db = entry / "files"
@@ -459,7 +467,7 @@ Source code: {REPOSITORY}
         if target.exists():
             target.unlink()
         with zipfile.ZipFile(target, "w", compression=zipfile.ZIP_DEFLATED,
-                             compresslevel=9) as archive:
+                             compresslevel=6) as archive:
             for path in sorted(self.stage.rglob("*")):
                 if path.is_file():
                     archive.write(path, Path(self.name) / path.relative_to(self.stage))

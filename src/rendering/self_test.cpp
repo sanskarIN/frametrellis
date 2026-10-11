@@ -153,6 +153,15 @@ SelfTestReport runSelfTest(const QString& workDirectory,
     for (const MediaAsset& asset : assets) {
         built = built && project.addAsset(asset);
     }
+    // Clips are as long as the shortest sample: encoders may round a file's length to whole
+    // audio packets, so a sample can come out a frame shorter than requested.
+    FrameCount clipLength = FrameCount{2} * kFps;
+    for (const MediaAsset& asset : assets) {
+        if (const std::optional<FrameCount> length = asset.lengthInFrames(settings.frameRate)) {
+            clipLength = std::min(clipLength, *length);
+        }
+    }
+    built = built && clipLength >= kFps;
     const std::vector<Track>& tracks = project.timeline().tracks(); // V1, V2, A1, A2
     const auto findTrack = [&](TrackKind kind, int ordinal) -> Id {
         int seen = 0;
@@ -167,7 +176,7 @@ SelfTestReport runSelfTest(const QString& workDirectory,
         Clip clip;
         clip.id = createId();
         clip.assetId = asset.id;
-        clip.duration = FrameCount{2} * kFps;
+        clip.duration = clipLength;
         clip.properties.video.opacity = opacity;
         return static_cast<bool>(
             project.timeline().insertClip(trackId, clip, project.sourceLookup()));
@@ -211,7 +220,8 @@ SelfTestReport runSelfTest(const QString& workDirectory,
     Result<MediaInfo> output = media::probeMedia(report.outputPath);
     const bool verified = output && output->hasVideo && output->hasAudio &&
                           output->width == settings.width && output->height == settings.height &&
-                          closeTo(output->durationUs, kClipMicros);
+                          closeTo(output->durationUs,
+                                  settings.frameRate.framesToMicroseconds(clipLength).value_or(0));
     record(QStringLiteral("verify"), verified,
            output ? describe(*output) : output.error().toString());
     return report;

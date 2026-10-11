@@ -14,6 +14,8 @@
 #include <QTest>
 #include <mlt++/Mlt.h>
 
+#include <cmath>
+
 using namespace ft;
 using namespace ft::testing;
 
@@ -372,7 +374,11 @@ private slots:
         Result<media::WaveformData> wave = media::computeWaveform(m_media.tone, *info, 50);
         QVERIFY2(wave, qPrintable(wave ? QString() : wave.error().toString()));
         QCOMPARE(wave->binsPerSecond, 50);
-        QCOMPARE(wave->peaks.size(), std::size_t{100}); // 2 s
+        // About 2 s; encoders may round the length to whole audio packets.
+        const auto expectedBins =
+            static_cast<std::size_t>(std::ceil(static_cast<double>(info->durationUs) * 50 / 1e6));
+        QCOMPARE(wave->peaks.size(), expectedBins);
+        QVERIFY(expectedBins >= 95 && expectedBins <= 101);
         // The tone is written at -6 dBFS, half of full scale.
         for (std::size_t i = 1; i + 1 < wave->peaks.size(); ++i) {
             QVERIFY2(std::abs(int(wave->peaks[i]) - 128) <= 12,

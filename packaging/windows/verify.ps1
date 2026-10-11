@@ -136,6 +136,12 @@ foreach ($file in 'frametrellis.exe', 'frametrellis-render.exe', 'qt.conf', 'LIC
 }
 $licenseCount = @(Get-ChildItem (Join-Path $portable 'licenses') -Recurse -File).Count
 Check ($licenseCount -gt 10) "ZIP contains license files ($licenseCount)"
+$components = @(Get-Content (Join-Path $portable 'BUNDLED_COMPONENTS.txt') |
+    ForEach-Object { if ($_ -match '^(mingw-w64-\S+)\s') { $Matches[1] } })
+$unlicensed = @($components | Where-Object {
+    -not (Get-ChildItem (Join-Path $portable "licenses\$_") -Recurse -File -ErrorAction SilentlyContinue) })
+Check ($components.Count -gt 0 -and $unlicensed.Count -eq 0) `
+    "every bundled component has license texts ($($components.Count) components$(if ($unlicensed) { '; missing: ' + ($unlicensed -join ', ') }))"
 $version = (Get-Item (Join-Path $portable 'frametrellis.exe')).VersionInfo.ProductVersion
 Write-Host "frametrellis.exe product version: $version"
 Check ($Zip -match [regex]::Escape("FrameTrellis-$version-")) 'version resource matches the package name'

@@ -1,15 +1,6 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
-set(FT_APP_RESOURCES)
-if(WIN32)
-    list(APPEND FT_APP_RESOURCES "${PROJECT_SOURCE_DIR}/resources/windows/frametrellis.rc")
-endif()
-
-qt_add_executable(frametrellis WIN32 MACOSX_BUNDLE main.cpp ${FT_APP_RESOURCES})
-if(WIN32)
-    set_property(SOURCE "${PROJECT_SOURCE_DIR}/resources/windows/frametrellis.rc" APPEND PROPERTY COMPILE_DEFINITIONS
-        FT_VERSION_MAJOR=${PROJECT_VERSION_MAJOR} FT_VERSION_MINOR=${PROJECT_VERSION_MINOR}
-        FT_VERSION_PATCH=${PROJECT_VERSION_PATCH} FT_VERSION_STRING="\"${PROJECT_VERSION}\"")
-endif()
+qt_add_executable(frametrellis WIN32 MACOSX_BUNDLE main.cpp)
+ft_add_windows_resources(frametrellis DESCRIPTION "FrameTrellis video editor" ICON)
 target_link_libraries(frametrellis PRIVATE ft_ui ft_uiplugin ft_compile_options)
 set_target_properties(frametrellis PROPERTIES
     RUNTIME_OUTPUT_DIRECTORY "${PROJECT_BINARY_DIR}/bin"

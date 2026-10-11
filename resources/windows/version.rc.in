@@ -1,0 +1,35 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+// Version information for FrameTrellis executables. CMake fills in the values with
+// configure_file() (see cmake/FrameTrellisWindowsResources.cmake).
+#include <winver.h>
+
+@FT_RC_ICON@
+
+VS_VERSION_INFO VERSIONINFO
+FILEVERSION @PROJECT_VERSION_MAJOR@,@PROJECT_VERSION_MINOR@,@PROJECT_VERSION_PATCH@,0
+PRODUCTVERSION @PROJECT_VERSION_MAJOR@,@PROJECT_VERSION_MINOR@,@PROJECT_VERSION_PATCH@,0
+FILEFLAGSMASK VS_FFI_FILEFLAGSMASK
+FILEFLAGS 0x0L
+FILEOS VOS_NT_WINDOWS32
+FILETYPE VFT_APP
+FILESUBTYPE VFT2_UNKNOWN
+BEGIN
+  BLOCK "StringFileInfo"
+  BEGIN
+    BLOCK "040904B0"
+    BEGIN
+      VALUE "CompanyName", "FrameTrellis contributors"
+      VALUE "FileDescription", "@FT_RC_DESCRIPTION@"
+      VALUE "FileVersion", "@PROJECT_VERSION@"
+      VALUE "InternalName", "@FT_RC_NAME@"
+      VALUE "LegalCopyright", "Copyright (C) 2026 Sanskar and FrameTrellis contributors. GPL-3.0-or-later."
+      VALUE "OriginalFilename", "@FT_RC_NAME@.exe"
+      VALUE "ProductName", "FrameTrellis"
+      VALUE "ProductVersion", "@PROJECT_VERSION@"
+    END
+  END
+  BLOCK "VarFileInfo"
+  BEGIN
+    VALUE "Translation", 0x409, 1200
+  END
+END

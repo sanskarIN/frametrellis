@@ -20,6 +20,7 @@ if(FT_BUILD_ENGINE)
         PRIVATE FrameTrellis::Mlt ft_compile_options)
 
     qt_add_executable(frametrellis-render render_main.cpp)
+    ft_add_windows_resources(frametrellis-render DESCRIPTION "FrameTrellis render helper" ICON)
     target_link_libraries(frametrellis-render PRIVATE ft_render_engine ft_compile_options)
     set_target_properties(frametrellis-render PROPERTIES
         RUNTIME_OUTPUT_DIRECTORY "${PROJECT_BINARY_DIR}/bin")

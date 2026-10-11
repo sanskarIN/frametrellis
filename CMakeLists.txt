@@ -28,6 +28,7 @@ if(FT_BUILD_APP AND NOT FT_BUILD_ENGINE)
 endif()
 
 include(FrameTrellisCompilerOptions)
+include(FrameTrellisWindowsResources)
 
 set(FT_QT_COMPONENTS Core Gui Concurrent Test)
 if(FT_BUILD_APP)

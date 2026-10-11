@@ -149,6 +149,26 @@ private slots:
         QVERIFY(partFiles().isEmpty());
     }
 
+    void cancelAfterTheLastFrameStillDiscardsTheOutput()
+    {
+        // The encoder may finish in the moment the user cancels; the request still wins.
+        const QString output = m_dir.filePath(QStringLiteral("late-cancel.mp4"));
+        ExportSettings settings;
+        settings.outputPath = output;
+        settings.speedPreset = QStringLiteral("ultrafast");
+        std::atomic<bool> cancel{false};
+        const Status result =
+            RenderRunner(project(), settings).run(cancel, {}, [&](const RenderRunner::Progress& p) {
+                if (p.frame == p.total) {
+                    cancel = true;
+                }
+            });
+        QVERIFY(!result);
+        QCOMPARE(result.error().code, ErrorCode::Cancelled);
+        QVERIFY(!QFile::exists(output));
+        QVERIFY(partFiles().isEmpty());
+    }
+
     void existingFileIsReplacedOnlyOnSuccess()
     {
         const QString output = m_dir.filePath(QStringLiteral("existing.mp4"));

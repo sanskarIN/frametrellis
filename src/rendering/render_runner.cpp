@@ -261,10 +261,15 @@ Status RenderRunner::run(const std::atomic<bool>& cancelRequested, const Started
     consumer.purge();
     tractor.reset();
 
-    if (cancelled) {
+    // A cancel request counts until the result replaces anything, even if the encoder finished
+    // in the meantime: the user asked for no output.
+    const auto cancelledResult = [&] {
         QFile::remove(partPath);
         qCInfo(lcRender) << "Render cancelled";
         return makeError(ErrorCode::Cancelled, QStringLiteral("The export was cancelled."));
+    };
+    if (cancelled || cancelRequested.load()) {
+        return cancelledResult();
     }
 
     // Verify the result before it replaces anything: it must exist and have the expected length.
@@ -295,6 +300,9 @@ Status RenderRunner::run(const std::atomic<bool>& cancelRequested, const Started
     }
     if (progress) {
         progress(Progress{total, total});
+    }
+    if (cancelRequested.load()) {
+        return cancelledResult();
     }
     if (const Status moved = moveIntoPlace(partPath, finalPath); !moved) {
         QFile::remove(partPath);

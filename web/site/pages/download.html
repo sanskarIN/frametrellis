@@ -16,10 +16,7 @@
 <section aria-labelledby="packages">
   <div class="wrap">
     <h2 id="packages">Packages</h2>
-    <p class="notice"><strong>No release has been published yet.</strong> The first stable version, 1.0.0, is being
-      prepared for Windows 11 (x64). It will be published as an installer and a portable ZIP once the packages have
-      passed verification, and the download links will appear here. Until then you can build FrameTrellis from source,
-      as described below.</p>
+    {{downloads}}
   </div>
 </section>
 
@@ -41,16 +38,16 @@ ctest --preset windows-msys2</code></pre>
       </div>
       <div>
         <h3>Ubuntu 24.04</h3>
-<pre><code>sudo apt install build-essential cmake ninja-build pkg-config \
-  qt6-base-dev qt6-declarative-dev qt6-svg-dev \
-  libmlt++-dev libmlt-dev libsdl2-dev qml6-module-qtquick-controls \
-  qml6-module-qtquick-dialogs qml6-module-qtquick-layouts \
-  qml6-module-qtquick-templates qml6-module-qtquick-window \
-  qml6-module-qtqml-workerscript qml6-module-qtquick-shapes
-git clone https://github.com/sanskarIN/frametrellis.git
-cd frametrellis
-cmake --preset linux
+<pre><code>sudo apt install build-essential cmake ninja-build pkg-config git \
+  libavformat-dev libavcodec-dev libavutil-dev libavfilter-dev libavdevice-dev \
+  libswscale-dev libswresample-dev libsdl2-dev libgl1-mesa-dev libxkbcommon-x11-0 libxcb-cursor0
+pipx install aqtinstall                      # Ubuntu 24.04's Qt 6.4 is too old
+aqt install-qt linux desktop 6.8.3 linux_gcc_64 -O "$HOME/Qt"
+git clone https://github.com/sanskarIN/frametrellis.git &amp;&amp; cd frametrellis
+scripts/build-mlt.sh v7.22.0 "$HOME/.local/mlt"   # the MLT modules FrameTrellis needs
+cmake --preset linux -DCMAKE_PREFIX_PATH="$HOME/Qt/6.8.3/gcc_64;$HOME/.local/mlt"
 cmake --build --preset linux
+ctest --preset linux
 ./build/linux/bin/frametrellis</code></pre>
       </div>
     </div>

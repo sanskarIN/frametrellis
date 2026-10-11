@@ -12,6 +12,10 @@
 //  * Every internal link, anchor and asset is checked; the build fails on anything broken.
 //
 // Usage: node web/build.mjs [--out <dir>] [--base /frametrellis/]
+//                           [--release-json <file>] [--verify-downloads]
+// --release-json takes the GitHub API description of the latest release (as written by
+// `gh api repos/<owner>/<repo>/releases/latest`); the download page then links its assets.
+// --verify-downloads requests every download link and fails the build if one is unreachable.
 // The script uses only Node.js built-ins (Node 20 or newer).
 
 import fs from 'node:fs';
@@ -29,6 +33,8 @@ const option = (name, fallback) => {
 };
 const outDir = path.resolve(option('--out', path.join(webDir, '_site')));
 const basePath = option('--base', '/frametrellis/');
+const releaseJson = option('--release-json', null);
+const verifyDownloads = args.includes('--verify-downloads');
 
 const SITE_URL = `https://sanskarin.github.io${basePath}`;
 const REPO_URL = 'https://github.com/sanskarIN/frametrellis';
@@ -44,8 +50,12 @@ const DOC_GROUPS = [
     {
         title: 'Using FrameTrellis',
         items: [
+            { src: 'docs/user-guide/installation.md', slug: 'installation', label: 'Installation',
+              summary: 'Installing on Windows, building on Linux, and where data is kept.' },
             { src: 'docs/user-guide/README.md', slug: 'user-guide', label: 'User guide',
               summary: 'Every feature of the editor, from importing media to exporting.' },
+            { src: 'docs/user-guide/formats.md', slug: 'formats', label: 'Supported formats',
+              summary: 'The media FrameTrellis imports and the files it exports.' },
             { src: 'docs/user-guide/keyboard-shortcuts.md', slug: 'keyboard-shortcuts',
               label: 'Keyboard shortcuts', summary: 'All shortcuts, also listed in the app.' },
             { src: 'docs/releases/README.md', slug: 'releases', label: 'Releases',
@@ -272,6 +282,92 @@ ${body}
 // ---------------------------------------------------------------------------------------------
 // Pages
 
+// ---------------------------------------------------------------------------------------------
+// Downloads
+
+function readRelease() {
+    if (!releaseJson) return null;
+    let data;
+    try {
+        data = JSON.parse(fs.readFileSync(releaseJson, 'utf8'));
+    } catch (error) {
+        errors.push(`${releaseJson}: ${error.message}`);
+        return null;
+    }
+    if (!data || typeof data.tag_name !== 'string' || !Array.isArray(data.assets) || data.draft) {
+        return null; // no published release yet
+    }
+    const find = (suffix) => data.assets.find((a) => typeof a.name === 'string' && a.name.endsWith(suffix));
+    const release = {
+        tag: data.tag_name,
+        version: data.tag_name.replace(/^v/, ''),
+        url: data.html_url,
+        published: data.published_at ? new Date(data.published_at) : null,
+        installer: find('-windows-x64-setup.exe'),
+        zip: find('-windows-x64.zip'),
+        sbom: find('.spdx.json'),
+        sources: find('-third-party-sources.tar'),
+        checksums: find('SHA256SUMS.txt'),
+    };
+    if (!release.installer && !release.zip) {
+        errors.push(`release ${release.tag} has no Windows package assets`);
+        return null;
+    }
+    return release;
+}
+
+function downloadsHtml(release) {
+    if (!release) {
+        return `<p class="notice"><strong>No release has been published yet.</strong> The first stable
+      version, 1.0.0, is being prepared for Windows 11 (x64). It will be published as an installer and a
+      portable ZIP once the packages have passed verification, and the download links will appear here.
+      Until then you can build FrameTrellis from source, as described below.</p>`;
+    }
+    const size = (asset) => `${(asset.size / 2 ** 20).toFixed(0)} MB`;
+    const digest = (asset) => (typeof asset.digest === 'string' && asset.digest.startsWith('sha256:')
+        ? `<p class="hash">SHA-256: <code>${escapeHtml(asset.digest.slice(7))}</code></p>` : '');
+    const date = release.published
+        ? release.published.toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric', timeZone: 'UTC' })
+        : '';
+    const card = (asset, title, text, primary) => (asset ? `<div class="card download">
+        <h3>${title}</h3><p>${text}</p>
+        <a class="btn${primary ? ' primary' : ''}" href="${escapeHtml(asset.browser_download_url)}">Download ${escapeHtml(asset.name.endsWith('.exe') ? 'installer' : 'ZIP')} (${size(asset)})</a>
+        ${digest(asset)}
+      </div>` : '');
+    const extra = [
+        release.checksums && `<a href="${escapeHtml(release.checksums.browser_download_url)}">SHA256SUMS.txt</a>`,
+        release.sbom && `<a href="${escapeHtml(release.sbom.browser_download_url)}">software bill of materials (SPDX)</a>`,
+        release.sources && `<a href="${escapeHtml(release.sources.browser_download_url)}">source code of the bundled components</a> (${size(release.sources)})`,
+    ].filter(Boolean).join(' · ');
+    return `<p class="sub">Latest release: <strong>FrameTrellis ${escapeHtml(release.version)}</strong>${date ? `, published ${date}` : ''}.
+      Read the <a href="${escapeHtml(release.url)}" rel="noopener">release notes</a> for what is new and the known limitations.</p>
+    <div class="grid features">
+      ${card(release.installer, 'Windows installer', 'For Windows 10 (version 1809 or later) and Windows 11, 64-bit. Installs for your user account; no administrator rights needed.', true)}
+      ${card(release.zip, 'Portable ZIP', 'No installation: extract the folder anywhere, for example on a USB drive, and run <code>frametrellis.exe</code>.', false)}
+      <div class="card download"><h3>Linux and macOS</h3><p>There are no packages for Linux or macOS yet. You can
+        <a href="#source">build FrameTrellis from source</a> on Linux; macOS support is planned.</p></div>
+    </div>
+    <p class="muted">Also published with this release: ${extra}.</p>
+    <p class="notice"><strong>The Windows packages are not code-signed.</strong> Windows SmartScreen may show
+      “Windows protected your PC” the first time you run them. Check the SHA-256 checksum, then choose
+      <em>More info</em> → <em>Run anyway</em>. The <a href="{{link:docs/installation/index.html}}">installation guide</a> explains each step.</p>`;
+}
+
+async function verifyReleaseLinks(release) {
+    if (!release) return;
+    const assets = [release.installer, release.zip, release.sbom, release.sources, release.checksums].filter(Boolean);
+    for (const asset of assets) {
+        try {
+            const response = await fetch(asset.browser_download_url, { method: 'HEAD', redirect: 'follow' });
+            if (!response.ok) errors.push(`download link ${asset.browser_download_url} answered ${response.status}`);
+        } catch (error) {
+            errors.push(`download link ${asset.browser_download_url} failed: ${error.message}`);
+        }
+    }
+}
+
+const latestRelease = readRelease();
+
 function buildPages() {
     const pagesDir = path.join(webDir, 'site', 'pages');
     for (const file of fs.readdirSync(pagesDir).sort()) {
@@ -286,6 +382,7 @@ function buildPages() {
         const absolute = Boolean(meta.absolute);
         const root = absolute ? basePath : rootPrefix(meta.out);
         let body = source.slice(match[0].length)
+            .replaceAll('{{downloads}}', downloadsHtml(latestRelease))
             .replaceAll('{{root}}', root)
             .replaceAll('{{repo}}', REPO_URL)
             .replaceAll('{{version}}', version)
@@ -475,10 +572,14 @@ ${pages.map((p) => `  <url><loc>${canonical(p)}</loc></url>`).join('\n')}
 `);
 
 const checked = checkLinks();
+if (verifyDownloads) {
+    await verifyReleaseLinks(latestRelease);
+}
 if (errors.length > 0) {
     console.error(`Website build failed with ${errors.length} problem(s):`);
     for (const e of errors) console.error(`  - ${e}`);
     process.exit(1);
 }
 console.log(`Built ${pages.length} pages into ${path.relative(process.cwd(), outDir) || '.'}; ` +
-            `${checked} internal links checked${hasEditor ? '; browser edition included' : ''}.`);
+            `${checked} internal links checked${hasEditor ? '; browser edition included' : ''}` +
+            `${latestRelease ? `; downloads for ${latestRelease.tag}` : '; no release published yet'}.`);

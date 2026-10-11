@@ -176,7 +176,7 @@ QStringList EngineCapabilities::missingEssentials() const
         missing << QStringLiteral("mix transition");
     }
     if (compositor.isEmpty()) {
-        missing << QStringLiteral("affine or composite transition");
+        missing << QStringLiteral("affine transition (MLT \"plus\" module)");
     }
     return missing;
 }
@@ -225,10 +225,10 @@ Status MltRuntime::initialize()
     caps.avformatConsumer = hasService(repository, mlt_service_consumer_type, "avformat");
     caps.colorProducer = hasService(repository, mlt_service_producer_type, "color");
     caps.mixTransition = hasService(repository, mlt_service_transition_type, "mix");
+    // Video tracks are layered with the "affine" transition. MLT's older "composite" transition
+    // is not a usable fallback: with current MLT releases it draws black frames.
     if (hasService(repository, mlt_service_transition_type, "affine")) {
         caps.compositor = QStringLiteral("affine");
-    } else if (hasService(repository, mlt_service_transition_type, "composite")) {
-        caps.compositor = QStringLiteral("composite");
     }
     caps.volumeFilter = hasService(repository, mlt_service_filter_type, "volume");
     caps.brightnessFilter = hasService(repository, mlt_service_filter_type, "brightness");

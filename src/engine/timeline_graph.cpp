@@ -297,14 +297,9 @@ Result<GraphBuildResult> TimelineGraphBuilder::build(const Project& project,
         if (track.kind == TrackKind::Video) {
             Mlt::Transition composite(m_profile, caps.compositor.toUtf8().constData());
             composite.set("always_active", 1);
-            if (caps.compositor == QLatin1String("affine")) {
-                composite.set("fill", 1);
-                composite.set("distort", 0);
-                composite.set("rect", "0 0 100% 100% 1");
-            } else {
-                composite.set("geometry", "0/0:100%x100%:100");
-                composite.set("fill", 1);
-            }
+            composite.set("fill", 1);
+            composite.set("distort", 0);
+            composite.set("rect", "0 0 100% 100% 1");
             field->plant_transition(composite, 0, mltTrack);
         }
         ++mltTrack;

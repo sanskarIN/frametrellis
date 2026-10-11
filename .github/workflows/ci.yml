@@ -3,7 +3,8 @@ name: CI
 
 on:
   push:
-    branches: ["**"]
+    branches: [main]
+    tags-ignore: ["**"]
   pull_request:
   workflow_dispatch:
 
@@ -11,7 +12,7 @@ permissions:
   contents: read
 
 concurrency:
-  group: ci-${{ github.workflow }}-${{ github.ref }}
+  group: ci-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
 
 env:
@@ -23,7 +24,7 @@ jobs:
     name: Formatting
     runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - name: Check clang-format
         run: |
           clang-format --version
@@ -33,7 +34,7 @@ jobs:
     name: Linux (GCC, debug, warnings as errors)
     runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Install system packages
         run: |
@@ -56,7 +57,7 @@ jobs:
 
       - name: Cache MLT
         id: mlt-cache
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: ~/mlt
           key: mlt-${{ env.MLT_VERSION }}-ubuntu-24.04-v1
@@ -81,7 +82,7 @@ jobs:
 
       - name: Upload test logs
         if: failure()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: linux-test-logs
           path: build/linux-debug/Testing/Temporary/
@@ -91,7 +92,7 @@ jobs:
     name: Linux (AddressSanitizer + UBSan)
     runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - name: Install system packages
         run: |
           sudo apt-get update
@@ -109,7 +110,7 @@ jobs:
           cache: true
       - name: Cache MLT
         id: mlt-cache
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: ~/mlt
           key: mlt-${{ env.MLT_VERSION }}-ubuntu-24.04-v1
@@ -124,7 +125,7 @@ jobs:
         run: ctest --preset linux-asan -L "unit|integration"
       - name: Upload test logs
         if: failure()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: sanitizer-test-logs
           path: build/linux-asan/Testing/Temporary/
@@ -140,7 +141,7 @@ jobs:
       - name: Keep line endings as committed
         shell: pwsh
         run: git config --global core.autocrlf false
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - uses: msys2/setup-msys2@v2
         with:
           msystem: UCRT64
@@ -162,7 +163,7 @@ jobs:
         run: ctest --preset windows-msys2
       - name: Upload test logs
         if: failure()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: windows-test-logs
           path: build/windows-msys2/Testing/Temporary/

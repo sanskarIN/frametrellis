@@ -72,14 +72,17 @@ cmake --build --preset windows-msys2
 ctest --preset windows-msys2
 ```
 
-Quick start on **Ubuntu 24.04**:
+Quick start on **Ubuntu 24.04** (details in the building guide):
 
 ```sh
-sudo apt install build-essential cmake ninja-build pkg-config qt6-base-dev qt6-declarative-dev \
-  qt6-svg-dev libmlt++-dev libmlt-dev libsdl2-dev qml6-module-qtquick-controls \
-  qml6-module-qtquick-dialogs qml6-module-qtquick-layouts qml6-module-qtquick-templates \
-  qml6-module-qtquick-window qml6-module-qtqml-workerscript qml6-module-qtquick-shapes
-cmake --preset linux
+sudo apt install build-essential cmake ninja-build pkg-config git \
+  libavformat-dev libavcodec-dev libavutil-dev libavfilter-dev libavdevice-dev \
+  libswscale-dev libswresample-dev libsdl2-dev libgl1-mesa-dev libxkbcommon-x11-0 libxcb-cursor0
+pipx install aqtinstall                      # Ubuntu 24.04's Qt 6.4 is too old
+aqt install-qt linux desktop 6.8.3 linux_gcc_64 -O "$HOME/Qt"
+git clone https://github.com/sanskarIN/frametrellis.git && cd frametrellis
+scripts/build-mlt.sh v7.22.0 "$HOME/.local/mlt"   # the MLT modules FrameTrellis needs
+cmake --preset linux -DCMAKE_PREFIX_PATH="$HOME/Qt/6.8.3/gcc_64;$HOME/.local/mlt"
 cmake --build --preset linux
 ctest --preset linux
 ./build/linux/bin/frametrellis

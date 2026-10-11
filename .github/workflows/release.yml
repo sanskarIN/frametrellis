@@ -29,7 +29,12 @@ jobs:
           set -euo pipefail
           tag="${GITHUB_REF_NAME}"
           version="${tag#v}"
-          project=$(sed -nE 's/^project\(FrameTrellis[[:space:]]+VERSION[[:space:]]+([0-9.]+).*/\1/p' CMakeLists.txt)
+          # project() spans several lines; -z makes grep treat the file as one record.
+          project=$(grep -Pzo 'project\(FrameTrellis\s+VERSION\s+\K[0-9.]+' CMakeLists.txt | tr -d '\0')
+          if [ -z "$project" ]; then
+            echo "::error::Cannot read the project version from CMakeLists.txt"
+            exit 1
+          fi
           if [ "${version%%-*}" != "$project" ]; then
             echo "::error::Tag $tag does not match the project version $project in CMakeLists.txt"
             exit 1

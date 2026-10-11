@@ -172,4 +172,34 @@ std::unique_ptr<EditCommand> setClipProperties(const Id& clipId, const ClipPrope
         QStringLiteral("clip-properties:") + clipId + QLatin1Char(':') + text);
 }
 
+std::unique_ptr<EditCommand> addTransition(const Id& fromClipId, FrameCount duration,
+                                           const Id& transitionId)
+{
+    const Id id = transitionId.isEmpty() ? createId() : transitionId;
+    return command(QStringLiteral("Add Transition"),
+                   [fromClipId, duration, id](Timeline& t, const SourceLookup& sources) {
+                       Result<Id> added = t.addTransition(fromClipId, duration, sources, id);
+                       return added ? Status{} : Status{added.error()};
+                   });
+}
+
+std::unique_ptr<EditCommand> setTransitionDuration(const Id& transitionId, FrameCount duration)
+{
+    return command(
+        QStringLiteral("Change Transition Length"),
+        [transitionId, duration](Timeline& t, const SourceLookup& sources) {
+            return t.setTransitionDuration(transitionId, duration, sources);
+        },
+        QStringLiteral("transition-duration:") + transitionId);
+}
+
+std::unique_ptr<EditCommand> removeTransition(const Id& transitionId)
+{
+    return command(QStringLiteral("Remove Transition"),
+                   [transitionId](Timeline& t, const SourceLookup&) {
+                       Result<Transition> removed = t.removeTransition(transitionId);
+                       return removed ? Status{} : Status{removed.error()};
+                   });
+}
+
 } // namespace ft::edits

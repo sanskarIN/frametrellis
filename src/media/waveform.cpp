@@ -181,7 +181,7 @@ std::optional<WaveformData> WaveformCache::load(const QString& key) const
     in >> magic >> version >> binsPerSecond >> count;
     if (in.status() != QDataStream::Ok || magic != kMagic || version != kFormatVersion ||
         binsPerSecond == 0 || binsPerSecond > 1000 || count > kMaxBins ||
-        file.size() != static_cast<qint64>(16 + count)) {
+        file.size() != static_cast<qint64>(count) + 16) {
         return std::nullopt; // damaged or from another version: compute again
     }
     WaveformData data;

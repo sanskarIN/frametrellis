@@ -16,16 +16,71 @@
 #include <QUuid>
 #include <mlt++/Mlt.h>
 
+#include <cstdio>
+#include <fcntl.h>
 #include <filesystem>
 #include <memory>
 
 #ifdef Q_OS_WIN
+#include <io.h>
 #include <windows.h>
+#else
+#include <unistd.h>
 #endif
 
 namespace ft::rendering {
 
 namespace {
+
+/// Points the process's standard output at the null device while it exists. MLT prints the
+/// encoder list as YAML to stdout when asked for it, and stdout is the render helper's protocol
+/// channel to the editor.
+class StdoutSilencer
+{
+public:
+    StdoutSilencer()
+    {
+        std::fflush(stdout);
+#ifdef Q_OS_WIN
+        m_saved = _dup(_fileno(stdout));
+        const int null = _open("NUL", _O_WRONLY);
+        if (m_saved >= 0 && null >= 0) {
+            _dup2(null, _fileno(stdout));
+        }
+        if (null >= 0) {
+            _close(null);
+        }
+#else
+        m_saved = ::dup(STDOUT_FILENO);
+        const int null = ::open("/dev/null", O_WRONLY | O_CLOEXEC);
+        if (m_saved >= 0 && null >= 0) {
+            ::dup2(null, STDOUT_FILENO);
+        }
+        if (null >= 0) {
+            ::close(null);
+        }
+#endif
+    }
+    ~StdoutSilencer()
+    {
+        std::fflush(stdout);
+        if (m_saved < 0) {
+            return;
+        }
+#ifdef Q_OS_WIN
+        _dup2(m_saved, _fileno(stdout));
+        _close(m_saved);
+#else
+        ::dup2(m_saved, STDOUT_FILENO);
+        ::close(m_saved);
+#endif
+    }
+    StdoutSilencer(const StdoutSilencer&) = delete;
+    StdoutSilencer& operator=(const StdoutSilencer&) = delete;
+
+private:
+    int m_saved = -1;
+};
 
 QString temporaryOutputPath(const QString& outputPath)
 {
@@ -75,7 +130,10 @@ QStringList availableVideoEncoders()
         return encoders;
     }
     consumer.set("vcodec", "list");
-    consumer.start(); // reports the list and returns without running
+    {
+        const StdoutSilencer silence;
+        consumer.start(); // reports the list and returns without running
+    }
     auto* list = static_cast<mlt_properties>(consumer.get_data("vcodec"));
     if (list) {
         Mlt::Properties codecs(list);

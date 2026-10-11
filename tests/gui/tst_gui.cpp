@@ -346,6 +346,90 @@ private slots:
         QVERIFY(m_app->playback()->position() > 0);
     }
 
+    void transitionsWithTheKeyboardAndInspector()
+    {
+        // Two touching stills on a new video track: stills can always be blended.
+        QString stillId;
+        for (int row = 0; row < m_app->media()->model()->rowCount(); ++row) {
+            const QVariantMap item = m_app->media()->model()->get(row);
+            if (item.value(QStringLiteral("kind")).toString() == QStringLiteral("image")) {
+                stillId = item.value(QStringLiteral("assetId")).toString();
+            }
+        }
+        QVERIFY(!stillId.isEmpty());
+        QVERIFY(m_app->timeline()->addTrack(QStringLiteral("video")));
+        const auto& tracks = m_app->project()->project().timeline().tracks();
+        Id trackId;
+        for (const Track& t : tracks) {
+            if (t.kind == TrackKind::Video && t.clips.empty()) {
+                trackId = t.id;
+            }
+        }
+        QVERIFY(!trackId.isEmpty());
+        const double length = m_app->timeline()->assetDuration(stillId);
+        QVERIFY(m_app->timeline()->dropAsset(stillId, trackId, 0));
+        QVERIFY(m_app->timeline()->dropAsset(stillId, trackId, length));
+        const Track* lane = m_app->project()->project().timeline().track(trackId);
+        QVERIFY(lane && lane->clips.size() == 2);
+        const Id first = lane->clips.front().id;
+        QTest::qWait(100);
+
+        QQuickItem* item = clipItem(first);
+        QVERIFY(item);
+        QTest::mouseClick(
+            m_window, Qt::LeftButton, Qt::NoModifier,
+            item->mapToScene(QPointF(item->width() / 3, item->height() - 6)).toPoint());
+        QCOMPARE(m_app->timeline()->selection(), QStringList{first});
+        m_window->requestActivate();
+        QTest::keyClick(m_window, Qt::Key_T);
+        QVERIFY(QTest::qWaitFor(
+            [&] {
+                return m_app->project()->project().timeline().transitionAfter(first) != nullptr;
+            },
+            2000));
+        const Transition added = *m_app->project()->project().timeline().transitionAfter(first);
+        QCOMPARE(added.duration, FrameCount{m_app->timeline()->nominalRate()}); // one second
+        QCOMPARE(m_app->timeline()
+                     ->selectedTransition()
+                     .value(QStringLiteral("transitionId"))
+                     .toString(),
+                 added.id);
+        QVERIFY(m_app->timeline()->selection().isEmpty());
+
+        // The transition is drawn on the timeline and edited in the inspector.
+        QTest::qWait(100);
+        QQuickItem* overlay =
+            findItem(m_window->contentItem(), QStringLiteral("transition:") + added.id);
+        QVERIFY(overlay);
+        QVERIFY(overlay->isVisible());
+        QQuickItem* inspector =
+            findItem(m_window->contentItem(), QStringLiteral("transitionInspector"));
+        QVERIFY(inspector && inspector->isVisible());
+        QVERIFY(m_app->timeline()->setTransitionDuration(added.id, 20));
+        m_app->timeline()->endEdit();
+        QCOMPARE(m_app->project()->project().timeline().transition(added.id)->duration,
+                 FrameCount{20});
+        m_app->showStatus(QString());
+        screenshot(QStringLiteral("05-transition"));
+
+        // Delete removes the selected transition; undo brings it back. The overlay is recreated
+        // when the transition changes, so look it up again.
+        m_app->timeline()->clearSelection();
+        QTest::qWait(100);
+        overlay = findItem(m_window->contentItem(), QStringLiteral("transition:") + added.id);
+        QVERIFY(overlay);
+        QTest::mouseClick(m_window, Qt::LeftButton, Qt::NoModifier, centreOf(overlay));
+        QCOMPARE(m_app->timeline()->selectedTransition().value(QStringLiteral("count")).toInt(), 1);
+        QTest::keyClick(m_window, Qt::Key_Delete);
+        QVERIFY(QTest::qWaitFor(
+            [&] { return !m_app->project()->project().timeline().transition(added.id); }, 2000));
+        QTest::keyClick(m_window, Qt::Key_Z, Qt::ControlModifier);
+        QVERIFY(QTest::qWaitFor(
+            [&] { return m_app->project()->project().timeline().transition(added.id) != nullptr; },
+            2000));
+        m_app->timeline()->clearSelection();
+    }
+
     void exportDialogValidatesAndExports()
     {
         QObject* dialog = m_window->findChild<QObject*>(QStringLiteral("exportDialog"));

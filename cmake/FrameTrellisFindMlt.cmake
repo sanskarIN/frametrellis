@@ -18,3 +18,14 @@ else()
 endif()
 
 message(STATUS "FrameTrellis: using MLT ${FT_MLT_VERSION}")
+
+# MLT locates its modules relative to the executable on Windows, which fails when FrameTrellis
+# runs from its build tree. Remember where this MLT keeps its modules and data as a fallback.
+find_package(PkgConfig QUIET)
+if(PkgConfig_FOUND)
+    pkg_get_variable(FT_MLT_MODULE_DIR mlt-framework-7 moduledir)
+    pkg_get_variable(FT_MLT_DATA_DIR mlt-framework-7 mltdatadir)
+endif()
+if(FT_MLT_MODULE_DIR)
+    message(STATUS "FrameTrellis: MLT modules at ${FT_MLT_MODULE_DIR}")
+endif()

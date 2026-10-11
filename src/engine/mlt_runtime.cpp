@@ -66,6 +66,12 @@ QString findRepository()
             }
         }
     }
+#ifdef FT_MLT_MODULE_DIR
+    // Running from a build tree: use the modules of the MLT we were built against.
+    if (const QString buildTime = QStringLiteral(FT_MLT_MODULE_DIR); QFileInfo(buildTime).isDir()) {
+        return buildTime;
+    }
+#endif
     return {}; // let MLT use its compiled-in default
 }
 
@@ -74,6 +80,13 @@ void configureDataPath(const QString& repository)
     if (!qEnvironmentVariableIsEmpty("MLT_DATA") || repository.isEmpty()) {
         return;
     }
+#ifdef FT_MLT_DATA_DIR
+    if (repository == QLatin1String(FT_MLT_MODULE_DIR) &&
+        QFileInfo(QStringLiteral(FT_MLT_DATA_DIR)).isDir()) {
+        qputenv("MLT_DATA", QFile::encodeName(QStringLiteral(FT_MLT_DATA_DIR)));
+        return;
+    }
+#endif
     // A repository at <prefix>/lib/mlt-7 has its data at <prefix>/share/mlt-7.
     const QDir repoDir(repository);
     for (const QString& candidate :

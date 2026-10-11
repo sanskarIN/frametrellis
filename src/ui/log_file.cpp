@@ -15,7 +15,7 @@ namespace ft::ui {
 
 namespace {
 
-constexpr qint64 kMaxLogBytes = 2 * 1024 * 1024;
+constexpr qint64 kMaxLogBytes = qint64{2} * 1024 * 1024;
 std::mutex g_logMutex;
 QFile* g_logFile = nullptr;
 QtMessageHandler g_previous = nullptr;

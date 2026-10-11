@@ -139,7 +139,7 @@ Result<MediaInfo> probeMedia(const QString& filePath)
     }
 
     std::unique_ptr<Mlt::Profile> profile =
-        engine::createProfile(640, 360, *FrameRate::create(kProbeRate, 1));
+        engine::createProfile(640, 360, FrameRate::integer(kProbeRate));
     std::unique_ptr<Mlt::Producer> producer = openAvformat(*profile, fileInfo.absoluteFilePath());
     if (!producer) {
         return unsupported(filePath, QStringLiteral("FFmpeg could not open the file"));
@@ -267,7 +267,7 @@ Result<QImage> renderThumbnail(const QString& filePath, const MediaInfo& info, Q
             .convertToFormat(QImage::Format_RGBA8888);
     }
     std::unique_ptr<Mlt::Profile> profile =
-        engine::createProfile(size.width(), size.height(), *FrameRate::create(kProbeRate, 1));
+        engine::createProfile(size.width(), size.height(), FrameRate::integer(kProbeRate));
     std::unique_ptr<Mlt::Producer> producer = openAvformat(*profile, filePath);
     if (!producer) {
         return makeError(ErrorCode::Media,

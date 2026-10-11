@@ -218,7 +218,7 @@ void RenderJob::onReadyRead()
             handleEvent(*event);
         }
     }
-    if (m_buffer.size() > 1024 * 1024) {
+    if (m_buffer.size() > qsizetype{1024} * 1024) {
         m_buffer.clear(); // never let unexpected output grow without bound
     }
 }

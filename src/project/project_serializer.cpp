@@ -247,11 +247,11 @@ MediaInfo readMediaInfo(Reader& r, const QJsonObject& o)
 QString resolveMediaPath(const QString& storedPath, const QString& relativePath,
                          const QString& projectDir)
 {
-    const QString absolute = QDir::cleanPath(QDir::fromNativeSeparators(storedPath));
+    QString absolute = QDir::cleanPath(QDir::fromNativeSeparators(storedPath));
     if (QFileInfo::exists(absolute) || relativePath.isEmpty() || projectDir.isEmpty()) {
         return absolute;
     }
-    const QString candidate = QDir::cleanPath(QDir(projectDir).absoluteFilePath(relativePath));
+    QString candidate = QDir::cleanPath(QDir(projectDir).absoluteFilePath(relativePath));
     if (QFileInfo::exists(candidate)) {
         qCInfo(lcProject) << "Resolved moved media" << absolute << "to" << candidate;
         return candidate;

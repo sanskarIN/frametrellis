@@ -15,7 +15,7 @@ struct ProjectSettings
 {
     int width = 1920;
     int height = 1080;
-    FrameRate frameRate = *FrameRate::create(30, 1);
+    FrameRate frameRate = FrameRate::integer(30);
     int sampleRate = 48000;
     int audioChannels = 2;
 

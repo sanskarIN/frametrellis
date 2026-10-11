@@ -139,7 +139,8 @@ bool eqFilterWorks()
     if (!image || format != mlt_image_rgba) {
         return false;
     }
-    const uint8_t* centre = image + ((height / 2) * width + width / 2) * 4;
+    const uint8_t* centre =
+        image + (static_cast<std::ptrdiff_t>(height / 2) * width + width / 2) * 4;
     return std::abs(int(centre[0]) - int(centre[1])) < 40 &&
            std::abs(int(centre[1]) - int(centre[2])) < 40;
 }

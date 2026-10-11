@@ -35,7 +35,11 @@ bool acquireSdlAudio()
 void releaseSdlAudio()
 {
     std::lock_guard lock(g_sdlMutex);
-    if (g_sdlUsers > 0 && --g_sdlUsers == 0) {
+    if (g_sdlUsers <= 0) {
+        return;
+    }
+    --g_sdlUsers;
+    if (g_sdlUsers == 0) {
         SDL_QuitSubSystem(SDL_INIT_AUDIO);
     }
 }

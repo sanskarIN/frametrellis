@@ -4,6 +4,8 @@
 
 #include <QRegularExpression>
 
+#include <algorithm>
+
 namespace ft {
 
 namespace {
@@ -28,6 +30,11 @@ std::optional<FrameRate> FrameRate::fromRational(const Rational& rational)
     return create(rational.numerator(), rational.denominator());
 }
 
+FrameRate FrameRate::integer(int framesPerSecond)
+{
+    return FrameRate(Rational(std::clamp(framesPerSecond, 1, 1000), 1));
+}
+
 QList<FrameRate> FrameRate::standardRates()
 {
     QList<FrameRate> rates;
@@ -35,7 +42,9 @@ QList<FrameRate> FrameRate::standardRates()
                                                             {30000, 1001}, {30, 1},       {48, 1},
                                                             {50, 1},       {60000, 1001}, {60, 1}};
     for (const auto& [num, den] : values) {
-        rates.append(*create(num, den));
+        if (const auto rate = create(num, den)) {
+            rates.append(*rate);
+        }
     }
     return rates;
 }

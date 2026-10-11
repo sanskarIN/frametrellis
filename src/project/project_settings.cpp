@@ -56,7 +56,7 @@ QList<ProjectPreset> projectPresets()
         ProjectSettings s;
         s.width = w;
         s.height = h;
-        s.frameRate = *FrameRate::create(num, den);
+        s.frameRate = FrameRate::create(num, den).value_or(FrameRate::integer(30));
         return ProjectPreset{name, s};
     };
     return {

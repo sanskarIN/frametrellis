@@ -295,7 +295,7 @@ void ProjectController::scanAutosaves()
         QFile metaFile(path + QStringLiteral(".json"));
         QJsonObject meta;
         if (metaFile.open(QIODevice::ReadOnly)) {
-            meta = QJsonDocument::fromJson(metaFile.read(64 * 1024)).object();
+            meta = QJsonDocument::fromJson(metaFile.read(qint64{64} * 1024)).object();
         }
         const QDateTime savedAt = QFileInfo(path).lastModified();
         if (!newest.isValid() || savedAt > newest) {

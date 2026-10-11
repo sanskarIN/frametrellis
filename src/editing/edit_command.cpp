@@ -217,8 +217,8 @@ ChangeSet UpdateMediaCommand::undo(Project& project)
     return changes;
 }
 
-ProjectSettingsCommand::ProjectSettingsCommand(ProjectSettings settings, QString name)
-    : m_settings(std::move(settings))
+ProjectSettingsCommand::ProjectSettingsCommand(const ProjectSettings& settings, QString name)
+    : m_settings(settings)
     , m_name(std::move(name))
 {}
 

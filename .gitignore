@@ -1,0 +1,62 @@
+# Build trees
+/build/
+/build-*/
+/out/
+/cmake-build-*/
+CMakeUserPresets.json
+CMakeLists.txt.user*
+compile_commands.json
+.cache/
+.qtc_clangd/
+*.autosave
+
+# Compiler, linker and packaging outputs
+*.o
+*.obj
+*.a
+*.lib
+*.so
+*.so.*
+*.dll
+*.dylib
+*.exe
+*.pdb
+*.ilk
+*.zip
+*.tar.gz
+*.msi
+*.dmg
+
+# Editors and operating systems
+.vscode/
+.idea/
+*.swp
+*~
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Media is never committed; test fixtures are generated at test time
+*.mp4
+*.mov
+*.mkv
+*.webm
+*.avi
+*.mxf
+*.wav
+*.mp3
+*.aac
+*.flac
+*.m4a
+
+# User project documents and autosaves
+*.ftproj
+*.ftproj.autosave
+!tests/fixtures/projects/*.ftproj
+
+# Web tooling
+node_modules/
+web/editor/dist/
+web/_site/
+test-results/
+playwright-report/

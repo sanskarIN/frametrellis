@@ -1,0 +1,17 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+// SPDX-FileCopyrightText: 2026 Sanskar and FrameTrellis contributors
+#pragma once
+
+namespace ft::version {
+
+inline constexpr int major = @PROJECT_VERSION_MAJOR@;
+inline constexpr int minor = @PROJECT_VERSION_MINOR@;
+inline constexpr int patch = @PROJECT_VERSION_PATCH@;
+inline constexpr const char* string = "@PROJECT_VERSION@";
+inline constexpr const char* applicationName = "FrameTrellis";
+inline constexpr const char* organizationName = "FrameTrellis";
+inline constexpr const char* organizationDomain = "sanskarin.github.io";
+inline constexpr const char* homepage = "https://sanskarin.github.io/frametrellis/";
+inline constexpr const char* repository = "https://github.com/sanskarIN/frametrellis";
+
+} // namespace ft::version

@@ -410,7 +410,7 @@ private slots:
         QCOMPARE(m_app->project()->project().timeline().transition(added.id)->duration,
                  FrameCount{20});
         m_app->showStatus(QString());
-        screenshot(QStringLiteral("05-transition"));
+        screenshot(QStringLiteral("transition"));
 
         // Delete removes the selected transition; undo brings it back. The overlay is recreated
         // when the transition changes, so look it up again.

@@ -28,6 +28,8 @@ struct Media
     QString tone;        // 2 s stereo WAV
     QString still;       // yellow 16:9 PNG
     QString narrowStill; // yellow 1:1 PNG
+    QString red;         // 3 s of red with a 440 Hz tone
+    QString blue;        // 3 s of blue, silent
 };
 
 Clip clipOf(const Id& asset, FrameCount start, FrameCount in, FrameCount duration)
@@ -123,6 +125,15 @@ private slots:
         QVERIFY(!m_media.videoMute.isEmpty());
         QVERIFY(!m_media.tone.isEmpty());
         QVERIFY(!m_media.still.isEmpty());
+        VideoSpec red;
+        red.segmentColors = {Qt::red, Qt::red, Qt::red};
+        m_media.red = makeVideo(m_dir.path(), QStringLiteral("red.mp4"), red);
+        VideoSpec blue;
+        blue.segmentColors = {Qt::blue, Qt::blue, Qt::blue};
+        blue.withAudio = false;
+        m_media.blue = makeVideo(m_dir.path(), QStringLiteral("blue.mp4"), blue);
+        QVERIFY(!m_media.red.isEmpty());
+        QVERIFY(!m_media.blue.isEmpty());
     }
 
     void probeVideo()
@@ -309,6 +320,59 @@ private slots:
         QVERIFY(audioPeakAt(p, 10) < 50);
         // Audio-only tracks never contribute picture.
         QVERIFY(isCloseTo(averageColor(renderAt(p, 10)), Qt::white));
+    }
+
+    void transitionsDissolveAndCrossfade()
+    {
+        QList<Id> ids;
+        Project p = projectWith({m_media.red, m_media.blue}, &ids);
+        const Id v1 = p.timeline().tracks()[0].id;
+        // Red until frame 50, then blue; a 20-frame transition spans frames 40 to 59.
+        QVERIFY(p.timeline().insertClip(v1, clipOf(ids[0], 0, 0, 50), p.sourceLookup()));
+        QVERIFY(p.timeline().insertClip(v1, clipOf(ids[1], 50, 25, 50), p.sourceLookup()));
+        const Id redClip = p.timeline().tracks()[0].clips[0].id;
+        QVERIFY(p.timeline().addTransition(redClip, 20, p.sourceLookup()));
+        QVERIFY(p.validate());
+
+        auto profile = engine::createProfile(160, 90, p.settings().frameRate);
+        engine::TimelineGraphBuilder builder(*profile);
+        Result<engine::GraphBuildResult> graph = builder.build(p);
+        QVERIFY(graph);
+        QCOMPARE(graph->tractor->get_playtime(), 100); // the timeline keeps its length
+
+        QVERIFY(isCloseTo(averageColor(renderAt(p, 30)), Qt::red));
+        const QColor middle = averageColor(renderAt(p, 50));
+        QVERIFY2(middle.red() > 70 && middle.red() < 190 && middle.blue() > 70 &&
+                     middle.blue() < 190 && middle.green() < 50,
+                 qPrintable(middle.name()));
+        QVERIFY(isCloseTo(averageColor(renderAt(p, 70)), Qt::blue));
+        QVERIFY(isCloseTo(averageColor(renderAt(p, 99)), Qt::blue));
+
+        // The sound of the red clip fades out across the transition instead of stopping at the
+        // cut, and is gone after it.
+        const int before = audioPeakAt(p, 30);
+        const int during = audioPeakAt(p, 50);
+        const int after = audioPeakAt(p, 70);
+        QVERIFY2(before > 8000, qPrintable(QString::number(before)));
+        QVERIFY2(during > 1000 && during < before,
+                 qPrintable(QStringLiteral("%1 of %2").arg(during).arg(before)));
+        QVERIFY2(after < 50, qPrintable(QString::number(after)));
+    }
+
+    void transitionsKeepClipVolume()
+    {
+        QList<Id> ids;
+        Project p = projectWith({m_media.red, m_media.blue}, &ids);
+        const Id v1 = p.timeline().tracks()[0].id;
+        QVERIFY(p.timeline().insertClip(v1, clipOf(ids[0], 0, 0, 50), p.sourceLookup()));
+        QVERIFY(p.timeline().insertClip(v1, clipOf(ids[1], 50, 25, 50), p.sourceLookup()));
+        const Id redClip = p.timeline().tracks()[0].clips[0].id;
+        QVERIFY(p.timeline().addTransition(redClip, 20, p.sourceLookup()));
+        ClipProperties muted;
+        muted.muted = true;
+        QVERIFY(p.timeline().setClipProperties(redClip, muted));
+        // A muted clip stays muted inside the transition.
+        QVERIFY(audioPeakAt(p, 45) < 50);
     }
 
     void missingMediaUsesPlaceholderOrFails()

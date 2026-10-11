@@ -1,0 +1,169 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
+name: CI
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  QT_VERSION: "6.8.3"
+  MLT_VERSION: "v7.22.0"
+
+jobs:
+  format:
+    name: Formatting
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check clang-format
+        run: |
+          clang-format --version
+          git ls-files '*.cpp' '*.h' | xargs clang-format --dry-run --Werror
+
+  linux:
+    name: Linux (GCC, debug, warnings as errors)
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install system packages
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            build-essential ninja-build pkg-config clang-tidy \
+            libavformat-dev libavcodec-dev libavutil-dev libavfilter-dev libavdevice-dev \
+            libswscale-dev libswresample-dev libsdl2-dev \
+            libgl1-mesa-dev libegl1 libopengl0 libxkbcommon-x11-0 libxcb-cursor0 \
+            libfontconfig1 libdbus-1-3 fonts-dejavu-core
+
+      - name: Install Qt ${{ env.QT_VERSION }}
+        uses: jurplel/install-qt-action@v4
+        with:
+          version: ${{ env.QT_VERSION }}
+          host: linux
+          target: desktop
+          arch: linux_gcc_64
+          cache: true
+
+      - name: Cache MLT
+        id: mlt-cache
+        uses: actions/cache@v4
+        with:
+          path: ~/mlt
+          key: mlt-${{ env.MLT_VERSION }}-ubuntu-24.04-v1
+
+      - name: Build MLT ${{ env.MLT_VERSION }}
+        if: steps.mlt-cache.outputs.cache-hit != 'true'
+        run: scripts/build-mlt.sh "${{ env.MLT_VERSION }}" "$HOME/mlt"
+
+      - name: Configure
+        run: cmake --preset linux-debug -DCMAKE_PREFIX_PATH="$QT_ROOT_DIR;$HOME/mlt"
+
+      - name: Build
+        run: cmake --build --preset linux-debug
+
+      - name: Test
+        run: ctest --preset linux-debug
+
+      - name: Static analysis (clang-tidy)
+        run: |
+          git ls-files 'src/*.cpp' | grep -v '^src/app/' \
+            | xargs -P "$(nproc)" -n 4 clang-tidy -p build/linux-debug --quiet --warnings-as-errors='*'
+
+      - name: Upload test logs
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: linux-test-logs
+          path: build/linux-debug/Testing/Temporary/
+          if-no-files-found: ignore
+
+  sanitizers:
+    name: Linux (AddressSanitizer + UBSan)
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install system packages
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            build-essential ninja-build pkg-config \
+            libavformat-dev libavcodec-dev libavutil-dev libavfilter-dev libavdevice-dev \
+            libswscale-dev libswresample-dev libsdl2-dev \
+            libgl1-mesa-dev libegl1 libopengl0 libxkbcommon-x11-0 libfontconfig1 libdbus-1-3
+      - uses: jurplel/install-qt-action@v4
+        with:
+          version: ${{ env.QT_VERSION }}
+          host: linux
+          target: desktop
+          arch: linux_gcc_64
+          cache: true
+      - name: Cache MLT
+        id: mlt-cache
+        uses: actions/cache@v4
+        with:
+          path: ~/mlt
+          key: mlt-${{ env.MLT_VERSION }}-ubuntu-24.04-v1
+      - name: Build MLT ${{ env.MLT_VERSION }}
+        if: steps.mlt-cache.outputs.cache-hit != 'true'
+        run: scripts/build-mlt.sh "${{ env.MLT_VERSION }}" "$HOME/mlt"
+      - name: Configure
+        run: cmake --preset linux-asan -DCMAKE_PREFIX_PATH="$QT_ROOT_DIR;$HOME/mlt" -DFT_BUILD_APP=OFF
+      - name: Build
+        run: cmake --build --preset linux-asan
+      - name: Test (unit and integration)
+        run: ctest --preset linux-asan -L "unit|integration"
+      - name: Upload test logs
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: sanitizer-test-logs
+          path: build/linux-asan/Testing/Temporary/
+          if-no-files-found: ignore
+
+  windows:
+    name: Windows (MSYS2 UCRT64)
+    runs-on: windows-2022
+    defaults:
+      run:
+        shell: msys2 {0}
+    steps:
+      - name: Keep line endings as committed
+        shell: pwsh
+        run: git config --global core.autocrlf false
+      - uses: actions/checkout@v4
+      - uses: msys2/setup-msys2@v2
+        with:
+          msystem: UCRT64
+          update: true
+          pacboy: >-
+            cc:p cmake:p ninja:p pkgconf:p
+            qt6-base:p qt6-declarative:p qt6-svg:p
+            mlt:p ffmpeg:p SDL2:p
+      - name: Show tool versions
+        run: |
+          cmake --version | head -n1
+          gcc --version | head -n1
+          pkgconf --modversion mlt++-7 Qt6Core libavformat
+      - name: Configure
+        run: cmake --preset windows-msys2 -DFT_WARNINGS_AS_ERRORS=ON
+      - name: Build
+        run: cmake --build --preset windows-msys2
+      - name: Test
+        run: ctest --preset windows-msys2
+      - name: Upload test logs
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-test-logs
+          path: build/windows-msys2/Testing/Temporary/
+          if-no-files-found: ignore

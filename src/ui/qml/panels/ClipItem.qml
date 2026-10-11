@@ -27,6 +27,8 @@ Rectangle {
     required property real fadeIn
     required property real fadeOut
     required property string thumbnail
+    required property string waveform
+    required property real gain
 
     readonly property real ppf: app.timeline.pixelsPerFrame
     readonly property real snapTolerance: 8 / Math.max(ppf, 0.0001)
@@ -60,8 +62,29 @@ Rectangle {
         opacity: 0.85
         visible: source.toString().length > 0
     }
+    // The real waveform of the clip's sound, rendered in the background near the clip's width
+    // (rounded up to a power of two so zooming does not re-render every step).
+    Image {
+        id: waveformImage
+        objectName: "waveform"
+        anchors.left: parent.left
+        anchors.right: parent.right
+        anchors.top: parent.top
+        anchors.bottom: parent.bottom
+        anchors.topMargin: 18
+        anchors.bottomMargin: 2
+        visible: clip.waveform.length > 0 && clip.width > 4 && height > 4
+        readonly property int renderWidth: Math.min(4096, Math.max(64, Math.pow(2, Math.ceil(Math.log(Math.max(1, clip.width)) / Math.LN2))))
+        source: visible ? "image://ft-waveform/%1/%2/%3".arg(clip.waveform).arg(Theme.waveformHex).arg(Math.round(clip.gain * 100)) : ""
+        sourceSize.width: renderWidth
+        sourceSize.height: Math.max(16, Math.round(height))
+        fillMode: Image.Stretch
+        asynchronous: true
+        smooth: true
+        opacity: clip.muted ? 0.35 : 0.9
+    }
     IconImage {
-        visible: clip.kind === "audio" && clip.width > 30
+        visible: clip.kind === "audio" && clip.width > 30 && waveformImage.status !== Image.Ready
         anchors.verticalCenter: parent.verticalCenter
         anchors.verticalCenterOffset: 8
         anchors.left: parent.left

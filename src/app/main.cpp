@@ -80,6 +80,8 @@ int main(int argc, char* argv[])
             QQmlApplicationEngine engine;
             engine.addImageProvider(QStringLiteral("ft-thumbnail"),
                                     controller.createThumbnailProvider());
+            engine.addImageProvider(QStringLiteral("ft-waveform"),
+                                    controller.createWaveformProvider());
             engine.setInitialProperties(
                 {{QStringLiteral("app"), QVariant::fromValue(&controller)}});
             QObject::connect(

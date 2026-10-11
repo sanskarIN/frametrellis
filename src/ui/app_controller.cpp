@@ -28,6 +28,9 @@ AppController::AppController(const Status& engineStatus, const QString& renderHe
     , m_thumbnails(std::make_shared<ThumbnailRegistry>())
     , m_thumbnailCache(
           std::make_shared<media::ThumbnailCache>(media::ThumbnailCache::defaultDirectory()))
+    , m_waveforms(std::make_shared<WaveformService>(
+          m_thumbnails,
+          std::make_shared<media::WaveformCache>(media::WaveformCache::defaultDirectory())))
 {
     QSettings settings;
     m_firstRun = !settings.value(QStringLiteral("app/firstRunDone"), false).toBool();
@@ -62,6 +65,7 @@ AppController::AppController(const Status& engineStatus, const QString& renderHe
 
 AppController::~AppController()
 {
+    m_waveforms->shutdown(); // background waveform work stops early
     m_exporter.reset();
     m_timeline.reset();
     m_playback.reset();
@@ -208,8 +212,14 @@ QQuickAsyncImageProvider* AppController::createThumbnailProvider() const
     return new ThumbnailProvider(m_thumbnails, m_thumbnailCache);
 }
 
+QQuickAsyncImageProvider* AppController::createWaveformProvider() const
+{
+    return new WaveformProvider(m_waveforms);
+}
+
 void AppController::prepareQuit(bool keepAutosave)
 {
+    m_waveforms->shutdown();
     m_playback->pause();
     m_exporter->cancel();
     if (!keepAutosave) {

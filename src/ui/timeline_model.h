@@ -39,6 +39,7 @@ public:
         FadeInRole,
         FadeOutRole,
         ThumbnailRole,
+        WaveformRole,
     };
 
     explicit ClipListModel(QObject* parent = nullptr);
@@ -61,6 +62,8 @@ private:
         bool offline = false;
         qint64 sourceLength = -1;
         bool selected = false;
+        bool onAudioTrack = false;
+        QString waveform; ///< "<assetId>/<startUs>/<durationUs>" for clips whose sound is shown
     };
     std::vector<Row> m_rows;
 };

@@ -42,6 +42,8 @@ QtObject {
     readonly property color clipVideoEdge: dark ? "#3ccfb7" : "#0f8f7c"
     readonly property color clipAudio: dark ? "#6b4f1d" : "#f2cf8d"
     readonly property color clipAudioEdge: dark ? "#f3b443" : "#b7791f"
+    // Waveform colour as "rrggbb", the form the waveform image provider expects.
+    readonly property string waveformHex: dark ? "f6c86a" : "8a5a12"
     readonly property color clipImage: dark ? "#353d78" : "#bcc3fb"
     readonly property color clipImageEdge: dark ? "#8592fb" : "#4c5bd4"
     readonly property color clipOffline: dark ? "#5a2020" : "#f5c2c2"

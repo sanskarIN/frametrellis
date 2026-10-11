@@ -52,9 +52,11 @@ QVariant ClipListModel::data(const QModelIndex& index, int role) const
     case FadeOutRole:
         return static_cast<double>(c.properties.fadeOut);
     case ThumbnailRole:
-        return row.kind == QLatin1String("audio") || row.offline
+        return row.kind == QLatin1String("audio") || row.offline || row.onAudioTrack
                    ? QString()
                    : QStringLiteral("image://ft-thumbnail/%1").arg(c.assetId);
+    case WaveformRole:
+        return row.waveform;
     default:
         return {};
     }
@@ -76,7 +78,8 @@ QHash<int, QByteArray> ClipListModel::roleNames() const
             {GainRole, "gain"},
             {FadeInRole, "fadeIn"},
             {FadeOutRole, "fadeOut"},
-            {ThumbnailRole, "thumbnail"}};
+            {ThumbnailRole, "thumbnail"},
+            {WaveformRole, "waveform"}};
 }
 
 void ClipListModel::setClips(const Track& track, const Project& project, const QSet<Id>& selection)
@@ -93,6 +96,16 @@ void ClipListModel::setClips(const Track& track, const Project& project, const Q
         row.sourceLength =
             asset ? asset->lengthInFrames(project.settings().frameRate).value_or(-1) : -1;
         row.selected = selection.contains(clip.id);
+        row.onAudioTrack = track.kind == TrackKind::Audio;
+        if (row.onAudioTrack && asset && asset->info.hasAudio && !row.offline) {
+            const FrameRate& rate = project.settings().frameRate;
+            const auto startUs = rate.framesToMicroseconds(clip.sourceIn);
+            const auto durationUs = rate.framesToMicroseconds(clip.duration);
+            if (startUs && durationUs) {
+                row.waveform =
+                    QStringLiteral("%1/%2/%3").arg(clip.assetId).arg(*startUs).arg(*durationUs);
+            }
+        }
         rows.push_back(std::move(row));
     }
     const bool sameIds =

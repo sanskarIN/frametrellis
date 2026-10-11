@@ -9,6 +9,7 @@
 #include "ui/project_controller.h"
 #include "ui/thumbnail_provider.h"
 #include "ui/timeline_controller.h"
+#include "ui/waveform_provider.h"
 
 #include <QObject>
 #include <QQmlEngine>
@@ -64,6 +65,8 @@ public:
 
     /// Image provider for "image://ft-thumbnail/..."; the QML engine takes ownership.
     [[nodiscard]] QQuickAsyncImageProvider* createThumbnailProvider() const;
+    /// Image provider for "image://ft-waveform/..."; the QML engine takes ownership.
+    [[nodiscard]] QQuickAsyncImageProvider* createWaveformProvider() const;
 
     Q_INVOKABLE void showStatus(const QString& message);
     /// Converts a file URL (from a file dialog or drop) to a local path, and back.
@@ -92,6 +95,7 @@ private:
     QString m_theme;
     std::shared_ptr<ThumbnailRegistry> m_thumbnails;
     std::shared_ptr<media::ThumbnailCache> m_thumbnailCache;
+    std::shared_ptr<WaveformService> m_waveforms;
     // Declaration order is destruction order in reverse: export, then timeline, playback, media,
     // and the project last.
     std::unique_ptr<ProjectController> m_project;

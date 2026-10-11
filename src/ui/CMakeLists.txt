@@ -49,6 +49,7 @@ qt_add_qml_module(ft_ui
         playback_controller.cpp playback_controller.h
         project_controller.cpp project_controller.h
         thumbnail_provider.cpp thumbnail_provider.h
+        waveform_provider.cpp waveform_provider.h
         timeline_controller.cpp timeline_controller.h
         timeline_model.cpp timeline_model.h
     RESOURCES

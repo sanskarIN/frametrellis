@@ -1,0 +1,107 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+// SPDX-FileCopyrightText: 2026 Sanskar and FrameTrellis contributors
+#pragma once
+
+#include "core/result.h"
+#include "timeline/track.h"
+
+#include <functional>
+#include <optional>
+#include <vector>
+
+namespace ft {
+
+/// Facts about a media source that constrain how clips using it can be edited.
+struct SourceLimits
+{
+    std::optional<FrameCount> length; ///< std::nullopt for unbounded sources such as stills
+    bool hasVideo = false;
+    bool hasAudio = false;
+};
+
+/// Resolves an asset id to its limits; returns std::nullopt for unknown assets.
+using SourceLookup = std::function<std::optional<SourceLimits>(const Id& assetId)>;
+
+struct ClipLocation
+{
+    int track = -1;
+    int clip = -1;
+};
+
+/// Upper bound for any timeline position; keeps all arithmetic far from overflow.
+inline constexpr FrameCount kMaxTimelineFrames = 1'000'000'000;
+inline constexpr int kMaxTracks = 99;
+
+/// The editable multi-track arrangement. Every mutation validates its input and keeps the
+/// invariants: unique ids, clips sorted and non-overlapping per track, durations >= 1, clip
+/// source ranges within the source length, and clip media compatible with the track kind.
+class Timeline
+{
+public:
+    [[nodiscard]] const std::vector<Track>& tracks() const { return m_tracks; }
+    [[nodiscard]] int trackCount() const { return static_cast<int>(m_tracks.size()); }
+    [[nodiscard]] int trackIndex(const Id& trackId) const;
+    [[nodiscard]] const Track* track(const Id& trackId) const;
+    [[nodiscard]] std::optional<ClipLocation> findClip(const Id& clipId) const;
+    [[nodiscard]] const Clip* clip(const Id& clipId) const;
+    [[nodiscard]] const Track* trackOfClip(const Id& clipId) const;
+    [[nodiscard]] int clipCount() const;
+    /// Exclusive end frame of the last clip on any track.
+    [[nodiscard]] FrameCount duration() const;
+    [[nodiscard]] bool isRangeFree(const Id& trackId, FrameCount start, FrameCount duration,
+                                   const Id& ignoreClipId = {}) const;
+    /// Clip boundaries usable as snap targets, sorted and de-duplicated.
+    [[nodiscard]] std::vector<FrameCount> editPoints(const Id& excludeClipId = {}) const;
+    [[nodiscard]] bool usesAsset(const Id& assetId) const;
+    [[nodiscard]] std::vector<Id> clipsUsingAsset(const Id& assetId) const;
+
+    // Track operations
+    Status insertTrack(Track track, int index = -1);
+    Result<Track> removeTrack(const Id& trackId);
+    Status moveTrack(const Id& trackId, int newIndex);
+    Status renameTrack(const Id& trackId, const QString& name);
+    Status setTrackMuted(const Id& trackId, bool muted);
+    Status setTrackHidden(const Id& trackId, bool hidden);
+    Status setTrackLocked(const Id& trackId, bool locked);
+
+    // Clip operations
+    Status insertClip(const Id& trackId, Clip clip, const SourceLookup& sources);
+    Result<Clip> removeClip(const Id& clipId);
+    /// Removes a clip and closes the gap by shifting later clips on the same track.
+    Result<Clip> rippleRemoveClip(const Id& clipId);
+    Status moveClip(const Id& clipId, const Id& targetTrackId, FrameCount newStart,
+                    const SourceLookup& sources);
+    /// Moves the clip's left edge; the clip's content stays anchored to the timeline.
+    Status trimClipStart(const Id& clipId, FrameCount newStart, const SourceLookup& sources);
+    /// Moves the clip's right edge (exclusive end frame).
+    Status trimClipEnd(const Id& clipId, FrameCount newEnd, const SourceLookup& sources);
+    /// Splits a clip at a timeline frame strictly inside it. Returns the id of the right part.
+    Result<Id> splitClip(const Id& clipId, FrameCount frame, const Id& newClipId = {});
+    Status setClipProperties(const Id& clipId, const ClipProperties& properties);
+
+    /// Replaces tracks wholesale. Used by the command history to restore previously validated
+    /// states; regular editing goes through the validated operations above.
+    void restoreTrack(const Track& track);
+    void restoreTracks(std::vector<Track> tracks);
+
+    /// Checks every invariant; used when loading documents and in tests.
+    [[nodiscard]] Status validate(const SourceLookup& sources) const;
+
+    friend bool operator==(const Timeline&, const Timeline&) = default;
+
+private:
+    Track* mutableTrack(const Id& trackId);
+    Status checkEditable(const Track& track) const;
+    static Status checkClipShape(const Clip& clip);
+    static Status checkSourceRange(const Clip& clip, const Track& track,
+                                   const SourceLookup& sources);
+    static void insertSorted(Track& track, Clip clip);
+
+    std::vector<Track> m_tracks;
+};
+
+/// Finds the snap target closest to candidate within tolerance, if any.
+std::optional<FrameCount> snapToNearest(FrameCount candidate, FrameCount tolerance,
+                                        const std::vector<FrameCount>& targets);
+
+} // namespace ft

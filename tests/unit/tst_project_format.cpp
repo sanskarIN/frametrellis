@@ -61,6 +61,14 @@ Project makeProject(const QString& mediaDir)
     c.properties.fadeIn = 10;
     c.properties.video.saturation = 1.5;
     (void)p.timeline().insertClip(v1, c, p.sourceLookup());
+    Clip next = c;
+    next.id = QStringLiteral("clip4");
+    next.start = c.end();
+    next.sourceIn = 200;
+    next.duration = 40;
+    next.properties = {};
+    (void)p.timeline().insertClip(v1, next, p.sourceLookup());
+    (void)p.timeline().addTransition(c.id, 20, p.sourceLookup(), QStringLiteral("fade1"));
     Clip still;
     still.id = QStringLiteral("clip2");
     still.assetId = QStringLiteral("m3");
@@ -227,6 +235,61 @@ private slots:
         QVERIFY(!loaded);
         QCOMPARE(loaded.error().code, ErrorCode::InvalidDocument);
         QVERIFY(!loaded.error().detail.isEmpty());
+    }
+
+    void transitionsRoundTrip()
+    {
+        const Project original = makeProject(QStringLiteral("/media"));
+        QCOMPARE(original.timeline().tracks()[0].transitions.size(), std::size_t{1});
+        const QJsonObject json = project_format::toJson(original);
+        const QJsonArray tracks = json[QLatin1String("project")][QLatin1String("tracks")].toArray();
+        const QJsonArray transitions = tracks[0][QLatin1String("transitions")].toArray();
+        QCOMPARE(transitions.size(), 1);
+        QCOMPARE(transitions[0][QLatin1String("from")].toString(), QStringLiteral("clip1"));
+        QCOMPARE(transitions[0][QLatin1String("to")].toString(), QStringLiteral("clip4"));
+        QCOMPARE(transitions[0][QLatin1String("duration")].toInt(), 20);
+        // Tracks without transitions do not write the field at all.
+        QVERIFY(!tracks[2].toObject().contains(QLatin1String("transitions")));
+        Result<Project> loaded = project_format::fromJson(json);
+        QVERIFY(loaded);
+        QCOMPARE(loaded->timeline().tracks()[0].transitions,
+                 original.timeline().tracks()[0].transitions);
+    }
+
+    void rejectsInvalidTransitions_data()
+    {
+        QTest::addColumn<QString>("field");
+        QTest::addColumn<QJsonValue>("value");
+        QTest::newRow("too short") << QStringLiteral("duration") << QJsonValue(1);
+        QTest::newRow("longer than the media allows")
+            << QStringLiteral("duration") << QJsonValue(5000);
+        QTest::newRow("unknown clip")
+            << QStringLiteral("from") << QJsonValue(QStringLiteral("nothing"));
+        QTest::newRow("clips not touching")
+            << QStringLiteral("to") << QJsonValue(QStringLiteral("clip2"));
+        QTest::newRow("bad id") << QStringLiteral("id") << QJsonValue(QStringLiteral("a/b"));
+    }
+
+    void rejectsInvalidTransitions()
+    {
+        QFETCH(QString, field);
+        QFETCH(QJsonValue, value);
+        QJsonObject root = validDocument();
+        QJsonObject body;
+        projectBody(root, body);
+        QJsonArray tracks = body[QLatin1String("tracks")].toArray();
+        QJsonObject v1 = tracks[0].toObject();
+        QJsonArray transitions = v1[QLatin1String("transitions")].toArray();
+        QJsonObject transition = transitions[0].toObject();
+        transition[field] = value;
+        transitions[0] = transition;
+        v1[QLatin1String("transitions")] = transitions;
+        tracks[0] = v1;
+        body[QLatin1String("tracks")] = tracks;
+        root[QLatin1String("project")] = body;
+        Result<Project> loaded = project_format::fromJson(root);
+        QVERIFY(!loaded);
+        QCOMPARE(loaded.error().code, ErrorCode::InvalidDocument);
     }
 
     void rejectsInvalidSettings()

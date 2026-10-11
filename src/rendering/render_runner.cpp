@@ -14,11 +14,14 @@
 #include <QStorageInfo>
 #include <QThread>
 #include <QUuid>
-
 #include <mlt++/Mlt.h>
 
 #include <filesystem>
 #include <memory>
+
+#ifdef Q_OS_WIN
+#include <windows.h>
+#endif
 
 namespace ft::rendering {
 
@@ -28,18 +31,33 @@ QString temporaryOutputPath(const QString& outputPath)
 {
     const QFileInfo info(outputPath);
     const QString token = QUuid::createUuid().toString(QUuid::Id128).left(8);
-    return info.absoluteDir().filePath(QStringLiteral(".%1.%2.part.mp4").arg(info.completeBaseName(), token));
+    return info.absoluteDir().filePath(
+        QStringLiteral(".%1.%2.part.mp4").arg(info.completeBaseName(), token));
 }
 
+/// Replaces the destination with the finished file in one step, so an existing export is never
+/// lost to a half-finished rename.
 Status moveIntoPlace(const QString& from, const QString& to)
 {
+#ifdef Q_OS_WIN
+    const std::wstring source = QDir::toNativeSeparators(from).toStdWString();
+    const std::wstring target = QDir::toNativeSeparators(to).toStdWString();
+    if (!MoveFileExW(source.c_str(), target.c_str(),
+                     MOVEFILE_REPLACE_EXISTING | MOVEFILE_WRITE_THROUGH)) {
+        return makeError(ErrorCode::Io,
+                         QStringLiteral("The exported file could not be moved into place."),
+                         QStringLiteral("Windows error %1").arg(GetLastError()));
+    }
+#else
     std::error_code error;
-    std::filesystem::rename(std::filesystem::path(from.toStdU16String()),
-                            std::filesystem::path(to.toStdU16String()), error);
+    std::filesystem::rename(std::filesystem::path(from.toStdString()),
+                            std::filesystem::path(to.toStdString()), error);
     if (error) {
-        return makeError(ErrorCode::Io, QStringLiteral("The exported file could not be moved into place."),
+        return makeError(ErrorCode::Io,
+                         QStringLiteral("The exported file could not be moved into place."),
                          QString::fromStdString(error.message()));
     }
+#endif
     return {};
 }
 
@@ -75,8 +93,7 @@ RenderRunner::RenderRunner(Project project, ExportSettings settings, QString pro
     : m_project(std::move(project))
     , m_settings(std::move(settings))
     , m_projectFilePath(std::move(projectFilePath))
-{
-}
+{}
 
 Status RenderRunner::run(const std::atomic<bool>& cancelRequested, const StartedCallback& started,
                          const ProgressCallback& progress)
@@ -89,13 +106,16 @@ Status RenderRunner::run(const std::atomic<bool>& cancelRequested, const Started
     }
     m_encoder = chooseVideoEncoder(availableVideoEncoders());
     if (m_encoder.isEmpty()) {
-        return makeError(ErrorCode::Engine,
-                         QStringLiteral("No supported video encoder (H.264 or MPEG-4) is available in this FFmpeg build."));
+        return makeError(
+            ErrorCode::Engine,
+            QStringLiteral(
+                "No supported video encoder (H.264 or MPEG-4) is available in this FFmpeg build."));
     }
 
     const ProjectSettings& projectSettings = m_project.settings();
     const QSize size = outputSize(m_settings, projectSettings);
-    std::unique_ptr<Mlt::Profile> profile = engine::createProfile(size.width(), size.height(), projectSettings.frameRate);
+    std::unique_ptr<Mlt::Profile> profile =
+        engine::createProfile(size.width(), size.height(), projectSettings.frameRate);
     engine::TimelineGraphBuilder builder(*profile);
     engine::GraphOptions options;
     options.placeholdersForMissingMedia = false;
@@ -111,7 +131,8 @@ Status RenderRunner::run(const std::atomic<bool>& cancelRequested, const Started
     const QByteArray partEncoded = partPath.toUtf8();
     Mlt::Consumer consumer(*profile, "avformat", partEncoded.constData());
     if (!consumer.is_valid()) {
-        return makeError(ErrorCode::Engine, QStringLiteral("The encoder could not be initialised."));
+        return makeError(ErrorCode::Engine,
+                         QStringLiteral("The encoder could not be initialised."));
     }
     consumer.set("f", "mp4");
     consumer.set("vcodec", m_encoder.toUtf8().constData());
@@ -123,13 +144,18 @@ Status RenderRunner::run(const std::atomic<bool>& cancelRequested, const Started
         consumer.set("preset", m_settings.speedPreset.toUtf8().constData());
     } else {
         // Encoders without CRF get a bitrate derived from resolution, frame rate and quality.
-        const double pixelsPerSecond = static_cast<double>(size.width()) * size.height() * projectSettings.frameRate.toDouble();
+        const double pixelsPerSecond = static_cast<double>(size.width()) * size.height() *
+                                       projectSettings.frameRate.toDouble();
         const double bitsPerPixel = std::clamp(0.25 - (m_settings.crf - 18) * 0.012, 0.03, 0.4);
-        consumer.set("vb", QStringLiteral("%1k").arg(static_cast<qint64>(pixelsPerSecond * bitsPerPixel / 1000.0)).toUtf8().constData());
+        consumer.set("vb", QStringLiteral("%1k")
+                               .arg(static_cast<qint64>(pixelsPerSecond * bitsPerPixel / 1000.0))
+                               .toUtf8()
+                               .constData());
     }
     if (m_settings.includeAudio) {
         consumer.set("acodec", "aac");
-        consumer.set("ab", QStringLiteral("%1k").arg(m_settings.audioBitrateKbps).toUtf8().constData());
+        consumer.set("ab",
+                     QStringLiteral("%1k").arg(m_settings.audioBitrateKbps).toUtf8().constData());
         consumer.set("ar", projectSettings.sampleRate);
         consumer.set("ac", projectSettings.audioChannels);
     } else {
@@ -139,7 +165,8 @@ Status RenderRunner::run(const std::atomic<bool>& cancelRequested, const Started
     // releases such as 7.22, so it is only enabled where it has been verified to work. The
     // encoders use their own threads either way.
     const int threads = std::max(1, QThread::idealThreadCount() - 1);
-    consumer.set("real_time", mlt_version_get_int() >= ((7 << 16) | (30 << 8)) ? -std::min(threads, 4) : 0);
+    consumer.set("real_time",
+                 mlt_version_get_int() >= ((7 << 16) | (30 << 8)) ? -std::min(threads, 4) : 0);
     consumer.set("threads", 0);
     consumer.set("terminate_on_pause", 1);
     consumer.set("in", 0);
@@ -184,22 +211,29 @@ Status RenderRunner::run(const std::atomic<bool>& cancelRequested, const Started
 
     // Verify the result before it replaces anything: it must exist and have the expected length.
     const QFileInfo part(partPath);
-    Result<MediaInfo> written = part.exists() && part.size() > 0
-                                    ? media::probeMedia(partPath)
-                                    : Result<MediaInfo>(makeError(ErrorCode::Io, QStringLiteral("no output")));
+    Result<MediaInfo> written =
+        part.exists() && part.size() > 0
+            ? media::probeMedia(partPath)
+            : Result<MediaInfo>(makeError(ErrorCode::Io, QStringLiteral("no output")));
     const auto expectedUs = projectSettings.frameRate.framesToMicroseconds(total).value_or(0);
     const auto toleranceUs = projectSettings.frameRate.framesToMicroseconds(3).value_or(0) + 50'000;
-    if (!written || written->kind != MediaKind::Video || std::abs(written->durationUs - expectedUs) > toleranceUs) {
+    if (!written || written->kind != MediaKind::Video ||
+        std::abs(written->durationUs - expectedUs) > toleranceUs) {
         QFile::remove(partPath);
         const QStorageInfo storage(QFileInfo(finalPath).absolutePath());
-        const bool diskFull = storage.isValid() && storage.bytesAvailable() >= 0 && storage.bytesAvailable() < kMinimumFreeBytes;
-        const QString detail = written ? QStringLiteral("expected %1 us, got %2 us").arg(expectedUs).arg(written->durationUs)
+        const bool diskFull = storage.isValid() && storage.bytesAvailable() >= 0 &&
+                              storage.bytesAvailable() < kMinimumFreeBytes;
+        const QString detail = written ? QStringLiteral("expected %1 us, got %2 us")
+                                             .arg(expectedUs)
+                                             .arg(written->durationUs)
                                        : written.error().toString();
         qCWarning(lcRender) << "Render verification failed:" << detail;
-        return makeError(ErrorCode::Io,
-                         diskFull ? QStringLiteral("Rendering failed: the disk is full.")
-                                  : QStringLiteral("Rendering failed: the encoder stopped before the end of the sequence."),
-                         detail);
+        return makeError(
+            ErrorCode::Io,
+            diskFull ? QStringLiteral("Rendering failed: the disk is full.")
+                     : QStringLiteral(
+                           "Rendering failed: the encoder stopped before the end of the sequence."),
+            detail);
     }
     if (progress) {
         progress(Progress{total, total});

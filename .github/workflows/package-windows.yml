@@ -64,7 +64,12 @@ jobs:
             choco install innosetup --no-progress -y
             $iscc = "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe"
           }
-          $version = (Select-String -Path CMakeLists.txt -Pattern 'project\(FrameTrellis\s+VERSION\s+([0-9.]+)').Matches[0].Groups[1].Value
+          # project() spans several lines, so match against the whole file.
+          $cmake = Get-Content -Raw CMakeLists.txt
+          if ($cmake -notmatch 'project\(FrameTrellis\s+VERSION\s+([0-9.]+)') {
+            throw "Cannot read the project version from CMakeLists.txt"
+          }
+          $version = $Matches[1]
           $stage = Resolve-Path "dist\FrameTrellis-$version-windows-x64"
           & $iscc "/DAppVersion=$version" "/DStageDir=$stage" "/DOutputDir=$PWD\dist" "/DRepoDir=$PWD" packaging\windows\frametrellis.iss
           if ($LASTEXITCODE -ne 0) { throw "ISCC failed with exit code $LASTEXITCODE" }

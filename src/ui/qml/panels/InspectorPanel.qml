@@ -127,7 +127,7 @@ PanelFrame {
                 RowLayout {
                     Layout.fillWidth: true
                     Text { text: qsTr("Audio"); color: Theme.text; font.weight: Font.DemiBold; font.pixelSize: Theme.fontSize; Layout.fillWidth: true }
-                    CheckBox {
+                    FtCheckBox {
                         text: qsTr("Mute")
                         checked: panel.clip.muted || false
                         onToggled: { panel.setProp("muted", checked); panel.app.timeline.endEdit() }

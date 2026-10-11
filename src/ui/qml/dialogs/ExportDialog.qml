@@ -136,7 +136,7 @@ FtDialog {
 
             Label { text: qsTr("Audio"); color: Theme.textMuted }
             RowLayout {
-                CheckBox { id: audioCheck; checked: true; text: qsTr("Include audio (AAC)") }
+                FtCheckBox { id: audioCheck; checked: true; text: qsTr("Include audio (AAC)") }
                 ComboBox {
                     id: audioBox
                     enabled: audioCheck.checked

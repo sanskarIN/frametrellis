@@ -18,6 +18,7 @@ qt_add_qml_module(ft_ui
         qml/controls/DialogButtons.qml
         qml/controls/EmptyState.qml
         qml/controls/FtButton.qml
+        qml/controls/FtCheckBox.qml
         qml/controls/FtProgressBar.qml
         qml/controls/FtSlider.qml
         qml/controls/IconButton.qml

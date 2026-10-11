@@ -12,6 +12,7 @@ target_link_libraries(ft_rendering PUBLIC ft_project PRIVATE ft_compile_options)
 if(FT_BUILD_ENGINE)
     add_library(ft_render_engine STATIC
         render_runner.cpp render_runner.h
+        sample_media.cpp sample_media.h
     )
     target_link_libraries(ft_render_engine
         PUBLIC ft_rendering ft_media

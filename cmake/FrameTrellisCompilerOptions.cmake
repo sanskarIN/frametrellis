@@ -11,7 +11,12 @@ if(MSVC)
 else()
     target_compile_options(ft_compile_options INTERFACE
         -Wall -Wextra -Wpedantic -Wshadow -Wnon-virtual-dtor -Wold-style-cast -Wcast-align
-        -Woverloaded-virtual -Wnull-dereference -Wimplicit-fallthrough)
+        -Woverloaded-virtual -Wimplicit-fallthrough)
+    if(CMAKE_CXX_COMPILER_ID MATCHES "Clang")
+        # GCC reports false positives for this warning inside Qt's inlined container and
+        # global-static code at -O2, so it is only enabled where it is reliable.
+        target_compile_options(ft_compile_options INTERFACE -Wnull-dereference)
+    endif()
     if(FT_WARNINGS_AS_ERRORS)
         target_compile_options(ft_compile_options INTERFACE -Werror)
     endif()

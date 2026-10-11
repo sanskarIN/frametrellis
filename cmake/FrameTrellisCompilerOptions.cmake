@@ -28,3 +28,8 @@ target_compile_definitions(ft_compile_options INTERFACE
     QT_NO_NARROWING_CONVERSIONS_IN_CONNECT
     QT_NO_FOREACH
     QT_DISABLE_DEPRECATED_UP_TO=0x060500)
+
+if(WIN32)
+    # Keep <windows.h> from defining min/max macros and pulling in rarely used headers.
+    target_compile_definitions(ft_compile_options INTERFACE NOMINMAX WIN32_LEAN_AND_MEAN)
+endif()

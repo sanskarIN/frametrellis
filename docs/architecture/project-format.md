@@ -27,7 +27,10 @@ A project is a UTF-8 JSON document. Version 1 looks like this (abridged):
         "clips": [
           { "id": "c1…", "media": "a1…", "start": 0, "in": 30, "duration": 150,
             "gain": 1.0, "muted": false, "fadeIn": 15, "fadeOut": 0,
-            "brightness": 0.0, "contrast": 1.0, "saturation": 1.0, "opacity": 1.0 } ] }
+            "brightness": 0.0, "contrast": 1.0, "saturation": 1.0, "opacity": 1.0 },
+          { "id": "c2…", "media": "a1…", "start": 150, "in": 300, "duration": 90, … } ],
+        "transitions": [
+          { "id": "x1…", "from": "c1…", "to": "c2…", "duration": 24 } ] }
     ]
   }
 }
@@ -39,6 +42,11 @@ A project is a UTF-8 JSON document. Version 1 looks like this (abridged):
   rate**; `duration ≥ 1`. Rational values (`frameRate`) are strings like `"30000/1001"`.
 * Tracks are listed bottom-up for compositing: later video tracks are drawn on top.
 * Clips on a track are sorted by `start` and never overlap.
+* `transitions` is optional. Each entry blends the clip `from` into the clip `to`, which must
+  start exactly where `from` ends. The transition is centred on that cut: `duration / 2` frames
+  (rounded down) before it and the rest after it. `duration ≥ 2`, and both clips need that much
+  media beyond the cut. There is at most one transition per cut, and transitions at the two
+  ends of a clip may not overlap.
 * `relativePath` is relative to the folder containing the project file. When `path` does not
   exist but the relative location does, the relative one is used (projects can be moved
   together with their media).
@@ -53,6 +61,7 @@ Loading treats the document as untrusted input:
 * identifiers must be short alphanumeric strings and unique;
 * every clip must reference an existing media entry, fit inside its source and be compatible
   with its track kind;
+* every transition must connect two touching clips of its track and fit their media;
 * the first problem is reported with its JSON path (for example
   `$.project.tracks[0].clips[3].duration: expected an integer between 1 and 1000000000`).
 

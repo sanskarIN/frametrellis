@@ -299,6 +299,18 @@ QJsonObject toJson(const Project& project, const QString& projectDir)
             clips.append(clipToJson(c));
         }
         o[QLatin1String("clips")] = clips;
+        if (!t.transitions.empty()) {
+            QJsonArray transitions;
+            for (const Transition& tr : t.transitions) {
+                QJsonObject to;
+                to[QLatin1String("id")] = tr.id;
+                to[QLatin1String("from")] = tr.fromClip;
+                to[QLatin1String("to")] = tr.toClip;
+                to[QLatin1String("duration")] = static_cast<double>(tr.duration);
+                transitions.append(to);
+            }
+            o[QLatin1String("transitions")] = transitions;
+        }
         tracks.append(o);
     }
 
@@ -448,6 +460,20 @@ Result<Project> fromJson(const QJsonObject& document, const QString& projectDir)
             p.video.opacity = cr.number(co, "opacity", 0.0, 1.0, 1.0);
             tr.adopt(cr);
             track.clips.push_back(std::move(clip));
+        }
+        // Optional: absent in files without transitions.
+        const QJsonArray transitions = tr.array(o, "transitions", 100'000);
+        for (qsizetype x = 0; x < transitions.size() && !tr.failed(); ++x) {
+            Reader xr(tr.path() + QStringLiteral(".transitions[%1]").arg(x));
+            const QJsonObject xo = transitions.at(x).toObject();
+            Transition transition;
+            transition.id = xr.id(xo, "id");
+            transition.fromClip = xr.id(xo, "from");
+            transition.toClip = xr.id(xo, "to");
+            transition.duration =
+                xr.integer(xo, "duration", kMinTransitionFrames, kMaxTimelineFrames);
+            tr.adopt(xr);
+            track.transitions.push_back(std::move(transition));
         }
         r.adopt(tr);
         tracks.push_back(std::move(track));

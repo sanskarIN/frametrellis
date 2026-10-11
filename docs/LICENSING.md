@@ -61,9 +61,12 @@ GPL and LGPL require you to:
    Windows package, the license files of the bundled libraries.
 2. **Provide the Corresponding Source** for FrameTrellis *and* for every bundled GPL/LGPL library
    (Qt, MLT, FFmpeg and FFmpeg's GPL dependencies such as x264), for the exact versions shipped.
-   For FrameTrellis this is the tagged source in this repository. The release workflow writes a
-   `BUNDLED_COMPONENTS.txt` manifest listing every bundled DLL with its package, version, license
-   and the URL of the corresponding source package, and the release notes point to it.
+   For FrameTrellis this is the tagged source in this repository. Each Windows package contains
+   `BUNDLED_COMPONENTS.txt` (every bundled MSYS2 package with its version and license) and
+   `SOURCES.txt` (the matching MSYS2 source packages). The release workflow downloads those
+   source packages (build recipe, patches and upstream source) and attaches them to the release
+   as `FrameTrellis-<version>-windows-x64-third-party-sources.tar`, so the project itself keeps
+   the Corresponding Source available next to the binaries.
 3. **Allow relinking of LGPL libraries.** Qt and the LGPL parts of MLT/FFmpeg are shipped as
    separate shared libraries (DLLs), so users can replace them. Static linking is not used.
 4. **Not add restrictions.** No DRM, no additional terms, no "non-commercial" conditions.
@@ -93,9 +96,9 @@ distribute FrameTrellis commercially, check the rules that apply in your country
 These points have been considered but would benefit from specialist review before large-scale
 commercial redistribution:
 
-* Whether linking to MSYS2's published source packages satisfies the Corresponding Source
-  obligation for every recipient, or whether the project should mirror those archives itself
-  (GPL-3.0 section 6(d) requires the distributor to ensure the source stays available).
+* Whether the MSYS2 source packages attached to each release are complete for every
+  component. They are what MSYS2 publishes as the source of its binaries, but a component
+  whose recipe fetches additional sources at build time could need extra archives.
 * Patent licensing for H.264/AAC in jurisdictions where those patents are still enforceable.
 
 ## Contributions

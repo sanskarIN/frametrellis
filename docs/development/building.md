@@ -53,8 +53,7 @@ The executables are written to `build/<preset>/bin/`: `frametrellis` (the editor
    ./build/windows-msys2/bin/frametrellis.exe
    ```
 
-To produce a self-contained folder that runs outside MSYS2, use `scripts/package-windows.sh`
-(see [Packaging](#packaging)).
+To produce a self-contained folder that runs outside MSYS2, see [Packaging](#packaging).
 
 ## Linux
 
@@ -139,11 +138,50 @@ CI runs the same formatting, clang-tidy, sanitizer and test steps; see
 
 ## Packaging
 
-* **Windows:** `scripts/package-windows.sh` (run in the MSYS2 UCRT64 shell after building)
-  copies the executables, runs `windeployqt` for Qt, copies the MLT modules and data and every
-  DLL they depend on, adds the license files and writes `BUNDLED_COMPONENTS.txt`.
-* **Linux:** `cmake --install build/linux --prefix <dir>` installs the binaries, the desktop
-  entry and the icon. A portable archive bundling Qt and MLT is planned.
+### Windows
 
-The release workflow ([`.github/workflows/release.yml`](../../.github/workflows/release.yml))
-builds packages only for platforms whose CI is green.
+Build the `windows-msys2-release` preset in the MSYS2 UCRT64 shell (with the `python` package
+installed as well), then assemble the portable folder and ZIP:
+
+```sh
+pacman -S --needed mingw-w64-ucrt-x86_64-python
+cmake --preset windows-msys2-release
+cmake --build --preset windows-msys2-release
+ctest --preset windows-msys2-release
+python packaging/windows/package.py --build-dir build/windows-msys2-release --output dist
+```
+
+[`packaging/windows/package.py`](../../packaging/windows/package.py) copies the executables,
+deploys Qt (libraries, plug-ins and QML modules) with `windeployqt`, adds the MLT modules and
+data, and copies every DLL the binaries depend on, found by reading their import tables. It
+stops if a dependency can be found neither in MSYS2 nor in Windows. Every bundled file is
+attributed to the MSYS2 package that installed it; the script copies those packages' license
+files and writes `BUNDLED_COMPONENTS.txt`, `SOURCES.txt` and an SPDX 2.3 software bill of
+materials (`dist/FrameTrellis-<version>-windows-x64.spdx.json`).
+
+The installer is built from that folder with [Inno Setup](https://jrsoftware.org/isinfo.php) 6:
+
+```powershell
+ISCC.exe /DAppVersion=<version> /DStageDir=dist\FrameTrellis-<version>-windows-x64 `
+  /DOutputDir=dist /DRepoDir=. packaging\windows\frametrellis.iss
+```
+
+[`packaging/windows/verify.ps1`](../../packaging/windows/verify.ps1) checks both packages with
+nothing but Windows on the `PATH`. It runs the engine self-test (`frametrellis-render
+--self-test <folder>`), starts the editor, checks that every loaded library comes from the
+package or from Windows, then installs, tests and uninstalls the installer.
+
+### Linux
+
+`cmake --install build/linux --prefix <dir>` installs the binaries, the desktop entry and the
+icon. A self-contained Linux package (AppImage or Flatpak) is planned. It will be published
+only after it has been verified.
+
+### Automation
+
+The [Windows packages workflow](../../.github/workflows/package-windows.yml) builds the
+packages on every pull request and verifies them on clean Windows Server 2022, Windows
+Server 2025 and Windows 11 (ARM64, x64 emulation) runners. The
+[release workflow](../../.github/workflows/release.yml) runs on version tags. It publishes a
+GitHub release only when every build, test and verification step has passed, and it attaches
+the installer, the portable ZIP, the SBOM, the third-party source archive and `SHA256SUMS.txt`.

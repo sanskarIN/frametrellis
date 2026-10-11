@@ -129,6 +129,7 @@ private slots:
         m_engine = std::make_unique<QQmlApplicationEngine>();
         m_engine->addImageProvider(QStringLiteral("ft-thumbnail"),
                                    m_app->createThumbnailProvider());
+        m_engine->addImageProvider(QStringLiteral("ft-waveform"), m_app->createWaveformProvider());
         m_engine->setInitialProperties({{QStringLiteral("app"), QVariant::fromValue(m_app.get())}});
         QList<QQmlError> errors;
         connect(m_engine.get(), &QQmlEngine::warnings, this,
@@ -196,6 +197,24 @@ private slots:
         m_app->playback()->seek(40);
         QTest::qWait(500);
         screenshot(QStringLiteral("03-timeline"));
+    }
+
+    void audioClipsShowTheirWaveform()
+    {
+        const auto& tracks = m_app->project()->project().timeline().tracks();
+        const auto audio = std::find_if(tracks.begin(), tracks.end(), [](const Track& t) {
+            return t.kind == TrackKind::Audio && !t.clips.empty();
+        });
+        QVERIFY(audio != tracks.end());
+        QQuickItem* clip = clipItem(audio->clips.front().id);
+        QVERIFY(clip);
+        QQuickItem* waveform = findItem(clip, QStringLiteral("waveform"));
+        QVERIFY(waveform);
+        QVERIFY(waveform->isVisible());
+        // Status 1 is Image.Ready: the sound was decoded and the outline drawn.
+        QVERIFY(QTest::qWaitFor([&] { return waveform->property("status").toInt() == 1; }, 20'000));
+        QVERIFY(waveform->property("source").toString().startsWith(
+            QStringLiteral("image://ft-waveform/") + audio->clips.front().assetId));
     }
 
     void draggingAClipMovesIt()

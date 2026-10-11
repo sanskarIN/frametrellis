@@ -12,7 +12,6 @@
 #include <QFileInfo>
 #include <QImageReader>
 #include <QSet>
-
 #include <mlt++/Mlt.h>
 
 #include <climits>
@@ -28,12 +27,12 @@ constexpr int kProbeRate = 1000;
 const QSet<QString>& stillImageCodecs()
 {
     static const QSet<QString> codecs{
-        QStringLiteral("png"),  QStringLiteral("mjpeg"), QStringLiteral("bmp"),
-        QStringLiteral("tiff"), QStringLiteral("webp"),  QStringLiteral("targa"),
-        QStringLiteral("ppm"),  QStringLiteral("pgm"),   QStringLiteral("pam"),
+        QStringLiteral("png"),      QStringLiteral("mjpeg"),  QStringLiteral("bmp"),
+        QStringLiteral("tiff"),     QStringLiteral("webp"),   QStringLiteral("targa"),
+        QStringLiteral("ppm"),      QStringLiteral("pgm"),    QStringLiteral("pam"),
         QStringLiteral("jpeg2000"), QStringLiteral("jpegls"), QStringLiteral("qoi"),
-        QStringLiteral("sgi"),  QStringLiteral("exr"),   QStringLiteral("dpx"),
-        QStringLiteral("gif"),  QStringLiteral("psd"),   QStringLiteral("hdr")};
+        QStringLiteral("sgi"),      QStringLiteral("exr"),    QStringLiteral("dpx"),
+        QStringLiteral("gif"),      QStringLiteral("psd"),    QStringLiteral("hdr")};
     return codecs;
 }
 
@@ -51,31 +50,36 @@ std::unique_ptr<Mlt::Producer> openAvformat(Mlt::Profile& profile, const QString
 
 QString streamProperty(Mlt::Producer& producer, int stream, const char* name)
 {
-    const QByteArray key = QStringLiteral("meta.media.%1.%2").arg(stream).arg(QLatin1String(name)).toUtf8();
+    const QByteArray key =
+        QStringLiteral("meta.media.%1.%2").arg(stream).arg(QLatin1String(name)).toUtf8();
     const char* value = producer.get(key.constData());
     return value ? QString::fromUtf8(value) : QString();
 }
 
 Error unsupported(const QString& filePath, const QString& reason)
 {
-    return makeError(ErrorCode::Media,
-                     QStringLiteral("\"%1\" is not a supported media file.").arg(QFileInfo(filePath).fileName()),
-                     reason);
+    return makeError(
+        ErrorCode::Media,
+        QStringLiteral("\"%1\" is not a supported media file.").arg(QFileInfo(filePath).fileName()),
+        reason);
 }
 
 } // namespace
 
 QStringList importFileSuffixes()
 {
-    return {QStringLiteral("mp4"),  QStringLiteral("m4v"),  QStringLiteral("mov"),  QStringLiteral("mkv"),
-            QStringLiteral("webm"), QStringLiteral("avi"),  QStringLiteral("mts"),  QStringLiteral("m2ts"),
-            QStringLiteral("mpg"),  QStringLiteral("mpeg"), QStringLiteral("ts"),   QStringLiteral("mxf"),
-            QStringLiteral("ogv"),  QStringLiteral("wmv"),  QStringLiteral("flv"),  QStringLiteral("3gp"),
-            QStringLiteral("wav"),  QStringLiteral("mp3"),  QStringLiteral("m4a"),  QStringLiteral("aac"),
-            QStringLiteral("flac"), QStringLiteral("ogg"),  QStringLiteral("opus"), QStringLiteral("aiff"),
-            QStringLiteral("aif"),  QStringLiteral("wma"),  QStringLiteral("png"),  QStringLiteral("jpg"),
-            QStringLiteral("jpeg"), QStringLiteral("bmp"),  QStringLiteral("tif"),  QStringLiteral("tiff"),
-            QStringLiteral("webp"), QStringLiteral("gif"),  QStringLiteral("tga")};
+    return {QStringLiteral("mp4"),  QStringLiteral("m4v"),  QStringLiteral("mov"),
+            QStringLiteral("mkv"),  QStringLiteral("webm"), QStringLiteral("avi"),
+            QStringLiteral("mts"),  QStringLiteral("m2ts"), QStringLiteral("mpg"),
+            QStringLiteral("mpeg"), QStringLiteral("ts"),   QStringLiteral("mxf"),
+            QStringLiteral("ogv"),  QStringLiteral("wmv"),  QStringLiteral("flv"),
+            QStringLiteral("3gp"),  QStringLiteral("wav"),  QStringLiteral("mp3"),
+            QStringLiteral("m4a"),  QStringLiteral("aac"),  QStringLiteral("flac"),
+            QStringLiteral("ogg"),  QStringLiteral("opus"), QStringLiteral("aiff"),
+            QStringLiteral("aif"),  QStringLiteral("wma"),  QStringLiteral("png"),
+            QStringLiteral("jpg"),  QStringLiteral("jpeg"), QStringLiteral("bmp"),
+            QStringLiteral("tif"),  QStringLiteral("tiff"), QStringLiteral("webp"),
+            QStringLiteral("gif"),  QStringLiteral("tga")};
 }
 
 Result<MediaInfo> probeMedia(const QString& filePath)
@@ -85,14 +89,19 @@ Result<MediaInfo> probeMedia(const QString& filePath)
     }
     const QFileInfo fileInfo(filePath);
     if (!fileInfo.exists()) {
-        return makeError(ErrorCode::NotFound,
-                         QStringLiteral("\"%1\" does not exist or was moved.").arg(fileInfo.fileName()), filePath);
+        return makeError(
+            ErrorCode::NotFound,
+            QStringLiteral("\"%1\" does not exist or was moved.").arg(fileInfo.fileName()),
+            filePath);
     }
     if (!fileInfo.isFile()) {
-        return makeError(ErrorCode::InvalidArgument, QStringLiteral("\"%1\" is not a file.").arg(fileInfo.fileName()));
+        return makeError(ErrorCode::InvalidArgument,
+                         QStringLiteral("\"%1\" is not a file.").arg(fileInfo.fileName()));
     }
     if (!fileInfo.isReadable()) {
-        return makeError(ErrorCode::Io, QStringLiteral("\"%1\" cannot be read. Check its permissions.").arg(fileInfo.fileName()));
+        return makeError(ErrorCode::Io,
+                         QStringLiteral("\"%1\" cannot be read. Check its permissions.")
+                             .arg(fileInfo.fileName()));
     }
     if (fileInfo.size() == 0) {
         return unsupported(filePath, QStringLiteral("the file is empty"));
@@ -105,13 +114,16 @@ Result<MediaInfo> probeMedia(const QString& filePath)
         reader.setAutoTransform(true);
         if (reader.canRead() && !(reader.supportsAnimation() && reader.imageCount() > 1)) {
             QString reason;
-            const QImage check = engine::loadStillImage(fileInfo.absoluteFilePath(), QSize(64, 64), &reason);
+            const QImage check =
+                engine::loadStillImage(fileInfo.absoluteFilePath(), QSize(64, 64), &reason);
             QSize size = reader.size();
             if (reader.transformation() & QImageIOHandler::TransformationRotate90) {
                 size.transpose();
             }
             if (check.isNull() || !size.isValid()) {
-                return unsupported(filePath, reason.isEmpty() ? QStringLiteral("the image could not be decoded") : reason);
+                return unsupported(filePath, reason.isEmpty()
+                                                 ? QStringLiteral("the image could not be decoded")
+                                                 : reason);
             }
             MediaInfo image;
             image.kind = MediaKind::Image;
@@ -126,7 +138,8 @@ Result<MediaInfo> probeMedia(const QString& filePath)
         }
     }
 
-    std::unique_ptr<Mlt::Profile> profile = engine::createProfile(640, 360, *FrameRate::create(kProbeRate, 1));
+    std::unique_ptr<Mlt::Profile> profile =
+        engine::createProfile(640, 360, *FrameRate::create(kProbeRate, 1));
     std::unique_ptr<Mlt::Producer> producer = openAvformat(*profile, fileInfo.absoluteFilePath());
     if (!producer) {
         return unsupported(filePath, QStringLiteral("FFmpeg could not open the file"));
@@ -181,11 +194,14 @@ Result<MediaInfo> probeMedia(const QString& filePath)
     const int length = producer->get_length();
     const bool unbounded = length <= 0 || length >= INT_MAX - 1;
     if (info.hasVideo && stillCodec && unbounded) {
-        return unsupported(filePath, QStringLiteral("images in this format cannot be decoded; supported image formats are %1")
-                                         .arg(engine::stillImageFormats().join(QStringLiteral(", "))));
+        return unsupported(
+            filePath, QStringLiteral(
+                          "images in this format cannot be decoded; supported image formats are %1")
+                          .arg(engine::stillImageFormats().join(QStringLiteral(", "))));
     }
     if (unbounded) {
-        return unsupported(filePath, QStringLiteral("the duration is unknown (live or damaged stream)"));
+        return unsupported(filePath,
+                           QStringLiteral("the duration is unknown (live or damaged stream)"));
     } else {
         info.kind = info.hasVideo ? MediaKind::Video : MediaKind::Audio;
         info.durationUs = static_cast<std::int64_t>(length) * (1'000'000 / kProbeRate);
@@ -194,7 +210,9 @@ Result<MediaInfo> probeMedia(const QString& filePath)
     if (info.hasVideo) {
         const QImage probeImage = engine::frameToImage(*frame, QSize(64, 36));
         if (probeImage.isNull()) {
-            return unsupported(filePath, QStringLiteral("the video codec \"%1\" could not be decoded").arg(info.videoCodec));
+            return unsupported(
+                filePath,
+                QStringLiteral("the video codec \"%1\" could not be decoded").arg(info.videoCodec));
         }
         info.width = producer->get_int("meta.media.width");
         info.height = producer->get_int("meta.media.height");
@@ -207,11 +225,13 @@ Result<MediaInfo> probeMedia(const QString& filePath)
     } else {
         const engine::AudioBlock audio = engine::frameToAudio(*frame, kProbeRate, 48000, 2, 0);
         if (audio.samples.empty()) {
-            return unsupported(filePath, QStringLiteral("the audio codec \"%1\" could not be decoded").arg(info.audioCodec));
+            return unsupported(
+                filePath,
+                QStringLiteral("the audio codec \"%1\" could not be decoded").arg(info.audioCodec));
         }
     }
-    qCDebug(lcMedia) << "Probed" << filePath << mediaKindToString(info.kind) << info.durationUs << "us"
-                     << info.width << "x" << info.height;
+    qCDebug(lcMedia) << "Probed" << filePath << mediaKindToString(info.kind) << info.durationUs
+                     << "us" << info.width << "x" << info.height;
     return info;
 }
 
@@ -240,14 +260,18 @@ Result<QImage> renderThumbnail(const QString& filePath, const MediaInfo& info, Q
         QString reason;
         QImage image = engine::loadStillImage(filePath, size, &reason);
         if (image.isNull()) {
-            return makeError(ErrorCode::Media, QStringLiteral("Could not decode a thumbnail."), reason);
+            return makeError(ErrorCode::Media, QStringLiteral("Could not decode a thumbnail."),
+                             reason);
         }
-        return image.scaled(size, Qt::KeepAspectRatio, Qt::SmoothTransformation).convertToFormat(QImage::Format_RGBA8888);
+        return image.scaled(size, Qt::KeepAspectRatio, Qt::SmoothTransformation)
+            .convertToFormat(QImage::Format_RGBA8888);
     }
-    std::unique_ptr<Mlt::Profile> profile = engine::createProfile(size.width(), size.height(), *FrameRate::create(kProbeRate, 1));
+    std::unique_ptr<Mlt::Profile> profile =
+        engine::createProfile(size.width(), size.height(), *FrameRate::create(kProbeRate, 1));
     std::unique_ptr<Mlt::Producer> producer = openAvformat(*profile, filePath);
     if (!producer) {
-        return makeError(ErrorCode::Media, QStringLiteral("Could not open the file for a thumbnail."));
+        return makeError(ErrorCode::Media,
+                         QStringLiteral("Could not open the file for a thumbnail."));
     }
     // Pick a frame a little into the clip, which is more representative than a fade from black.
     int position = 0;

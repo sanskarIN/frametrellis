@@ -6,7 +6,6 @@
 
 #ifdef FT_HAVE_SDL2
 #include <SDL.h>
-
 #include <mutex>
 #endif
 
@@ -69,7 +68,8 @@ public:
         m_channels = channels;
         m_name = QString::fromUtf8(SDL_GetCurrentAudioDriver());
         SDL_PauseAudioDevice(m_device, 0);
-        qCInfo(lcPlayback) << "Audio output opened:" << m_name << frequency << "Hz" << channels << "ch";
+        qCInfo(lcPlayback) << "Audio output opened:" << m_name << frequency << "Hz" << channels
+                           << "ch";
         return true;
     }
 
@@ -92,7 +92,8 @@ public:
         if (m_device == 0 || sampleFrames <= 0) {
             return;
         }
-        const auto bytes = static_cast<Uint32>(sampleFrames * m_channels * static_cast<int>(sizeof(std::int16_t)));
+        const auto bytes =
+            static_cast<Uint32>(sampleFrames * m_channels * static_cast<int>(sizeof(std::int16_t)));
         if (SDL_QueueAudio(m_device, samples, bytes) != 0) {
             qCWarning(lcPlayback) << "Audio queue error:" << SDL_GetError();
         }
@@ -103,7 +104,8 @@ public:
         if (m_device == 0 || m_channels == 0) {
             return 0;
         }
-        return SDL_GetQueuedAudioSize(m_device) / (static_cast<Uint32>(m_channels) * sizeof(std::int16_t));
+        return SDL_GetQueuedAudioSize(m_device) /
+               (static_cast<Uint32>(m_channels) * sizeof(std::int16_t));
     }
 
     void clear() override

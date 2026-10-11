@@ -33,8 +33,8 @@ namespace {
 class ThumbnailResponse : public QQuickImageResponse, public QRunnable
 {
 public:
-    ThumbnailResponse(std::optional<ThumbnailRegistry::Entry> entry, std::shared_ptr<media::ThumbnailCache> cache,
-                      QSize size)
+    ThumbnailResponse(std::optional<ThumbnailRegistry::Entry> entry,
+                      std::shared_ptr<media::ThumbnailCache> cache, QSize size)
         : m_entry(std::move(entry))
         , m_cache(std::move(cache))
         , m_size(size)
@@ -73,13 +73,14 @@ ThumbnailProvider::ThumbnailProvider(std::shared_ptr<ThumbnailRegistry> registry
                                      std::shared_ptr<media::ThumbnailCache> cache)
     : m_registry(std::move(registry))
     , m_cache(std::move(cache))
-{
-}
+{}
 
-QQuickImageResponse* ThumbnailProvider::requestImageResponse(const QString& id, const QSize& requestedSize)
+QQuickImageResponse* ThumbnailProvider::requestImageResponse(const QString& id,
+                                                             const QSize& requestedSize)
 {
     const QString assetId = id.section(QLatin1Char('?'), 0, 0);
-    const QSize size = requestedSize.isValid() && !requestedSize.isEmpty() ? requestedSize : QSize(192, 108);
+    const QSize size =
+        requestedSize.isValid() && !requestedSize.isEmpty() ? requestedSize : QSize(192, 108);
     auto* response = new ThumbnailResponse(m_registry->find(assetId), m_cache, size);
     QThreadPool::globalInstance()->start(response);
     return response;

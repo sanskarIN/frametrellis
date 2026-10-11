@@ -33,6 +33,7 @@ struct AudioBlock
 };
 
 /// Renders the audio belonging to one video frame at the given position.
-AudioBlock frameToAudio(Mlt::Frame& frame, double fps, int frequency, int channels, std::int64_t position);
+AudioBlock frameToAudio(Mlt::Frame& frame, double fps, int frequency, int channels,
+                        std::int64_t position);
 
 } // namespace ft::engine

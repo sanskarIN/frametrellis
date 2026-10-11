@@ -72,7 +72,10 @@ private:
         return findItem(m_window->contentItem(), QStringLiteral("clip:") + clipId);
     }
 
-    const Track& track(int projectIndex) const { return m_app->project()->project().timeline().tracks()[static_cast<size_t>(projectIndex)]; }
+    const Track& track(int projectIndex) const
+    {
+        return m_app->project()->project().timeline().tracks()[static_cast<size_t>(projectIndex)];
+    }
 
     QPoint centreOf(QQuickItem* item) const
     {
@@ -99,7 +102,8 @@ private slots:
         QVERIFY(m_dir.isValid());
         // Keep settings (recent projects, first-run flag, theme) out of the user's real profile.
         QSettings::setDefaultFormat(QSettings::IniFormat);
-        QSettings::setPath(QSettings::IniFormat, QSettings::UserScope, m_dir.filePath(QStringLiteral("settings")));
+        QSettings::setPath(QSettings::IniFormat, QSettings::UserScope,
+                           m_dir.filePath(QStringLiteral("settings")));
         const Status engine = engine::MltRuntime::initialize();
         QVERIFY(engine);
 
@@ -109,10 +113,13 @@ private slots:
         } else {
             VideoSpec spec;
             spec.size = QSize(320, 180);
-            spec.segmentColors = {QColor(QStringLiteral("#1f7a8c")), QColor(QStringLiteral("#e09f3e")), QColor(QStringLiteral("#540b0e")), QColor(QStringLiteral("#335c67"))};
+            spec.segmentColors = {
+                QColor(QStringLiteral("#1f7a8c")), QColor(QStringLiteral("#e09f3e")),
+                QColor(QStringLiteral("#540b0e")), QColor(QStringLiteral("#335c67"))};
             m_media << makeVideo(m_dir.path(), QStringLiteral("harbour.mp4"), spec);
             m_media << makeTone(m_dir.path(), QStringLiteral("ambience.wav"), 6.0, 220.0);
-            m_media << makeStill(m_dir.path(), QStringLiteral("title-card.png"), QColor(QStringLiteral("#8592fb")), QSize(320, 180));
+            m_media << makeStill(m_dir.path(), QStringLiteral("title-card.png"),
+                                 QColor(QStringLiteral("#8592fb")), QSize(320, 180));
         }
         for (const QString& path : std::as_const(m_media)) {
             QVERIFY2(QFileInfo::exists(path), qPrintable(path));
@@ -120,10 +127,12 @@ private slots:
 
         m_app = std::make_unique<ui::AppController>(engine, QStringLiteral(FT_RENDER_HELPER));
         m_engine = std::make_unique<QQmlApplicationEngine>();
-        m_engine->addImageProvider(QStringLiteral("ft-thumbnail"), m_app->createThumbnailProvider());
+        m_engine->addImageProvider(QStringLiteral("ft-thumbnail"),
+                                   m_app->createThumbnailProvider());
         m_engine->setInitialProperties({{QStringLiteral("app"), QVariant::fromValue(m_app.get())}});
         QList<QQmlError> errors;
-        connect(m_engine.get(), &QQmlEngine::warnings, this, [&errors](const QList<QQmlError>& w) { errors << w; });
+        connect(m_engine.get(), &QQmlEngine::warnings, this,
+                [&errors](const QList<QQmlError>& w) { errors << w; });
         m_engine->loadFromModule("FrameTrellis", "Main");
         QVERIFY(!m_engine->rootObjects().isEmpty());
         m_window = qobject_cast<QQuickWindow*>(m_engine->rootObjects().first());
@@ -173,12 +182,16 @@ private slots:
         // The first tile sits at the top-left of the grid.
         const QPoint tile = grid->mapToScene(QPointF(60, 60)).toPoint();
         QTest::mouseDClick(m_window, Qt::LeftButton, Qt::NoModifier, tile);
-        QVERIFY(QTest::qWaitFor([&] { return m_app->project()->project().timeline().clipCount() == before + 1; }, 3000));
+        QVERIFY(QTest::qWaitFor(
+            [&] { return m_app->project()->project().timeline().clipCount() == before + 1; },
+            3000));
         // Append the remaining media through the same action.
         for (int row = 1; row < m_app->media()->model()->rowCount(); ++row) {
-            QVERIFY(m_app->timeline()->appendAsset(m_app->media()->model()->get(row).value(QStringLiteral("assetId")).toString()));
+            QVERIFY(m_app->timeline()->appendAsset(
+                m_app->media()->model()->get(row).value(QStringLiteral("assetId")).toString()));
         }
-        QCOMPARE(m_app->project()->project().timeline().clipCount(), before + m_app->media()->model()->rowCount());
+        QCOMPARE(m_app->project()->project().timeline().clipCount(),
+                 before + m_app->media()->model()->rowCount());
         m_app->timeline()->zoomToFit(1200);
         m_app->playback()->seek(40);
         QTest::qWait(500);
@@ -204,12 +217,15 @@ private slots:
         const Clip* moved = m_app->project()->project().timeline().clip(original.id);
         QVERIFY(moved);
         QVERIFY2(std::abs(moved->start - (original.start + frames)) <= 1,
-                 qPrintable(QStringLiteral("start %1, expected about %2").arg(moved->start).arg(original.start + frames)));
+                 qPrintable(QStringLiteral("start %1, expected about %2")
+                                .arg(moved->start)
+                                .arg(original.start + frames)));
         QCOMPARE(m_app->project()->undoText(), QStringLiteral("Move Clip"));
 
         // Drag it back to where it started.
         drag(centreOf(item), centreOf(item) - QPoint(qRound(frames * ppf), 0));
-        QVERIFY(std::abs(m_app->project()->project().timeline().clip(original.id)->start - original.start) <= 1);
+        QVERIFY(std::abs(m_app->project()->project().timeline().clip(original.id)->start -
+                         original.start) <= 1);
         m_app->timeline()->setSnapping(true);
     }
 
@@ -219,14 +235,16 @@ private slots:
         // to drag it back over the video: the move must be refused and nothing may change.
         const Id stillId = track(1).clips.front().id;
         const Clip video = track(0).clips.front();
-        QVERIFY(m_app->timeline()->moveClip(stillId, track(0).id, static_cast<double>(video.end() + 10)));
+        QVERIFY(m_app->timeline()->moveClip(stillId, track(0).id,
+                                            static_cast<double>(video.end() + 10)));
         QTest::qWait(100);
         const Clip still = *m_app->project()->project().timeline().clip(stillId);
         QQuickItem* item = clipItem(stillId);
         QVERIFY(item);
         const double ppf = m_app->timeline()->pixelsPerFrame();
         const QString undoBefore = m_app->project()->undoText();
-        drag(centreOf(item), centreOf(item) - QPoint(qRound((still.start - video.start - 5) * ppf), 0));
+        drag(centreOf(item),
+             centreOf(item) - QPoint(qRound((still.start - video.start - 5) * ppf), 0));
         QCOMPARE(m_app->project()->project().timeline().clip(stillId)->start, still.start);
         QCOMPARE(m_app->project()->undoText(), undoBefore);
         // Put it back on V2 for the following tests.
@@ -240,7 +258,8 @@ private slots:
         QVERIFY(item);
         const double ppf = m_app->timeline()->pixelsPerFrame();
         m_app->timeline()->setSnapping(false);
-        const QPoint edge = item->mapToScene(QPointF(item->width() - 2, item->height() / 2)).toPoint();
+        const QPoint edge =
+            item->mapToScene(QPointF(item->width() - 2, item->height() / 2)).toPoint();
         drag(edge, edge - QPoint(qRound(20 * ppf), 0));
         const Clip* trimmed = m_app->project()->project().timeline().clip(clip.id);
         QVERIFY(std::abs(trimmed->duration - (clip.duration - 20)) <= 1);
@@ -266,23 +285,34 @@ private slots:
         const int before = m_app->project()->project().timeline().clipCount();
         m_window->requestActivate();
         QTest::keyClick(m_window, Qt::Key_S);
-        QVERIFY(QTest::qWaitFor([&] { return m_app->project()->project().timeline().clipCount() == before + spanning; }, 2000));
+        QVERIFY(QTest::qWaitFor(
+            [&] { return m_app->project()->project().timeline().clipCount() == before + spanning; },
+            2000));
         QTest::keyClick(m_window, Qt::Key_Z, Qt::ControlModifier);
-        QVERIFY(QTest::qWaitFor([&] { return m_app->project()->project().timeline().clipCount() == before; }, 2000));
+        QVERIFY(QTest::qWaitFor(
+            [&] { return m_app->project()->project().timeline().clipCount() == before; }, 2000));
         QTest::keyClick(m_window, Qt::Key_Z, Qt::ControlModifier | Qt::ShiftModifier);
-        QVERIFY(QTest::qWaitFor([&] { return m_app->project()->project().timeline().clipCount() == before + spanning; }, 2000));
+        QVERIFY(QTest::qWaitFor(
+            [&] { return m_app->project()->project().timeline().clipCount() == before + spanning; },
+            2000));
         const int afterSplit = before + spanning;
 
         // Click a clip to select it, then delete it with the keyboard.
         QQuickItem* item = clipItem(track(0).clips.front().id);
         QVERIFY(item);
-        QTest::mouseClick(m_window, Qt::LeftButton, Qt::NoModifier, item->mapToScene(QPointF(item->width() / 2, item->height() - 6)).toPoint());
+        QTest::mouseClick(
+            m_window, Qt::LeftButton, Qt::NoModifier,
+            item->mapToScene(QPointF(item->width() / 2, item->height() - 6)).toPoint());
         QCOMPARE(m_app->timeline()->selection().size(), 1);
         screenshot(QStringLiteral("04-clip-selected"));
         QTest::keyClick(m_window, Qt::Key_Delete);
-        QVERIFY(QTest::qWaitFor([&] { return m_app->project()->project().timeline().clipCount() == afterSplit - 1; }, 2000));
+        QVERIFY(QTest::qWaitFor(
+            [&] { return m_app->project()->project().timeline().clipCount() == afterSplit - 1; },
+            2000));
         QTest::keyClick(m_window, Qt::Key_Z, Qt::ControlModifier);
-        QVERIFY(QTest::qWaitFor([&] { return m_app->project()->project().timeline().clipCount() == afterSplit; }, 2000));
+        QVERIFY(QTest::qWaitFor(
+            [&] { return m_app->project()->project().timeline().clipCount() == afterSplit; },
+            2000));
     }
 
     void spaceTogglesPlayback()
@@ -305,9 +335,10 @@ private slots:
         dialog->setProperty("outputPath", m_dir.filePath(QStringLiteral("gui-export.mp4")));
         QTest::qWait(200);
         screenshot(QStringLiteral("05-export-dialog"));
-        QVariantMap settings{{QStringLiteral("presetId"), QStringLiteral("draft")},
-                             {QStringLiteral("outputPath"), m_dir.filePath(QStringLiteral("gui-export.mp4"))},
-                             {QStringLiteral("speedPreset"), QStringLiteral("ultrafast")}};
+        QVariantMap settings{
+            {QStringLiteral("presetId"), QStringLiteral("draft")},
+            {QStringLiteral("outputPath"), m_dir.filePath(QStringLiteral("gui-export.mp4"))},
+            {QStringLiteral("speedPreset"), QStringLiteral("ultrafast")}};
         QCOMPARE(m_app->exporter()->validate(settings), QString());
         QSignalSpy finished(m_app->exporter(), &ui::ExportController::finished);
         QVERIFY(m_app->exporter()->start(settings));

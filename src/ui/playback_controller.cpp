@@ -20,23 +20,28 @@ PlaybackController::PlaybackController(ProjectController* project, QObject* pare
         syncNow();
         m_engine.seek(0);
     });
-    connect(&m_engine, &playback::PlaybackEngine::frameReady, this, [this](const QImage& image, FrameCount position) {
-        m_frame = image;
-        emit frameReady();
-        if (position != m_position) {
-            m_position = position;
-            emit positionChanged();
-        }
-    });
-    connect(&m_engine, &playback::PlaybackEngine::durationChanged, this, &PlaybackController::durationChanged);
-    connect(&m_engine, &playback::PlaybackEngine::playingChanged, this, &PlaybackController::playingChanged);
-    connect(&m_engine, &playback::PlaybackEngine::errorOccurred, this, &PlaybackController::errorOccurred);
-    connect(&m_engine, &playback::PlaybackEngine::warningsChanged, this, [this](const QStringList& warnings) {
-        if (warnings != m_warnings) {
-            m_warnings = warnings;
-            emit warningsChanged();
-        }
-    });
+    connect(&m_engine, &playback::PlaybackEngine::frameReady, this,
+            [this](const QImage& image, FrameCount position) {
+                m_frame = image;
+                emit frameReady();
+                if (position != m_position) {
+                    m_position = position;
+                    emit positionChanged();
+                }
+            });
+    connect(&m_engine, &playback::PlaybackEngine::durationChanged, this,
+            &PlaybackController::durationChanged);
+    connect(&m_engine, &playback::PlaybackEngine::playingChanged, this,
+            &PlaybackController::playingChanged);
+    connect(&m_engine, &playback::PlaybackEngine::errorOccurred, this,
+            &PlaybackController::errorOccurred);
+    connect(&m_engine, &playback::PlaybackEngine::warningsChanged, this,
+            [this](const QStringList& warnings) {
+                if (warnings != m_warnings) {
+                    m_warnings = warnings;
+                    emit warningsChanged();
+                }
+            });
     // The engine opens the audio device on its worker thread; report the outcome once known.
     QTimer::singleShot(500, this, &PlaybackController::audioAvailableChanged);
     syncNow();
@@ -120,7 +125,8 @@ void PlaybackController::goToStart()
 
 void PlaybackController::goToEnd()
 {
-    seek(static_cast<double>(std::max<FrameCount>(m_project->project().timeline().duration() - 1, 0)));
+    seek(static_cast<double>(
+        std::max<FrameCount>(m_project->project().timeline().duration() - 1, 0)));
 }
 
 void PlaybackController::setPreviewSize(int width, int height)

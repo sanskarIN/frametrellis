@@ -8,7 +8,9 @@
 
 namespace ft {
 
-CommandHistory::CommandHistory(int limit) : m_limit(std::max(1, limit)) {}
+CommandHistory::CommandHistory(int limit)
+    : m_limit(std::max(1, limit))
+{}
 
 Result<ChangeSet> CommandHistory::execute(std::unique_ptr<EditCommand> command, Project& project)
 {

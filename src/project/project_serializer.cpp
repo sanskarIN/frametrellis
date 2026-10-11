@@ -69,7 +69,9 @@ QJsonObject clipToJson(const Clip& c)
 class Reader
 {
 public:
-    explicit Reader(QString path) : m_path(std::move(path)) {}
+    explicit Reader(QString path)
+        : m_path(std::move(path))
+    {}
 
     [[nodiscard]] bool failed() const { return m_error.has_value(); }
     [[nodiscard]] Error error() const { return m_error.value_or(Error{}); }
@@ -123,9 +125,10 @@ public:
             return *fallback;
         }
         const double d = v.toDouble(std::numeric_limits<double>::quiet_NaN());
-        if (!v.isDouble() || !std::isfinite(d) || std::trunc(d) != d || d < static_cast<double>(min)
-            || d > static_cast<double>(max)) {
-            fail(QLatin1String(key), QStringLiteral("expected an integer between %1 and %2").arg(min).arg(max));
+        if (!v.isDouble() || !std::isfinite(d) || std::trunc(d) != d ||
+            d < static_cast<double>(min) || d > static_cast<double>(max)) {
+            fail(QLatin1String(key),
+                 QStringLiteral("expected an integer between %1 and %2").arg(min).arg(max));
             return min;
         }
         return static_cast<std::int64_t>(d);
@@ -139,7 +142,8 @@ public:
         }
         const double d = v.toDouble(std::numeric_limits<double>::quiet_NaN());
         if (!v.isDouble() || !std::isfinite(d) || d < min || d > max) {
-            fail(QLatin1String(key), QStringLiteral("expected a number between %1 and %2").arg(min).arg(max));
+            fail(QLatin1String(key),
+                 QStringLiteral("expected a number between %1 and %2").arg(min).arg(max));
             return fallback;
         }
         return d;
@@ -309,8 +313,8 @@ QJsonObject toJson(const Project& project, const QString& projectDir)
     QJsonObject root;
     root[QLatin1String("format")] = QLatin1String(kFormatName);
     root[QLatin1String("version")] = kCurrentVersion;
-    root[QLatin1String("generator")] =
-        QStringLiteral("%1 %2").arg(QLatin1String(version::applicationName), QLatin1String(version::string));
+    root[QLatin1String("generator")] = QStringLiteral("%1 %2").arg(
+        QLatin1String(version::applicationName), QLatin1String(version::string));
     root[QLatin1String("project")] = body;
     return root;
 }
@@ -456,7 +460,8 @@ Result<Project> fromJson(const QJsonObject& document, const QString& projectDir)
     if (const Status valid = project.validate(); !valid) {
         Error error = valid.error();
         error.code = ErrorCode::InvalidDocument;
-        error.detail = error.detail.isEmpty() ? error.message : error.detail + QStringLiteral(": ") + error.message;
+        error.detail = error.detail.isEmpty() ? error.message
+                                              : error.detail + QStringLiteral(": ") + error.message;
         error.message = QStringLiteral("The project file is damaged or invalid.");
         return error;
     }
@@ -471,13 +476,15 @@ QByteArray toBytes(const Project& project, const QString& projectDir)
 Result<Project> fromBytes(const QByteArray& data, const QString& projectDir)
 {
     if (data.size() > kMaxDocumentBytes) {
-        return makeError(ErrorCode::InvalidDocument, QStringLiteral("The project file is too large."));
+        return makeError(ErrorCode::InvalidDocument,
+                         QStringLiteral("The project file is too large."));
     }
     QJsonParseError parseError;
     const QJsonDocument document = QJsonDocument::fromJson(data, &parseError);
     if (parseError.error != QJsonParseError::NoError) {
-        return makeError(ErrorCode::Parse, QStringLiteral("The project file could not be read."),
-                         QStringLiteral("%1 at offset %2").arg(parseError.errorString()).arg(parseError.offset));
+        return makeError(
+            ErrorCode::Parse, QStringLiteral("The project file could not be read."),
+            QStringLiteral("%1 at offset %2").arg(parseError.errorString()).arg(parseError.offset));
     }
     if (!document.isObject()) {
         return makeError(ErrorCode::InvalidDocument,
@@ -503,9 +510,10 @@ Status saveToFile(const Project& project, const QString& filePath)
                          QStringLiteral("%1: %2").arg(filePath, reason));
     }
     if (!file.commit()) {
-        return makeError(ErrorCode::Io,
-                         QStringLiteral("Saving failed. The previous version of the file was kept."),
-                         QStringLiteral("%1: %2").arg(filePath, file.errorString()));
+        return makeError(
+            ErrorCode::Io,
+            QStringLiteral("Saving failed. The previous version of the file was kept."),
+            QStringLiteral("%1: %2").arg(filePath, file.errorString()));
     }
     qCInfo(lcProject) << "Saved project to" << filePath;
     return {};
@@ -515,10 +523,12 @@ Result<Project> loadFromFile(const QString& filePath)
 {
     QFile file(filePath);
     if (!file.exists()) {
-        return makeError(ErrorCode::NotFound, QStringLiteral("The project file does not exist."), filePath);
+        return makeError(ErrorCode::NotFound, QStringLiteral("The project file does not exist."),
+                         filePath);
     }
     if (file.size() > kMaxDocumentBytes) {
-        return makeError(ErrorCode::InvalidDocument, QStringLiteral("The project file is too large."), filePath);
+        return makeError(ErrorCode::InvalidDocument,
+                         QStringLiteral("The project file is too large."), filePath);
     }
     if (!file.open(QIODevice::ReadOnly)) {
         return makeError(ErrorCode::Io, QStringLiteral("The project file could not be opened."),

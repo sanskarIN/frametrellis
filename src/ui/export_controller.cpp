@@ -19,13 +19,19 @@ namespace {
 QString formatMillis(qint64 ms)
 {
     const qint64 seconds = ms / 1000;
-    return seconds >= 3600 ? QStringLiteral("%1:%2:%3").arg(seconds / 3600).arg((seconds / 60) % 60, 2, 10, QLatin1Char('0')).arg(seconds % 60, 2, 10, QLatin1Char('0'))
-                           : QStringLiteral("%1:%2").arg(seconds / 60).arg(seconds % 60, 2, 10, QLatin1Char('0'));
+    return seconds >= 3600 ? QStringLiteral("%1:%2:%3")
+                                 .arg(seconds / 3600)
+                                 .arg((seconds / 60) % 60, 2, 10, QLatin1Char('0'))
+                                 .arg(seconds % 60, 2, 10, QLatin1Char('0'))
+                           : QStringLiteral("%1:%2")
+                                 .arg(seconds / 60)
+                                 .arg(seconds % 60, 2, 10, QLatin1Char('0'));
 }
 
 } // namespace
 
-ExportController::ExportController(ProjectController* project, QString helperProgram, QObject* parent)
+ExportController::ExportController(ProjectController* project, QString helperProgram,
+                                   QObject* parent)
     : QObject(parent)
     , m_project(project)
     , m_helperProgram(std::move(helperProgram))
@@ -62,7 +68,8 @@ QString ExportController::state() const
 
 bool ExportController::busy() const
 {
-    return m_job && !RenderJob::isFinished(m_job->state()) && m_job->state() != RenderJob::State::Idle;
+    return m_job && !RenderJob::isFinished(m_job->state()) &&
+           m_job->state() != RenderJob::State::Idle;
 }
 
 double ExportController::progress() const
@@ -83,7 +90,9 @@ QString ExportController::progressText() const
         const qint64 remaining = m_job->remainingMilliseconds();
         return QStringLiteral("%1% · %2 elapsed%3")
             .arg(qRound(m_job->progress() * 100))
-            .arg(elapsed, remaining >= 0 ? QStringLiteral(" · about %1 left").arg(formatMillis(remaining)) : QString());
+            .arg(elapsed, remaining >= 0
+                              ? QStringLiteral(" · about %1 left").arg(formatMillis(remaining))
+                              : QString());
     }
     case RenderJob::State::Cancelling:
         return QStringLiteral("Cancelling…");
@@ -142,7 +151,8 @@ QStringList ExportController::speedPresets() const
 rendering::ExportSettings ExportController::toSettings(const QVariantMap& map) const
 {
     rendering::ExportSettings s;
-    const QString presetId = map.value(QStringLiteral("presetId"), QStringLiteral("match")).toString();
+    const QString presetId =
+        map.value(QStringLiteral("presetId"), QStringLiteral("match")).toString();
     for (const rendering::ExportPreset& preset : rendering::exportPresets()) {
         if (preset.id == presetId) {
             s = rendering::applyPreset(preset, {});
@@ -166,7 +176,8 @@ rendering::ExportSettings ExportController::toSettings(const QVariantMap& map) c
 
 QString ExportController::validate(const QVariantMap& settings) const
 {
-    const Status valid = rendering::validateExport(toSettings(settings), m_project->project(), m_project->filePath());
+    const Status valid = rendering::validateExport(toSettings(settings), m_project->project(),
+                                                   m_project->filePath());
     return valid ? QString() : valid.error().message;
 }
 
@@ -178,7 +189,8 @@ QString ExportController::describeOutput(const QVariantMap& settings) const
         .arg(size.width())
         .arg(size.height())
         .arg(m_project->project().settings().frameRate.displayName(),
-             s.includeAudio ? QStringLiteral("AAC %1 kbit/s").arg(s.audioBitrateKbps) : QStringLiteral("no audio"));
+             s.includeAudio ? QStringLiteral("AAC %1 kbit/s").arg(s.audioBitrateKbps)
+                            : QStringLiteral("no audio"));
 }
 
 bool ExportController::start(const QVariantMap& settings)
@@ -191,15 +203,18 @@ bool ExportController::start(const QVariantMap& settings)
         if (RenderJob::isFinished(state)) {
             m_tick.stop();
             const bool ok = state == RenderJob::State::Succeeded;
-            emit finished(ok, ok ? QStringLiteral("Export finished: %1").arg(QFileInfo(outputPath()).fileName())
-                          : state == RenderJob::State::Cancelled ? QStringLiteral("Export cancelled.")
-                                                                 : errorMessage());
+            emit finished(
+                ok,
+                ok ? QStringLiteral("Export finished: %1").arg(QFileInfo(outputPath()).fileName())
+                : state == RenderJob::State::Cancelled ? QStringLiteral("Export cancelled.")
+                                                       : errorMessage());
         }
         emit stateChanged();
         emit progressChanged();
     });
     connect(job.get(), &RenderJob::progressChanged, this, &ExportController::progressChanged);
-    const Status started = job->start(m_project->project(), toSettings(settings), m_project->filePath());
+    const Status started =
+        job->start(m_project->project(), toSettings(settings), m_project->filePath());
     if (!started) {
         emit finished(false, started.error().message);
         return false;
@@ -229,8 +244,9 @@ void ExportController::reset()
 
 QString ExportController::suggestedOutputPath() const
 {
-    QString folder = m_project->hasFilePath() ? QFileInfo(m_project->filePath()).absolutePath()
-                                              : QStandardPaths::writableLocation(QStandardPaths::MoviesLocation);
+    QString folder = m_project->hasFilePath()
+                         ? QFileInfo(m_project->filePath()).absolutePath()
+                         : QStandardPaths::writableLocation(QStandardPaths::MoviesLocation);
     if (folder.isEmpty()) {
         folder = QDir::homePath();
     }

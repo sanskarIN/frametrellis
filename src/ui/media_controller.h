@@ -28,7 +28,8 @@ class MediaController : public QObject
     Q_PROPERTY(QStringList nameFilters READ nameFilters CONSTANT)
 
 public:
-    MediaController(ProjectController* project, std::shared_ptr<ThumbnailRegistry> registry, QObject* parent = nullptr);
+    MediaController(ProjectController* project, std::shared_ptr<ThumbnailRegistry> registry,
+                    QObject* parent = nullptr);
 
     [[nodiscard]] MediaBinModel* model() { return &m_model; }
     [[nodiscard]] bool importing() const { return m_importer.pendingCount() > 0; }
@@ -51,7 +52,8 @@ signals:
 
 private:
     void refresh();
-    void onImported(const std::vector<MediaAsset>& assets, const QList<media::MediaImporter::Failure>& failures);
+    void onImported(const std::vector<MediaAsset>& assets,
+                    const QList<media::MediaImporter::Failure>& failures);
 
     ProjectController* m_project;
     std::shared_ptr<ThumbnailRegistry> m_registry;

@@ -18,12 +18,14 @@ constexpr double kZoomStep = 1.4;
 constexpr int kStillSeconds = 5;
 } // namespace
 
-TimelineController::TimelineController(ProjectController* project, PlaybackController* playback, QObject* parent)
+TimelineController::TimelineController(ProjectController* project, PlaybackController* playback,
+                                       QObject* parent)
     : QObject(parent)
     , m_project(project)
     , m_playback(playback)
 {
-    connect(m_project, &ProjectController::projectChanged, this, &TimelineController::onProjectChanged);
+    connect(m_project, &ProjectController::projectChanged, this,
+            &TimelineController::onProjectChanged);
     connect(m_project, &ProjectController::documentReplaced, this, [this] {
         m_selection.clear();
         emit selectionChanged();
@@ -40,7 +42,8 @@ const Project& TimelineController::project() const
 void TimelineController::onProjectChanged(const ChangeSet& changes)
 {
     pruneSelection();
-    m_model.update(project(), changes.trackStructure, changes.media || changes.settings, changes.tracks, m_selection);
+    m_model.update(project(), changes.trackStructure, changes.media || changes.settings,
+                   changes.tracks, m_selection);
     emit durationChanged();
     emit selectedClipChanged();
     if (changes.settings) {
@@ -109,12 +112,14 @@ bool TimelineController::empty() const
 
 QString TimelineController::timecode(double frame) const
 {
-    return timecode::format(static_cast<FrameCount>(std::llround(frame)), project().settings().frameRate);
+    return timecode::format(static_cast<FrameCount>(std::llround(frame)),
+                            project().settings().frameRate);
 }
 
 QString TimelineController::clock(double frame) const
 {
-    return timecode::formatClock(static_cast<FrameCount>(std::llround(frame)), project().settings().frameRate);
+    return timecode::formatClock(static_cast<FrameCount>(std::llround(frame)),
+                                 project().settings().frameRate);
 }
 
 int TimelineController::nominalRate() const
@@ -154,7 +159,8 @@ QVariantMap TimelineController::selectedClip() const
         {QStringLiteral("durationText"), timecode::formatClock(clip->duration, rate)},
         {QStringLiteral("sourceInText"), timecode::format(clip->sourceIn, rate)},
         {QStringLiteral("hasAudio"), asset && asset->info.hasAudio},
-        {QStringLiteral("hasVideo"), asset && asset->info.hasVideo && track->kind == TrackKind::Video},
+        {QStringLiteral("hasVideo"),
+         asset && asset->info.hasVideo && track->kind == TrackKind::Video},
         {QStringLiteral("gain"), p.gain},
         {QStringLiteral("muted"), p.muted},
         {QStringLiteral("fadeIn"), static_cast<double>(p.fadeIn)},
@@ -169,7 +175,8 @@ QVariantMap TimelineController::selectedClip() const
 
 FrameCount TimelineController::stillDuration() const
 {
-    return static_cast<FrameCount>(project().settings().frameRate.nominalFramesPerSecond()) * kStillSeconds;
+    return static_cast<FrameCount>(project().settings().frameRate.nominalFramesPerSecond()) *
+           kStillSeconds;
 }
 
 std::optional<FrameCount> TimelineController::placementLength(const MediaAsset& asset) const
@@ -211,8 +218,9 @@ bool TimelineController::appendAsset(const QString& assetId)
             return dropAsset(assetId, track.id, static_cast<double>(track.end()));
         }
     }
-    emit statusMessage(wanted == TrackKind::Video ? QStringLiteral("Add an unlocked video track first.")
-                                                  : QStringLiteral("Add an unlocked audio track first."));
+    emit statusMessage(wanted == TrackKind::Video
+                           ? QStringLiteral("Add an unlocked video track first.")
+                           : QStringLiteral("Add an unlocked audio track first."));
     return false;
 }
 
@@ -224,10 +232,11 @@ bool TimelineController::dropAsset(const QString& assetId, const QString& trackI
         return false;
     }
     if (!acceptsAsset(trackId, assetId)) {
-        emit statusMessage(track->locked ? QStringLiteral("Track %1 is locked.").arg(track->name)
-                           : track->kind == TrackKind::Video
-                               ? QStringLiteral("%1 has no picture; drop it on an audio track.").arg(asset->name)
-                               : QStringLiteral("%1 has no sound; drop it on a video track.").arg(asset->name));
+        emit statusMessage(
+            track->locked ? QStringLiteral("Track %1 is locked.").arg(track->name)
+            : track->kind == TrackKind::Video
+                ? QStringLiteral("%1 has no picture; drop it on an audio track.").arg(asset->name)
+                : QStringLiteral("%1 has no sound; drop it on a video track.").arg(asset->name));
         return false;
     }
     Clip clip;
@@ -245,7 +254,8 @@ bool TimelineController::dropAsset(const QString& assetId, const QString& trackI
     return true;
 }
 
-bool TimelineController::canPlace(const QString& trackId, double start, double duration, const QString& ignoreClipId) const
+bool TimelineController::canPlace(const QString& trackId, double start, double duration,
+                                  const QString& ignoreClipId) const
 {
     const Track* track = project().timeline().track(trackId);
     if (!track || track->locked || start < 0) {
@@ -255,16 +265,19 @@ bool TimelineController::canPlace(const QString& trackId, double start, double d
         const Track* from = project().timeline().trackOfClip(ignoreClipId);
         if (from && from->kind != track->kind) {
             const auto limits = project().sourceLimits(moving->assetId);
-            if (!limits || (track->kind == TrackKind::Video ? !limits->hasVideo : !limits->hasAudio)) {
+            if (!limits ||
+                (track->kind == TrackKind::Video ? !limits->hasVideo : !limits->hasAudio)) {
                 return false;
             }
         }
     }
     return project().timeline().isRangeFree(trackId, static_cast<FrameCount>(std::llround(start)),
-                                             static_cast<FrameCount>(std::llround(duration)), ignoreClipId);
+                                            static_cast<FrameCount>(std::llround(duration)),
+                                            ignoreClipId);
 }
 
-double TimelineController::snapFrame(double frame, const QString& excludeClipId, double toleranceFrames) const
+double TimelineController::snapFrame(double frame, const QString& excludeClipId,
+                                     double toleranceFrames) const
 {
     const auto candidate = static_cast<FrameCount>(std::llround(frame));
     if (!m_snapping) {
@@ -273,12 +286,13 @@ double TimelineController::snapFrame(double frame, const QString& excludeClipId,
     std::vector<FrameCount> points = project().timeline().editPoints(excludeClipId);
     points.push_back(m_playback->positionFrames());
     std::sort(points.begin(), points.end());
-    const auto snapped = snapToNearest(candidate, static_cast<FrameCount>(std::ceil(toleranceFrames)), points);
+    const auto snapped =
+        snapToNearest(candidate, static_cast<FrameCount>(std::ceil(toleranceFrames)), points);
     return static_cast<double>(snapped.value_or(candidate));
 }
 
-double TimelineController::snapClipStart(double start, double duration, const QString& excludeClipId,
-                                         double toleranceFrames) const
+double TimelineController::snapClipStart(double start, double duration,
+                                         const QString& excludeClipId, double toleranceFrames) const
 {
     const auto candidate = static_cast<FrameCount>(std::llround(start));
     const auto length = static_cast<FrameCount>(std::llround(duration));
@@ -293,7 +307,9 @@ double TimelineController::snapClipStart(double start, double duration, const QS
     const auto byEnd = snapToNearest(candidate + length, tolerance, points);
     FrameCount result = candidate;
     if (byStart && byEnd) {
-        result = std::abs(*byStart - candidate) <= std::abs(*byEnd - (candidate + length)) ? *byStart : *byEnd - length;
+        result = std::abs(*byStart - candidate) <= std::abs(*byEnd - (candidate + length))
+                     ? *byStart
+                     : *byEnd - length;
     } else if (byStart) {
         result = *byStart;
     } else if (byEnd) {
@@ -304,17 +320,20 @@ double TimelineController::snapClipStart(double start, double duration, const QS
 
 bool TimelineController::moveClip(const QString& clipId, const QString& trackId, double start)
 {
-    return m_project->execute(edits::moveClip(clipId, trackId, static_cast<FrameCount>(std::llround(start))));
+    return m_project->execute(
+        edits::moveClip(clipId, trackId, static_cast<FrameCount>(std::llround(start))));
 }
 
 bool TimelineController::trimStart(const QString& clipId, double newStart)
 {
-    return m_project->execute(edits::trimClipStart(clipId, static_cast<FrameCount>(std::llround(newStart))));
+    return m_project->execute(
+        edits::trimClipStart(clipId, static_cast<FrameCount>(std::llround(newStart))));
 }
 
 bool TimelineController::trimEnd(const QString& clipId, double newEnd)
 {
-    return m_project->execute(edits::trimClipEnd(clipId, static_cast<FrameCount>(std::llround(newEnd))));
+    return m_project->execute(
+        edits::trimClipEnd(clipId, static_cast<FrameCount>(std::llround(newEnd))));
 }
 
 bool TimelineController::splitAtPlayhead()
@@ -351,7 +370,8 @@ bool TimelineController::deleteSelection(bool ripple)
         }
         return m_project->execute(edits::rippleRemoveClip(*m_selection.cbegin()));
     }
-    return m_project->execute(edits::removeClips(QList<Id>(m_selection.cbegin(), m_selection.cend())));
+    return m_project->execute(
+        edits::removeClips(QList<Id>(m_selection.cbegin(), m_selection.cend())));
 }
 
 void TimelineController::select(const QString& clipId, bool toggle)
@@ -397,7 +417,8 @@ void TimelineController::selectAll()
     emit selectedClipChanged();
 }
 
-bool TimelineController::setClipProperty(const QString& clipId, const QString& name, const QVariant& value)
+bool TimelineController::setClipProperty(const QString& clipId, const QString& name,
+                                         const QVariant& value)
 {
     const Clip* clip = project().timeline().clip(clipId);
     if (!clip) {
@@ -457,7 +478,8 @@ void TimelineController::endEdit()
 
 bool TimelineController::addTrack(const QString& kind)
 {
-    const TrackKind trackKind = kind == QLatin1String("audio") ? TrackKind::Audio : TrackKind::Video;
+    const TrackKind trackKind =
+        kind == QLatin1String("audio") ? TrackKind::Audio : TrackKind::Video;
     // New video tracks go above the existing ones; new audio tracks below.
     int index = -1;
     if (trackKind == TrackKind::Video) {
@@ -470,7 +492,8 @@ bool TimelineController::addTrack(const QString& kind)
         }
         index = lastVideo + 1;
     }
-    return m_project->execute(edits::addTrack(trackKind, project().nextTrackName(trackKind), index));
+    return m_project->execute(
+        edits::addTrack(trackKind, project().nextTrackName(trackKind), index));
 }
 
 bool TimelineController::removeTrack(const QString& trackId)

@@ -34,7 +34,8 @@ class TimelineController : public QObject
     Q_PROPERTY(bool empty READ empty NOTIFY durationChanged)
 
 public:
-    TimelineController(ProjectController* project, PlaybackController* playback, QObject* parent = nullptr);
+    TimelineController(ProjectController* project, PlaybackController* playback,
+                       QObject* parent = nullptr);
 
     [[nodiscard]] TimelineModel* model() { return &m_model; }
     [[nodiscard]] double pixelsPerFrame() const { return m_pixelsPerFrame; }
@@ -61,10 +62,13 @@ public:
     Q_INVOKABLE bool acceptsAsset(const QString& trackId, const QString& assetId) const;
 
     // Clip edits
-    Q_INVOKABLE bool canPlace(const QString& trackId, double start, double duration, const QString& ignoreClipId) const;
-    Q_INVOKABLE double snapFrame(double frame, const QString& excludeClipId, double toleranceFrames) const;
+    Q_INVOKABLE bool canPlace(const QString& trackId, double start, double duration,
+                              const QString& ignoreClipId) const;
+    Q_INVOKABLE double snapFrame(double frame, const QString& excludeClipId,
+                                 double toleranceFrames) const;
     /// Snaps a moving clip so that either its start or its end lands on an edit point.
-    Q_INVOKABLE double snapClipStart(double start, double duration, const QString& excludeClipId, double toleranceFrames) const;
+    Q_INVOKABLE double snapClipStart(double start, double duration, const QString& excludeClipId,
+                                     double toleranceFrames) const;
     Q_INVOKABLE bool moveClip(const QString& clipId, const QString& trackId, double start);
     Q_INVOKABLE bool trimStart(const QString& clipId, double newStart);
     Q_INVOKABLE bool trimEnd(const QString& clipId, double newEnd);
@@ -75,7 +79,8 @@ public:
     Q_INVOKABLE void selectAll();
     /// Sets one clip property ("gain", "muted", "fadeIn", "fadeOut", "brightness", "contrast",
     /// "saturation" or "opacity"). Repeated changes merge into one undo step until endEdit().
-    Q_INVOKABLE bool setClipProperty(const QString& clipId, const QString& name, const QVariant& value);
+    Q_INVOKABLE bool setClipProperty(const QString& clipId, const QString& name,
+                                     const QVariant& value);
     Q_INVOKABLE bool resetPictureAdjustments(const QString& clipId);
     Q_INVOKABLE void endEdit();
 

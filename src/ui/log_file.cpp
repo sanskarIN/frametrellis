@@ -3,9 +3,9 @@
 #include "ui/log_file.h"
 
 #include <QDateTime>
-#include <QFileInfo>
 #include <QDir>
 #include <QFile>
+#include <QFileInfo>
 #include <QStandardPaths>
 
 #include <cstdio>
@@ -39,11 +39,12 @@ const char* levelName(QtMsgType type)
 
 void handler(QtMsgType type, const QMessageLogContext& context, const QString& message)
 {
-    const QByteArray line = QStringLiteral("[%1] [%2] %3: %4\n")
-                                .arg(QDateTime::currentDateTime().toString(QStringLiteral("yyyy-MM-dd HH:mm:ss.zzz")),
-                                     QLatin1String(levelName(type)),
-                                     QLatin1String(context.category ? context.category : "default"), message)
-                                .toUtf8();
+    const QByteArray line =
+        QStringLiteral("[%1] [%2] %3: %4\n")
+            .arg(QDateTime::currentDateTime().toString(QStringLiteral("yyyy-MM-dd HH:mm:ss.zzz")),
+                 QLatin1String(levelName(type)),
+                 QLatin1String(context.category ? context.category : "default"), message)
+            .toUtf8();
     {
         std::lock_guard lock(g_logMutex);
         if (g_logFile && g_logFile->isOpen()) {
@@ -62,7 +63,8 @@ void handler(QtMsgType type, const QMessageLogContext& context, const QString& m
 
 QString logFilePath()
 {
-    return QStandardPaths::writableLocation(QStandardPaths::AppDataLocation) + QStringLiteral("/logs/frametrellis.log");
+    return QStandardPaths::writableLocation(QStandardPaths::AppDataLocation) +
+           QStringLiteral("/logs/frametrellis.log");
 }
 
 void installFileLogger()

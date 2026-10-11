@@ -10,7 +10,6 @@
 #include <QDir>
 #include <QFileInfo>
 #include <QThread>
-
 #include <mlt++/Mlt.h>
 
 #include <cstdlib>
@@ -47,7 +46,8 @@ QString colorString(const QColor& c)
 QString makeVideo(const QString& directory, const QString& name, const VideoSpec& spec)
 {
     const QString path = QDir(directory).filePath(name);
-    auto profile = engine::createProfile(spec.size.width(), spec.size.height(), *FrameRate::create(spec.fps, 1));
+    auto profile = engine::createProfile(spec.size.width(), spec.size.height(),
+                                         *FrameRate::create(spec.fps, 1));
     const int total = static_cast<int>(spec.segmentColors.size()) * spec.fps;
 
     Mlt::Playlist pictures(*profile);
@@ -156,9 +156,9 @@ QColor averageColor(const QImage& image, QRect region)
 
 bool isCloseTo(const QColor& actual, const QColor& expected, int tolerance)
 {
-    return std::abs(actual.red() - expected.red()) <= tolerance
-           && std::abs(actual.green() - expected.green()) <= tolerance
-           && std::abs(actual.blue() - expected.blue()) <= tolerance;
+    return std::abs(actual.red() - expected.red()) <= tolerance &&
+           std::abs(actual.green() - expected.green()) <= tolerance &&
+           std::abs(actual.blue() - expected.blue()) <= tolerance;
 }
 
 int peakLevel(const std::vector<std::int16_t>& samples)

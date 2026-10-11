@@ -12,8 +12,7 @@ Project::Project()
     : m_id(createId())
     , m_name(QStringLiteral("Untitled"))
     , m_created(QDateTime::currentDateTimeUtc())
-{
-}
+{}
 
 Project Project::createNew(const QString& name, const ProjectSettings& settings)
 {
@@ -40,8 +39,9 @@ Status Project::setSettings(const ProjectSettings& settings)
         return valid;
     }
     if (settings.frameRate != m_settings.frameRate && m_timeline.clipCount() > 0) {
-        return makeError(ErrorCode::Conflict,
-                         QStringLiteral("The frame rate can only be changed while the timeline is empty."));
+        return makeError(
+            ErrorCode::Conflict,
+            QStringLiteral("The frame rate can only be changed while the timeline is empty."));
     }
     m_settings = settings;
     return {};
@@ -82,7 +82,8 @@ Status Project::addAsset(MediaAsset newAsset, int index)
         return makeError(ErrorCode::InvalidArgument, QStringLiteral("The media has no file path."));
     }
     if (static_cast<int>(m_media.size()) >= kMaxMediaAssets) {
-        return makeError(ErrorCode::OutOfRange, QStringLiteral("The project has too many media files."));
+        return makeError(ErrorCode::OutOfRange,
+                         QStringLiteral("The project has too many media files."));
     }
     if (index < 0 || index > static_cast<int>(m_media.size())) {
         index = static_cast<int>(m_media.size());
@@ -98,8 +99,9 @@ Result<MediaAsset> Project::removeAsset(const Id& assetId)
         return makeError(ErrorCode::NotFound, QStringLiteral("The media was not found."));
     }
     if (m_timeline.usesAsset(assetId)) {
-        return makeError(ErrorCode::Conflict,
-                         QStringLiteral("This media is used on the timeline. Remove its clips first."));
+        return makeError(
+            ErrorCode::Conflict,
+            QStringLiteral("This media is used on the timeline. Remove its clips first."));
     }
     MediaAsset removed = m_media[static_cast<size_t>(index)];
     m_media.erase(m_media.begin() + index);
@@ -168,8 +170,9 @@ Status Project::validate() const
     QSet<Id> ids;
     for (const MediaAsset& a : m_media) {
         if (!isValidId(a.id) || ids.contains(a.id) || a.filePath.isEmpty()) {
-            return makeError(ErrorCode::InvalidDocument,
-                             QStringLiteral("A media entry has a missing or duplicate id or path."));
+            return makeError(
+                ErrorCode::InvalidDocument,
+                QStringLiteral("A media entry has a missing or duplicate id or path."));
         }
         ids.insert(a.id);
     }

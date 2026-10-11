@@ -12,15 +12,17 @@
 
 namespace ft::ui {
 
-MediaController::MediaController(ProjectController* project, std::shared_ptr<ThumbnailRegistry> registry,
-                                 QObject* parent)
+MediaController::MediaController(ProjectController* project,
+                                 std::shared_ptr<ThumbnailRegistry> registry, QObject* parent)
     : QObject(parent)
     , m_project(project)
     , m_registry(std::move(registry))
 {
     connect(&m_importer, &media::MediaImporter::finished, this, &MediaController::onImported);
-    connect(&m_importer, &media::MediaImporter::pendingCountChanged, this, &MediaController::importingChanged);
-    connect(m_project, &ProjectController::documentReplaced, this, [this] { m_importer.cancelAll(); });
+    connect(&m_importer, &media::MediaImporter::pendingCountChanged, this,
+            &MediaController::importingChanged);
+    connect(m_project, &ProjectController::documentReplaced, this,
+            [this] { m_importer.cancelAll(); });
     connect(m_project, &ProjectController::projectChanged, this, [this](const ChangeSet& changes) {
         if (changes.media || changes.trackStructure || !changes.tracks.isEmpty()) {
             refresh();
@@ -35,7 +37,8 @@ QStringList MediaController::nameFilters() const
     for (const QString& suffix : media::importFileSuffixes()) {
         patterns << QStringLiteral("*.") + suffix;
     }
-    return {QStringLiteral("Media files (%1)").arg(patterns.join(QLatin1Char(' '))), QStringLiteral("All files (*)")};
+    return {QStringLiteral("Media files (%1)").arg(patterns.join(QLatin1Char(' '))),
+            QStringLiteral("All files (*)")};
 }
 
 void MediaController::refresh()
@@ -48,7 +51,8 @@ void MediaController::importFiles(const QVariantList& urls)
 {
     QStringList paths;
     for (const QVariant& value : urls) {
-        const QString text = value.typeId() == QMetaType::QUrl ? value.toUrl().toString() : value.toString();
+        const QString text =
+            value.typeId() == QMetaType::QUrl ? value.toUrl().toString() : value.toString();
         const QString path = ProjectController::localPath(text);
         if (!path.isEmpty() && !paths.contains(path)) {
             paths << path;
@@ -64,8 +68,10 @@ void MediaController::importFiles(const QVariantList& urls)
         }
     }
     if (duplicates > 0) {
-        emit statusMessage(duplicates == 1 ? QStringLiteral("That file is already in the media bin.")
-                                           : QStringLiteral("%1 files are already in the media bin.").arg(duplicates));
+        emit statusMessage(
+            duplicates == 1
+                ? QStringLiteral("That file is already in the media bin.")
+                : QStringLiteral("%1 files are already in the media bin.").arg(duplicates));
     }
     if (!fresh.isEmpty()) {
         emit statusMessage(QStringLiteral("Importing %1 file(s)…").arg(fresh.size()));
@@ -95,11 +101,13 @@ void MediaController::onImported(const std::vector<MediaAsset>& assets,
         for (const auto& failure : failures) {
             lines << QStringLiteral("• %1").arg(failure.message);
         }
-        emit importProblems(failures.size() == 1 ? QStringLiteral("A file could not be imported")
-                                                 : QStringLiteral("%1 files could not be imported").arg(failures.size()),
-                            lines.join(QLatin1Char('\n'))
-                                + QStringLiteral("\n\nFrameTrellis supports common video, audio and image formats "
-                                                 "that FFmpeg can decode. The files were not changed."));
+        emit importProblems(
+            failures.size() == 1
+                ? QStringLiteral("A file could not be imported")
+                : QStringLiteral("%1 files could not be imported").arg(failures.size()),
+            lines.join(QLatin1Char('\n')) +
+                QStringLiteral("\n\nFrameTrellis supports common video, audio and image formats "
+                               "that FFmpeg can decode. The files were not changed."));
     }
 }
 
@@ -111,7 +119,9 @@ void MediaController::remove(const QString& assetId)
     }
     const QString name = asset->name;
     if (m_project->execute(std::make_unique<RemoveMediaCommand>(assetId))) {
-        emit statusMessage(QStringLiteral("Removed %1 from the project (the file on disk was not touched).").arg(name));
+        emit statusMessage(
+            QStringLiteral("Removed %1 from the project (the file on disk was not touched).")
+                .arg(name));
     }
 }
 
@@ -137,10 +147,12 @@ bool MediaController::relink(const QString& assetId, const QString& urlOrPath)
     updated.filePath = path;
     updated.info = std::move(info).value();
     updated.status = MediaStatus::Online;
-    if (!m_project->execute(std::make_unique<UpdateMediaCommand>(updated, QStringLiteral("Relink Media")))) {
-        emit importProblems(QStringLiteral("Could not relink the media"),
-                            QStringLiteral("The replacement file is shorter than the clips that use it, or lacks "
-                                           "the audio or video they need."));
+    if (!m_project->execute(
+            std::make_unique<UpdateMediaCommand>(updated, QStringLiteral("Relink Media")))) {
+        emit importProblems(
+            QStringLiteral("Could not relink the media"),
+            QStringLiteral("The replacement file is shorter than the clips that use it, or lacks "
+                           "the audio or video they need."));
         return false;
     }
     emit statusMessage(QStringLiteral("Relinked %1.").arg(QFileInfo(path).fileName()));
@@ -157,8 +169,9 @@ void MediaController::revealInFolder(const QString& assetId) const
 void MediaController::rescan()
 {
     const QList<Id> missing = m_project->document()->refreshMediaStatus();
-    emit statusMessage(missing.isEmpty() ? QStringLiteral("All media files are available.")
-                                         : QStringLiteral("%1 media file(s) are offline.").arg(missing.size()));
+    emit statusMessage(missing.isEmpty()
+                           ? QStringLiteral("All media files are available.")
+                           : QStringLiteral("%1 media file(s) are offline.").arg(missing.size()));
 }
 
 } // namespace ft::ui

@@ -14,7 +14,8 @@ namespace ft {
 enum class Rounding { Down, Nearest, Up };
 
 /// Computes a * b / c without intermediate overflow for the value ranges used by the editor
-/// (|b| and |c| below 2^31). Returns std::nullopt when the result does not fit in 64 bits or c is 0.
+/// (|b| and |c| below 2^31). Returns std::nullopt when the result does not fit in 64 bits or c is
+/// 0.
 std::optional<std::int64_t> mulDiv(std::int64_t a, std::int64_t b, std::int64_t c,
                                    Rounding rounding = Rounding::Down);
 

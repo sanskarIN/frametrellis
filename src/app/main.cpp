@@ -46,19 +46,26 @@ int main(int argc, char* argv[])
     }
 
     QGuiApplication app(argc, argv);
-    QGuiApplication::setWindowIcon(QIcon(QStringLiteral(":/qt/qml/FrameTrellis/icons/app-icon.svg")));
+    QGuiApplication::setWindowIcon(
+        QIcon(QStringLiteral(":/qt/qml/FrameTrellis/icons/app-icon.svg")));
     QGuiApplication::setDesktopFileName(QStringLiteral("frametrellis"));
 
     QCommandLineParser parser;
     parser.setApplicationDescription(QStringLiteral("FrameTrellis video editor"));
     parser.addHelpOption();
     parser.addVersionOption();
-    parser.addPositionalArgument(QStringLiteral("project"), QStringLiteral("Project file (.ftproj) to open."), QStringLiteral("[project]"));
-    const QCommandLineOption screenshotOption(QStringLiteral("screenshot"),
-        QStringLiteral("Save a picture of the main window to <file> after loading, then quit (used for documentation)."),
+    parser.addPositionalArgument(QStringLiteral("project"),
+                                 QStringLiteral("Project file (.ftproj) to open."),
+                                 QStringLiteral("[project]"));
+    const QCommandLineOption screenshotOption(
+        QStringLiteral("screenshot"),
+        QStringLiteral("Save a picture of the main window to <file> after loading, then quit (used "
+                       "for documentation)."),
         QStringLiteral("file"));
-    const QCommandLineOption delayOption(QStringLiteral("screenshot-delay"),
-        QStringLiteral("Milliseconds to wait before taking the screenshot."), QStringLiteral("ms"), QStringLiteral("2500"));
+    const QCommandLineOption delayOption(
+        QStringLiteral("screenshot-delay"),
+        QStringLiteral("Milliseconds to wait before taking the screenshot."), QStringLiteral("ms"),
+        QStringLiteral("2500"));
     parser.addOptions({screenshotOption, delayOption});
     parser.process(app);
 
@@ -71,10 +78,13 @@ int main(int argc, char* argv[])
         ft::ui::AppController controller(engineStatus, renderHelperPath());
         {
             QQmlApplicationEngine engine;
-            engine.addImageProvider(QStringLiteral("ft-thumbnail"), controller.createThumbnailProvider());
-            engine.setInitialProperties({{QStringLiteral("app"), QVariant::fromValue(&controller)}});
-            QObject::connect(&engine, &QQmlApplicationEngine::objectCreationFailed, &app,
-                             [] { QCoreApplication::exit(1); }, Qt::QueuedConnection);
+            engine.addImageProvider(QStringLiteral("ft-thumbnail"),
+                                    controller.createThumbnailProvider());
+            engine.setInitialProperties(
+                {{QStringLiteral("app"), QVariant::fromValue(&controller)}});
+            QObject::connect(
+                &engine, &QQmlApplicationEngine::objectCreationFailed, &app,
+                [] { QCoreApplication::exit(1); }, Qt::QueuedConnection);
             engine.loadFromModule("FrameTrellis", "Main");
             if (engine.rootObjects().isEmpty()) {
                 return 1;
@@ -94,7 +104,7 @@ int main(int argc, char* argv[])
             }
             exitCode = QGuiApplication::exec();
         } // the QML engine goes first: it references the controllers
-    }     // controllers next: playback and export stop their threads and processes
+    } // controllers next: playback and export stop their threads and processes
     QThreadPool::globalInstance()->waitForDone(); // pending probes and thumbnails use MLT
     ft::engine::MltRuntime::shutdown();
     return exitCode;

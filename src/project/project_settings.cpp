@@ -9,8 +9,8 @@ namespace ft {
 
 Status ProjectSettings::validate() const
 {
-    if (width < kMinFrameDimension || height < kMinFrameDimension || width > kMaxFrameDimension
-        || height > kMaxFrameDimension) {
+    if (width < kMinFrameDimension || height < kMinFrameDimension || width > kMaxFrameDimension ||
+        height > kMaxFrameDimension) {
         return makeError(ErrorCode::OutOfRange,
                          QStringLiteral("The frame size must be between %1 and %2 pixels.")
                              .arg(kMinFrameDimension)
@@ -29,8 +29,9 @@ Status ProjectSettings::validate() const
     }
     static constexpr int kRates[] = {22050, 32000, 44100, 48000, 88200, 96000};
     if (std::find(std::begin(kRates), std::end(kRates), sampleRate) == std::end(kRates)) {
-        return makeError(ErrorCode::InvalidArgument,
-                         QStringLiteral("The audio sample rate %1 Hz is not supported.").arg(sampleRate));
+        return makeError(
+            ErrorCode::InvalidArgument,
+            QStringLiteral("The audio sample rate %1 Hz is not supported.").arg(sampleRate));
     }
     if (audioChannels != 1 && audioChannels != 2) {
         return makeError(ErrorCode::InvalidArgument,

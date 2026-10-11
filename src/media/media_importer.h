@@ -35,7 +35,8 @@ public:
     };
 
 signals:
-    void finished(const std::vector<ft::MediaAsset>& assets, const QList<ft::media::MediaImporter::Failure>& failures);
+    void finished(const std::vector<ft::MediaAsset>& assets,
+                  const QList<ft::media::MediaImporter::Failure>& failures);
     void pendingCountChanged(int pending);
 
 private:

@@ -36,7 +36,8 @@ public:
     ~RenderJob() override;
 
     /// Validates the settings, snapshots the project and launches the helper.
-    Status start(const Project& project, const ExportSettings& settings, const QString& projectFilePath = {});
+    Status start(const Project& project, const ExportSettings& settings,
+                 const QString& projectFilePath = {});
     /// Asks the helper to stop; it is killed if it does not exit within the grace period.
     void cancel();
 

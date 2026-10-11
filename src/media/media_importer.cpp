@@ -10,7 +10,8 @@
 
 namespace ft::media {
 
-MediaImporter::MediaImporter(QObject* parent) : QObject(parent)
+MediaImporter::MediaImporter(QObject* parent)
+    : QObject(parent)
 {
     qRegisterMetaType<std::vector<ft::MediaAsset>>();
     qRegisterMetaType<QList<ft::media::MediaImporter::Failure>>();

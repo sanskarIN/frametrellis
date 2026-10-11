@@ -18,7 +18,8 @@ class FrameView : public QQuickItem
     Q_OBJECT
     QML_ELEMENT
     Q_PROPERTY(ft::ui::PlaybackController* source READ source WRITE setSource NOTIFY sourceChanged)
-    Q_PROPERTY(QColor backgroundColor READ backgroundColor WRITE setBackgroundColor NOTIFY backgroundColorChanged)
+    Q_PROPERTY(QColor backgroundColor READ backgroundColor WRITE setBackgroundColor NOTIFY
+                   backgroundColorChanged)
     Q_PROPERTY(QRectF pictureRect READ pictureRect NOTIFY pictureRectChanged)
 
 public:

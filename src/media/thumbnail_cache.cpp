@@ -15,14 +15,16 @@
 
 namespace ft::media {
 
-ThumbnailCache::ThumbnailCache(QString directory) : m_directory(std::move(directory))
+ThumbnailCache::ThumbnailCache(QString directory)
+    : m_directory(std::move(directory))
 {
     QDir().mkpath(m_directory);
 }
 
 QString ThumbnailCache::defaultDirectory()
 {
-    return QStandardPaths::writableLocation(QStandardPaths::CacheLocation) + QStringLiteral("/thumbnails");
+    return QStandardPaths::writableLocation(QStandardPaths::CacheLocation) +
+           QStringLiteral("/thumbnails");
 }
 
 QString ThumbnailCache::cacheFile(const QString& filePath, QSize maxSize) const
@@ -34,11 +36,13 @@ QString ThumbnailCache::cacheFile(const QString& filePath, QSize maxSize) const
                             .arg(info.lastModified().toMSecsSinceEpoch())
                             .arg(maxSize.width())
                             .arg(maxSize.height());
-    const QByteArray hash = QCryptographicHash::hash(key.toUtf8(), QCryptographicHash::Sha1).toHex();
+    const QByteArray hash =
+        QCryptographicHash::hash(key.toUtf8(), QCryptographicHash::Sha1).toHex();
     return QDir(m_directory).filePath(QString::fromLatin1(hash) + QStringLiteral(".png"));
 }
 
-QImage ThumbnailCache::thumbnail(const QString& filePath, const MediaInfo& info, QSize maxSize) const
+QImage ThumbnailCache::thumbnail(const QString& filePath, const MediaInfo& info,
+                                 QSize maxSize) const
 {
     if (!info.hasVideo || !QFileInfo::exists(filePath)) {
         return {};

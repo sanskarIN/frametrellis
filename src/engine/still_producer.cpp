@@ -4,7 +4,6 @@
 
 #include <QImageReader>
 #include <QPainter>
-
 #include <mlt++/Mlt.h>
 
 #include <climits>
@@ -32,7 +31,10 @@ struct StillSource
             const QSize scaled = image.size().scaled(size, Qt::KeepAspectRatio);
             QPainter painter(&canvas);
             painter.setRenderHint(QPainter::SmoothPixmapTransform);
-            painter.drawImage(QRect(QPoint((size.width() - scaled.width()) / 2, (size.height() - scaled.height()) / 2), scaled), image);
+            painter.drawImage(QRect(QPoint((size.width() - scaled.width()) / 2,
+                                           (size.height() - scaled.height()) / 2),
+                                    scaled),
+                              image);
             painter.end();
             fitted = canvas;
             fittedSize = size;
@@ -49,15 +51,17 @@ void deleteSourcePtr(void* pointer)
     delete static_cast<SourcePtr*>(pointer);
 }
 
-int stillGetImage(mlt_frame frame, uint8_t** buffer, mlt_image_format* format, int* width, int* height,
-                  int /*writable*/)
+int stillGetImage(mlt_frame frame, uint8_t** buffer, mlt_image_format* format, int* width,
+                  int* height, int /*writable*/)
 {
     mlt_properties properties = MLT_FRAME_PROPERTIES(frame);
-    auto* source = static_cast<SourcePtr*>(mlt_properties_get_data(properties, kSourceKey, nullptr));
+    auto* source =
+        static_cast<SourcePtr*>(mlt_properties_get_data(properties, kSourceKey, nullptr));
     if (!source || !*source) {
         return 1;
     }
-    mlt_profile profile = mlt_service_profile(MLT_PRODUCER_SERVICE(mlt_frame_get_original_producer(frame)));
+    mlt_profile profile =
+        mlt_service_profile(MLT_PRODUCER_SERVICE(mlt_frame_get_original_producer(frame)));
     const int w = *width > 0 ? *width : (profile ? profile->width : (*source)->image.width());
     const int h = *height > 0 ? *height : (profile ? profile->height : (*source)->image.height());
     if (w <= 0 || h <= 0) {
@@ -70,7 +74,8 @@ int stillGetImage(mlt_frame frame, uint8_t** buffer, mlt_image_format* format, i
         return 1;
     }
     for (int y = 0; y < h; ++y) {
-        std::memcpy(image + static_cast<size_t>(y) * w * 4, picture.constScanLine(y), static_cast<size_t>(w) * 4);
+        std::memcpy(image + static_cast<size_t>(y) * w * 4, picture.constScanLine(y),
+                    static_cast<size_t>(w) * 4);
     }
     mlt_frame_set_image(frame, image, size, mlt_pool_release);
     *buffer = image;
@@ -91,9 +96,11 @@ int stillGetFrame(mlt_producer producer, mlt_frame_ptr frame, int /*index*/)
     }
     mlt_properties producerProps = MLT_PRODUCER_PROPERTIES(producer);
     mlt_properties frameProps = MLT_FRAME_PROPERTIES(*frame);
-    auto* source = static_cast<SourcePtr*>(mlt_properties_get_data(producerProps, kSourceKey, nullptr));
+    auto* source =
+        static_cast<SourcePtr*>(mlt_properties_get_data(producerProps, kSourceKey, nullptr));
     if (source) {
-        mlt_properties_set_data(frameProps, kSourceKey, new SourcePtr(*source), 0, deleteSourcePtr, nullptr);
+        mlt_properties_set_data(frameProps, kSourceKey, new SourcePtr(*source), 0, deleteSourcePtr,
+                                nullptr);
     }
     mlt_frame_set_position(*frame, mlt_producer_position(producer));
     mlt_properties_set_int(frameProps, "progressive", 1);
@@ -129,7 +136,8 @@ QImage loadStillImage(const QString& path, QSize maxSize, QString* error)
     if (reader.transformation() & QImageIOHandler::TransformationRotate90) {
         size.transpose();
     }
-    if (size.isValid() && maxSize.isValid() && (size.width() > maxSize.width() || size.height() > maxSize.height())) {
+    if (size.isValid() && maxSize.isValid() &&
+        (size.width() > maxSize.width() || size.height() > maxSize.height())) {
         QSize target = size.scaled(maxSize, Qt::KeepAspectRatio);
         if (reader.transformation() & QImageIOHandler::TransformationRotate90) {
             target.transpose(); // the scaled size applies before rotation
@@ -143,7 +151,8 @@ QImage loadStillImage(const QString& path, QSize maxSize, QString* error)
     return image;
 }
 
-std::unique_ptr<Mlt::Producer> createStillProducer(Mlt::Profile& profile, const QString& path, QString* error)
+std::unique_ptr<Mlt::Producer> createStillProducer(Mlt::Profile& profile, const QString& path,
+                                                   QString* error)
 {
     // Keep up to twice the sequence resolution so scaling stays sharp without huge buffers.
     const QSize limit(std::max(profile.width() * 2, 256), std::max(profile.height() * 2, 256));
@@ -167,7 +176,8 @@ std::unique_ptr<Mlt::Producer> createStillProducer(Mlt::Profile& profile, const 
     mlt_properties_set_int(properties, "meta.media.width", source->image.width());
     mlt_properties_set_int(properties, "meta.media.height", source->image.height());
     mlt_properties_set_int(properties, "seekable", 1);
-    mlt_properties_set_data(properties, kSourceKey, new SourcePtr(source), 0, deleteSourcePtr, nullptr);
+    mlt_properties_set_data(properties, kSourceKey, new SourcePtr(source), 0, deleteSourcePtr,
+                            nullptr);
 
     auto wrapper = std::make_unique<Mlt::Producer>(producer);
     mlt_producer_close(producer); // the wrapper holds its own reference

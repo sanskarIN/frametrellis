@@ -19,8 +19,8 @@ bool mulOverflows(std::int64_t a, std::int64_t b, std::int64_t* out)
 #else
     if (a != 0 && b != 0) {
         const auto maxValue = std::numeric_limits<std::int64_t>::max();
-        if ((a > 0 && b > 0 && a > maxValue / b) || (a < 0 && b < 0 && a < maxValue / b)
-            || (a > 0 && b < 0 && b < -maxValue / a) || (a < 0 && b > 0 && a < -maxValue / b)) {
+        if ((a > 0 && b > 0 && a > maxValue / b) || (a < 0 && b < 0 && a < maxValue / b) ||
+            (a > 0 && b < 0 && b < -maxValue / a) || (a < 0 && b > 0 && a < -maxValue / b)) {
             return true;
         }
     }

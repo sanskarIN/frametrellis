@@ -161,8 +161,9 @@ QString formatClock(FrameCount frames, const FrameRate& rate)
     const qint64 hours = totalSeconds / 3600;
     QString result = negative ? QStringLiteral("-") : QString();
     if (hours > 0) {
-        result += QStringLiteral("%1:%2:%3.%4").arg(hours).arg(pad(minutes), pad(seconds),
-                                                            pad(millis, 3));
+        result += QStringLiteral("%1:%2:%3.%4")
+                      .arg(hours)
+                      .arg(pad(minutes), pad(seconds), pad(millis, 3));
     } else {
         result += QStringLiteral("%1:%2.%3").arg(minutes).arg(pad(seconds), pad(millis, 3));
     }

@@ -44,7 +44,7 @@ struct Clip
     FrameCount duration = 1; ///< number of frames, always >= 1
     ClipProperties properties;
 
-    [[nodiscard]] FrameCount end() const { return start + duration; } ///< exclusive
+    [[nodiscard]] FrameCount end() const { return start + duration; }          ///< exclusive
     [[nodiscard]] FrameCount sourceOut() const { return sourceIn + duration; } ///< exclusive
     [[nodiscard]] bool contains(FrameCount frame) const { return frame >= start && frame < end(); }
 

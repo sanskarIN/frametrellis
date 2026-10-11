@@ -48,8 +48,12 @@ template <typename T>
 class [[nodiscard]] Result
 {
 public:
-    Result(T value) : m_data(std::move(value)) {}         // NOLINT(google-explicit-constructor)
-    Result(Error error) : m_data(std::move(error)) {}     // NOLINT(google-explicit-constructor)
+    Result(T value)
+        : m_data(std::move(value))
+    {} // NOLINT(google-explicit-constructor)
+    Result(Error error)
+        : m_data(std::move(error))
+    {} // NOLINT(google-explicit-constructor)
 
     [[nodiscard]] bool ok() const { return std::holds_alternative<T>(m_data); }
     explicit operator bool() const { return ok(); }
@@ -74,7 +78,10 @@ class [[nodiscard]] Result<void>
 {
 public:
     Result() = default;
-    Result(Error error) : m_error(std::move(error)), m_ok(false) {} // NOLINT
+    Result(Error error)
+        : m_error(std::move(error))
+        , m_ok(false)
+    {} // NOLINT
 
     [[nodiscard]] bool ok() const { return m_ok; }
     explicit operator bool() const { return m_ok; }

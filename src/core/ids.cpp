@@ -17,8 +17,8 @@ bool isValidId(const QString& id)
         return false;
     }
     for (const QChar c : id) {
-        if (!(c.isLetterOrNumber() && c.unicode() < 128) && c != QLatin1Char('-')
-            && c != QLatin1Char('_')) {
+        if (!(c.isLetterOrNumber() && c.unicode() < 128) && c != QLatin1Char('-') &&
+            c != QLatin1Char('_')) {
             return false;
         }
     }

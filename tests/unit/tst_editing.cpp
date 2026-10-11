@@ -64,7 +64,8 @@ private slots:
     {
         Fixture f;
         const Project initial = f.doc.project();
-        QVERIFY(f.doc.execute(edits::addClip(f.v1, clipOf(QStringLiteral("m1"), 0, 100, QStringLiteral("c1")))));
+        QVERIFY(f.doc.execute(
+            edits::addClip(f.v1, clipOf(QStringLiteral("m1"), 0, 100, QStringLiteral("c1")))));
         const Project afterAdd = f.doc.project();
         QVERIFY(f.doc.execute(edits::splitClips({QStringLiteral("c1")}, 40)));
         QVERIFY(f.doc.execute(edits::moveClip(QStringLiteral("c1"), f.v2, 300)));
@@ -86,15 +87,18 @@ private slots:
     void failedEditChangesNothingAndIsNotRecorded()
     {
         Fixture f;
-        QVERIFY(f.doc.execute(edits::addClip(f.v1, clipOf(QStringLiteral("m1"), 0, 100, QStringLiteral("c1")))));
+        QVERIFY(f.doc.execute(
+            edits::addClip(f.v1, clipOf(QStringLiteral("m1"), 0, 100, QStringLiteral("c1")))));
         const Project before = f.doc.project();
         const QString undoText = f.doc.undoText();
-        const Status overlap = f.doc.execute(edits::addClip(f.v1, clipOf(QStringLiteral("m1"), 50, 100)));
+        const Status overlap =
+            f.doc.execute(edits::addClip(f.v1, clipOf(QStringLiteral("m1"), 50, 100)));
         QVERIFY(!overlap);
         QCOMPARE(f.doc.project(), before);
         QCOMPARE(f.doc.undoText(), undoText);
         // A multi-clip delete that fails half way must not leave partial changes.
-        const Status partial = f.doc.execute(edits::removeClips({QStringLiteral("c1"), QStringLiteral("missing")}));
+        const Status partial =
+            f.doc.execute(edits::removeClips({QStringLiteral("c1"), QStringLiteral("missing")}));
         QVERIFY(!partial);
         QCOMPARE(f.doc.project(), before);
     }
@@ -102,7 +106,8 @@ private slots:
     void noOpEditsAreNotRecorded()
     {
         Fixture f;
-        QVERIFY(f.doc.execute(edits::addClip(f.v1, clipOf(QStringLiteral("m1"), 0, 100, QStringLiteral("c1")))));
+        QVERIFY(f.doc.execute(
+            edits::addClip(f.v1, clipOf(QStringLiteral("m1"), 0, 100, QStringLiteral("c1")))));
         const QString undoText = f.doc.undoText();
         QVERIFY(f.doc.execute(edits::moveClip(QStringLiteral("c1"), f.v1, 0)));
         QCOMPARE(f.doc.undoText(), undoText);
@@ -111,12 +116,14 @@ private slots:
     void propertyEditsMerge()
     {
         Fixture f;
-        QVERIFY(f.doc.execute(edits::addClip(f.v1, clipOf(QStringLiteral("m1"), 0, 100, QStringLiteral("c1")))));
+        QVERIFY(f.doc.execute(
+            edits::addClip(f.v1, clipOf(QStringLiteral("m1"), 0, 100, QStringLiteral("c1")))));
         f.doc.breakMerge();
         ClipProperties p;
         for (double gain : {0.9, 0.8, 0.7, 0.6}) {
             p.gain = gain;
-            QVERIFY(f.doc.execute(edits::setClipProperties(QStringLiteral("c1"), p, QStringLiteral("Change Volume"))));
+            QVERIFY(f.doc.execute(edits::setClipProperties(QStringLiteral("c1"), p,
+                                                           QStringLiteral("Change Volume"))));
         }
         QCOMPARE(f.doc.project().timeline().clip(QStringLiteral("c1"))->properties.gain, 0.6);
         QVERIFY(f.doc.undo()); // one undo reverts the whole drag
@@ -128,7 +135,8 @@ private slots:
         // breakMerge starts a new step.
         f.doc.breakMerge();
         p.gain = 0.3;
-        QVERIFY(f.doc.execute(edits::setClipProperties(QStringLiteral("c1"), p, QStringLiteral("Change Volume"))));
+        QVERIFY(f.doc.execute(
+            edits::setClipProperties(QStringLiteral("c1"), p, QStringLiteral("Change Volume"))));
         QVERIFY(f.doc.undo());
         QCOMPARE(f.doc.project().timeline().clip(QStringLiteral("c1"))->properties.gain, 0.6);
     }
@@ -173,7 +181,8 @@ private slots:
     void trackCommands()
     {
         Fixture f;
-        QVERIFY(f.doc.execute(edits::addTrack(TrackKind::Video, QStringLiteral("V3"), 2, QStringLiteral("v3"))));
+        QVERIFY(f.doc.execute(
+            edits::addTrack(TrackKind::Video, QStringLiteral("V3"), 2, QStringLiteral("v3"))));
         QCOMPARE(f.doc.project().timeline().trackIndex(QStringLiteral("v3")), 2);
         QVERIFY(f.doc.execute(edits::renameTrack(QStringLiteral("v3"), QStringLiteral("Titles"))));
         QVERIFY(f.doc.execute(edits::setTrackLocked(QStringLiteral("v3"), true)));
@@ -184,7 +193,8 @@ private slots:
         QCOMPARE(f.doc.project().timeline().trackIndex(QStringLiteral("v3")), -1);
         QVERIFY(f.doc.undo());
         QCOMPARE(f.doc.project().timeline().trackIndex(QStringLiteral("v3")), 0);
-        QCOMPARE(f.doc.project().timeline().track(QStringLiteral("v3"))->name, QStringLiteral("Titles"));
+        QCOMPARE(f.doc.project().timeline().track(QStringLiteral("v3"))->name,
+                 QStringLiteral("Titles"));
         QVERIFY(f.doc.execute(edits::setTrackMuted(f.a1, true)));
         QVERIFY(f.doc.execute(edits::setTrackHidden(f.v1, true)));
         QVERIFY(f.doc.project().timeline().track(f.a1)->muted);
@@ -194,34 +204,45 @@ private slots:
     void splitRequiresPlayheadInsideClip()
     {
         Fixture f;
-        QVERIFY(f.doc.execute(edits::addClip(f.v1, clipOf(QStringLiteral("m1"), 0, 100, QStringLiteral("c1")))));
-        QVERIFY(f.doc.execute(edits::addClip(f.v2, clipOf(QStringLiteral("m1"), 50, 100, QStringLiteral("c2")))));
+        QVERIFY(f.doc.execute(
+            edits::addClip(f.v1, clipOf(QStringLiteral("m1"), 0, 100, QStringLiteral("c1")))));
+        QVERIFY(f.doc.execute(
+            edits::addClip(f.v2, clipOf(QStringLiteral("m1"), 50, 100, QStringLiteral("c2")))));
         QVERIFY(!f.doc.execute(edits::splitClips({QStringLiteral("c1")}, 100)));
         // Splitting several selected clips at once only touches those spanning the frame.
         QVERIFY(f.doc.execute(edits::splitClips({QStringLiteral("c1"), QStringLiteral("c2")}, 75)));
         QCOMPARE(f.doc.project().timeline().clipCount(), 4);
         // Both selected clips now end at frame 75, so neither spans frame 120.
-        QVERIFY(!f.doc.execute(edits::splitClips({QStringLiteral("c1"), QStringLiteral("c2")}, 120)));
+        QVERIFY(
+            !f.doc.execute(edits::splitClips({QStringLiteral("c1"), QStringLiteral("c2")}, 120)));
         QCOMPARE(f.doc.project().timeline().clipCount(), 4);
     }
 
     void mediaCommands()
     {
         Fixture f;
-        QVERIFY(!f.doc.execute(std::make_unique<AddMediaCommand>(std::vector<MediaAsset>{videoAsset(QStringLiteral("m1"))})));
-        QVERIFY(f.doc.execute(edits::addClip(f.v1, clipOf(QStringLiteral("m1"), 0, 300, QStringLiteral("c1")))));
-        QVERIFY(!f.doc.execute(std::make_unique<RemoveMediaCommand>(QStringLiteral("m1")))); // in use
+        QVERIFY(!f.doc.execute(std::make_unique<AddMediaCommand>(
+            std::vector<MediaAsset>{videoAsset(QStringLiteral("m1"))})));
+        QVERIFY(f.doc.execute(
+            edits::addClip(f.v1, clipOf(QStringLiteral("m1"), 0, 300, QStringLiteral("c1")))));
+        QVERIFY(
+            !f.doc.execute(std::make_unique<RemoveMediaCommand>(QStringLiteral("m1")))); // in use
         // Relinking to a shorter file than the clips need is refused.
         MediaAsset shorter = videoAsset(QStringLiteral("m1"), QStringLiteral("/media/b.mp4"));
         shorter.info.durationUs = 5'000'000; // 150 frames
-        const Status relinkShort = f.doc.execute(std::make_unique<UpdateMediaCommand>(shorter, QStringLiteral("Relink")));
+        const Status relinkShort =
+            f.doc.execute(std::make_unique<UpdateMediaCommand>(shorter, QStringLiteral("Relink")));
         QVERIFY(!relinkShort);
-        QCOMPARE(f.doc.project().asset(QStringLiteral("m1"))->filePath, QStringLiteral("/media/a.mp4"));
+        QCOMPARE(f.doc.project().asset(QStringLiteral("m1"))->filePath,
+                 QStringLiteral("/media/a.mp4"));
         MediaAsset moved = videoAsset(QStringLiteral("m1"), QStringLiteral("/media/moved/a.mp4"));
-        QVERIFY(f.doc.execute(std::make_unique<UpdateMediaCommand>(moved, QStringLiteral("Relink"))));
-        QCOMPARE(f.doc.project().asset(QStringLiteral("m1"))->filePath, QStringLiteral("/media/moved/a.mp4"));
+        QVERIFY(
+            f.doc.execute(std::make_unique<UpdateMediaCommand>(moved, QStringLiteral("Relink"))));
+        QCOMPARE(f.doc.project().asset(QStringLiteral("m1"))->filePath,
+                 QStringLiteral("/media/moved/a.mp4"));
         QVERIFY(f.doc.undo());
-        QCOMPARE(f.doc.project().asset(QStringLiteral("m1"))->filePath, QStringLiteral("/media/a.mp4"));
+        QCOMPARE(f.doc.project().asset(QStringLiteral("m1"))->filePath,
+                 QStringLiteral("/media/a.mp4"));
         QVERIFY(f.doc.execute(edits::removeClips({QStringLiteral("c1")})));
         QVERIFY(f.doc.execute(std::make_unique<RemoveMediaCommand>(QStringLiteral("m1"))));
         QVERIFY(f.doc.project().media().empty());
@@ -235,7 +256,8 @@ private slots:
         ProjectSettings s = f.doc.project().settings();
         s.width = 1280;
         s.height = 720;
-        QVERIFY(f.doc.execute(std::make_unique<ProjectSettingsCommand>(s, QStringLiteral("Renamed"))));
+        QVERIFY(
+            f.doc.execute(std::make_unique<ProjectSettingsCommand>(s, QStringLiteral("Renamed"))));
         QCOMPARE(f.doc.project().settings().width, 1280);
         QCOMPARE(f.doc.project().name(), QStringLiteral("Renamed"));
         QVERIFY(f.doc.undo());
@@ -250,7 +272,8 @@ private slots:
         Project project = Project::createNew(QStringLiteral("Limit"), ProjectSettings{});
         CommandHistory history(3);
         for (int i = 0; i < 5; ++i) {
-            QVERIFY(history.execute(edits::addTrack(TrackKind::Audio, QStringLiteral("X%1").arg(i)), project));
+            QVERIFY(history.execute(edits::addTrack(TrackKind::Audio, QStringLiteral("X%1").arg(i)),
+                                    project));
         }
         QCOMPARE(history.count(), 3);
         QCOMPARE(project.timeline().trackCount(), 9);
@@ -271,7 +294,8 @@ private slots:
         file.close();
         Project project = Project::createNew(QStringLiteral("Missing"), ProjectSettings{});
         (void)project.addAsset(videoAsset(QStringLiteral("present"), existing));
-        (void)project.addAsset(videoAsset(QStringLiteral("gone"), dir.filePath(QStringLiteral("gone.mp4"))));
+        (void)project.addAsset(
+            videoAsset(QStringLiteral("gone"), dir.filePath(QStringLiteral("gone.mp4"))));
         const QString path = dir.filePath(QStringLiteral("m.ftproj"));
         QVERIFY(project_format::saveToFile(project, path));
         Result<std::unique_ptr<ProjectDocument>> loaded = ProjectDocument::load(path);

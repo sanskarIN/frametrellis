@@ -31,8 +31,8 @@ Status checkProperties(const ClipProperties& p, FrameCount duration)
                          QStringLiteral("Fades must fit within the clip duration."));
     }
     const VideoAdjustments& v = p.video;
-    if (!inRange(v.brightness, -1.0, 1.0) || !inRange(v.contrast, 0.0, 2.0)
-        || !inRange(v.saturation, 0.0, 3.0) || !inRange(v.opacity, 0.0, 1.0)) {
+    if (!inRange(v.brightness, -1.0, 1.0) || !inRange(v.contrast, 0.0, 2.0) ||
+        !inRange(v.saturation, 0.0, 3.0) || !inRange(v.opacity, 0.0, 1.0)) {
         return makeError(ErrorCode::OutOfRange,
                          QStringLiteral("A picture adjustment is out of range."));
     }
@@ -91,7 +91,8 @@ const Clip* Timeline::clip(const Id& clipId) const
     if (!location) {
         return nullptr;
     }
-    return &m_tracks[static_cast<size_t>(location->track)].clips[static_cast<size_t>(location->clip)];
+    return &m_tracks[static_cast<size_t>(location->track)]
+                .clips[static_cast<size_t>(location->clip)];
 }
 
 const Track* Timeline::trackOfClip(const Id& clipId) const
@@ -171,9 +172,9 @@ std::vector<Id> Timeline::clipsUsingAsset(const Id& assetId) const
 Status Timeline::checkEditable(const Track& t) const
 {
     if (t.locked) {
-        return makeError(ErrorCode::Conflict,
-                         QStringLiteral("Track \"%1\" is locked. Unlock it to edit its clips.")
-                             .arg(t.name));
+        return makeError(
+            ErrorCode::Conflict,
+            QStringLiteral("Track \"%1\" is locked. Unlock it to edit its clips.").arg(t.name));
     }
     return {};
 }
@@ -184,14 +185,17 @@ Status Timeline::checkClipShape(const Clip& c)
         return makeError(ErrorCode::InvalidArgument, QStringLiteral("The clip has an invalid id."));
     }
     if (c.duration < 1) {
-        return makeError(ErrorCode::OutOfRange, QStringLiteral("A clip must be at least one frame long."));
+        return makeError(ErrorCode::OutOfRange,
+                         QStringLiteral("A clip must be at least one frame long."));
     }
     if (c.start < 0 || c.sourceIn < 0) {
-        return makeError(ErrorCode::OutOfRange,
-                         QStringLiteral("Clips cannot start before the beginning of the timeline."));
+        return makeError(
+            ErrorCode::OutOfRange,
+            QStringLiteral("Clips cannot start before the beginning of the timeline."));
     }
     if (c.end() > kMaxTimelineFrames || c.sourceOut() > kMaxTimelineFrames) {
-        return makeError(ErrorCode::OutOfRange, QStringLiteral("The clip exceeds the maximum timeline length."));
+        return makeError(ErrorCode::OutOfRange,
+                         QStringLiteral("The clip exceeds the maximum timeline length."));
     }
     return checkProperties(c.properties, c.duration);
 }
@@ -208,8 +212,9 @@ Status Timeline::checkSourceRange(const Clip& c, const Track& t, const SourceLoo
                          QStringLiteral("Audio-only media can only be placed on audio tracks."));
     }
     if (t.kind == TrackKind::Audio && !limits->hasAudio) {
-        return makeError(ErrorCode::InvalidArgument,
-                         QStringLiteral("This media has no audio, so it cannot go on an audio track."));
+        return makeError(
+            ErrorCode::InvalidArgument,
+            QStringLiteral("This media has no audio, so it cannot go on an audio track."));
     }
     if (limits->length && c.sourceOut() > *limits->length) {
         return makeError(ErrorCode::OutOfRange,
@@ -220,15 +225,17 @@ Status Timeline::checkSourceRange(const Clip& c, const Track& t, const SourceLoo
 
 void Timeline::insertSorted(Track& t, Clip c)
 {
-    const auto pos = std::lower_bound(t.clips.begin(), t.clips.end(), c.start,
-                                      [](const Clip& a, FrameCount start) { return a.start < start; });
+    const auto pos =
+        std::lower_bound(t.clips.begin(), t.clips.end(), c.start,
+                         [](const Clip& a, FrameCount start) { return a.start < start; });
     t.clips.insert(pos, std::move(c));
 }
 
 Status Timeline::insertTrack(Track t, int index)
 {
     if (!isValidId(t.id) || trackIndex(t.id) >= 0) {
-        return makeError(ErrorCode::InvalidArgument, QStringLiteral("The track id is invalid or already used."));
+        return makeError(ErrorCode::InvalidArgument,
+                         QStringLiteral("The track id is invalid or already used."));
     }
     if (trackCount() >= kMaxTracks) {
         return makeError(ErrorCode::OutOfRange,
@@ -240,7 +247,8 @@ Status Timeline::insertTrack(Track t, int index)
             return shape;
         }
         if (c.start < previousEnd || findClip(c.id)) {
-            return makeError(ErrorCode::InvalidArgument, QStringLiteral("The track's clips are inconsistent."));
+            return makeError(ErrorCode::InvalidArgument,
+                             QStringLiteral("The track's clips are inconsistent."));
         }
         previousEnd = c.end();
     }
@@ -336,7 +344,8 @@ Status Timeline::insertClip(const Id& trackId, Clip c, const SourceLookup& sourc
         c.id = createId();
     }
     if (findClip(c.id)) {
-        return makeError(ErrorCode::Conflict, QStringLiteral("A clip with this id already exists."));
+        return makeError(ErrorCode::Conflict,
+                         QStringLiteral("A clip with this id already exists."));
     }
     if (const Status shape = checkClipShape(c); !shape) {
         return shape;
@@ -345,8 +354,9 @@ Status Timeline::insertClip(const Id& trackId, Clip c, const SourceLookup& sourc
         return source;
     }
     if (!isRangeFree(trackId, c.start, c.duration)) {
-        return makeError(ErrorCode::Conflict,
-                         QStringLiteral("There is already a clip at that position on \"%1\".").arg(t->name));
+        return makeError(
+            ErrorCode::Conflict,
+            QStringLiteral("There is already a clip at that position on \"%1\".").arg(t->name));
     }
     insertSorted(*t, std::move(c));
     return {};
@@ -414,8 +424,9 @@ Status Timeline::moveClip(const Id& clipId, const Id& targetTrackId, FrameCount 
         }
     }
     if (!isRangeFree(targetTrackId, moved.start, moved.duration, clipId)) {
-        return makeError(ErrorCode::Conflict,
-                         QStringLiteral("The clip would overlap another clip on \"%1\".").arg(to->name));
+        return makeError(
+            ErrorCode::Conflict,
+            QStringLiteral("The clip would overlap another clip on \"%1\".").arg(to->name));
     }
     from.clips.erase(from.clips.begin() + location->clip);
     insertSorted(*to, std::move(moved));
@@ -438,8 +449,9 @@ Status Timeline::trimClipStart(const Id& clipId, FrameCount newStart, const Sour
     trimmed.sourceIn += delta;
     trimmed.duration -= delta;
     if (trimmed.sourceIn < 0) {
-        return makeError(ErrorCode::OutOfRange,
-                         QStringLiteral("The clip cannot be extended before the start of its media."));
+        return makeError(
+            ErrorCode::OutOfRange,
+            QStringLiteral("The clip cannot be extended before the start of its media."));
     }
     clampFades(trimmed.properties, std::max<FrameCount>(trimmed.duration, 0));
     if (const Status shape = checkClipShape(trimmed); !shape) {
@@ -449,7 +461,8 @@ Status Timeline::trimClipStart(const Id& clipId, FrameCount newStart, const Sour
         return source;
     }
     if (!isRangeFree(t.id, trimmed.start, trimmed.duration, clipId)) {
-        return makeError(ErrorCode::Conflict, QStringLiteral("The clip would overlap its neighbour."));
+        return makeError(ErrorCode::Conflict,
+                         QStringLiteral("The clip would overlap its neighbour."));
     }
     t.clips[static_cast<size_t>(location->clip)] = std::move(trimmed);
     return {};
@@ -475,7 +488,8 @@ Status Timeline::trimClipEnd(const Id& clipId, FrameCount newEnd, const SourceLo
         return source;
     }
     if (!isRangeFree(t.id, trimmed.start, trimmed.duration, clipId)) {
-        return makeError(ErrorCode::Conflict, QStringLiteral("The clip would overlap its neighbour."));
+        return makeError(ErrorCode::Conflict,
+                         QStringLiteral("The clip would overlap its neighbour."));
     }
     t.clips[static_cast<size_t>(location->clip)] = std::move(trimmed);
     return {};
@@ -550,7 +564,8 @@ void Timeline::restoreTracks(std::vector<Track> tracks)
 Status Timeline::validate(const SourceLookup& sources) const
 {
     if (trackCount() > kMaxTracks) {
-        return makeError(ErrorCode::InvalidDocument, QStringLiteral("The timeline has too many tracks."));
+        return makeError(ErrorCode::InvalidDocument,
+                         QStringLiteral("The timeline has too many tracks."));
     }
     QSet<Id> ids;
     for (const Track& t : m_tracks) {
@@ -571,9 +586,10 @@ Status Timeline::validate(const SourceLookup& sources) const
                                  QStringLiteral("clip %1").arg(c.id));
             }
             if (c.start < previousEnd) {
-                return makeError(ErrorCode::InvalidDocument,
-                                 QStringLiteral("Clips on track \"%1\" overlap or are out of order.")
-                                     .arg(t.name));
+                return makeError(
+                    ErrorCode::InvalidDocument,
+                    QStringLiteral("Clips on track \"%1\" overlap or are out of order.")
+                        .arg(t.name));
             }
             previousEnd = c.end();
             if (const Status source = checkSourceRange(c, t, sources); !source) {

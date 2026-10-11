@@ -6,7 +6,9 @@
 
 namespace ft::ui {
 
-ClipListModel::ClipListModel(QObject* parent) : QAbstractListModel(parent) {}
+ClipListModel::ClipListModel(QObject* parent)
+    : QAbstractListModel(parent)
+{}
 
 int ClipListModel::rowCount(const QModelIndex& parent) const
 {
@@ -60,11 +62,21 @@ QVariant ClipListModel::data(const QModelIndex& index, int role) const
 
 QHash<int, QByteArray> ClipListModel::roleNames() const
 {
-    return {{IdRole, "clipId"},         {AssetIdRole, "assetId"},      {NameRole, "name"},
-            {StartRole, "start"},       {DurationRole, "duration"},    {SourceInRole, "sourceIn"},
-            {SourceLengthRole, "sourceLength"}, {KindRole, "kind"},    {SelectedRole, "selected"},
-            {OfflineRole, "offline"},   {MutedRole, "muted"},          {GainRole, "gain"},
-            {FadeInRole, "fadeIn"},     {FadeOutRole, "fadeOut"},      {ThumbnailRole, "thumbnail"}};
+    return {{IdRole, "clipId"},
+            {AssetIdRole, "assetId"},
+            {NameRole, "name"},
+            {StartRole, "start"},
+            {DurationRole, "duration"},
+            {SourceInRole, "sourceIn"},
+            {SourceLengthRole, "sourceLength"},
+            {KindRole, "kind"},
+            {SelectedRole, "selected"},
+            {OfflineRole, "offline"},
+            {MutedRole, "muted"},
+            {GainRole, "gain"},
+            {FadeInRole, "fadeIn"},
+            {FadeOutRole, "fadeOut"},
+            {ThumbnailRole, "thumbnail"}};
 }
 
 void ClipListModel::setClips(const Track& track, const Project& project, const QSet<Id>& selection)
@@ -78,13 +90,15 @@ void ClipListModel::setClips(const Track& track, const Project& project, const Q
         row.name = asset ? asset->name : QStringLiteral("(missing media)");
         row.kind = asset ? mediaKindToString(asset->info.kind) : QStringLiteral("video");
         row.offline = !asset || asset->status == MediaStatus::Missing;
-        row.sourceLength = asset ? asset->lengthInFrames(project.settings().frameRate).value_or(-1) : -1;
+        row.sourceLength =
+            asset ? asset->lengthInFrames(project.settings().frameRate).value_or(-1) : -1;
         row.selected = selection.contains(clip.id);
         rows.push_back(std::move(row));
     }
-    const bool sameIds = rows.size() == m_rows.size()
-                         && std::equal(rows.begin(), rows.end(), m_rows.begin(),
-                                       [](const Row& a, const Row& b) { return a.clip.id == b.clip.id; });
+    const bool sameIds =
+        rows.size() == m_rows.size() &&
+        std::equal(rows.begin(), rows.end(), m_rows.begin(),
+                   [](const Row& a, const Row& b) { return a.clip.id == b.clip.id; });
     if (sameIds) {
         m_rows = std::move(rows);
         if (!m_rows.empty()) {
@@ -110,7 +124,9 @@ void ClipListModel::updateSelection(const QSet<Id>& selection)
     }
 }
 
-TimelineModel::TimelineModel(QObject* parent) : QAbstractListModel(parent) {}
+TimelineModel::TimelineModel(QObject* parent)
+    : QAbstractListModel(parent)
+{}
 
 int TimelineModel::rowCount(const QModelIndex& parent) const
 {
@@ -147,12 +163,14 @@ QVariant TimelineModel::data(const QModelIndex& index, int role) const
 
 QHash<int, QByteArray> TimelineModel::roleNames() const
 {
-    return {{IdRole, "trackId"}, {NameRole, "name"},     {KindRole, "kind"},   {MutedRole, "muted"},
-            {HiddenRole, "hidden"}, {LockedRole, "locked"}, {ClipsRole, "clips"}, {ProjectIndexRole, "projectIndex"}};
+    return {{IdRole, "trackId"},    {NameRole, "name"},
+            {KindRole, "kind"},     {MutedRole, "muted"},
+            {HiddenRole, "hidden"}, {LockedRole, "locked"},
+            {ClipsRole, "clips"},   {ProjectIndexRole, "projectIndex"}};
 }
 
-void TimelineModel::update(const Project& project, bool structural, bool refreshAll, const QSet<Id>& tracks,
-                           const QSet<Id>& selection)
+void TimelineModel::update(const Project& project, bool structural, bool refreshAll,
+                           const QSet<Id>& tracks, const QSet<Id>& selection)
 {
     const std::vector<Track>& all = project.timeline().tracks();
     std::vector<int> order;

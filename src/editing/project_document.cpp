@@ -12,8 +12,7 @@ namespace ft {
 ProjectDocument::ProjectDocument(Project project, QObject* parent)
     : QObject(parent)
     , m_project(std::move(project))
-{
-}
+{}
 
 ProjectDocument::~ProjectDocument() = default;
 

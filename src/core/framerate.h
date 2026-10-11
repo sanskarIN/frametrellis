@@ -55,7 +55,9 @@ public:
     friend bool operator==(const FrameRate& a, const FrameRate& b) = default;
 
 private:
-    explicit FrameRate(Rational rate) : m_rate(rate) {}
+    explicit FrameRate(Rational rate)
+        : m_rate(rate)
+    {}
     Rational m_rate{25, 1};
 };
 

@@ -61,7 +61,8 @@ private slots:
 
     void validSettingsPass()
     {
-        const Status valid = validateExport(settingsFor(QStringLiteral("out.mp4")), projectWithClip());
+        const Status valid =
+            validateExport(settingsFor(QStringLiteral("out.mp4")), projectWithClip());
         QVERIFY2(valid, qPrintable(valid ? QString() : valid.error().toString()));
         QVERIFY(validateExport(settingsFor(QStringLiteral("OUT.MP4")), projectWithClip()));
     }
@@ -73,15 +74,24 @@ private slots:
         QTest::addColumn<QString>("preset");
         QTest::addColumn<int>("audioKbps");
         QTest::newRow("empty path") << QString() << 20 << QStringLiteral("medium") << 192;
-        QTest::newRow("relative path") << QStringLiteral("relative.mp4") << 20 << QStringLiteral("medium") << 192;
-        QTest::newRow("wrong suffix") << QStringLiteral("@/out.mov") << 20 << QStringLiteral("medium") << 192;
-        QTest::newRow("missing folder") << QStringLiteral("@/nope/out.mp4") << 20 << QStringLiteral("medium") << 192;
-        QTest::newRow("overwrites source") << QStringLiteral("@/source.mp4") << 20 << QStringLiteral("medium") << 192;
-        QTest::newRow("folder as file") << QStringLiteral("@/folder.mp4") << 20 << QStringLiteral("medium") << 192;
-        QTest::newRow("crf too high") << QStringLiteral("@/out.mp4") << 52 << QStringLiteral("medium") << 192;
-        QTest::newRow("crf negative") << QStringLiteral("@/out.mp4") << -1 << QStringLiteral("medium") << 192;
-        QTest::newRow("unknown preset") << QStringLiteral("@/out.mp4") << 20 << QStringLiteral("ludicrous") << 192;
-        QTest::newRow("audio bitrate") << QStringLiteral("@/out.mp4") << 20 << QStringLiteral("medium") << 8;
+        QTest::newRow("relative path")
+            << QStringLiteral("relative.mp4") << 20 << QStringLiteral("medium") << 192;
+        QTest::newRow("wrong suffix")
+            << QStringLiteral("@/out.mov") << 20 << QStringLiteral("medium") << 192;
+        QTest::newRow("missing folder")
+            << QStringLiteral("@/nope/out.mp4") << 20 << QStringLiteral("medium") << 192;
+        QTest::newRow("overwrites source")
+            << QStringLiteral("@/source.mp4") << 20 << QStringLiteral("medium") << 192;
+        QTest::newRow("folder as file")
+            << QStringLiteral("@/folder.mp4") << 20 << QStringLiteral("medium") << 192;
+        QTest::newRow("crf too high")
+            << QStringLiteral("@/out.mp4") << 52 << QStringLiteral("medium") << 192;
+        QTest::newRow("crf negative")
+            << QStringLiteral("@/out.mp4") << -1 << QStringLiteral("medium") << 192;
+        QTest::newRow("unknown preset")
+            << QStringLiteral("@/out.mp4") << 20 << QStringLiteral("ludicrous") << 192;
+        QTest::newRow("audio bitrate")
+            << QStringLiteral("@/out.mp4") << 20 << QStringLiteral("medium") << 8;
     }
 
     void rejectsUnsafeOrInvalidSettings()
@@ -104,7 +114,8 @@ private slots:
     void rejectsProjectFileAsOutput()
     {
         const QString projectFile = m_dir.filePath(QStringLiteral("edit.mp4"));
-        QVERIFY(!validateExport(settingsFor(QStringLiteral("edit.mp4")), projectWithClip(), projectFile));
+        QVERIFY(!validateExport(settingsFor(QStringLiteral("edit.mp4")), projectWithClip(),
+                                projectFile));
     }
 
     void rejectsEmptyTimelineAndOfflineMedia()
@@ -149,24 +160,27 @@ private slots:
             const ExportSettings s = applyPreset(preset, m_dir.filePath(QStringLiteral("p.mp4")));
             QVERIFY2(validateExport(s, projectWithClip()), qPrintable(preset.id));
         }
-        QCOMPARE(chooseVideoEncoder({QStringLiteral("mpeg4"), QStringLiteral("libx264")}), QStringLiteral("libx264"));
-        QCOMPARE(chooseVideoEncoder({QStringLiteral("mpeg4"), QStringLiteral("h264_mf")}), QStringLiteral("h264_mf"));
+        QCOMPARE(chooseVideoEncoder({QStringLiteral("mpeg4"), QStringLiteral("libx264")}),
+                 QStringLiteral("libx264"));
+        QCOMPARE(chooseVideoEncoder({QStringLiteral("mpeg4"), QStringLiteral("h264_mf")}),
+                 QStringLiteral("h264_mf"));
         QCOMPARE(chooseVideoEncoder({QStringLiteral("mpeg4")}), QStringLiteral("mpeg4"));
         QVERIFY(chooseVideoEncoder({QStringLiteral("rawvideo")}).isEmpty());
     }
 
     void protocolRoundTrip()
     {
-        const QJsonObject event{{QStringLiteral("event"), QStringLiteral("progress")}, {QStringLiteral("frame"), 12}};
+        const QJsonObject event{{QStringLiteral("event"), QStringLiteral("progress")},
+                                {QStringLiteral("frame"), 12}};
         const QByteArray line = protocol::encode(event);
         QVERIFY(line.startsWith("@ft {"));
         QVERIFY(line.endsWith('\n'));
         QCOMPARE(*protocol::decode(line), event);
         QVERIFY(!protocol::decode("video_codecs:"));
         QVERIFY(!protocol::decode("  - libx264"));
-        QVERIFY(!protocol::decode(R"({"event":"progress"})"));     // missing prefix
+        QVERIFY(!protocol::decode(R"({"event":"progress"})")); // missing prefix
         QVERIFY(!protocol::decode("@ft [1,2,3]"));
-        QVERIFY(!protocol::decode("@ft {\"frame\":1}"));            // no event name
+        QVERIFY(!protocol::decode("@ft {\"frame\":1}")); // no event name
         QVERIFY(!protocol::decode("@ft {not json"));
     }
 
@@ -179,13 +193,16 @@ private slots:
         QVERIFY(RenderJob::canTransition(S::Running, S::Succeeded));
         QVERIFY(RenderJob::canTransition(S::Running, S::Cancelling));
         QVERIFY(RenderJob::canTransition(S::Cancelling, S::Cancelled));
-        QVERIFY(RenderJob::canTransition(S::Cancelling, S::Succeeded)); // finished before it saw the request
-        QVERIFY(RenderJob::canTransition(S::Failed, S::Starting));      // retry
+        QVERIFY(RenderJob::canTransition(S::Cancelling,
+                                         S::Succeeded)); // finished before it saw the request
+        QVERIFY(RenderJob::canTransition(S::Failed, S::Starting)); // retry
         QVERIFY(!RenderJob::canTransition(S::Idle, S::Running));
-        QVERIFY(!RenderJob::canTransition(S::Running, S::Cancelled));   // must pass through Cancelling
+        QVERIFY(
+            !RenderJob::canTransition(S::Running, S::Cancelled)); // must pass through Cancelling
         QVERIFY(!RenderJob::canTransition(S::Succeeded, S::Failed));
         QVERIFY(!RenderJob::canTransition(S::Cancelled, S::Running));
-        QVERIFY(RenderJob::isFinished(S::Succeeded) && RenderJob::isFinished(S::Failed) && RenderJob::isFinished(S::Cancelled));
+        QVERIFY(RenderJob::isFinished(S::Succeeded) && RenderJob::isFinished(S::Failed) &&
+                RenderJob::isFinished(S::Cancelled));
         QVERIFY(!RenderJob::isFinished(S::Running));
     }
 

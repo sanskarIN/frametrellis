@@ -14,7 +14,8 @@ using namespace ft;
 
 namespace {
 
-MediaAsset makeAsset(const QString& id, const QString& path, MediaKind kind, std::int64_t durationUs)
+MediaAsset makeAsset(const QString& id, const QString& path, MediaKind kind,
+                     std::int64_t durationUs)
 {
     MediaAsset a;
     a.id = id;
@@ -42,9 +43,12 @@ Project makeProject(const QString& mediaDir)
     settings.height = 720;
     settings.frameRate = *FrameRate::create(30000, 1001);
     Project p = Project::createNew(QStringLiteral("Round Trip"), settings);
-    (void)p.addAsset(makeAsset(QStringLiteral("m1"), mediaDir + QStringLiteral("/clip.mp4"), MediaKind::Video, 10'000'000));
-    (void)p.addAsset(makeAsset(QStringLiteral("m2"), mediaDir + QStringLiteral("/music.wav"), MediaKind::Audio, 60'000'000));
-    (void)p.addAsset(makeAsset(QStringLiteral("m3"), mediaDir + QStringLiteral("/logo.png"), MediaKind::Image, 0));
+    (void)p.addAsset(makeAsset(QStringLiteral("m1"), mediaDir + QStringLiteral("/clip.mp4"),
+                               MediaKind::Video, 10'000'000));
+    (void)p.addAsset(makeAsset(QStringLiteral("m2"), mediaDir + QStringLiteral("/music.wav"),
+                               MediaKind::Audio, 60'000'000));
+    (void)p.addAsset(makeAsset(QStringLiteral("m3"), mediaDir + QStringLiteral("/logo.png"),
+                               MediaKind::Image, 0));
     const Id v1 = p.timeline().tracks()[0].id;
     const Id a1 = p.timeline().tracks()[2].id;
     Clip c;
@@ -126,7 +130,10 @@ private slots:
         QFile f(file);
         QVERIFY(f.open(QIODevice::ReadOnly));
         const QJsonObject root = QJsonDocument::fromJson(f.readAll()).object();
-        const QJsonObject media = root[QLatin1String("project")].toObject()[QLatin1String("media")].toArray()[0].toObject();
+        const QJsonObject media = root[QLatin1String("project")]
+                                      .toObject()[QLatin1String("media")]
+                                      .toArray()[0]
+                                      .toObject();
         QCOMPARE(media[QLatin1String("relativePath")].toString(), QStringLiteral("media/clip.mp4"));
     }
 
@@ -148,7 +155,8 @@ private slots:
         QCOMPARE(loaded->asset(QStringLiteral("m1"))->filePath,
                  QDir::cleanPath(newRoot.filePath(QStringLiteral("media/clip.mp4"))));
         // Files that cannot be found keep their original absolute path for relinking.
-        QCOMPARE(loaded->asset(QStringLiteral("m2"))->filePath, oldRoot.path() + QStringLiteral("/media/music.wav"));
+        QCOMPARE(loaded->asset(QStringLiteral("m2"))->filePath,
+                 oldRoot.path() + QStringLiteral("/media/music.wav"));
     }
 
     void rejectsMalformedInput_data()
@@ -158,10 +166,17 @@ private slots:
         QTest::newRow("empty") << QByteArray() << int(ErrorCode::Parse);
         QTest::newRow("truncated") << QByteArray("{\"format\": ") << int(ErrorCode::Parse);
         QTest::newRow("array") << QByteArray("[1,2,3]") << int(ErrorCode::InvalidDocument);
-        QTest::newRow("other format") << QByteArray(R"({"format":"something.else","version":1})") << int(ErrorCode::InvalidDocument);
-        QTest::newRow("no project") << QByteArray(R"({"format":"org.frametrellis.project","version":1})") << int(ErrorCode::InvalidDocument);
-        QTest::newRow("bad version") << QByteArray(R"({"format":"org.frametrellis.project","version":"one"})") << int(ErrorCode::InvalidDocument);
-        QTest::newRow("newer version") << QByteArray(R"({"format":"org.frametrellis.project","version":99,"project":{}})") << int(ErrorCode::UnsupportedVersion);
+        QTest::newRow("other format") << QByteArray(R"({"format":"something.else","version":1})")
+                                      << int(ErrorCode::InvalidDocument);
+        QTest::newRow("no project")
+            << QByteArray(R"({"format":"org.frametrellis.project","version":1})")
+            << int(ErrorCode::InvalidDocument);
+        QTest::newRow("bad version")
+            << QByteArray(R"({"format":"org.frametrellis.project","version":"one"})")
+            << int(ErrorCode::InvalidDocument);
+        QTest::newRow("newer version")
+            << QByteArray(R"({"format":"org.frametrellis.project","version":99,"project":{}})")
+            << int(ErrorCode::UnsupportedVersion);
     }
 
     void rejectsMalformedInput()
@@ -180,11 +195,13 @@ private slots:
         QTest::addColumn<QJsonValue>("value");
         QTest::newRow("negative start") << QStringLiteral("start") << QJsonValue(-5);
         QTest::newRow("fractional start") << QStringLiteral("start") << QJsonValue(1.5);
-        QTest::newRow("string start") << QStringLiteral("start") << QJsonValue(QStringLiteral("10"));
+        QTest::newRow("string start")
+            << QStringLiteral("start") << QJsonValue(QStringLiteral("10"));
         QTest::newRow("zero duration") << QStringLiteral("duration") << QJsonValue(0);
         QTest::newRow("beyond source") << QStringLiteral("duration") << QJsonValue(100000);
         QTest::newRow("huge gain") << QStringLiteral("gain") << QJsonValue(1e9);
-        QTest::newRow("unknown media") << QStringLiteral("media") << QJsonValue(QStringLiteral("does-not-exist"));
+        QTest::newRow("unknown media")
+            << QStringLiteral("media") << QJsonValue(QStringLiteral("does-not-exist"));
         QTest::newRow("bad id") << QStringLiteral("id") << QJsonValue(QStringLiteral("../../etc"));
         QTest::newRow("overlap") << QStringLiteral("start") << QJsonValue(250);
     }
@@ -250,7 +267,8 @@ private slots:
 
     void loadReportsMissingFile()
     {
-        Result<Project> loaded = project_format::loadFromFile(QStringLiteral("/nonexistent/dir/project.ftproj"));
+        Result<Project> loaded =
+            project_format::loadFromFile(QStringLiteral("/nonexistent/dir/project.ftproj"));
         QVERIFY(!loaded);
         QCOMPARE(loaded.error().code, ErrorCode::NotFound);
     }
@@ -262,7 +280,8 @@ private slots:
         const Project original = makeProject(dir.path());
         QVERIFY(project_format::saveToFile(original, file));
         // Saving into a directory that does not exist fails cleanly.
-        const Status failed = project_format::saveToFile(original, dir.filePath(QStringLiteral("missing/sub/x.ftproj")));
+        const Status failed = project_format::saveToFile(
+            original, dir.filePath(QStringLiteral("missing/sub/x.ftproj")));
         QVERIFY(!failed);
         QCOMPARE(failed.error().code, ErrorCode::Io);
         QVERIFY(project_format::loadFromFile(file));
@@ -278,12 +297,15 @@ private slots:
 
     void assetLengthInFrames()
     {
-        MediaAsset video = makeAsset(QStringLiteral("x"), QStringLiteral("/a.mp4"), MediaKind::Video, 2'000'000);
+        MediaAsset video =
+            makeAsset(QStringLiteral("x"), QStringLiteral("/a.mp4"), MediaKind::Video, 2'000'000);
         QCOMPARE(*video.lengthInFrames(*FrameRate::create(25, 1)), FrameCount{50});
         QCOMPARE(*video.lengthInFrames(*FrameRate::create(30000, 1001)), FrameCount{59});
-        MediaAsset still = makeAsset(QStringLiteral("y"), QStringLiteral("/a.png"), MediaKind::Image, 0);
+        MediaAsset still =
+            makeAsset(QStringLiteral("y"), QStringLiteral("/a.png"), MediaKind::Image, 0);
         QVERIFY(!still.lengthInFrames(*FrameRate::create(25, 1)).has_value());
-        MediaAsset tiny = makeAsset(QStringLiteral("z"), QStringLiteral("/a.wav"), MediaKind::Audio, 1);
+        MediaAsset tiny =
+            makeAsset(QStringLiteral("z"), QStringLiteral("/a.wav"), MediaKind::Audio, 1);
         QCOMPARE(*tiny.lengthInFrames(*FrameRate::create(25, 1)), FrameCount{1});
     }
 
@@ -293,7 +315,8 @@ private slots:
         QCOMPARE(p.removeAsset(QStringLiteral("m1")).error().code, ErrorCode::Conflict);
         QVERIFY(p.assetByPath(QStringLiteral("/media/clip.mp4")));
         QVERIFY(p.assetByPath(QStringLiteral("/media/../media/clip.mp4")));
-        QVERIFY(!p.addAsset(makeAsset(QStringLiteral("m1"), QStringLiteral("/other.mp4"), MediaKind::Video, 1)));
+        QVERIFY(!p.addAsset(
+            makeAsset(QStringLiteral("m1"), QStringLiteral("/other.mp4"), MediaKind::Video, 1)));
         QCOMPARE(p.nextTrackName(TrackKind::Video), QStringLiteral("V3"));
         QCOMPARE(p.nextTrackName(TrackKind::Audio), QStringLiteral("A3"));
         ProjectSettings changed = p.settings();

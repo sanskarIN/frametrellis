@@ -42,7 +42,8 @@ QImage grabFrame(Mlt::Producer& producer, int position, QSize size)
     return frameToImage(*frame, size);
 }
 
-AudioBlock frameToAudio(Mlt::Frame& frame, double fps, int frequency, int channels, std::int64_t position)
+AudioBlock frameToAudio(Mlt::Frame& frame, double fps, int frequency, int channels,
+                        std::int64_t position)
 {
     AudioBlock block;
     mlt_audio_format format = mlt_audio_s16;
@@ -58,14 +59,16 @@ AudioBlock frameToAudio(Mlt::Frame& frame, double fps, int frequency, int channe
         return block;
     }
     if (actualChannels == channels) {
-        block.samples.assign(pcm, pcm + static_cast<size_t>(samples) * static_cast<size_t>(channels));
+        block.samples.assign(pcm,
+                             pcm + static_cast<size_t>(samples) * static_cast<size_t>(channels));
     } else {
         // Map to the requested channel count: duplicate mono or keep the first channels.
         block.samples.resize(static_cast<size_t>(samples) * static_cast<size_t>(channels));
         for (int s = 0; s < samples; ++s) {
             for (int c = 0; c < channels; ++c) {
                 const int source = std::min(c, actualChannels - 1);
-                block.samples[static_cast<size_t>(s * channels + c)] = pcm[s * actualChannels + source];
+                block.samples[static_cast<size_t>(s * channels + c)] =
+                    pcm[s * actualChannels + source];
             }
         }
     }

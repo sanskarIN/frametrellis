@@ -10,7 +10,6 @@
 #include <QFile>
 #include <QTemporaryDir>
 #include <QTest>
-
 #include <mlt++/Mlt.h>
 
 using namespace ft;
@@ -20,9 +19,9 @@ namespace {
 
 struct Media
 {
-    QString video;      // 3 s: red, green, blue; 440 Hz tone
-    QString videoMute;  // 2 s: white, black; no audio
-    QString tone;       // 2 s stereo WAV
+    QString video;       // 3 s: red, green, blue; 440 Hz tone
+    QString videoMute;   // 2 s: white, black; no audio
+    QString tone;        // 2 s stereo WAV
     QString still;       // yellow 16:9 PNG
     QString narrowStill; // yellow 1:1 PNG
 };
@@ -112,8 +111,10 @@ private slots:
         mute.withAudio = false;
         m_media.videoMute = makeVideo(m_dir.path(), QStringLiteral("mute.mp4"), mute);
         m_media.tone = makeTone(m_dir.path(), QStringLiteral("tone.wav"), 2.0);
-        m_media.still = makeStill(m_dir.path(), QStringLiteral("yellow.png"), Qt::yellow, QSize(64, 36));
-        m_media.narrowStill = makeStill(m_dir.path(), QStringLiteral("narrow.png"), Qt::yellow, QSize(48, 48));
+        m_media.still =
+            makeStill(m_dir.path(), QStringLiteral("yellow.png"), Qt::yellow, QSize(64, 36));
+        m_media.narrowStill =
+            makeStill(m_dir.path(), QStringLiteral("narrow.png"), Qt::yellow, QSize(48, 48));
         QVERIFY(!m_media.video.isEmpty());
         QVERIFY(!m_media.videoMute.isEmpty());
         QVERIFY(!m_media.tone.isEmpty());
@@ -158,7 +159,8 @@ private slots:
 
     void probeRejectsBadFiles()
     {
-        QCOMPARE(media::probeMedia(m_dir.filePath(QStringLiteral("missing.mp4"))).error().code, ErrorCode::NotFound);
+        QCOMPARE(media::probeMedia(m_dir.filePath(QStringLiteral("missing.mp4"))).error().code,
+                 ErrorCode::NotFound);
         QVERIFY(!media::probeMedia(m_dir.path()));
         QFile empty(m_dir.filePath(QStringLiteral("empty.mp4")));
         QVERIFY(empty.open(QIODevice::WriteOnly));
@@ -188,7 +190,8 @@ private slots:
         QVERIFY2(isCloseTo(averageColor(*thumb), Qt::red), qPrintable(averageColor(*thumb).name()));
         Result<MediaInfo> stillInfo = media::probeMedia(m_media.still);
         QVERIFY(stillInfo);
-        Result<QImage> stillThumb = media::renderThumbnail(m_media.still, *stillInfo, QSize(32, 32));
+        Result<QImage> stillThumb =
+            media::renderThumbnail(m_media.still, *stillInfo, QSize(32, 32));
         QVERIFY(stillThumb);
         QVERIFY(isCloseTo(averageColor(*stillThumb), Qt::yellow));
         Result<MediaInfo> toneInfo = media::probeMedia(m_media.tone);
@@ -224,8 +227,10 @@ private slots:
         QVERIFY2(isCloseTo(overlayColor, Qt::yellow), qPrintable(overlayColor.name()));
         // A still with another aspect ratio is pillarboxed; the transparent bars reveal V1.
         Project narrow = projectWith({m_media.video, m_media.narrowStill}, &ids);
-        QVERIFY(narrow.timeline().insertClip(narrow.timeline().tracks()[0].id, clipOf(ids[2], 0, 0, 50), narrow.sourceLookup()));
-        QVERIFY(narrow.timeline().insertClip(narrow.timeline().tracks()[1].id, clipOf(ids[3], 0, 0, 10), narrow.sourceLookup()));
+        QVERIFY(narrow.timeline().insertClip(narrow.timeline().tracks()[0].id,
+                                             clipOf(ids[2], 0, 0, 50), narrow.sourceLookup()));
+        QVERIFY(narrow.timeline().insertClip(narrow.timeline().tracks()[1].id,
+                                             clipOf(ids[3], 0, 0, 10), narrow.sourceLookup()));
         const QImage boxed = renderAt(narrow, 5);
         QVERIFY(isCloseTo(averageColor(boxed, QRect(70, 35, 20, 20)), Qt::yellow));
         QVERIFY(isCloseTo(averageColor(boxed, QRect(0, 0, 20, 90)), Qt::red));
@@ -239,7 +244,8 @@ private slots:
         props.video.opacity = 0.5;
         QVERIFY(p.timeline().setClipProperties(overlay, props));
         const QColor blended = averageColor(renderAt(p, 15));
-        QVERIFY2(blended.red() > 200 && blended.green() > 80 && blended.green() < 200, qPrintable(blended.name()));
+        QVERIFY2(blended.red() > 200 && blended.green() > 80 && blended.green() < 200,
+                 qPrintable(blended.name()));
     }
 
     void videoFadeIn()
@@ -253,7 +259,8 @@ private slots:
         const int start = averageColor(renderAt(p, 0)).lightness();
         const int middle = averageColor(renderAt(p, 10)).lightness();
         const int end = averageColor(renderAt(p, 22)).lightness();
-        QVERIFY2(start < 30 && middle > start + 40 && end > 220, qPrintable(QStringLiteral("%1 %2 %3").arg(start).arg(middle).arg(end)));
+        QVERIFY2(start < 30 && middle > start + 40 && end > 220,
+                 qPrintable(QStringLiteral("%1 %2 %3").arg(start).arg(middle).arg(end)));
     }
 
     void pictureAdjustments()
@@ -268,7 +275,8 @@ private slots:
         c.properties.video.saturation = 0.0; // red becomes grey
         QVERIFY(p.timeline().insertClip(v1, c, p.sourceLookup()));
         const QColor grey = averageColor(renderAt(p, 5));
-        QVERIFY2(qAbs(grey.red() - grey.green()) < 25 && qAbs(grey.green() - grey.blue()) < 25, qPrintable(grey.name()));
+        QVERIFY2(qAbs(grey.red() - grey.green()) < 25 && qAbs(grey.green() - grey.blue()) < 25,
+                 qPrintable(grey.name()));
     }
 
     void audioMixMuteAndGain()
@@ -286,7 +294,8 @@ private slots:
         quiet.gain = 0.25;
         QVERIFY(p.timeline().setClipProperties(toneClip, quiet));
         const int reduced = audioPeakAt(p, 10);
-        QVERIFY2(reduced > full / 6 && reduced < full / 2, qPrintable(QStringLiteral("%1 vs %2").arg(reduced).arg(full)));
+        QVERIFY2(reduced > full / 6 && reduced < full / 2,
+                 qPrintable(QStringLiteral("%1 vs %2").arg(reduced).arg(full)));
         ClipProperties muted;
         muted.muted = true;
         QVERIFY(p.timeline().setClipProperties(toneClip, muted));
@@ -301,7 +310,8 @@ private slots:
     void missingMediaUsesPlaceholderOrFails()
     {
         QTemporaryDir dir;
-        const QString path = makeStill(dir.path(), QStringLiteral("temp.png"), Qt::cyan, QSize(64, 36));
+        const QString path =
+            makeStill(dir.path(), QStringLiteral("temp.png"), Qt::cyan, QSize(64, 36));
         QList<Id> ids;
         Project p = projectWith({path}, &ids);
         const Id v1 = p.timeline().tracks()[0].id;
@@ -310,7 +320,8 @@ private slots:
         QVERIFY(QFile::remove(path));
         QStringList warnings;
         const QColor offline = averageColor(renderAt(p, 2, &warnings));
-        QVERIFY2(offline.red() > offline.green() + 30, qPrintable(offline.name())); // dark red placeholder
+        QVERIFY2(offline.red() > offline.green() + 30,
+                 qPrintable(offline.name())); // dark red placeholder
         QCOMPARE(warnings.size(), 1);
         auto profile = engine::createProfile(160, 90, p.settings().frameRate);
         engine::TimelineGraphBuilder builder(*profile);
@@ -352,10 +363,7 @@ private slots:
         QVERIFY(graph->tractor->get_length() >= 1);
     }
 
-    void cleanupTestCase()
-    {
-        engine::MltRuntime::shutdown();
-    }
+    void cleanupTestCase() { engine::MltRuntime::shutdown(); }
 };
 
 QTEST_GUILESS_MAIN(EngineTest)

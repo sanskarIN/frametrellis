@@ -22,10 +22,12 @@ constexpr int kAutosaveIntervalMs = 60'000;
 const QString kRecentKey = QStringLiteral("project/recent");
 } // namespace
 
-ProjectController::ProjectController(QObject* parent) : QObject(parent)
+ProjectController::ProjectController(QObject* parent)
+    : QObject(parent)
 {
     loadRecent();
-    adopt(std::make_unique<ProjectDocument>(Project::createNew(QStringLiteral("Untitled"), ProjectSettings{})));
+    adopt(std::make_unique<ProjectDocument>(
+        Project::createNew(QStringLiteral("Untitled"), ProjectSettings{})));
     m_autosaveTimer.setInterval(kAutosaveIntervalMs);
     connect(&m_autosaveTimer, &QTimer::timeout, this, &ProjectController::autosave);
     m_autosaveTimer.start();
@@ -40,12 +42,14 @@ QString ProjectController::localPath(const QString& pathOrUrl)
     if (url.isLocalFile()) {
         return QDir::cleanPath(url.toLocalFile());
     }
-    return pathOrUrl.isEmpty() ? QString() : QDir::cleanPath(QFileInfo(pathOrUrl).absoluteFilePath());
+    return pathOrUrl.isEmpty() ? QString()
+                               : QDir::cleanPath(QFileInfo(pathOrUrl).absoluteFilePath());
 }
 
 QString ProjectController::autosaveDirectory()
 {
-    return QStandardPaths::writableLocation(QStandardPaths::AppDataLocation) + QStringLiteral("/autosave");
+    return QStandardPaths::writableLocation(QStandardPaths::AppDataLocation) +
+           QStringLiteral("/autosave");
 }
 
 QString ProjectController::autosavePath() const
@@ -66,9 +70,12 @@ void ProjectController::adopt(std::unique_ptr<ProjectDocument> document)
         }
         emit projectChanged(changes);
     });
-    connect(m_document.get(), &ProjectDocument::historyChanged, this, &ProjectController::historyChanged);
-    connect(m_document.get(), &ProjectDocument::modifiedChanged, this, &ProjectController::documentStateChanged);
-    connect(m_document.get(), &ProjectDocument::filePathChanged, this, &ProjectController::documentStateChanged);
+    connect(m_document.get(), &ProjectDocument::historyChanged, this,
+            &ProjectController::historyChanged);
+    connect(m_document.get(), &ProjectDocument::modifiedChanged, this,
+            &ProjectController::documentStateChanged);
+    connect(m_document.get(), &ProjectDocument::filePathChanged, this,
+            &ProjectController::documentStateChanged);
     emit documentReplaced();
     emit documentStateChanged();
     emit historyChanged();
@@ -90,7 +97,8 @@ bool ProjectController::execute(std::unique_ptr<EditCommand> command)
 
 QString ProjectController::title() const
 {
-    return m_document->displayName() + (m_document->isModified() ? QStringLiteral(" •") : QString());
+    return m_document->displayName() +
+           (m_document->isModified() ? QStringLiteral(" •") : QString());
 }
 
 QString ProjectController::settingsSummary() const
@@ -139,12 +147,14 @@ bool ProjectController::openProject(const QString& pathOrUrl)
         missing += asset.status == MediaStatus::Missing ? 1 : 0;
     }
     if (missing > 0) {
-        emit errorOccurred(QStringLiteral("Some media files are missing"),
-                           QStringLiteral("%1 media file(s) used by this project could not be found. They are marked "
-                                          "as offline in the media bin; use \"Relink\" to locate them. Offline clips "
-                                          "show a red placeholder and the project cannot be exported until they are "
-                                          "relinked.")
-                               .arg(missing));
+        emit errorOccurred(
+            QStringLiteral("Some media files are missing"),
+            QStringLiteral(
+                "%1 media file(s) used by this project could not be found. They are marked "
+                "as offline in the media bin; use \"Relink\" to locate them. Offline clips "
+                "show a red placeholder and the project cannot be exported until they are "
+                "relinked.")
+                .arg(missing));
     } else {
         emit statusMessage(QStringLiteral("Opened %1.").arg(QFileInfo(path).fileName()));
     }
@@ -165,7 +175,8 @@ bool ProjectController::saveAs(const QString& pathOrUrl)
     if (path.isEmpty()) {
         return false;
     }
-    if (QFileInfo(path).suffix().compare(QLatin1String(project_format::kFileSuffix), Qt::CaseInsensitive) != 0) {
+    if (QFileInfo(path).suffix().compare(QLatin1String(project_format::kFileSuffix),
+                                         Qt::CaseInsensitive) != 0) {
         path += QLatin1Char('.') + QLatin1String(project_format::kFileSuffix);
     }
     if (const Status saved = m_document->saveAs(path); !saved) {
@@ -227,9 +238,10 @@ void ProjectController::addRecent(const QString& path)
 void ProjectController::loadRecent()
 {
     m_recent = QSettings().value(kRecentKey).toStringList();
-    m_recent.erase(std::remove_if(m_recent.begin(), m_recent.end(),
-                                  [](const QString& p) { return p.isEmpty() || !QFileInfo::exists(p); }),
-                   m_recent.end());
+    m_recent.erase(
+        std::remove_if(m_recent.begin(), m_recent.end(),
+                       [](const QString& p) { return p.isEmpty() || !QFileInfo::exists(p); }),
+        m_recent.end());
 }
 
 void ProjectController::clearRecentProjects()
@@ -249,9 +261,10 @@ void ProjectController::autosave()
         qCWarning(lcUi) << "Autosave failed:" << saved.error().toString();
         return;
     }
-    QJsonObject meta{{QStringLiteral("originalPath"), m_document->filePath()},
-                     {QStringLiteral("name"), project().name()},
-                     {QStringLiteral("savedAt"), QDateTime::currentDateTimeUtc().toString(Qt::ISODate)}};
+    QJsonObject meta{
+        {QStringLiteral("originalPath"), m_document->filePath()},
+        {QStringLiteral("name"), project().name()},
+        {QStringLiteral("savedAt"), QDateTime::currentDateTimeUtc().toString(Qt::ISODate)}};
     QSaveFile file(autosavePath() + QStringLiteral(".json"));
     if (file.open(QIODevice::WriteOnly)) {
         file.write(QJsonDocument(meta).toJson());
@@ -287,10 +300,12 @@ void ProjectController::scanAutosaves()
         const QDateTime savedAt = QFileInfo(path).lastModified();
         if (!newest.isValid() || savedAt > newest) {
             newest = savedAt;
-            m_recovery = QVariantMap{{QStringLiteral("autosavePath"), path},
-                                     {QStringLiteral("originalPath"), meta.value(QStringLiteral("originalPath")).toString()},
-                                     {QStringLiteral("name"), meta.value(QStringLiteral("name")).toString()},
-                                     {QStringLiteral("savedAt"), QLocale().toString(savedAt, QLocale::ShortFormat)}};
+            m_recovery = QVariantMap{
+                {QStringLiteral("autosavePath"), path},
+                {QStringLiteral("originalPath"),
+                 meta.value(QStringLiteral("originalPath")).toString()},
+                {QStringLiteral("name"), meta.value(QStringLiteral("name")).toString()},
+                {QStringLiteral("savedAt"), QLocale().toString(savedAt, QLocale::ShortFormat)}};
         }
     }
     emit recoveryChanged();

@@ -7,12 +7,11 @@
 #include <QCoreApplication>
 #include <QDir>
 #include <QFileInfo>
-
 #include <mlt++/Mlt.h>
 
 #include <cstdarg>
-#include <cstdlib>
 #include <cstdio>
+#include <cstdlib>
 #include <memory>
 #include <mutex>
 
@@ -35,8 +34,8 @@ void mltLogCallback(void* service, int level, const char* format, va_list args)
     if (message.isEmpty()) {
         return;
     }
-    const char* serviceName = service ? mlt_properties_get(static_cast<mlt_properties>(service), "mlt_service")
-                                      : nullptr;
+    const char* serviceName =
+        service ? mlt_properties_get(static_cast<mlt_properties>(service), "mlt_service") : nullptr;
     if (serviceName) {
         message = QStringLiteral("[%1] %2").arg(QString::fromUtf8(serviceName), message);
     }
@@ -58,9 +57,9 @@ QString findRepository()
     if (QCoreApplication::instance()) {
         // Relocatable packages ship the MLT modules next to the executable.
         const QDir appDir(QCoreApplication::applicationDirPath());
-        for (const QString& candidate :
-             {QStringLiteral("lib/mlt-7"), QStringLiteral("lib/mlt"), QStringLiteral("../lib/mlt-7"),
-              QStringLiteral("../lib/mlt"), QStringLiteral("mlt-7")}) {
+        for (const QString& candidate : {QStringLiteral("lib/mlt-7"), QStringLiteral("lib/mlt"),
+                                         QStringLiteral("../lib/mlt-7"),
+                                         QStringLiteral("../lib/mlt"), QStringLiteral("mlt-7")}) {
             const QString path = QDir::cleanPath(appDir.filePath(candidate));
             if (QFileInfo(path).isDir()) {
                 return path;
@@ -77,8 +76,9 @@ void configureDataPath(const QString& repository)
     }
     // A repository at <prefix>/lib/mlt-7 has its data at <prefix>/share/mlt-7.
     const QDir repoDir(repository);
-    for (const QString& candidate : {QStringLiteral("../../share/mlt-7"), QStringLiteral("../../share/mlt"),
-                                     QStringLiteral("../share/mlt-7"), QStringLiteral("../share/mlt")}) {
+    for (const QString& candidate :
+         {QStringLiteral("../../share/mlt-7"), QStringLiteral("../../share/mlt"),
+          QStringLiteral("../share/mlt-7"), QStringLiteral("../share/mlt")}) {
         const QString path = QDir::cleanPath(repoDir.filePath(candidate));
         if (QFileInfo(path).isDir()) {
             qputenv("MLT_DATA", QFile::encodeName(path));
@@ -140,7 +140,8 @@ bool eqFilterWorks()
         return false;
     }
     const uint8_t* centre = image + ((height / 2) * width + width / 2) * 4;
-    return std::abs(int(centre[0]) - int(centre[1])) < 40 && std::abs(int(centre[1]) - int(centre[2])) < 40;
+    return std::abs(int(centre[0]) - int(centre[1])) < 40 &&
+           std::abs(int(centre[1]) - int(centre[2])) < 40;
 }
 
 } // namespace
@@ -196,14 +197,16 @@ Status MltRuntime::initialize()
     Mlt::Repository* repository =
         Mlt::Factory::init(repositoryPath.isEmpty() ? nullptr : encoded.constData());
     if (!repository) {
-        return makeError(ErrorCode::Engine,
-                         QStringLiteral("The MLT multimedia framework could not be started."),
-                         QStringLiteral("repository: %1").arg(repositoryPath.isEmpty() ? QStringLiteral("<default>") : repositoryPath));
+        return makeError(
+            ErrorCode::Engine, QStringLiteral("The MLT multimedia framework could not be started."),
+            QStringLiteral("repository: %1")
+                .arg(repositoryPath.isEmpty() ? QStringLiteral("<default>") : repositoryPath));
     }
 
     EngineCapabilities caps;
     caps.mltVersion = QString::fromLatin1(mlt_version_get_string());
-    caps.repositoryPath = repositoryPath.isEmpty() ? QStringLiteral("<built-in default>") : repositoryPath;
+    caps.repositoryPath =
+        repositoryPath.isEmpty() ? QStringLiteral("<built-in default>") : repositoryPath;
     caps.avformatProducer = hasService(repository, mlt_service_producer_type, "avformat");
     caps.avformatConsumer = hasService(repository, mlt_service_consumer_type, "avformat");
     caps.colorProducer = hasService(repository, mlt_service_producer_type, "color");
@@ -215,17 +218,20 @@ Status MltRuntime::initialize()
     }
     caps.volumeFilter = hasService(repository, mlt_service_filter_type, "volume");
     caps.brightnessFilter = hasService(repository, mlt_service_filter_type, "brightness");
-    caps.eqFilter = hasService(repository, mlt_service_filter_type, "avfilter.eq") && eqFilterWorks();
+    caps.eqFilter =
+        hasService(repository, mlt_service_filter_type, "avfilter.eq") && eqFilterWorks();
     g_capabilities = caps;
     g_initialized = true;
 
     qCInfo(lcEngine).noquote() << "MLT" << caps.mltVersion << "repository" << caps.repositoryPath;
     const QStringList essentials = caps.missingEssentials();
     if (!essentials.isEmpty()) {
-        qCWarning(lcEngine).noquote() << "Missing MLT services:" << essentials.join(QStringLiteral(", "));
-        return makeError(ErrorCode::Engine,
-                         QStringLiteral("The installation is incomplete: required MLT services are missing."),
-                         essentials.join(QStringLiteral(", ")));
+        qCWarning(lcEngine).noquote()
+            << "Missing MLT services:" << essentials.join(QStringLiteral(", "));
+        return makeError(
+            ErrorCode::Engine,
+            QStringLiteral("The installation is incomplete: required MLT services are missing."),
+            essentials.join(QStringLiteral(", ")));
     }
     for (const QString& optional : caps.missingOptional()) {
         qCWarning(lcEngine).noquote() << "Optional MLT service unavailable:" << optional;

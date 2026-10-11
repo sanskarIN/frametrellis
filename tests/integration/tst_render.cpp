@@ -14,7 +14,6 @@
 #include <QSignalSpy>
 #include <QTemporaryDir>
 #include <QTest>
-
 #include <mlt++/Mlt.h>
 
 using namespace ft;
@@ -68,7 +67,8 @@ private:
 
     QStringList partFiles() const
     {
-        return QDir(m_dir.path()).entryList({QStringLiteral(".*.part.mp4")}, QDir::Files | QDir::Hidden);
+        return QDir(m_dir.path())
+            .entryList({QStringLiteral(".*.part.mp4")}, QDir::Files | QDir::Hidden);
     }
 
 private slots:
@@ -108,7 +108,8 @@ private slots:
         QCOMPARE(info->height, 90);
         QVERIFY(info->hasAudio);
         QCOMPARE(info->audioCodec, QStringLiteral("aac"));
-        QVERIFY2(qAbs(info->durationUs - 2'000'000) <= 100'000, qPrintable(QString::number(info->durationUs)));
+        QVERIFY2(qAbs(info->durationUs - 2'000'000) <= 100'000,
+                 qPrintable(QString::number(info->durationUs)));
         // The picture follows the edit: green first, then blue.
         QVERIFY(isCloseTo(averageColor(frameOf(settings.outputPath, 5)), Qt::green));
         QVERIFY(isCloseTo(averageColor(frameOf(settings.outputPath, 40)), Qt::blue));
@@ -139,7 +140,8 @@ private slots:
         settings.speedPreset = QStringLiteral("veryslow");
         std::atomic<bool> cancel{false};
         RenderRunner runner(project(), settings);
-        const Status result = runner.run(cancel, {}, [&](const RenderRunner::Progress&) { cancel = true; });
+        const Status result =
+            runner.run(cancel, {}, [&](const RenderRunner::Progress&) { cancel = true; });
         QVERIFY(!result);
         QCOMPARE(result.error().code, ErrorCode::Cancelled);
         QVERIFY(!QFile::exists(output));
@@ -248,10 +250,7 @@ private slots:
         QVERIFY(!QFile::exists(exportSettings.outputPath));
     }
 
-    void cleanupTestCase()
-    {
-        engine::MltRuntime::shutdown();
-    }
+    void cleanupTestCase() { engine::MltRuntime::shutdown(); }
 };
 
 QTEST_GUILESS_MAIN(RenderTest)

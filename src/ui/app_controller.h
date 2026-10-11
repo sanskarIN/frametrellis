@@ -43,7 +43,8 @@ class AppController : public QObject
     Q_PROPERTY(QString theme READ theme WRITE setTheme NOTIFY themeChanged)
 
 public:
-    AppController(const Status& engineStatus, const QString& renderHelper, QObject* parent = nullptr);
+    AppController(const Status& engineStatus, const QString& renderHelper,
+                  QObject* parent = nullptr);
     ~AppController() override;
 
     [[nodiscard]] ProjectController* project() const { return m_project.get(); }

@@ -10,7 +10,8 @@
 
 namespace ft::ui {
 
-FrameView::FrameView(QQuickItem* parent) : QQuickItem(parent)
+FrameView::FrameView(QQuickItem* parent)
+    : QQuickItem(parent)
 {
     setFlag(ItemHasContents, true);
 }
@@ -65,7 +66,8 @@ void FrameView::geometryChange(const QRectF& newGeometry, const QRectF& oldGeome
 void FrameView::updatePictureRect()
 {
     const QSizeF scaled = QSizeF(m_aspect).scaled(size(), Qt::KeepAspectRatio);
-    const QRectF rect(QPointF((width() - scaled.width()) / 2.0, (height() - scaled.height()) / 2.0), scaled);
+    const QRectF rect(QPointF((width() - scaled.width()) / 2.0, (height() - scaled.height()) / 2.0),
+                      scaled);
     if (rect != m_pictureRect) {
         m_pictureRect = rect;
         emit pictureRectChanged();

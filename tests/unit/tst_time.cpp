@@ -147,7 +147,8 @@ private slots:
         QCOMPARE(timecode::format(frame, ntsc), label);
         QCOMPARE(*timecode::parse(label, ntsc), FrameCount{frame});
         // Explicit non-drop style counts every frame.
-        QVERIFY(timecode::format(frame, ntsc, timecode::Style::NonDropFrame).contains(QLatin1Char(':')));
+        QVERIFY(timecode::format(frame, ntsc, timecode::Style::NonDropFrame)
+                    .contains(QLatin1Char(':')));
     }
 
     void dropFrameRejectsSkippedLabels()

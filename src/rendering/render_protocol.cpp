@@ -18,7 +18,8 @@ std::optional<QJsonObject> decode(const QByteArray& line)
         return std::nullopt;
     }
     QJsonParseError error;
-    const QJsonDocument document = QJsonDocument::fromJson(trimmed.mid(int(sizeof(kPrefix)) - 1), &error);
+    const QJsonDocument document =
+        QJsonDocument::fromJson(trimmed.mid(int(sizeof(kPrefix)) - 1), &error);
     if (error.error != QJsonParseError::NoError || !document.isObject()) {
         return std::nullopt;
     }

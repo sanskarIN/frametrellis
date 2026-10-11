@@ -15,7 +15,10 @@ QString formatDuration(std::int64_t microseconds)
     const qint64 m = (totalSeconds / 60) % 60;
     const qint64 s = totalSeconds % 60;
     if (h > 0) {
-        return QStringLiteral("%1:%2:%3").arg(h).arg(m, 2, 10, QLatin1Char('0')).arg(s, 2, 10, QLatin1Char('0'));
+        return QStringLiteral("%1:%2:%3")
+            .arg(h)
+            .arg(m, 2, 10, QLatin1Char('0'))
+            .arg(s, 2, 10, QLatin1Char('0'));
     }
     return QStringLiteral("%1:%2.%3").arg(m).arg(s, 2, 10, QLatin1Char('0')).arg(tenths);
 }
@@ -34,15 +37,18 @@ QString describeMedia(const MediaAsset& asset)
         parts << i.videoCodec.toUpper();
     }
     if (i.hasAudio) {
-        parts << QStringLiteral("%1 kHz %2").arg(QString::number(i.audioSampleRate / 1000.0, 'g', 3),
-                                                 i.audioChannels == 1 ? QStringLiteral("mono")
-                                                 : i.audioChannels == 2 ? QStringLiteral("stereo")
-                                                                        : QStringLiteral("%1 ch").arg(i.audioChannels));
+        parts << QStringLiteral("%1 kHz %2")
+                     .arg(QString::number(i.audioSampleRate / 1000.0, 'g', 3),
+                          i.audioChannels == 1   ? QStringLiteral("mono")
+                          : i.audioChannels == 2 ? QStringLiteral("stereo")
+                                                 : QStringLiteral("%1 ch").arg(i.audioChannels));
     }
     return parts.join(QStringLiteral(" · "));
 }
 
-MediaBinModel::MediaBinModel(QObject* parent) : QAbstractListModel(parent) {}
+MediaBinModel::MediaBinModel(QObject* parent)
+    : QAbstractListModel(parent)
+{}
 
 int MediaBinModel::rowCount(const QModelIndex& parent) const
 {
@@ -108,9 +114,9 @@ QVariant MediaBinModel::data(const QModelIndex& index, int role) const
 
 QHash<int, QByteArray> MediaBinModel::roleNames() const
 {
-    return {{IdRole, "assetId"},         {NameRole, "name"},          {KindRole, "kind"},
-            {DurationRole, "duration"},  {DetailsRole, "details"},    {StatusRole, "status"},
-            {FilePathRole, "filePath"},  {ThumbnailRole, "thumbnail"}, {UsageRole, "usage"},
+    return {{IdRole, "assetId"},        {NameRole, "name"},           {KindRole, "kind"},
+            {DurationRole, "duration"}, {DetailsRole, "details"},     {StatusRole, "status"},
+            {FilePathRole, "filePath"}, {ThumbnailRole, "thumbnail"}, {UsageRole, "usage"},
             {TooltipRole, "tooltip"}};
 }
 
@@ -123,7 +129,8 @@ void MediaBinModel::refresh(const Project& project)
         Row row;
         row.asset = asset;
         row.usage = static_cast<int>(project.timeline().clipsUsingAsset(asset.id).size());
-        row.duration = asset.info.kind == MediaKind::Image ? QStringLiteral("Still") : formatDuration(asset.info.durationUs);
+        row.duration = asset.info.kind == MediaKind::Image ? QStringLiteral("Still")
+                                                           : formatDuration(asset.info.durationUs);
         m_rows.push_back(std::move(row));
     }
     endResetModel();

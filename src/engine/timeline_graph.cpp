@@ -9,7 +9,6 @@
 #include <QFile>
 #include <QFileInfo>
 #include <QSet>
-
 #include <mlt++/Mlt.h>
 
 #include <cmath>
@@ -59,7 +58,8 @@ void attachAudioFilters(Mlt::Profile& profile, Mlt::Producer& cut, const Clip& c
             points << keyframes({{0, base}});
         }
         if (p.fadeOut > 0) {
-            points << keyframes({{std::max<FrameCount>(last - p.fadeOut, p.fadeIn), base}, {last, kSilenceDb}});
+            points << keyframes(
+                {{std::max<FrameCount>(last - p.fadeOut, p.fadeIn), base}, {last, kSilenceDb}});
         } else {
             points << keyframes({{last, base}});
         }
@@ -94,9 +94,11 @@ void attachVideoFilters(Mlt::Profile& profile, Mlt::Producer& cut, const Clip& c
             const FrameCount last = clip.duration - 1;
             const double full = v.opacity;
             QStringList points;
-            points << (p.fadeIn > 0 ? keyframes({{0, 0.0}, {p.fadeIn, full}}) : keyframes({{0, full}}));
+            points << (p.fadeIn > 0 ? keyframes({{0, 0.0}, {p.fadeIn, full}})
+                                    : keyframes({{0, full}}));
             points << (p.fadeOut > 0
-                           ? keyframes({{std::max<FrameCount>(last - p.fadeOut, p.fadeIn), full}, {last, 0.0}})
+                           ? keyframes({{std::max<FrameCount>(last - p.fadeOut, p.fadeIn), full},
+                                        {last, 0.0}})
                            : keyframes({{last, full}}));
             alpha.set("alpha", points.join(QLatin1Char(';')).toUtf8().constData());
             cut.attach(alpha);
@@ -122,7 +124,9 @@ struct TimelineGraphBuilder::CacheEntry
     std::shared_ptr<Mlt::Producer> producer;
 };
 
-TimelineGraphBuilder::TimelineGraphBuilder(Mlt::Profile& profile) : m_profile(profile) {}
+TimelineGraphBuilder::TimelineGraphBuilder(Mlt::Profile& profile)
+    : m_profile(profile)
+{}
 
 TimelineGraphBuilder::~TimelineGraphBuilder() = default;
 
@@ -131,7 +135,8 @@ void TimelineGraphBuilder::clearCache()
     m_cache.clear();
 }
 
-std::unique_ptr<Mlt::Producer> TimelineGraphBuilder::openProducer(Mlt::Profile& profile, const QString& path,
+std::unique_ptr<Mlt::Producer> TimelineGraphBuilder::openProducer(Mlt::Profile& profile,
+                                                                  const QString& path,
                                                                   MediaKind kind, bool audioOnly)
 {
     if (kind == MediaKind::Image) {
@@ -151,18 +156,22 @@ std::unique_ptr<Mlt::Producer> TimelineGraphBuilder::openProducer(Mlt::Profile& 
     return producer;
 }
 
-std::shared_ptr<Mlt::Producer> TimelineGraphBuilder::producerFor(const MediaAsset& asset, const Id& trackId,
-                                                                 bool audioOnly, QStringList& warnings)
+std::shared_ptr<Mlt::Producer> TimelineGraphBuilder::producerFor(const MediaAsset& asset,
+                                                                 const Id& trackId, bool audioOnly,
+                                                                 QStringList& warnings)
 {
-    const QString key = asset.id + QLatin1Char('|') + trackId + (audioOnly ? QStringLiteral("|a") : QStringLiteral("|av"));
+    const QString key = asset.id + QLatin1Char('|') + trackId +
+                        (audioOnly ? QStringLiteral("|a") : QStringLiteral("|av"));
     const QFileInfo info(asset.filePath);
     if (const auto it = m_cache.constFind(key); it != m_cache.constEnd()) {
         const CacheEntry& entry = **it;
-        if (entry.path == asset.filePath && entry.size == info.size() && entry.modified == info.lastModified()) {
+        if (entry.path == asset.filePath && entry.size == info.size() &&
+            entry.modified == info.lastModified()) {
             return entry.producer;
         }
     }
-    std::shared_ptr<Mlt::Producer> producer = openProducer(m_profile, asset.filePath, asset.info.kind, audioOnly);
+    std::shared_ptr<Mlt::Producer> producer =
+        openProducer(m_profile, asset.filePath, asset.info.kind, audioOnly);
     if (!producer) {
         warnings << QStringLiteral("Could not open \"%1\".").arg(asset.name);
         return nullptr;
@@ -179,14 +188,16 @@ std::shared_ptr<Mlt::Producer> TimelineGraphBuilder::producerFor(const MediaAsse
 std::unique_ptr<Mlt::Producer> TimelineGraphBuilder::placeholder(TrackKind kind, FrameCount length)
 {
     // Offline media is shown as a dark red frame and is silent.
-    auto producer = std::make_unique<Mlt::Producer>(m_profile, "color", kind == TrackKind::Video ? "0x6b1d1dff" : "0x00000000");
+    auto producer = std::make_unique<Mlt::Producer>(
+        m_profile, "color", kind == TrackKind::Video ? "0x6b1d1dff" : "0x00000000");
     producer->set("length", static_cast<int>(length));
     producer->set_in_and_out(0, static_cast<int>(length) - 1);
     producer->set("ft.placeholder", 1);
     return producer;
 }
 
-Result<GraphBuildResult> TimelineGraphBuilder::build(const Project& project, const GraphOptions& options)
+Result<GraphBuildResult> TimelineGraphBuilder::build(const Project& project,
+                                                     const GraphOptions& options)
 {
     if (!MltRuntime::isInitialized()) {
         return makeError(ErrorCode::Engine, QStringLiteral("The media engine is not initialised."));
@@ -197,14 +208,16 @@ Result<GraphBuildResult> TimelineGraphBuilder::build(const Project& project, con
     result.duration = timeline.duration();
     const FrameCount total = std::max<FrameCount>(result.duration, 1);
     if (total > std::numeric_limits<int>::max() / 2) {
-        return makeError(ErrorCode::OutOfRange, QStringLiteral("The sequence is too long to play."));
+        return makeError(ErrorCode::OutOfRange,
+                         QStringLiteral("The sequence is too long to play."));
     }
     const int totalFrames = static_cast<int>(total);
 
     auto tractor = std::make_unique<Mlt::Tractor>(m_profile);
     Mlt::Producer background(m_profile, "color", "0x000000ff");
     if (!background.is_valid()) {
-        return makeError(ErrorCode::Engine, QStringLiteral("The media engine could not create the background."));
+        return makeError(ErrorCode::Engine,
+                         QStringLiteral("The media engine could not create the background."));
     }
     background.set("length", totalFrames);
     background.set_in_and_out(0, totalFrames - 1);
@@ -224,17 +237,21 @@ Result<GraphBuildResult> TimelineGraphBuilder::build(const Project& project, con
                 playlist.blank(static_cast<int>(clip.start - cursor - 1));
             }
             const MediaAsset* asset = project.asset(clip.assetId);
-            const bool missing = !asset || asset->status == MediaStatus::Missing || !QFileInfo::exists(asset->filePath);
+            const bool missing = !asset || asset->status == MediaStatus::Missing ||
+                                 !QFileInfo::exists(asset->filePath);
             std::shared_ptr<Mlt::Producer> source;
             if (!missing) {
-                source = producerFor(*asset, track.id, track.kind == TrackKind::Audio, result.warnings);
+                source =
+                    producerFor(*asset, track.id, track.kind == TrackKind::Audio, result.warnings);
                 usedKeys.insert(asset->id + QLatin1Char('|') + track.id);
             }
             const QString assetName = asset ? asset->name : clip.assetId;
             if (!source) {
                 if (!options.placeholdersForMissingMedia) {
-                    return makeError(ErrorCode::Media,
-                                     QStringLiteral("The media file \"%1\" is missing or cannot be opened.").arg(assetName));
+                    return makeError(
+                        ErrorCode::Media,
+                        QStringLiteral("The media file \"%1\" is missing or cannot be opened.")
+                            .arg(assetName));
                 }
                 if (missing) {
                     result.warnings << QStringLiteral("\"%1\" is offline.").arg(assetName);
@@ -242,10 +259,12 @@ Result<GraphBuildResult> TimelineGraphBuilder::build(const Project& project, con
                 std::unique_ptr<Mlt::Producer> stand = placeholder(track.kind, clip.duration);
                 playlist.append(*stand, 0, static_cast<int>(clip.duration) - 1);
             } else {
-                std::unique_ptr<Mlt::Producer> cut(source->cut(static_cast<int>(clip.sourceIn),
-                                                               static_cast<int>(clip.sourceOut() - 1)));
+                std::unique_ptr<Mlt::Producer> cut(source->cut(
+                    static_cast<int>(clip.sourceIn), static_cast<int>(clip.sourceOut() - 1)));
                 if (!cut || !cut->is_valid()) {
-                    return makeError(ErrorCode::Engine, QStringLiteral("Could not prepare clip \"%1\".").arg(assetName));
+                    return makeError(
+                        ErrorCode::Engine,
+                        QStringLiteral("Could not prepare clip \"%1\".").arg(assetName));
                 }
                 cut->set("ft.clip", clip.id.toUtf8().constData());
                 attachAudioFilters(m_profile, *cut, clip);

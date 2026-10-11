@@ -34,8 +34,10 @@ private:
 class ThumbnailProvider : public QQuickAsyncImageProvider
 {
 public:
-    ThumbnailProvider(std::shared_ptr<ThumbnailRegistry> registry, std::shared_ptr<media::ThumbnailCache> cache);
-    QQuickImageResponse* requestImageResponse(const QString& id, const QSize& requestedSize) override;
+    ThumbnailProvider(std::shared_ptr<ThumbnailRegistry> registry,
+                      std::shared_ptr<media::ThumbnailCache> cache);
+    QQuickImageResponse* requestImageResponse(const QString& id,
+                                              const QSize& requestedSize) override;
 
 private:
     std::shared_ptr<ThumbnailRegistry> m_registry;

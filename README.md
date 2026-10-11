@@ -37,6 +37,7 @@ What works today (each item is implemented and covered by automated tests):
       drop-frame for 29.97/59.94 fps)
 - [x] Real-time preview with audio (SDL2), seeking, frame stepping and edit-point navigation
 - [x] Track mute, hide and lock; clip volume, mute, fade in/out and opacity
+- [x] Real audio waveforms on audio clips, computed in the background and cached
 - [x] Brightness, contrast and saturation per clip (when the FFmpeg `eq` filter is available)
 - [x] Unlimited-style undo/redo (500 steps) for every edit, with slider drags merged into one step
 - [x] Export to MP4 (H.264 + AAC) with presets, quality and speed settings, in a separate process
@@ -44,7 +45,7 @@ What works today (each item is implemented and covered by automated tests):
 - [x] Autosave every minute and crash recovery
 - [x] Recent projects, dark and light themes, keyboard shortcuts, first-run guide
 
-Planned (see the [roadmap](docs/roadmap.md)): audio waveforms, crossfade transitions, titles,
+Planned (see the [roadmap](docs/roadmap.md)): crossfade transitions, titles,
 subtitles, keyframes, proxy media, customisable shortcuts, more export formats and packaged
 releases for all platforms.
 
@@ -102,7 +103,7 @@ The [user guide](docs/user-guide/README.md) explains every feature, and
 
 ## Current limitations
 
-- No transitions, titles, keyframes or waveforms yet; audio clips show an icon instead of a waveform.
+- No transitions, titles or keyframes yet.
 - Only MP4 (H.264 + AAC) export; frame rate is fixed once clips are on the timeline.
 - Very large timelines (thousands of clips) are not optimised yet.
 - Picture adjustments need an FFmpeg/MLT build with a working `eq` filter; the inspector says

@@ -80,6 +80,10 @@ the project (removing never deletes the file; media in use must be removed from 
 
 Every change can be undone (Ctrl+Z) and redone (Ctrl+Shift+Z).
 
+Clips on audio tracks show the waveform of their sound, scaled by the clip's volume. The first
+time a file is used, FrameTrellis reads its sound in the background (a few seconds for a long
+file) and keeps the result in its cache, so the waveform appears instantly afterwards.
+
 ## Adjusting clips
 
 Select one clip to see its properties:

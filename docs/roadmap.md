@@ -25,9 +25,9 @@ be created only after the corresponding acceptance checks have passed in CI.
 - ✅ Edge trimming, split at playhead, snapping, zoom, edit-point navigation
 - ✅ Drag and drop from the media bin
 
-## v0.5.0 — Audio ✅ (waveforms 🚧)
+## v0.5.0 — Audio ✅
 - ✅ Audio tracks, clip volume and mute, track mute, audio fades
-- 🚧 Audio waveforms on clips
+- ✅ Audio waveforms on clips, computed in the background and cached
 
 ## v0.6.0 — Export ✅
 - ✅ MP4 (H.264 + AAC) export in a helper process with progress, cancel and verification

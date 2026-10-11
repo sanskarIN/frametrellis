@@ -141,6 +141,52 @@ private slots:
         QCOMPARE(f.doc.project().timeline().clip(QStringLiteral("c1"))->properties.gain, 0.6);
     }
 
+    void transitionCommandsUndoAndMerge()
+    {
+        Fixture f;
+        Clip left = clipOf(QStringLiteral("m1"), 0, 100, QStringLiteral("c1"));
+        Clip right = clipOf(QStringLiteral("m1"), 100, 100, QStringLiteral("c2"));
+        right.sourceIn = 200; // leaves media before the cut for the transition
+        QVERIFY(f.doc.execute(edits::addClip(f.v1, left)));
+        QVERIFY(f.doc.execute(edits::addClip(f.v1, right)));
+        const Timeline before = f.doc.project().timeline();
+
+        const Id id = createId();
+        QVERIFY(f.doc.execute(edits::addTransition(QStringLiteral("c1"), 30, id)));
+        QCOMPARE(f.doc.undoText(), QStringLiteral("Add Transition"));
+        QCOMPARE(f.doc.project().timeline().transition(id)->duration, FrameCount{30});
+
+        // Dragging the length is one undo step.
+        f.doc.breakMerge();
+        for (FrameCount length : {32, 40, 48}) {
+            QVERIFY(f.doc.execute(edits::setTransitionDuration(id, length)));
+        }
+        QCOMPARE(f.doc.project().timeline().transition(id)->duration, FrameCount{48});
+        QVERIFY(f.doc.undo());
+        QCOMPARE(f.doc.project().timeline().transition(id)->duration, FrameCount{30});
+        QVERIFY(f.doc.redo());
+
+        // Invalid lengths are refused and not recorded.
+        QVERIFY(!f.doc.execute(edits::setTransitionDuration(id, 1)));
+        QCOMPARE(f.doc.project().timeline().transition(id)->duration, FrameCount{48});
+
+        QVERIFY(f.doc.execute(edits::removeTransition(id)));
+        QVERIFY(!f.doc.project().timeline().transition(id));
+        QVERIFY(f.doc.undo());
+        QVERIFY(f.doc.project().timeline().transition(id));
+
+        // Moving a clip away drops the transition, and undo brings both back.
+        QVERIFY(f.doc.execute(edits::moveClip(QStringLiteral("c2"), f.v1, 150)));
+        QVERIFY(!f.doc.project().timeline().transition(id));
+        QVERIFY(f.doc.undo());
+        QVERIFY(f.doc.project().timeline().transition(id));
+
+        while (f.doc.undoText() != QStringLiteral("Add Clip")) {
+            QVERIFY(f.doc.undo());
+        }
+        QCOMPARE(f.doc.project().timeline(), before);
+    }
+
     void modifiedStateFollowsSaveAndUndo()
     {
         QTemporaryDir dir;

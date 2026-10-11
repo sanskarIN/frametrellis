@@ -31,6 +31,9 @@ public:
 
     [[nodiscard]] bool isClean() const { return m_cleanIndex == m_index; }
     void setClean() { m_cleanIndex = m_index; }
+    /// Makes the current state count as unsaved even though no command changed it (for example,
+    /// a document recovered from an autosave).
+    void markUnsaved() { m_cleanIndex = -1; }
     void clear();
 
     /// Ends the current merge sequence so that the next command starts a new undo step.

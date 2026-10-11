@@ -36,6 +36,8 @@ public:
     [[nodiscard]] QString redoText() const { return m_history.redoText(); }
 
     [[nodiscard]] bool isModified() const { return !m_history.isClean(); }
+    /// Flags the document as having unsaved changes (used for recovered autosaves).
+    void markModified();
     [[nodiscard]] const QString& filePath() const { return m_filePath; }
     [[nodiscard]] bool hasFilePath() const { return !m_filePath.isEmpty(); }
     /// File name without suffix, or the project name for unsaved documents.

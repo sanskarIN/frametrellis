@@ -73,6 +73,15 @@ Status ProjectDocument::redo()
     return {};
 }
 
+void ProjectDocument::markModified()
+{
+    const bool wasModified = isModified();
+    m_history.markUnsaved();
+    if (!wasModified) {
+        emit modifiedChanged(true);
+    }
+}
+
 QString ProjectDocument::displayName() const
 {
     return m_filePath.isEmpty() ? m_project.name() : QFileInfo(m_filePath).completeBaseName();

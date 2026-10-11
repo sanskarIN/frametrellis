@@ -2,3 +2,4 @@
 add_subdirectory(core)
 add_subdirectory(timeline)
 add_subdirectory(project)
+add_subdirectory(editing)

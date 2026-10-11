@@ -5,8 +5,10 @@
 #include "engine/mlt_runtime.h"
 #include "engine/timeline_graph.h"
 #include "media/media_probe.h"
+#include "media/waveform.h"
 #include "media_fixtures.h"
 
+#include <QDir>
 #include <QFile>
 #include <QTemporaryDir>
 #include <QTest>
@@ -361,6 +363,110 @@ private slots:
         QVERIFY(graph);
         QCOMPARE(graph->duration, FrameCount{0});
         QVERIFY(graph->tractor->get_length() >= 1);
+    }
+
+    void waveformOfAToneHasASteadyLevel()
+    {
+        Result<MediaInfo> info = media::probeMedia(m_media.tone);
+        QVERIFY(info);
+        Result<media::WaveformData> wave = media::computeWaveform(m_media.tone, *info, 50);
+        QVERIFY2(wave, qPrintable(wave ? QString() : wave.error().toString()));
+        QCOMPARE(wave->binsPerSecond, 50);
+        QCOMPARE(wave->peaks.size(), std::size_t{100}); // 2 s
+        // The tone is written at -6 dBFS, half of full scale.
+        for (std::size_t i = 1; i + 1 < wave->peaks.size(); ++i) {
+            QVERIFY2(std::abs(int(wave->peaks[i]) - 128) <= 12,
+                     qPrintable(QStringLiteral("bin %1: %2").arg(i).arg(wave->peaks[i])));
+        }
+    }
+
+    void waveformOfAVideoUsesItsSound()
+    {
+        Result<MediaInfo> info = media::probeMedia(m_media.video);
+        QVERIFY(info);
+        Result<media::WaveformData> wave = media::computeWaveform(m_media.video, *info);
+        QVERIFY(wave);
+        QVERIFY(std::abs(wave->durationSeconds() - 3.0) < 0.05);
+        const auto loud = std::count_if(wave->peaks.begin(), wave->peaks.end(),
+                                        [](std::uint8_t p) { return p > 90; });
+        QVERIFY(loud > static_cast<long>(wave->peaks.size() * 9 / 10));
+    }
+
+    void waveformNeedsSound()
+    {
+        Result<MediaInfo> info = media::probeMedia(m_media.videoMute);
+        QVERIFY(info);
+        Result<media::WaveformData> wave = media::computeWaveform(m_media.videoMute, *info);
+        QVERIFY(!wave);
+        QCOMPARE(wave.error().code, ErrorCode::Media);
+    }
+
+    void waveformCanBeCancelled()
+    {
+        Result<MediaInfo> info = media::probeMedia(m_media.tone);
+        QVERIFY(info);
+        const std::atomic<bool> cancel{true};
+        Result<media::WaveformData> wave =
+            media::computeWaveform(m_media.tone, *info, 100, &cancel);
+        QVERIFY(!wave);
+        QCOMPARE(wave.error().code, ErrorCode::Cancelled);
+    }
+
+    void waveformCacheRoundTrip()
+    {
+        QTemporaryDir cacheDir;
+        const media::WaveformCache cache(cacheDir.path());
+        Result<MediaInfo> info = media::probeMedia(m_media.tone);
+        QVERIFY(info);
+        const QString key = cache.keyFor(m_media.tone, *info);
+        QVERIFY(!cache.load(key));
+
+        media::WaveformData data;
+        data.binsPerSecond = 100;
+        data.peaks = {0, 10, 200, 255, 128};
+        QVERIFY(cache.store(key, data));
+        QCOMPARE(cache.load(key), std::optional<media::WaveformData>(data));
+
+        // A damaged cache file is ignored rather than trusted.
+        QFile file(QDir(cacheDir.path()).filePath(key + QStringLiteral(".ftwf")));
+        QVERIFY(file.open(QIODevice::Append));
+        file.write("junk");
+        file.close();
+        QVERIFY(!cache.load(key));
+
+        // Another file (or the same file changed) has another key.
+        Result<MediaInfo> other = media::probeMedia(m_media.video);
+        QVERIFY(other);
+        QVERIFY(cache.keyFor(m_media.video, *other) != key);
+    }
+
+    void waveformRendering()
+    {
+        media::WaveformData data;
+        data.binsPerSecond = 10;
+        data.peaks = std::vector<std::uint8_t>(10, 128);
+        data.peaks.resize(20, 255); // 1 s at half level, then 1 s at full level
+        const QImage image =
+            media::renderWaveform(data, 0.0, 2.0, QSize(100, 40), QColor(Qt::white));
+        QCOMPARE(image.size(), QSize(100, 40));
+        const auto columnHeight = [&](int x) {
+            int painted = 0;
+            for (int y = 0; y < image.height(); ++y) {
+                painted += qAlpha(image.pixel(x, y)) > 0 ? 1 : 0;
+            }
+            return painted;
+        };
+        QVERIFY(std::abs(columnHeight(20) - 20) <= 2); // half of the height
+        QCOMPARE(columnHeight(80), 40);                // full height
+        QCOMPARE(qAlpha(image.pixel(20, 2)), 0);       // nothing drawn above a half level
+
+        // Gain scales the outline; showing only the second half draws full columns throughout.
+        const QImage louder =
+            media::renderWaveform(data, 0.0, 2.0, QSize(100, 40), QColor(Qt::white), 2.0);
+        QVERIFY(qAlpha(louder.pixel(20, 2)) > 0);
+        const QImage tail = media::renderWaveform(data, 1.0, 1.0, QSize(50, 40), QColor(Qt::white));
+        QVERIFY(qAlpha(tail.pixel(0, 0)) > 0 && qAlpha(tail.pixel(49, 39)) > 0);
+        QVERIFY(media::renderWaveform({}, 0.0, 1.0, QSize(10, 10), Qt::white).pixel(5, 5) == 0);
     }
 
     void cleanupTestCase() { engine::MltRuntime::shutdown(); }

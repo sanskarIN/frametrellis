@@ -219,12 +219,10 @@ Status RenderRunner::run(const std::atomic<bool>& cancelRequested, const Started
     } else {
         consumer.set("an", 1);
     }
-    // Parallel frame rendering (negative real_time) produces corrupt (NaN) audio with older MLT
-    // releases such as 7.22, so it is only enabled where it has been verified to work. The
-    // encoders use their own threads either way.
-    const int threads = std::max(1, QThread::idealThreadCount() - 1);
-    consumer.set("real_time",
-                 mlt_version_get_int() >= ((7 << 16) | (30 << 8)) ? -std::min(threads, 4) : 0);
+    // Frames are rendered one at a time (real_time = 0). MLT's parallel frame rendering
+    // (negative real_time) produced corrupt (NaN) audio with MLT 7.22 on Linux and MLT 7.40 on
+    // Windows, which made the AAC encoder fail. The video encoder still uses its own threads.
+    consumer.set("real_time", 0);
     consumer.set("threads", 0);
     consumer.set("terminate_on_pause", 1);
     consumer.set("in", 0);

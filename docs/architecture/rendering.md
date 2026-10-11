@@ -55,9 +55,14 @@ Exit codes: 0 success, 1 failure, 2 bad arguments, 3 cancelled.
 
 ## Known engine quirks handled here
 
-* MLT releases before 7.30 (for example 7.22 in Ubuntu 24.04) produce corrupt audio when the
-  avformat consumer renders frames in parallel (`real_time < 0`); FrameTrellis renders
-  sequentially on those versions.
+* MLT's parallel frame rendering in the avformat consumer (`real_time < 0`) produced corrupt
+  (NaN) audio with MLT 7.22 on Linux and MLT 7.40 on Windows, which made the AAC encoder fail.
+  FrameTrellis therefore renders frames sequentially (`real_time = 0`); the video encoder still
+  uses several threads.
+* MSYS2's MLT lists the libraries of its "plus" module (FFTW, libebur128) as optional. Without
+  them the module does not load and the `affine` transition is missing, so the Windows build
+  installs and bundles them. MLT's `composite` transition is not used as a fallback because it
+  draws black frames with current releases.
 * MLT 7.42 with FFmpeg 6.1 registers `avfilter.eq` but cannot run it; the engine runs a one-frame
   self-test at startup and hides picture adjustments when it fails.
 * MLT's FFmpeg producer returns blank frames for repeated seeks in still images, so stills use

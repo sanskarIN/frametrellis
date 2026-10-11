@@ -3,10 +3,10 @@
 FrameTrellis follows semantic versioning with `v`-prefixed tags (`v1.0.0`). A milestone is only
 tagged when its features work and its quality gates pass; dates are not promised.
 
-Legend: ✅ implemented and tested on the development branch · 🚧 in progress · ⏳ planned
+Legend: ✅ implemented and tested · 🚧 in progress · ⏳ planned
 
-No version has been tagged yet: the milestones below describe the order of work, and a tag will
-be created only after the corresponding acceptance checks have passed in CI.
+The 0.x milestones below were development stages on the way to 1.0. They were not published as
+separate releases.
 
 ## v0.1.0 — Application skeleton and workspace ✅
 - ✅ CMake/C++20/Qt 6 project, presets, CI, formatting and static analysis
@@ -39,23 +39,33 @@ be created only after the corresponding acceptance checks have passed in CI.
 
 ## v0.8.0 — Polish and robustness 🚧
 - ✅ Error handling and accessibility labels throughout the UI
-- 🚧 Windows packages verified on physical Windows 11 machines
-- ⏳ Performance work for very long timelines (virtualised clip views, thumbnail strips)
-- ⏳ Proxy media for demanding footage
+- 🚧 Windows installer and portable ZIP, verified automatically on clean Windows Server 2022,
+  Windows Server 2025 and Windows 11 (ARM64, x64 emulation) machines
+- ✅ Installation self-test (`frametrellis-render --self-test`)
 
-## v0.9.0 — Release candidate ⏳
+## v0.9.0 — Release candidate 🚧
 - ✅ Dissolve and crossfade transitions between touching clips
-- ⏳ Basic title overlays
-- ⏳ Linux portable package; macOS build in CI
-- ⏳ Public beta and bug fixing
+- ✅ Audio waveforms on clips
+- 🚧 Release workflow with SHA-256 checksums, an SPDX software bill of materials and the source
+  code of every bundled component
 
-## v1.0.0 — First stable release ⏳
+## v1.0.0 — First stable release
 Acceptance criteria (all must hold):
 - the documented build succeeds in the release environment, CI is green on all supported platforms;
 - import → preview → edit → save → reopen → export works end to end and is tested;
 - no known crash or data-loss bug; fresh-install instructions verified;
 - packages contain the expected files, licenses and notices; website and links checked;
 - limitations and platform support are explicit in the release notes.
+
+## v1.1 — Next
+- ⏳ Basic title overlays
+- ⏳ A Linux package (AppImage or Flatpak), published once it has been verified
+- ⏳ A macOS build in CI, then a `.dmg` package once it has been verified
+- ⏳ Faster exports (MLT's parallel frame rendering is disabled because it corrupted audio)
+- ⏳ Performance work for very long timelines (virtualised clip views, thumbnail strips)
+- ⏳ Proxy media for demanding footage
+- ⏳ Code-signed Windows packages
+- ⏳ Evaluate WinGet, Flathub and Homebrew as additional distribution channels
 
 ## Later
 - Subtitles (import, edit, burn-in and export as SRT)

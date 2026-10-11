@@ -291,7 +291,12 @@ class LicenseExtractor:
         prefix = f"{repository}/"
         outer.extractall(scratch / "git", filter="data",
                          members=[m for m in outer.getmembers() if m.name.startswith(prefix)])
-        git = [self.tool("git"), f"--git-dir={scratch / 'git' / repository}"]
+        git_dir = scratch / "git" / repository
+        # Archives may leave out empty directories, without which Git does not accept the
+        # repository (packed refs and objects need neither).
+        for directory in ("refs", "objects"):
+            (git_dir / directory).mkdir(parents=True, exist_ok=True)
+        git = [self.tool("git"), f"--git-dir={git_dir}"]
         names = run(git + ["ls-tree", "-r", "-z", "--name-only", revision],
                     capture_output=True).stdout.split("\0")
         found = []

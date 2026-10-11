@@ -29,7 +29,7 @@ endif()
 
 include(FrameTrellisCompilerOptions)
 
-set(FT_QT_COMPONENTS Core Gui Test)
+set(FT_QT_COMPONENTS Core Gui Concurrent Test)
 if(FT_BUILD_APP)
     list(APPEND FT_QT_COMPONENTS Qml Quick QuickControls2 Svg)
 endif()

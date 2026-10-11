@@ -41,6 +41,10 @@ Clip makeClip(const QString& id, const Id& asset, FrameCount start, FrameCount i
     return c;
 }
 
+// V1 holds "a" (0-100, media 50-150) and "b" (100-200, media 50-150) of the 250-frame video, so
+// the cut at 100 has 100 frames of media after "a" and 50 before "b".
+Timeline timelineWithCut();
+
 Timeline makeTimeline()
 {
     Timeline t;
@@ -58,6 +62,16 @@ Timeline makeTimeline()
     (void)t.insertTrack(v1);
     (void)t.insertTrack(v2);
     (void)t.insertTrack(a1);
+    return t;
+}
+
+Timeline timelineWithCut()
+{
+    Timeline t = makeTimeline();
+    (void)t.insertClip(QStringLiteral("v1"), makeClip(QStringLiteral("a"), kVideoAsset, 0, 50, 100),
+                       testSources());
+    (void)t.insertClip(QStringLiteral("v1"),
+                       makeClip(QStringLiteral("b"), kVideoAsset, 100, 50, 100), testSources());
     return t;
 }
 
@@ -375,6 +389,161 @@ private slots:
             makeClip(QStringLiteral("a"), kVideoAsset, 0, 0, 20)); // duplicate id
         corrupted.restoreTracks(tracks);
         QVERIFY(!corrupted.validate(testSources()));
+    }
+
+    void transitionsNeedTouchingClipsWithMedia()
+    {
+        Timeline t = timelineWithCut();
+        const SourceLookup sources = testSources();
+        // Before the cut, "b" has 50 frames of media: at most 2 * 50 + 1 frames.
+        QCOMPARE(t.maxTransitionDuration(QStringLiteral("a"), sources), FrameCount{101});
+        Result<Id> added = t.addTransition(QStringLiteral("a"), 20, sources);
+        QVERIFY2(added, qPrintable(added ? QString() : added.error().message));
+        const Transition* tr = t.transitionAfter(QStringLiteral("a"));
+        QVERIFY(tr);
+        QCOMPARE(tr->id, *added);
+        QCOMPARE(tr->toClip, QStringLiteral("b"));
+        QCOMPARE(tr->before(), FrameCount{10});
+        QCOMPARE(tr->after(), FrameCount{10});
+        QVERIFY(t.validate(sources));
+
+        QCOMPARE(t.addTransition(QStringLiteral("a"), 10, sources).error().code,
+                 ErrorCode::Conflict); // one transition per cut
+        QVERIFY(t.setTransitionDuration(*added, 101, sources));
+        QCOMPARE(t.setTransitionDuration(*added, 102, sources).error().code,
+                 ErrorCode::OutOfRange); // "b" has only 50 frames before the cut
+        QVERIFY(!t.setTransitionDuration(*added, 1, sources));
+        QCOMPARE(t.transition(*added)->duration, FrameCount{101});
+
+        // No transition across a gap, at the last clip, or without media past the cut.
+        (void)t.insertClip(QStringLiteral("v1"),
+                           makeClip(QStringLiteral("c"), kVideoAsset, 300, 0, 250), sources);
+        QCOMPARE(t.addTransition(QStringLiteral("b"), 10, sources).error().code,
+                 ErrorCode::Conflict);
+        QVERIFY(!t.addTransition(QStringLiteral("c"), 10, sources));
+        QCOMPARE(t.maxTransitionDuration(QStringLiteral("b"), sources), FrameCount{0});
+        (void)t.insertClip(QStringLiteral("v2"),
+                           makeClip(QStringLiteral("x"), kVideoAsset, 0, 0, 250), sources);
+        (void)t.insertClip(QStringLiteral("v2"),
+                           makeClip(QStringLiteral("y"), kVideoAsset, 250, 0, 100), sources);
+        QCOMPARE(t.maxTransitionDuration(QStringLiteral("x"), sources), FrameCount{0});
+        QCOMPARE(t.addTransition(QStringLiteral("x"), 10, sources).error().code,
+                 ErrorCode::OutOfRange);
+
+        QVERIFY(t.removeTransition(*added));
+        QVERIFY(!t.transitionAfter(QStringLiteral("a")));
+        QVERIFY(!t.removeTransition(*added));
+    }
+
+    void stillImagesHaveUnlimitedHandles()
+    {
+        Timeline t = makeTimeline();
+        const SourceLookup sources = testSources();
+        (void)t.insertClip(QStringLiteral("v1"),
+                           makeClip(QStringLiteral("s1"), kStillAsset, 0, 0, 40), sources);
+        (void)t.insertClip(QStringLiteral("v1"),
+                           makeClip(QStringLiteral("s2"), kStillAsset, 40, 0, 40), sources);
+        QCOMPARE(t.maxTransitionDuration(QStringLiteral("s1"), sources), FrameCount{80});
+        QVERIFY(t.addTransition(QStringLiteral("s1"), 80, sources));
+    }
+
+    void editsKeepOrDropTransitions()
+    {
+        const SourceLookup sources = testSources();
+        {
+            // Moving a clip away from the cut removes the transition.
+            Timeline t = timelineWithCut();
+            QVERIFY(t.addTransition(QStringLiteral("a"), 20, sources));
+            QVERIFY(t.moveClip(QStringLiteral("b"), QStringLiteral("v1"), 120, sources));
+            QVERIFY(t.tracks()[0].transitions.empty());
+        }
+        {
+            // Trimming at the cut removes it; trimming elsewhere keeps it.
+            Timeline t = timelineWithCut();
+            QVERIFY(t.addTransition(QStringLiteral("a"), 20, sources));
+            QVERIFY(t.trimClipStart(QStringLiteral("a"), 10, sources));
+            QCOMPARE(t.tracks()[0].transitions.size(), std::size_t{1});
+            QVERIFY(t.trimClipEnd(QStringLiteral("a"), 90, sources));
+            QVERIFY(t.tracks()[0].transitions.empty());
+        }
+        {
+            // Splitting the outgoing clip hands the transition to its right part.
+            Timeline t = timelineWithCut();
+            QVERIFY(t.addTransition(QStringLiteral("a"), 20, sources));
+            Result<Id> right = t.splitClip(QStringLiteral("a"), 50);
+            QVERIFY(right);
+            QCOMPARE(t.tracks()[0].transitions.front().fromClip, *right);
+            QVERIFY(t.validate(sources));
+        }
+        {
+            // Removing either clip removes it; ripple edits elsewhere keep it.
+            Timeline t = timelineWithCut();
+            QVERIFY(t.addTransition(QStringLiteral("a"), 20, sources));
+            QVERIFY(t.removeClip(QStringLiteral("b")));
+            QVERIFY(t.tracks()[0].transitions.empty());
+        }
+        {
+            Timeline t = timelineWithCut();
+            QVERIFY(!t.moveClip(QStringLiteral("a"), QStringLiteral("v1"), 40, sources));
+            (void)t.insertClip(QStringLiteral("v1"),
+                               makeClip(QStringLiteral("c"), kVideoAsset, 200, 0, 10), sources);
+            QVERIFY(t.moveClip(QStringLiteral("c"), QStringLiteral("v1"), 300, sources));
+            QVERIFY(t.moveClip(QStringLiteral("a"), QStringLiteral("v1"), 0, sources));
+            QVERIFY(t.addTransition(QStringLiteral("a"), 20, sources));
+            QVERIFY(t.rippleRemoveClip(QStringLiteral("c")));
+            QCOMPARE(t.tracks()[0].transitions.size(), std::size_t{1});
+        }
+    }
+
+    void transitionsAtBothEndsOfAClipMayNotOverlap()
+    {
+        Timeline t = timelineWithCut(); // "b" is 100 frames long
+        const SourceLookup sources = testSources();
+        (void)t.insertClip(QStringLiteral("v1"),
+                           makeClip(QStringLiteral("c"), kVideoAsset, 200, 100, 50), sources);
+        QVERIFY(t.addTransition(QStringLiteral("a"), 100, sources)); // 50 frames into "b"
+        // 50 of the 100 frames of "b" are left for a second transition before the next cut.
+        QCOMPARE(t.maxTransitionDuration(QStringLiteral("b"), sources), FrameCount{100});
+        QCOMPARE(t.addTransition(QStringLiteral("b"), 102, sources).error().code,
+                 ErrorCode::OutOfRange);
+        QVERIFY(t.addTransition(QStringLiteral("b"), 100, sources));
+        QVERIFY(t.validate(sources));
+        // Transitions are kept in timeline order.
+        QCOMPARE(t.tracks()[0].transitions[0].fromClip, QStringLiteral("a"));
+        QCOMPARE(t.tracks()[0].transitions[1].fromClip, QStringLiteral("b"));
+    }
+
+    void lockedTracksRejectTransitionEdits()
+    {
+        Timeline t = timelineWithCut();
+        const SourceLookup sources = testSources();
+        Result<Id> id = t.addTransition(QStringLiteral("a"), 20, sources);
+        QVERIFY(id);
+        QVERIFY(t.setTrackLocked(QStringLiteral("v1"), true));
+        QVERIFY(!t.setTransitionDuration(*id, 30, sources));
+        QVERIFY(!t.removeTransition(*id));
+        QVERIFY(!t.addTransition(QStringLiteral("a"), 20, sources));
+    }
+
+    void validateChecksTransitions()
+    {
+        Timeline t = timelineWithCut();
+        const SourceLookup sources = testSources();
+        QVERIFY(t.addTransition(QStringLiteral("a"), 20, sources));
+        std::vector<Track> tracks = t.tracks();
+        tracks[0].clips[1].start = 110; // no longer touching
+        tracks[0].clips[1].id = QStringLiteral("b");
+        Timeline corrupted;
+        corrupted.restoreTracks(tracks);
+        QCOMPARE(corrupted.validate(sources).error().code, ErrorCode::InvalidDocument);
+        tracks = t.tracks();
+        tracks[0].transitions.front().toClip = QStringLiteral("missing");
+        corrupted.restoreTracks(tracks);
+        QVERIFY(!corrupted.validate(sources));
+        tracks = t.tracks();
+        tracks[0].transitions.front().id = QStringLiteral("a"); // clashes with a clip id
+        corrupted.restoreTracks(tracks);
+        QVERIFY(!corrupted.validate(sources));
     }
 
     void editPointsAndSnapping()

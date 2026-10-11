@@ -304,6 +304,7 @@ private slots:
             m_window, Qt::LeftButton, Qt::NoModifier,
             item->mapToScene(QPointF(item->width() / 2, item->height() - 6)).toPoint());
         QCOMPARE(m_app->timeline()->selection().size(), 1);
+        m_app->showStatus(QString());
         screenshot(QStringLiteral("04-clip-selected"));
         QTest::keyClick(m_window, Qt::Key_Delete);
         QVERIFY(QTest::qWaitFor(

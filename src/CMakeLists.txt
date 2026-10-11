@@ -6,4 +6,5 @@ add_subdirectory(editing)
 
 if(FT_BUILD_ENGINE)
     add_subdirectory(engine)
+    add_subdirectory(media)
 endif()

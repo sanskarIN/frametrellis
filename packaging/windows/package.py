@@ -13,7 +13,8 @@ It
  3. copies every DLL the binaries depend on, found by reading their import tables, and stops
     if a dependency can be found neither in MSYS2 nor in Windows itself,
  4. attributes every bundled file to the MSYS2 package that installed it, copies the license
-    files of those packages and writes a list of bundled components,
+    files of those packages and writes a list of bundled components; for packages that install
+    no license file, it takes the license texts from their MSYS2 source package instead,
  5. writes an SPDX 2.3 software bill of materials and the list of source packages that make up
     the corresponding source code, and
  6. creates the portable ZIP.
@@ -31,10 +32,12 @@ import re
 import shutil
 import subprocess
 import sys
+import tarfile
+import tempfile
 import uuid
 import zipfile
 from dataclasses import dataclass, field
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 
 REPOSITORY = "https://github.com/sanskarIN/frametrellis"
 APP_EXECUTABLES = ["frametrellis.exe", "frametrellis-render.exe"]
@@ -47,6 +50,16 @@ SYSTEM_ONLY = {"opengl32.dll", "d3d11.dll", "d3d12.dll", "dxgi.dll", "dwrite.dll
 # Qt plugin types the application never uses.
 SKIPPED_PLUGIN_TYPES = ["generic", "networkinformation", "qmltooling", "tls"]
 SOURCES_URL = "https://repo.msys2.org/mingw/sources/"
+# Upstream files that hold license texts and notices: COPYING, COPYING.LGPLv2.1, COPYINGv3,
+# LICENSE.md, LICENCE, COPYRIGHT, NOTICE and so on.
+LICENSE_FILE = re.compile(r"^(COPYING|COPYRIGHT|LICEN[CS]E|NOTICE)(v[0-9.]+)?([._-].*)?$",
+                          re.IGNORECASE)
+# How deep below the top of an upstream source tree license files are looked for. One level
+# down finds the notices of bundled third-party code (for example fmt/LICENSE).
+LICENSE_SEARCH_DEPTH = 2
+MAX_LICENSE_FILE_SIZE = 1 << 20
+UPSTREAM_ARCHIVE_SUFFIXES = (".tar.gz", ".tgz", ".tar.xz", ".txz", ".tar.bz2", ".tbz2",
+                             ".tar.zst", ".zip")
 
 
 def log(message: str) -> None:
@@ -142,6 +155,158 @@ def read_package_database(msys_root: Path) -> tuple[dict[str, Package], dict[str
 
 
 # --------------------------------------------------------------------------------------------
+# License texts from source packages
+
+
+def license_path(name: str, strip_top: bool = True) -> PurePosixPath | None:
+    """The path under which a license file found in a source tree is stored, or None.
+
+    Archive member names are untrusted: absolute names and names that leave the tree are
+    rejected, and only license files near the top of the tree qualify."""
+    path = PurePosixPath(name.replace("\\", "/"))
+    if path.is_absolute() or ".." in path.parts or ":" in name:
+        return None
+    parts = path.parts[1:] if strip_top else path.parts
+    if not parts or len(parts) > LICENSE_SEARCH_DEPTH:
+        return None
+    relative = PurePosixPath(*parts)
+    if LICENSE_FILE.match(relative.name) or (
+            len(parts) == 2 and parts[0].upper() in {"LICENSES", "LICENCES"}):
+        return relative
+    return None
+
+
+VCS_SOURCE = re.compile(r"^(?:(?P<name>[^:/]+)::)?git\+(?P<url>[^#]+)(?:#(?P<fragment>.*))?$")
+
+
+def git_sources(srcinfo: str) -> dict[str, str]:
+    """Maps the directory name of each Git source in a .SRCINFO file to the revision built."""
+    sources = {}
+    for line in srcinfo.splitlines():
+        key, _, value = line.strip().partition(" = ")
+        match = VCS_SOURCE.match(value) if key == "source" else None
+        if not match:
+            continue
+        name = match["name"] or match["url"].rstrip("/").rsplit("/", 1)[-1].removesuffix(".git")
+        kind, _, revision = (match["fragment"] or "").partition("=")
+        if kind in {"commit", "tag"} and revision:
+            sources[name] = revision
+        elif kind == "branch" and revision:
+            sources[name] = f"refs/heads/{revision}"
+        else:
+            sources[name] = "HEAD"
+    return sources
+
+
+class LicenseExtractor:
+    """Takes license texts from MSYS2 source packages. A source package holds the build recipe
+    and the upstream source: release archives, or bare Git repositories for Git sources."""
+
+    def __init__(self, cache: Path):
+        self.cache = cache
+
+    @staticmethod
+    def tool(name: str) -> str:
+        path = shutil.which(name)
+        if not path:
+            fail(f"{name} is needed to read the MSYS2 source packages; please install it")
+        return path
+
+    def fetch(self, archive: str) -> Path:
+        target = self.cache / archive
+        if not target.is_file():
+            self.cache.mkdir(parents=True, exist_ok=True)
+            partial = target.with_name(target.name + ".part")
+            run([self.tool("curl"), "--fail", "--silent", "--show-error", "--location",
+                 "--proto", "=https", "--retry", "3", "--output", str(partial),
+                 SOURCES_URL + archive])
+            partial.replace(target)
+        return target
+
+    def decompress_zstd(self, source: Path, target: Path) -> Path:
+        run([self.tool("zstd"), "--quiet", "--decompress", "--force", "-o", str(target),
+             str(source)])
+        return target
+
+    def extract(self, package: Package, target: Path) -> list[PurePosixPath]:
+        """Writes the license files found in the package's source to target and returns their
+        paths relative to target."""
+        written: list[PurePosixPath] = []
+        with tempfile.TemporaryDirectory(prefix="ft-licenses-") as directory:
+            scratch = Path(directory)
+            tar = self.decompress_zstd(self.fetch(package.source_archive), scratch / "source.tar")
+            with tarfile.open(tar) as outer:
+                members = outer.getmembers()
+                srcinfo = next((m for m in members if m.isfile()
+                                and PurePosixPath(m.name).name == ".SRCINFO"), None)
+                git = git_sources(outer.extractfile(srcinfo).read().decode("utf-8", "replace")
+                                  if srcinfo else "")
+                for member in members:
+                    name = PurePosixPath(member.name)
+                    if member.isfile() and member.name.endswith(UPSTREAM_ARCHIVE_SUFFIXES):
+                        written += self.from_archive(outer, member, scratch, target)
+                    elif (member.isfile() and len(name.parts) == 3 and name.name == "HEAD"
+                          and name.parts[1] in git):
+                        written += self.from_git(outer, name.parent, git[name.parts[1]],
+                                                 scratch, target)
+        return written
+
+    @staticmethod
+    def store(data: bytes, relative: PurePosixPath, origin: str, target: Path) -> PurePosixPath:
+        destination = target / relative
+        if destination.exists() and destination.read_bytes() != data:
+            # Another upstream archive of the package has a different file of the same name.
+            relative = PurePosixPath(origin) / relative
+            destination = target / relative
+        destination.parent.mkdir(parents=True, exist_ok=True)
+        destination.write_bytes(data)
+        return relative
+
+    def from_archive(self, outer: tarfile.TarFile, member: tarfile.TarInfo, scratch: Path,
+                     target: Path) -> list[PurePosixPath]:
+        origin = PurePosixPath(member.name).name
+        stream = outer.extractfile(member)
+        found: list[tuple[PurePosixPath, bytes]] = []
+        if origin.endswith(".zip"):
+            with zipfile.ZipFile(stream) as archive:
+                for info in archive.infolist():
+                    relative = license_path(info.filename)
+                    if relative and not info.is_dir() and info.file_size <= MAX_LICENSE_FILE_SIZE:
+                        found.append((relative, archive.read(info)))
+        else:
+            if origin.endswith(".tar.zst"):
+                compressed = scratch / origin
+                with compressed.open("wb") as file:
+                    shutil.copyfileobj(stream, file)
+                stream = self.decompress_zstd(compressed, scratch / "upstream.tar").open("rb")
+            with stream, tarfile.open(fileobj=stream, mode="r|*") as archive:
+                for info in archive:
+                    relative = license_path(info.name)
+                    if relative and info.isfile() and info.size <= MAX_LICENSE_FILE_SIZE:
+                        found.append((relative, archive.extractfile(info).read()))
+        return [self.store(data, relative, origin, target) for relative, data in found]
+
+    def from_git(self, outer: tarfile.TarFile, repository: PurePosixPath, revision: str,
+                 scratch: Path, target: Path) -> list[PurePosixPath]:
+        prefix = f"{repository}/"
+        outer.extractall(scratch / "git", filter="data",
+                         members=[m for m in outer.getmembers() if m.name.startswith(prefix)])
+        git = [self.tool("git"), f"--git-dir={scratch / 'git' / repository}"]
+        names = run(git + ["ls-tree", "-r", "-z", "--name-only", revision],
+                    capture_output=True).stdout.split("\0")
+        found = []
+        for name in names:
+            relative = license_path(name, strip_top=False)
+            if relative is None:
+                continue
+            data = subprocess.run(git + ["cat-file", "blob", f"{revision}:{name}"],
+                                  check=True, capture_output=True).stdout
+            if len(data) <= MAX_LICENSE_FILE_SIZE:
+                found.append(self.store(data, relative, repository.name, target))
+        return found
+
+
+# --------------------------------------------------------------------------------------------
 # Package assembly
 
 
@@ -157,6 +322,9 @@ class Packager:
         self.stage = self.output / self.name
         self.system_dir = Path(os.environ.get("SystemRoot", r"C:\Windows")) / "System32"
         self.packages, self.owners = read_package_database(self.msys_root)
+        self.license_extractor = LicenseExtractor(
+            Path(args.source_cache).resolve() if args.source_cache
+            else self.build_dir / "msys2-sources")
         # Every file in the stage that came from MSYS2: stage-relative path -> source path.
         self.origins: dict[str, Path] = {}
 
@@ -306,16 +474,23 @@ class Packager:
         return dict(sorted(used.items()))
 
     def write_licenses(self, used: dict[str, Package]) -> list[str]:
+        """Copies the license files of every bundled package; returns the packages whose
+        license texts had to be taken from their source package."""
         licenses_dir = self.stage / "licenses"
         shutil.copy2(self.source_dir / "LICENSE", self.stage / "LICENSE.txt")
         shutil.copy2(self.source_dir / "THIRD_PARTY_NOTICES.md",
                      self.stage / "THIRD_PARTY_NOTICES.md")
-        without_files = []
+        from_source = []
+        missing = []
         for package in used.values():
             files = [f for f in package.files
                      if "/share/licenses/" in f and not f.endswith("/")]
             if not files:
-                without_files.append(package.name)
+                # The binary package installs no license file (FFmpeg, x264 and others), so the
+                # texts come from the upstream source instead.
+                found = self.license_extractor.extract(package, licenses_dir / package.name)
+                log(f"{package.name}: {len(found)} license file(s) from {package.source_archive}")
+                (from_source if found else missing).append(package.name)
                 continue
             for f in files:
                 # ucrt64/share/licenses/<name>/<file...> -> licenses/<package>/<file...>
@@ -324,9 +499,11 @@ class Packager:
                 target = licenses_dir / package.name / relative
                 target.parent.mkdir(parents=True, exist_ok=True)
                 shutil.copy2(self.msys_root / f, target)
-        return without_files
+        if missing:
+            fail("no license text found for: " + ", ".join(missing))
+        return from_source
 
-    def write_component_list(self, used: dict[str, Package], without_files: list[str]) -> None:
+    def write_component_list(self, used: dict[str, Package], from_source: list[str]) -> None:
         lines = [
             f"FrameTrellis {self.version} for Windows (x64) - bundled components",
             "",
@@ -351,10 +528,11 @@ class Packager:
             f"component listed above. They are also available from {SOURCES_URL}",
             "under the file names listed in SOURCES.txt.",
         ]
-        if without_files:
-            lines += ["", "Components whose package ships no separate license file "
-                          "(see the license column):"]
-            lines += [f"  {name}" for name in without_files]
+        if from_source:
+            lines += ["", "The MSYS2 packages of the following components install no license file;",
+                      "their license texts in the licenses folder were taken from the upstream",
+                      "source in their MSYS2 source package:"]
+            lines += [f"  {name}" for name in from_source]
         (self.stage / "BUNDLED_COMPONENTS.txt").write_text("\n".join(lines) + "\n",
                                                            encoding="utf-8")
         sources = [package.source_archive for package in used.values()]
@@ -480,15 +658,15 @@ Source code: {REPOSITORY}
         self.deploy_mlt()
         self.deploy_dependencies()
         used = self.bundled_packages()
-        without_files = self.write_licenses(used)
-        self.write_component_list(used, without_files)
+        from_source = self.write_licenses(used)
+        self.write_component_list(used, from_source)
         self.write_readme()
         sbom = self.write_sbom(used)
         archive = self.make_zip()
         size = sum(p.stat().st_size for p in self.stage.rglob("*") if p.is_file())
         log(f"Bundled {len(used)} MSYS2 packages; package size {size / 2**20:.1f} MiB")
-        if without_files:
-            log("Packages without a license file: " + ", ".join(without_files))
+        if from_source:
+            log("License texts taken from source packages: " + ", ".join(from_source))
         log(f"Wrote {archive} ({archive.stat().st_size / 2**20:.1f} MiB) and {sbom}")
 
 
@@ -517,6 +695,9 @@ def main() -> None:
                         help="MSYS2 installation root (default: from cygpath)")
     parser.add_argument("--msystem", default=os.environ.get("MSYSTEM", "UCRT64").lower())
     parser.add_argument("--version", help="version to package (default: from CMakeLists.txt)")
+    parser.add_argument("--source-cache",
+                        help="directory for downloaded MSYS2 source packages "
+                             "(default: <build-dir>/msys2-sources)")
     args = parser.parse_args()
     if not args.msys_root:
         fail("cannot find the MSYS2 root; pass --msys-root")

@@ -39,6 +39,9 @@ jobs:
         with:
           msystem: UCRT64
           update: true
+          # curl, git and zstd read the MSYS2 source packages of components that install no
+          # license file of their own.
+          install: curl git zstd
           pacboy: >-
             cc:p cmake:p ninja:p pkgconf:p python:p
             qt6-base:p qt6-declarative:p qt6-svg:p qt6-imageformats:p

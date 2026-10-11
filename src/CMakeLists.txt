@@ -3,3 +3,7 @@ add_subdirectory(core)
 add_subdirectory(timeline)
 add_subdirectory(project)
 add_subdirectory(editing)
+
+if(FT_BUILD_ENGINE)
+    add_subdirectory(engine)
+endif()

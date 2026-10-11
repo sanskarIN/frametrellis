@@ -35,6 +35,8 @@ endif()
 find_package(Qt6 6.5 REQUIRED COMPONENTS ${FT_QT_COMPONENTS})
 qt_standard_project_setup(REQUIRES 6.5)
 
+include(GNUInstallDirs)
+
 if(FT_BUILD_ENGINE)
     include(FrameTrellisFindMlt)
 endif()

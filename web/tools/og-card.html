@@ -1,0 +1,29 @@
+<!doctype html>
+<!-- SPDX-License-Identifier: GPL-3.0-or-later -->
+<!-- Source of web/site/assets/og-image.png (the social preview card). Render it at 1200x630
+     with web/tools/make-og-image.mjs. -->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>FrameTrellis social card</title>
+<style>
+  html, body { margin: 0; width: 1200px; height: 630px; overflow: hidden; }
+  body { background: radial-gradient(circle at 15% 20%, #173a37 0, #0f1216 55%); color: #e8ecf1;
+         font-family: Inter, "Segoe UI", system-ui, sans-serif; position: relative; }
+  .brand { position: absolute; left: 72px; top: 72px; display: flex; align-items: center; gap: 20px; }
+  .brand img { width: 84px; height: 84px; }
+  .brand span { font-size: 58px; font-weight: 800; letter-spacing: -0.02em; }
+  .brand b { color: #3ccfb7; }
+  h1 { position: absolute; left: 72px; top: 200px; width: 470px; margin: 0; font-size: 42px; line-height: 1.18; font-weight: 700; }
+  p { position: absolute; left: 72px; top: 420px; width: 470px; margin: 0; font-size: 24px; color: #a5afbc; line-height: 1.4; }
+  .shot { position: absolute; left: 600px; top: 96px; width: 760px; border-radius: 14px; border: 2px solid #272e38;
+          box-shadow: 0 30px 80px rgba(0,0,0,0.6); }
+</style>
+</head>
+<body>
+  <div class="brand"><img src="../site/assets/logo.svg" alt=""><span>Frame<b>Trellis</b></span></div>
+  <h1>Open-source, local-first desktop video editing</h1>
+  <p>Multi-track timeline · real-time preview · MP4 export. Free under the GPL.</p>
+  <img class="shot" src="../../docs/images/workspace.png" alt="">
+</body>
+</html>

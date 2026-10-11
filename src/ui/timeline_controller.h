@@ -1,0 +1,119 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+// SPDX-FileCopyrightText: 2026 Sanskar and FrameTrellis contributors
+#pragma once
+
+#include "editing/change_set.h"
+#include "ui/timeline_model.h"
+
+#include <QObject>
+#include <QQmlEngine>
+#include <QSet>
+#include <QVariantMap>
+
+namespace ft::ui {
+
+class PlaybackController;
+class ProjectController;
+
+/// Timeline interactions: selection, snapping, zoom and every clip and track edit. All edits go
+/// through undoable commands; failed edits leave the project unchanged and explain why.
+class TimelineController : public QObject
+{
+    Q_OBJECT
+    QML_ELEMENT
+    QML_UNCREATABLE("Provided by the application")
+    Q_PROPERTY(ft::ui::TimelineModel* model READ model CONSTANT)
+    Q_PROPERTY(double pixelsPerFrame READ pixelsPerFrame WRITE setPixelsPerFrame NOTIFY zoomChanged)
+    Q_PROPERTY(double minPixelsPerFrame READ minPixelsPerFrame NOTIFY zoomChanged)
+    Q_PROPERTY(double maxPixelsPerFrame READ maxPixelsPerFrame CONSTANT)
+    Q_PROPERTY(bool snapping READ snapping WRITE setSnapping NOTIFY snappingChanged)
+    Q_PROPERTY(QStringList selection READ selection NOTIFY selectionChanged)
+    Q_PROPERTY(QVariantMap selectedClip READ selectedClip NOTIFY selectedClipChanged)
+    Q_PROPERTY(double duration READ duration NOTIFY durationChanged)
+    Q_PROPERTY(double frameRate READ frameRate NOTIFY durationChanged)
+    Q_PROPERTY(bool empty READ empty NOTIFY durationChanged)
+
+public:
+    TimelineController(ProjectController* project, PlaybackController* playback, QObject* parent = nullptr);
+
+    [[nodiscard]] TimelineModel* model() { return &m_model; }
+    [[nodiscard]] double pixelsPerFrame() const { return m_pixelsPerFrame; }
+    void setPixelsPerFrame(double value);
+    [[nodiscard]] double minPixelsPerFrame() const;
+    [[nodiscard]] double maxPixelsPerFrame() const { return 24.0; }
+    [[nodiscard]] bool snapping() const { return m_snapping; }
+    void setSnapping(bool snapping);
+    [[nodiscard]] QStringList selection() const;
+    [[nodiscard]] QVariantMap selectedClip() const;
+    [[nodiscard]] double duration() const;
+    [[nodiscard]] double frameRate() const;
+    [[nodiscard]] bool empty() const;
+
+    Q_INVOKABLE QString timecode(double frame) const;
+    Q_INVOKABLE QString clock(double frame) const;
+    /// Frames per second rounded up, for ruler labelling.
+    Q_INVOKABLE int nominalRate() const;
+
+    // Placing media
+    Q_INVOKABLE bool appendAsset(const QString& assetId);
+    Q_INVOKABLE bool dropAsset(const QString& assetId, const QString& trackId, double frame);
+    Q_INVOKABLE double assetDuration(const QString& assetId) const;
+    Q_INVOKABLE bool acceptsAsset(const QString& trackId, const QString& assetId) const;
+
+    // Clip edits
+    Q_INVOKABLE bool canPlace(const QString& trackId, double start, double duration, const QString& ignoreClipId) const;
+    Q_INVOKABLE double snapFrame(double frame, const QString& excludeClipId, double toleranceFrames) const;
+    /// Snaps a moving clip so that either its start or its end lands on an edit point.
+    Q_INVOKABLE double snapClipStart(double start, double duration, const QString& excludeClipId, double toleranceFrames) const;
+    Q_INVOKABLE bool moveClip(const QString& clipId, const QString& trackId, double start);
+    Q_INVOKABLE bool trimStart(const QString& clipId, double newStart);
+    Q_INVOKABLE bool trimEnd(const QString& clipId, double newEnd);
+    Q_INVOKABLE bool splitAtPlayhead();
+    Q_INVOKABLE bool deleteSelection(bool ripple);
+    Q_INVOKABLE void select(const QString& clipId, bool toggle);
+    Q_INVOKABLE void clearSelection();
+    Q_INVOKABLE void selectAll();
+    /// Sets one clip property ("gain", "muted", "fadeIn", "fadeOut", "brightness", "contrast",
+    /// "saturation" or "opacity"). Repeated changes merge into one undo step until endEdit().
+    Q_INVOKABLE bool setClipProperty(const QString& clipId, const QString& name, const QVariant& value);
+    Q_INVOKABLE bool resetPictureAdjustments(const QString& clipId);
+    Q_INVOKABLE void endEdit();
+
+    // Tracks
+    Q_INVOKABLE bool addTrack(const QString& kind);
+    Q_INVOKABLE bool removeTrack(const QString& trackId);
+    Q_INVOKABLE bool setTrackFlag(const QString& trackId, const QString& flag, bool value);
+    Q_INVOKABLE bool renameTrack(const QString& trackId, const QString& name);
+
+    // Navigation and zoom
+    Q_INVOKABLE void previousEditPoint();
+    Q_INVOKABLE void nextEditPoint();
+    Q_INVOKABLE void zoomIn();
+    Q_INVOKABLE void zoomOut();
+    Q_INVOKABLE void zoomToFit(double viewWidth);
+
+signals:
+    void zoomChanged();
+    void snappingChanged();
+    void selectionChanged();
+    void selectedClipChanged();
+    void durationChanged();
+    void statusMessage(const QString& message);
+
+private:
+    void onProjectChanged(const ChangeSet& changes);
+    void pruneSelection();
+    [[nodiscard]] FrameCount stillDuration() const;
+    [[nodiscard]] const Project& project() const;
+    [[nodiscard]] std::optional<FrameCount> placementLength(const MediaAsset& asset) const;
+
+    ProjectController* m_project;
+    PlaybackController* m_playback;
+    TimelineModel m_model;
+    QSet<Id> m_selection;
+    double m_pixelsPerFrame = 2.0;
+    bool m_snapping = true;
+    double m_lastFit = 0;
+};
+
+} // namespace ft::ui

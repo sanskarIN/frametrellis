@@ -1,0 +1,536 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+// SPDX-FileCopyrightText: 2026 Sanskar and FrameTrellis contributors
+#include "ui/timeline_controller.h"
+
+#include "core/timecode.h"
+#include "editing/timeline_edits.h"
+#include "engine/mlt_runtime.h"
+#include "ui/media_bin_model.h"
+#include "ui/playback_controller.h"
+#include "ui/project_controller.h"
+
+#include <cmath>
+
+namespace ft::ui {
+
+namespace {
+constexpr double kZoomStep = 1.4;
+constexpr int kStillSeconds = 5;
+} // namespace
+
+TimelineController::TimelineController(ProjectController* project, PlaybackController* playback, QObject* parent)
+    : QObject(parent)
+    , m_project(project)
+    , m_playback(playback)
+{
+    connect(m_project, &ProjectController::projectChanged, this, &TimelineController::onProjectChanged);
+    connect(m_project, &ProjectController::documentReplaced, this, [this] {
+        m_selection.clear();
+        emit selectionChanged();
+        emit selectedClipChanged();
+    });
+    onProjectChanged(ChangeSet::everything());
+}
+
+const Project& TimelineController::project() const
+{
+    return m_project->project();
+}
+
+void TimelineController::onProjectChanged(const ChangeSet& changes)
+{
+    pruneSelection();
+    m_model.update(project(), changes.trackStructure, changes.media || changes.settings, changes.tracks, m_selection);
+    emit durationChanged();
+    emit selectedClipChanged();
+    if (changes.settings) {
+        emit zoomChanged();
+    }
+}
+
+void TimelineController::pruneSelection()
+{
+    bool changed = false;
+    for (auto it = m_selection.begin(); it != m_selection.end();) {
+        if (!project().timeline().clip(*it)) {
+            it = m_selection.erase(it);
+            changed = true;
+        } else {
+            ++it;
+        }
+    }
+    if (changed) {
+        emit selectionChanged();
+    }
+}
+
+void TimelineController::setPixelsPerFrame(double value)
+{
+    value = std::clamp(value, minPixelsPerFrame(), maxPixelsPerFrame());
+    if (!qFuzzyCompare(value, m_pixelsPerFrame)) {
+        m_pixelsPerFrame = value;
+        emit zoomChanged();
+    }
+}
+
+double TimelineController::minPixelsPerFrame() const
+{
+    // Allows roughly four hours in 2000 pixels at 30 fps.
+    return 0.004;
+}
+
+void TimelineController::setSnapping(bool snapping)
+{
+    if (snapping != m_snapping) {
+        m_snapping = snapping;
+        emit snappingChanged();
+    }
+}
+
+QStringList TimelineController::selection() const
+{
+    return QStringList(m_selection.cbegin(), m_selection.cend());
+}
+
+double TimelineController::duration() const
+{
+    return static_cast<double>(project().timeline().duration());
+}
+
+double TimelineController::frameRate() const
+{
+    return project().settings().frameRate.toDouble();
+}
+
+bool TimelineController::empty() const
+{
+    return project().timeline().clipCount() == 0;
+}
+
+QString TimelineController::timecode(double frame) const
+{
+    return timecode::format(static_cast<FrameCount>(std::llround(frame)), project().settings().frameRate);
+}
+
+QString TimelineController::clock(double frame) const
+{
+    return timecode::formatClock(static_cast<FrameCount>(std::llround(frame)), project().settings().frameRate);
+}
+
+int TimelineController::nominalRate() const
+{
+    return project().settings().frameRate.nominalFramesPerSecond();
+}
+
+QVariantMap TimelineController::selectedClip() const
+{
+    if (m_selection.size() != 1) {
+        return {{QStringLiteral("count"), static_cast<int>(m_selection.size())}};
+    }
+    const Id clipId = *m_selection.cbegin();
+    const Clip* clip = project().timeline().clip(clipId);
+    const Track* track = project().timeline().trackOfClip(clipId);
+    if (!clip || !track) {
+        return {{QStringLiteral("count"), 0}};
+    }
+    const MediaAsset* asset = project().asset(clip->assetId);
+    const ClipProperties& p = clip->properties;
+    const FrameRate& rate = project().settings().frameRate;
+    return {
+        {QStringLiteral("count"), 1},
+        {QStringLiteral("clipId"), clip->id},
+        {QStringLiteral("name"), asset ? asset->name : QStringLiteral("(missing media)")},
+        {QStringLiteral("filePath"), asset ? asset->filePath : QString()},
+        {QStringLiteral("details"), asset ? describeMedia(*asset) : QString()},
+        {QStringLiteral("kind"), asset ? mediaKindToString(asset->info.kind) : QString()},
+        {QStringLiteral("trackName"), track->name},
+        {QStringLiteral("trackKind"), trackKindToString(track->kind)},
+        {QStringLiteral("locked"), track->locked},
+        {QStringLiteral("offline"), !asset || asset->status == MediaStatus::Missing},
+        {QStringLiteral("start"), static_cast<double>(clip->start)},
+        {QStringLiteral("duration"), static_cast<double>(clip->duration)},
+        {QStringLiteral("startText"), timecode::format(clip->start, rate)},
+        {QStringLiteral("endText"), timecode::format(clip->end(), rate)},
+        {QStringLiteral("durationText"), timecode::formatClock(clip->duration, rate)},
+        {QStringLiteral("sourceInText"), timecode::format(clip->sourceIn, rate)},
+        {QStringLiteral("hasAudio"), asset && asset->info.hasAudio},
+        {QStringLiteral("hasVideo"), asset && asset->info.hasVideo && track->kind == TrackKind::Video},
+        {QStringLiteral("gain"), p.gain},
+        {QStringLiteral("muted"), p.muted},
+        {QStringLiteral("fadeIn"), static_cast<double>(p.fadeIn)},
+        {QStringLiteral("fadeOut"), static_cast<double>(p.fadeOut)},
+        {QStringLiteral("brightness"), p.video.brightness},
+        {QStringLiteral("contrast"), p.video.contrast},
+        {QStringLiteral("saturation"), p.video.saturation},
+        {QStringLiteral("opacity"), p.video.opacity},
+        {QStringLiteral("adjustmentsAvailable"), engine::MltRuntime::capabilities().eqFilter},
+    };
+}
+
+FrameCount TimelineController::stillDuration() const
+{
+    return static_cast<FrameCount>(project().settings().frameRate.nominalFramesPerSecond()) * kStillSeconds;
+}
+
+std::optional<FrameCount> TimelineController::placementLength(const MediaAsset& asset) const
+{
+    if (asset.info.kind == MediaKind::Image) {
+        return stillDuration();
+    }
+    return asset.lengthInFrames(project().settings().frameRate);
+}
+
+double TimelineController::assetDuration(const QString& assetId) const
+{
+    const MediaAsset* asset = project().asset(assetId);
+    if (!asset) {
+        return 0;
+    }
+    return static_cast<double>(placementLength(*asset).value_or(0));
+}
+
+bool TimelineController::acceptsAsset(const QString& trackId, const QString& assetId) const
+{
+    const Track* track = project().timeline().track(trackId);
+    const MediaAsset* asset = project().asset(assetId);
+    if (!track || !asset || track->locked) {
+        return false;
+    }
+    return track->kind == TrackKind::Video ? asset->info.hasVideo : asset->info.hasAudio;
+}
+
+bool TimelineController::appendAsset(const QString& assetId)
+{
+    const MediaAsset* asset = project().asset(assetId);
+    if (!asset) {
+        return false;
+    }
+    const TrackKind wanted = asset->info.hasVideo ? TrackKind::Video : TrackKind::Audio;
+    for (const Track& track : project().timeline().tracks()) {
+        if (track.kind == wanted && !track.locked) {
+            return dropAsset(assetId, track.id, static_cast<double>(track.end()));
+        }
+    }
+    emit statusMessage(wanted == TrackKind::Video ? QStringLiteral("Add an unlocked video track first.")
+                                                  : QStringLiteral("Add an unlocked audio track first."));
+    return false;
+}
+
+bool TimelineController::dropAsset(const QString& assetId, const QString& trackId, double frame)
+{
+    const MediaAsset* asset = project().asset(assetId);
+    const Track* track = project().timeline().track(trackId);
+    if (!asset || !track) {
+        return false;
+    }
+    if (!acceptsAsset(trackId, assetId)) {
+        emit statusMessage(track->locked ? QStringLiteral("Track %1 is locked.").arg(track->name)
+                           : track->kind == TrackKind::Video
+                               ? QStringLiteral("%1 has no picture; drop it on an audio track.").arg(asset->name)
+                               : QStringLiteral("%1 has no sound; drop it on a video track.").arg(asset->name));
+        return false;
+    }
+    Clip clip;
+    clip.id = createId();
+    clip.assetId = assetId;
+    clip.start = std::max<FrameCount>(0, static_cast<FrameCount>(std::llround(frame)));
+    clip.duration = placementLength(*asset).value_or(stillDuration());
+    if (!m_project->execute(edits::addClip(trackId, clip))) {
+        return false;
+    }
+    m_selection = {clip.id};
+    m_model.updateSelection(m_selection);
+    emit selectionChanged();
+    emit selectedClipChanged();
+    return true;
+}
+
+bool TimelineController::canPlace(const QString& trackId, double start, double duration, const QString& ignoreClipId) const
+{
+    const Track* track = project().timeline().track(trackId);
+    if (!track || track->locked || start < 0) {
+        return false;
+    }
+    if (const Clip* moving = project().timeline().clip(ignoreClipId)) {
+        const Track* from = project().timeline().trackOfClip(ignoreClipId);
+        if (from && from->kind != track->kind) {
+            const auto limits = project().sourceLimits(moving->assetId);
+            if (!limits || (track->kind == TrackKind::Video ? !limits->hasVideo : !limits->hasAudio)) {
+                return false;
+            }
+        }
+    }
+    return project().timeline().isRangeFree(trackId, static_cast<FrameCount>(std::llround(start)),
+                                             static_cast<FrameCount>(std::llround(duration)), ignoreClipId);
+}
+
+double TimelineController::snapFrame(double frame, const QString& excludeClipId, double toleranceFrames) const
+{
+    const auto candidate = static_cast<FrameCount>(std::llround(frame));
+    if (!m_snapping) {
+        return static_cast<double>(candidate);
+    }
+    std::vector<FrameCount> points = project().timeline().editPoints(excludeClipId);
+    points.push_back(m_playback->positionFrames());
+    std::sort(points.begin(), points.end());
+    const auto snapped = snapToNearest(candidate, static_cast<FrameCount>(std::ceil(toleranceFrames)), points);
+    return static_cast<double>(snapped.value_or(candidate));
+}
+
+double TimelineController::snapClipStart(double start, double duration, const QString& excludeClipId,
+                                         double toleranceFrames) const
+{
+    const auto candidate = static_cast<FrameCount>(std::llround(start));
+    const auto length = static_cast<FrameCount>(std::llround(duration));
+    if (!m_snapping) {
+        return static_cast<double>(std::max<FrameCount>(candidate, 0));
+    }
+    std::vector<FrameCount> points = project().timeline().editPoints(excludeClipId);
+    points.push_back(m_playback->positionFrames());
+    std::sort(points.begin(), points.end());
+    const auto tolerance = static_cast<FrameCount>(std::ceil(toleranceFrames));
+    const auto byStart = snapToNearest(candidate, tolerance, points);
+    const auto byEnd = snapToNearest(candidate + length, tolerance, points);
+    FrameCount result = candidate;
+    if (byStart && byEnd) {
+        result = std::abs(*byStart - candidate) <= std::abs(*byEnd - (candidate + length)) ? *byStart : *byEnd - length;
+    } else if (byStart) {
+        result = *byStart;
+    } else if (byEnd) {
+        result = *byEnd - length;
+    }
+    return static_cast<double>(std::max<FrameCount>(result, 0));
+}
+
+bool TimelineController::moveClip(const QString& clipId, const QString& trackId, double start)
+{
+    return m_project->execute(edits::moveClip(clipId, trackId, static_cast<FrameCount>(std::llround(start))));
+}
+
+bool TimelineController::trimStart(const QString& clipId, double newStart)
+{
+    return m_project->execute(edits::trimClipStart(clipId, static_cast<FrameCount>(std::llround(newStart))));
+}
+
+bool TimelineController::trimEnd(const QString& clipId, double newEnd)
+{
+    return m_project->execute(edits::trimClipEnd(clipId, static_cast<FrameCount>(std::llround(newEnd))));
+}
+
+bool TimelineController::splitAtPlayhead()
+{
+    const FrameCount frame = m_playback->positionFrames();
+    QList<Id> targets(m_selection.cbegin(), m_selection.cend());
+    if (targets.isEmpty()) {
+        // Without a selection, split every unlocked clip under the playhead.
+        for (const Track& track : project().timeline().tracks()) {
+            for (const Clip& clip : track.clips) {
+                if (!track.locked && frame > clip.start && frame < clip.end()) {
+                    targets.append(clip.id);
+                }
+            }
+        }
+    }
+    if (targets.isEmpty()) {
+        emit statusMessage(QStringLiteral("Move the playhead over a clip to split it."));
+        return false;
+    }
+    return m_project->execute(edits::splitClips(targets, frame));
+}
+
+bool TimelineController::deleteSelection(bool ripple)
+{
+    if (m_selection.isEmpty()) {
+        emit statusMessage(QStringLiteral("Select one or more clips to delete."));
+        return false;
+    }
+    if (ripple) {
+        if (m_selection.size() != 1) {
+            emit statusMessage(QStringLiteral("Ripple delete works on one clip at a time."));
+            return false;
+        }
+        return m_project->execute(edits::rippleRemoveClip(*m_selection.cbegin()));
+    }
+    return m_project->execute(edits::removeClips(QList<Id>(m_selection.cbegin(), m_selection.cend())));
+}
+
+void TimelineController::select(const QString& clipId, bool toggle)
+{
+    if (!project().timeline().clip(clipId)) {
+        return;
+    }
+    if (toggle) {
+        if (m_selection.contains(clipId)) {
+            m_selection.remove(clipId);
+        } else {
+            m_selection.insert(clipId);
+        }
+    } else {
+        m_selection = {clipId};
+    }
+    m_model.updateSelection(m_selection);
+    emit selectionChanged();
+    emit selectedClipChanged();
+}
+
+void TimelineController::clearSelection()
+{
+    if (m_selection.isEmpty()) {
+        return;
+    }
+    m_selection.clear();
+    m_model.updateSelection(m_selection);
+    emit selectionChanged();
+    emit selectedClipChanged();
+}
+
+void TimelineController::selectAll()
+{
+    m_selection.clear();
+    for (const Track& track : project().timeline().tracks()) {
+        for (const Clip& clip : track.clips) {
+            m_selection.insert(clip.id);
+        }
+    }
+    m_model.updateSelection(m_selection);
+    emit selectionChanged();
+    emit selectedClipChanged();
+}
+
+bool TimelineController::setClipProperty(const QString& clipId, const QString& name, const QVariant& value)
+{
+    const Clip* clip = project().timeline().clip(clipId);
+    if (!clip) {
+        return false;
+    }
+    ClipProperties p = clip->properties;
+    QString text;
+    if (name == QLatin1String("gain")) {
+        p.gain = std::clamp(value.toDouble(), 0.0, kMaxClipGain);
+        text = QStringLiteral("Change Volume");
+    } else if (name == QLatin1String("muted")) {
+        p.muted = value.toBool();
+        text = p.muted ? QStringLiteral("Mute Clip") : QStringLiteral("Unmute Clip");
+    } else if (name == QLatin1String("fadeIn")) {
+        p.fadeIn = std::clamp<FrameCount>(value.toLongLong(), 0, clip->duration - p.fadeOut);
+        text = QStringLiteral("Change Fade In");
+    } else if (name == QLatin1String("fadeOut")) {
+        p.fadeOut = std::clamp<FrameCount>(value.toLongLong(), 0, clip->duration - p.fadeIn);
+        text = QStringLiteral("Change Fade Out");
+    } else if (name == QLatin1String("brightness")) {
+        p.video.brightness = std::clamp(value.toDouble(), -1.0, 1.0);
+        text = QStringLiteral("Change Brightness");
+    } else if (name == QLatin1String("contrast")) {
+        p.video.contrast = std::clamp(value.toDouble(), 0.0, 2.0);
+        text = QStringLiteral("Change Contrast");
+    } else if (name == QLatin1String("saturation")) {
+        p.video.saturation = std::clamp(value.toDouble(), 0.0, 3.0);
+        text = QStringLiteral("Change Saturation");
+    } else if (name == QLatin1String("opacity")) {
+        p.video.opacity = std::clamp(value.toDouble(), 0.0, 1.0);
+        text = QStringLiteral("Change Opacity");
+    } else {
+        return false;
+    }
+    if (p == clip->properties) {
+        return true;
+    }
+    return m_project->execute(edits::setClipProperties(clipId, p, text));
+}
+
+bool TimelineController::resetPictureAdjustments(const QString& clipId)
+{
+    const Clip* clip = project().timeline().clip(clipId);
+    if (!clip) {
+        return false;
+    }
+    ClipProperties p = clip->properties;
+    p.video = VideoAdjustments{};
+    m_project->document()->breakMerge();
+    return m_project->execute(edits::setClipProperties(clipId, p, QStringLiteral("Reset Picture")));
+}
+
+void TimelineController::endEdit()
+{
+    m_project->document()->breakMerge();
+}
+
+bool TimelineController::addTrack(const QString& kind)
+{
+    const TrackKind trackKind = kind == QLatin1String("audio") ? TrackKind::Audio : TrackKind::Video;
+    // New video tracks go above the existing ones; new audio tracks below.
+    int index = -1;
+    if (trackKind == TrackKind::Video) {
+        const auto& tracks = project().timeline().tracks();
+        int lastVideo = -1;
+        for (int i = 0; i < static_cast<int>(tracks.size()); ++i) {
+            if (tracks[static_cast<size_t>(i)].kind == TrackKind::Video) {
+                lastVideo = i;
+            }
+        }
+        index = lastVideo + 1;
+    }
+    return m_project->execute(edits::addTrack(trackKind, project().nextTrackName(trackKind), index));
+}
+
+bool TimelineController::removeTrack(const QString& trackId)
+{
+    return m_project->execute(edits::removeTrack(trackId));
+}
+
+bool TimelineController::setTrackFlag(const QString& trackId, const QString& flag, bool value)
+{
+    if (flag == QLatin1String("muted")) {
+        return m_project->execute(edits::setTrackMuted(trackId, value));
+    }
+    if (flag == QLatin1String("hidden")) {
+        return m_project->execute(edits::setTrackHidden(trackId, value));
+    }
+    if (flag == QLatin1String("locked")) {
+        return m_project->execute(edits::setTrackLocked(trackId, value));
+    }
+    return false;
+}
+
+bool TimelineController::renameTrack(const QString& trackId, const QString& name)
+{
+    return m_project->execute(edits::renameTrack(trackId, name));
+}
+
+void TimelineController::previousEditPoint()
+{
+    const FrameCount position = m_playback->positionFrames();
+    const std::vector<FrameCount> points = project().timeline().editPoints();
+    const auto it = std::lower_bound(points.begin(), points.end(), position);
+    if (it != points.begin()) {
+        m_playback->seek(static_cast<double>(*(it - 1)));
+    }
+}
+
+void TimelineController::nextEditPoint()
+{
+    const FrameCount position = m_playback->positionFrames();
+    const std::vector<FrameCount> points = project().timeline().editPoints();
+    const auto it = std::upper_bound(points.begin(), points.end(), position);
+    if (it != points.end()) {
+        m_playback->seek(static_cast<double>(*it));
+    }
+}
+
+void TimelineController::zoomIn()
+{
+    setPixelsPerFrame(m_pixelsPerFrame * kZoomStep);
+}
+
+void TimelineController::zoomOut()
+{
+    setPixelsPerFrame(m_pixelsPerFrame / kZoomStep);
+}
+
+void TimelineController::zoomToFit(double viewWidth)
+{
+    const double frames = std::max(duration(), frameRate() * 10.0);
+    setPixelsPerFrame(std::max(viewWidth - 40.0, 100.0) / frames);
+}
+
+} // namespace ft::ui

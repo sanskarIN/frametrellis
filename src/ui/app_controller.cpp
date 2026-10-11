@@ -95,7 +95,7 @@ QUrl AppController::fileUrl(const QString& path) const
 
 QVariantList AppController::links() const
 {
-    // Only links verified to belong to the maintainer are listed here (see docs/LINKS.md).
+    // Only links verified to belong to the maintainer are listed here (see docs/maintainers.md).
     auto link = [](const QString& name, const QString& url, const QString& group) {
         return QVariantMap{{QStringLiteral("name"), name},
                            {QStringLiteral("url"), url},

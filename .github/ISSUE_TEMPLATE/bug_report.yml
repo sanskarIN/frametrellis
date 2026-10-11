@@ -1,0 +1,51 @@
+name: Bug report
+description: Something does not work as expected
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to report a problem. Please do not attach private footage.
+        Security issues: see SECURITY.md instead of opening a public issue.
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened?
+      description: A clear description of the problem, including any error message.
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. Import a 4K H.265 MOV file
+        2. Drag it to V1
+        3. Press Space
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: What did you expect?
+    validations:
+      required: true
+  - type: textarea
+    id: diagnostics
+    attributes:
+      label: Diagnostics
+      description: Help → About → Copy diagnostics, then paste here.
+      render: text
+    validations:
+      required: true
+  - type: textarea
+    id: media
+    attributes:
+      label: Media details (if relevant)
+      description: Container, codecs, resolution, frame rate — shown in the media tooltip. No files, please.
+  - type: textarea
+    id: logs
+    attributes:
+      label: Log excerpt
+      description: From frametrellis.log (Help → About → Open log folder). Remove anything private.
+      render: text

@@ -1,0 +1,11 @@
+[Desktop Entry]
+Type=Application
+Name=FrameTrellis
+GenericName=Video Editor
+Comment=Local-first, open-source multi-track video editor
+Exec=frametrellis %f
+Icon=frametrellis
+Terminal=false
+Categories=AudioVideo;Video;AudioVideoEditing;Qt;
+MimeType=application/x-frametrellis-project;
+Keywords=video;editor;timeline;mlt;

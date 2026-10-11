@@ -1,0 +1,156 @@
+<!--page
+{
+  "out": "index.html",
+  "nav": "home",
+  "title": "FrameTrellis — open-source desktop video editor",
+  "description": "A local-first, open-source desktop video editor for precise, multi-track editing. Built with C++20, Qt 6 and MLT. No account, no telemetry, no cloud."
+}
+-->
+<div class="wrap hero">
+  <span class="status-pill"><b>{{versionLabel}}</b> · free and open source · GPL-3.0-or-later</span>
+  <h1>Precise, multi-track video editing.<br><span>On your own machine.</span></h1>
+  <p class="lead">FrameTrellis is a local-first, open-source desktop video editor. Import your footage,
+    arrange it on a multi-track timeline, trim and adjust it, and export an MP4. There is no account,
+    no cloud processing, no telemetry and no advertising.</p>
+  <div class="btn-row">
+    <a class="btn primary" href="{{link:download/index.html}}">Download</a>
+    <a class="btn" href="{{link:docs/user-guide/index.html}}">Read the user guide</a>
+    <a class="btn" href="{{repo}}" rel="noopener">Source code on GitHub</a>
+  </div>
+  <figure class="shot">
+    <img src="{{root}}assets/workspace.png" width="1600" height="960"
+         alt="The FrameTrellis workspace: a media bin with three files, the program monitor, the clip inspector with volume and fade controls, and a timeline with two video tracks and an audio track">
+  </figure>
+  <p class="caption">An unedited screenshot of the editor, taken by the automated interface tests with generated media.</p>
+</div>
+
+<section aria-labelledby="features">
+  <div class="wrap">
+    <h2 id="features">What you can do today</h2>
+    <p class="sub">Everything listed here is implemented and covered by automated tests. Features that
+      are still planned are listed separately below and in the <a href="{{link:docs/roadmap/index.html}}">roadmap</a>.</p>
+    <div class="grid features">
+      <div class="card"><span class="tag done">Media</span><h3>Import anything FFmpeg reads</h3>
+        <p>Video, audio and still images are probed in the background, with real thumbnails and duplicate detection.</p></div>
+      <div class="card"><span class="tag done">Timeline</span><h3>Multi-track editing</h3>
+        <p>Video and audio tracks. You can move clips (also between tracks), trim either edge, split at the playhead and ripple delete. Clips snap to edit points.</p></div>
+      <div class="card"><span class="tag done">Preview</span><h3>Real-time playback</h3>
+        <p>Preview with synchronised audio, frame stepping, edit-point navigation and frame-accurate timecode, including drop-frame.</p></div>
+      <div class="card"><span class="tag done">Adjust</span><h3>Audio and picture</h3>
+        <p>Clip volume, mute, fades and opacity, plus brightness, contrast and saturation. You can also mute, hide or lock whole tracks.</p></div>
+      <div class="card"><span class="tag done">Safety</span><h3>Undo everything</h3>
+        <p>Every edit can be undone, up to 500 steps. Autosave runs every minute and offers crash recovery, and saves are atomic, so the previous file is never damaged.</p></div>
+      <div class="card"><span class="tag done">Export</span><h3>MP4 that is checked</h3>
+        <p>H.264 + AAC with presets, quality and speed settings. Exports run in a separate process with progress and cancel, and each file is verified before it is kept.</p></div>
+    </div>
+  </div>
+</section>
+
+<section aria-labelledby="how">
+  <div class="wrap">
+    <h2 id="how">How it works</h2>
+    <p class="sub">The usual edit takes five steps. The <a href="{{link:docs/user-guide/index.html}}">user guide</a> covers each one in detail.</p>
+    <div class="grid steps">
+      <div class="card"><h3>Import</h3><p>Use <em>File → Import Media</em> (Ctrl+I), or drop files onto the media bin.</p></div>
+      <div class="card"><h3>Arrange</h3><p>Drag clips from the bin onto video and audio tracks, or double-click a clip to append it.</p></div>
+      <div class="card"><h3>Edit</h3><p>Drag clips to move them and drag their edges to trim. Press S to split and Delete to remove.</p></div>
+      <div class="card"><h3>Adjust</h3><p>Set volume, fades, opacity and colour for the selected clip in the inspector.</p></div>
+      <div class="card"><h3>Export</h3><p>Use <em>File → Export</em> (Ctrl+E). You can keep editing while it renders.</p></div>
+    </div>
+  </div>
+</section>
+
+<section aria-labelledby="local">
+  <div class="wrap split">
+    <div>
+      <h2 id="local">Local-first, by design</h2>
+      <p class="sub">Your footage is yours. FrameTrellis works entirely offline and never changes your source files.</p>
+      <ul class="checklist">
+        <li>No account, no sign-in, no telemetry, no ads and no AI services.</li>
+        <li>Editing is non-destructive. Projects only reference your media; they never move or overwrite it.</li>
+        <li>Projects use an open, versioned, validated JSON format (<code>.ftproj</code>) that is documented in full.</li>
+        <li>Project files and media are treated as untrusted input. The program reads them, never runs them.</li>
+        <li>If you move the project folder, its media is still found through relative paths, and missing files can be relinked.</li>
+      </ul>
+    </div>
+    <div>
+      <h2>Under the hood</h2>
+      <p class="sub">FrameTrellis is a native application built on proven open-source multimedia components.</p>
+      <ul class="checklist">
+        <li>C++20 with Qt 6 and Qt Quick for the interface.</li>
+        <li>The MLT Multimedia Framework for compositing and playback, with FFmpeg for decoding and encoding.</li>
+        <li>Integer frame counts and exact rational frame rates, so edits never drift.</li>
+        <li>Exports run in a separate render process, so a failing codec cannot take your project down with it.</li>
+        <li>Unit, integration and interface tests run on Linux and Windows on every change.</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<section aria-labelledby="screens">
+  <div class="wrap">
+    <h2 id="screens">Screenshots</h2>
+    <p class="sub">All screenshots are unedited captures of the editor, produced by the automated tests.</p>
+    <div class="gallery">
+      <figure><img src="{{root}}assets/images/export.png" width="1600" height="960" loading="lazy"
+           alt="The export dialog with a preset, the destination file, a quality slider, the encoder speed and audio settings">
+        <figcaption>Export settings: preset, destination, quality, encoder speed and audio.</figcaption></figure>
+      <figure><img src="{{root}}assets/images/export-finished.png" width="1600" height="960" loading="lazy"
+           alt="The export dialog reporting a finished and verified export">
+        <figcaption>Each export is verified before it is reported as finished.</figcaption></figure>
+      <figure><img src="{{root}}assets/images/welcome.png" width="1600" height="960" loading="lazy"
+           alt="The first-run guide explaining the three steps of an edit: import, edit and export">
+        <figcaption>A short first-run guide.</figcaption></figure>
+    </div>
+  </div>
+</section>
+
+<section aria-labelledby="platforms">
+  <div class="wrap">
+    <h2 id="platforms">Platforms</h2>
+    <p class="sub">A platform is only called supported once its builds and packages have been verified.</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th scope="col">Platform</th><th scope="col">Status</th></tr></thead>
+        <tbody>
+          <tr><td>Windows 11 (x64)</td><td>Primary platform. It is built and tested in CI with MSYS2. Installer and portable packages are being prepared for version 1.0.</td></tr>
+          <tr><td>Linux (x86-64)</td><td>Built and tested in CI on Ubuntu 24.04. For now you build it from source; a packaged Linux release is planned.</td></tr>
+          <tr><td>macOS</td><td>Not supported yet (planned).</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</section>
+
+<section aria-labelledby="next">
+  <div class="wrap">
+    <h2 id="next">Coming next</h2>
+    <p class="sub">These features are planned and not available yet. The <a href="{{link:docs/roadmap/index.html}}">roadmap</a> has the full list.</p>
+    <div class="grid">
+      <div class="card"><span class="tag planned">Planned</span><h3>Transitions and titles</h3><p>Cross-dissolves between clips and simple title overlays.</p></div>
+      <div class="card"><span class="tag planned">Planned</span><h3>Keyframes</h3><p>Animate opacity, volume and position over time.</p></div>
+      <div class="card"><span class="tag planned">Planned</span><h3>Subtitles</h3><p>Import, edit and export SRT subtitles, or burn them into the video.</p></div>
+      <div class="card"><span class="tag planned">Planned</span><h3>More platforms and formats</h3><p>Linux and macOS packages, plus WebM, ProRes and audio-only export.</p></div>
+    </div>
+  </div>
+</section>
+
+<section aria-labelledby="involved">
+  <div class="wrap split">
+    <div>
+      <h2 id="involved">Get involved</h2>
+      <p class="sub">FrameTrellis is developed in the open, and all contributions are welcome: bug reports, documentation, tests and code.</p>
+      <div class="btn-row">
+        <a class="btn" href="{{link:docs/contributing/index.html}}">Contributing guide</a>
+        <a class="btn" href="{{repo}}/issues" rel="noopener">Report a bug</a>
+        <a class="btn" href="{{link:docs/building/index.html}}">Build from source</a>
+      </div>
+    </div>
+    <div>
+      <h2>License</h2>
+      <p class="muted">FrameTrellis is free software under the GNU General Public License, version 3 or (at your option) any
+        later version. You may use, study, share and improve it. The <a href="{{link:docs/licensing/index.html}}">licensing page</a>
+        explains the choice and how it fits the licenses of Qt, MLT and FFmpeg.</p>
+    </div>
+  </div>
+</section>

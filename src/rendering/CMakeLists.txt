@@ -13,6 +13,7 @@ if(FT_BUILD_ENGINE)
     add_library(ft_render_engine STATIC
         render_runner.cpp render_runner.h
         sample_media.cpp sample_media.h
+        self_test.cpp self_test.h
     )
     target_link_libraries(ft_render_engine
         PUBLIC ft_rendering ft_media

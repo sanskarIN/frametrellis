@@ -10,6 +10,7 @@
 #include "project/project_serializer.h"
 #include "rendering/render_protocol.h"
 #include "rendering/render_runner.h"
+#include "rendering/self_test.h"
 
 #include <QCommandLineParser>
 #include <QCoreApplication>
@@ -52,6 +53,27 @@ void emitError(const Error& error)
 extern "C" void handleSignal(int)
 {
     g_cancel = true;
+}
+
+int runSelfTestCommand(const QString& directory)
+{
+    std::printf("FrameTrellis %s self-test\n", version::string);
+    std::fflush(stdout);
+    if (const Status engine = engine::MltRuntime::initialize(); !engine) {
+        std::printf("FAIL engine: %s\n", qPrintable(engine.error().toString()));
+        return protocol::Failure;
+    }
+    SelfTestReport report;
+    {
+        report = rendering::runSelfTest(directory, [](const SelfTestStep& step) {
+            std::printf("%s %s: %s\n", step.passed ? "PASS" : "FAIL", qPrintable(step.name),
+                        qPrintable(step.detail));
+            std::fflush(stdout);
+        });
+    }
+    engine::MltRuntime::shutdown();
+    std::printf("Self-test %s.\n", report.passed() ? "passed" : "FAILED");
+    return report.passed() ? protocol::Success : protocol::Failure;
 }
 
 void watchStdin()
@@ -127,9 +149,18 @@ int main(int argc, char** argv)
     const QCommandLineOption watchStdinOption(
         QStringLiteral("watch-stdin"),
         QStringLiteral("Cancel when stdin receives \"cancel\" or is closed."));
+    const QCommandLineOption selfTestOption(
+        QStringLiteral("self-test"),
+        QStringLiteral("Check the installation: generate sample media in <directory>, edit and "
+                       "export it, and report each step. Exits with 0 when everything works."),
+        QStringLiteral("directory"));
     parser.addOptions({projectOption, outputOption, shortSideOption, crfOption, presetOption,
-                       audioOption, noAudioOption, watchStdinOption});
+                       audioOption, noAudioOption, watchStdinOption, selfTestOption});
     parser.process(app);
+
+    if (parser.isSet(selfTestOption)) {
+        return runSelfTestCommand(QFileInfo(parser.value(selfTestOption)).absoluteFilePath());
+    }
 
     if (!parser.isSet(projectOption) || !parser.isSet(outputOption)) {
         emitError(makeError(ErrorCode::InvalidArgument,

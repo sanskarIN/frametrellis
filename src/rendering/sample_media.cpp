@@ -102,7 +102,7 @@ bool writeSampleVideo(const QString& path, const SampleVideoSpec& spec)
 
 bool writeSampleTone(const QString& path, double seconds, double frequency)
 {
-    auto profile = engine::createProfile(64, 36, *FrameRate::create(25, 1));
+    auto profile = engine::createProfile(64, 36, FrameRate::integer(25));
     const int total = static_cast<int>(seconds * 25);
     if (total <= 0) {
         return false;

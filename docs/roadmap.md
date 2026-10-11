@@ -44,7 +44,8 @@ be created only after the corresponding acceptance checks have passed in CI.
 - ⏳ Proxy media for demanding footage
 
 ## v0.9.0 — Release candidate ⏳
-- ⏳ Crossfade transitions, basic title overlays
+- ✅ Dissolve and crossfade transitions between touching clips
+- ⏳ Basic title overlays
 - ⏳ Linux portable package; macOS build in CI
 - ⏳ Public beta and bug fixing
 

@@ -8,6 +8,7 @@ uploaded. This guide covers everything the current version can do.
 - [Projects](#projects)
 - [Importing media](#importing-media)
 - [Editing on the timeline](#editing-on-the-timeline)
+- [Transitions](#transitions)
 - [Adjusting clips](#adjusting-clips)
 - [Playback](#playback)
 - [Exporting](#exporting)
@@ -83,6 +84,25 @@ Every change can be undone (Ctrl+Z) and redone (Ctrl+Shift+Z).
 Clips on audio tracks show the waveform of their sound, scaled by the clip's volume. The first
 time a file is used, FrameTrellis reads its sound in the background (a few seconds for a long
 file) and keeps the result in its cache, so the waveform appears instantly afterwards.
+
+## Transitions
+
+A transition blends one clip into the next where they meet: a **dissolve** on video tracks and
+a **crossfade** of the sound on every track.
+
+1. Make sure the two clips touch: the second clip must start exactly where the first one ends
+   (with snapping on, drag it until it snaps to the end of the first).
+2. Select the first clip and press **T** (*Edit → Add Transition*), or choose *Add transition to
+   next clip* in the inspector. The transition is one second long, or shorter if the media does
+   not allow that.
+3. Click the transition (the box with the bow tie over the cut) to select it. The inspector shows
+   its length, which you can change with the slider, and a button to remove it. **Delete** also
+   removes it.
+
+A transition is centred on the cut, so both clips need unused media around it: the first clip
+must continue after its end and the second must start earlier in its file. If a clip already
+uses its whole file, trim it a little first. Still images can always be blended. Moving a clip
+away from the cut or trimming it at the cut removes the transition; undo brings it back.
 
 ## Adjusting clips
 

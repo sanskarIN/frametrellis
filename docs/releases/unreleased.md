@@ -11,6 +11,9 @@ First public development snapshot of FrameTrellis.
   track mute/hide/lock, unlimited-style undo/redo (500 steps).
 - Clip volume, mute, fades, opacity, brightness, contrast and saturation.
 - Audio waveforms on clips on audio tracks, computed once per file in the background and cached.
+- Transitions: a dissolve (video) and crossfade (audio) centred on the cut between two touching
+  clips, added with T or from the inspector, with an adjustable length; saved in the project
+  file.
 - Real-time preview with SDL2 audio.
 - MP4 (H.264 + AAC) export in a separate process with presets, progress, cancellation and
   verification of the output.
@@ -27,6 +30,6 @@ First public development snapshot of FrameTrellis.
   kept; the export is now discarded.
 
 ## Known limitations
-- No transitions, titles or keyframes yet.
+- No titles or keyframes yet; dissolve/crossfade is the only transition.
 - MP4 is the only export format.
 - Windows packages are experimental; macOS is not supported yet.

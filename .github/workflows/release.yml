@@ -1,0 +1,124 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
+# Publishes a GitHub release for a version tag (v1.2.3). The Windows packages are built and
+# verified on clean runners by the "Windows packages" workflow first; nothing is published if
+# any build, test or verification step fails.
+name: Release
+
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  check:
+    name: Check the version and release notes
+    runs-on: ubuntu-24.04
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+    steps:
+      - uses: actions/checkout@v6
+      - id: version
+        name: Compare the tag with the project version
+        run: |
+          set -euo pipefail
+          tag="${GITHUB_REF_NAME}"
+          version="${tag#v}"
+          project=$(sed -nE 's/^project\(FrameTrellis[[:space:]]+VERSION[[:space:]]+([0-9.]+).*/\1/p' CMakeLists.txt)
+          if [ "${version%%-*}" != "$project" ]; then
+            echo "::error::Tag $tag does not match the project version $project in CMakeLists.txt"
+            exit 1
+          fi
+          if [ ! -f "docs/releases/$tag.md" ]; then
+            echo "::error::Release notes docs/releases/$tag.md are missing"
+            exit 1
+          fi
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+
+  packages:
+    name: Windows packages
+    needs: check
+    uses: ./.github/workflows/package-windows.yml
+    with:
+      with-sources: true
+
+  publish:
+    name: Publish the release
+    needs: [check, packages]
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+      actions: write
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/download-artifact@v7
+        with:
+          pattern: windows-*
+          path: assets
+          merge-multiple: true
+      - name: Prepare the assets and checksums
+        run: |
+          set -euo pipefail
+          version="${{ needs.check.outputs.version }}"
+          mkdir -p release
+          cp assets/FrameTrellis-"$version"-windows-x64-setup.exe \
+             assets/FrameTrellis-"$version"-windows-x64.zip \
+             assets/FrameTrellis-"$version"-windows-x64.spdx.json \
+             assets/FrameTrellis-"$version"-windows-x64-third-party-sources.tar \
+             release/
+          (cd release && sha256sum -- * > SHA256SUMS.txt && cat SHA256SUMS.txt)
+      - name: Write the release notes
+        run: |
+          set -euo pipefail
+          tag="${GITHUB_REF_NAME}"
+          version="${{ needs.check.outputs.version }}"
+          {
+            cat "docs/releases/$tag.md"
+            echo
+            echo "## Downloads"
+            echo
+            echo "| File | Description |"
+            echo "|---|---|"
+            echo "| \`FrameTrellis-$version-windows-x64-setup.exe\` | Installer for Windows 10 (1809 or later) and Windows 11, x64 |"
+            echo "| \`FrameTrellis-$version-windows-x64.zip\` | Portable version: extract and run \`frametrellis.exe\` |"
+            echo "| \`FrameTrellis-$version-windows-x64.spdx.json\` | Software bill of materials (SPDX 2.3) of the Windows package |"
+            echo "| \`FrameTrellis-$version-windows-x64-third-party-sources.tar\` | Source packages of all bundled third-party components |"
+            echo "| \`SHA256SUMS.txt\` | SHA-256 checksums of the files above |"
+            echo
+            echo "The packages are not code-signed, so Windows SmartScreen may ask for confirmation"
+            echo "before the first start. Compare the checksum first: in PowerShell, run"
+            echo "\`Get-FileHash .\\FrameTrellis-$version-windows-x64-setup.exe\` and check the value"
+            echo "against \`SHA256SUMS.txt\`."
+            echo
+            echo "Linux and macOS: no packages yet. Build from source as described in"
+            echo "[the building guide](https://sanskarin.github.io/frametrellis/docs/building/)."
+            echo
+            echo "## Checksums"
+            echo
+            echo '```'
+            cat release/SHA256SUMS.txt
+            echo '```'
+          } > release-notes.md
+          cat release-notes.md
+      - name: Create the GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          tag="${GITHUB_REF_NAME}"
+          prerelease=()
+          if [[ "$tag" == *-* ]]; then prerelease=(--prerelease); fi
+          gh release create "$tag" release/* \
+            --verify-tag \
+            --title "FrameTrellis ${{ needs.check.outputs.version }}" \
+            --notes-file release-notes.md \
+            "${prerelease[@]}"
+      - name: Refresh the website's download links
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh workflow run pages.yml --ref main || echo "::warning::Could not start the website workflow"

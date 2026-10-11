@@ -320,7 +320,7 @@ class Packager:
         self.version = args.version or read_version(self.source_dir)
         self.name = f"FrameTrellis-{self.version}-windows-x64"
         self.stage = self.output / self.name
-        self.system_dir = Path(os.environ.get("SystemRoot", r"C:\Windows")) / "System32"
+        self.system_dir = Path(os.environ.get("SYSTEMROOT", r"C:\Windows")) / "System32"
         self.packages, self.owners = read_package_database(self.msys_root)
         self.license_extractor = LicenseExtractor(
             Path(args.source_cache).resolve() if args.source_cache
@@ -423,7 +423,7 @@ class Packager:
 
     def is_system_library(self, name: str) -> bool:
         lower = name.lower()
-        return (lower.startswith("api-ms-win-") or lower.startswith("ext-ms-")
+        return (lower.startswith(("api-ms-win-", "ext-ms-"))
                 or (self.system_dir / name).is_file())
 
     def deploy_dependencies(self) -> None:
@@ -578,7 +578,7 @@ Source code: {REPOSITORY}
         (self.stage / "README.txt").write_text(text, encoding="utf-8")
 
     def write_sbom(self, used: dict[str, Package]) -> Path:
-        now = datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+        now = datetime.datetime.now(datetime.UTC).strftime("%Y-%m-%dT%H:%M:%SZ")
         app_id = "SPDXRef-Package-FrameTrellis"
         packages = [{
             "SPDXID": app_id,
@@ -627,7 +627,8 @@ Source code: {REPOSITORY}
             "dataLicense": "CC0-1.0",
             "SPDXID": "SPDXRef-DOCUMENT",
             "name": f"{self.name}",
-            "documentNamespace": f"{REPOSITORY}/releases/v{self.version}/{self.name}-{uuid.uuid4()}",
+            "documentNamespace":
+                f"{REPOSITORY}/releases/v{self.version}/{self.name}-{uuid.uuid4()}",
             "creationInfo": {
                 "created": now,
                 "creators": ["Tool: frametrellis-packaging/windows/package.py",

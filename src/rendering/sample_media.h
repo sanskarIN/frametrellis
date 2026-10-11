@@ -25,7 +25,8 @@ struct SampleVideoSpec
 /// colour per second. Returns false if the engine could not encode the file.
 bool writeSampleVideo(const QString& path, const SampleVideoSpec& spec = {});
 
-/// Writes a stereo 48 kHz 16-bit WAV file containing a sine tone.
+/// Writes a stereo 48 kHz 16-bit WAV file containing a sine tone at -6 dBFS, exactly
+/// @p seconds long.
 bool writeSampleTone(const QString& path, double seconds, double frequency = 440.0);
 
 } // namespace ft::rendering

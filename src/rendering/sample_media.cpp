@@ -7,9 +7,14 @@
 #include "rendering/export_settings.h"
 #include "rendering/render_runner.h"
 
+#include <QDataStream>
 #include <QFileInfo>
+#include <QSaveFile>
 #include <QThread>
 #include <mlt++/Mlt.h>
+
+#include <cmath>
+#include <numbers>
 
 namespace ft::rendering {
 
@@ -102,30 +107,37 @@ bool writeSampleVideo(const QString& path, const SampleVideoSpec& spec)
 
 bool writeSampleTone(const QString& path, double seconds, double frequency)
 {
-    auto profile = engine::createProfile(64, 36, FrameRate::integer(25));
-    const int total = static_cast<int>(seconds * 25);
-    if (total <= 0) {
+    // Written directly rather than through an encoder, so the length is exact on every
+    // platform (encoders may round it to whole audio packets).
+    constexpr int kRate = 48000;
+    constexpr int kChannels = 2;
+    constexpr double kAmplitude = 0.5 * 32767.0; // -6 dBFS
+    const auto frames = static_cast<qint64>(std::llround(seconds * kRate));
+    if (!(frames > 0 && frames <= qint64{kRate} * 3600) || !(frequency > 0.0)) {
         return false;
     }
-    Mlt::Producer tone(*profile, "tone");
-    tone.set("frequency", frequency);
-    tone.set("level", -6.0);
-    tone.set("length", total);
-    tone.set_in_and_out(0, total - 1);
-    const QByteArray target = path.toUtf8(); // MLT and FFmpeg expect UTF-8 paths
-    Mlt::Consumer consumer(*profile, "avformat", target.constData());
-    if (!consumer.is_valid()) {
+    const auto dataBytes = static_cast<quint32>(frames * kChannels * 2);
+    QSaveFile file(path);
+    if (!file.open(QIODevice::WriteOnly)) {
         return false;
     }
-    consumer.set("f", "wav");
-    consumer.set("acodec", "pcm_s16le");
-    consumer.set("ar", 48000);
-    consumer.set("ac", 2);
-    consumer.set("vn", 1);
-    consumer.set("video_off", 1);
-    consumer.set("in", 0);
-    consumer.set("out", total - 1);
-    return runConsumer(consumer, tone) && QFileInfo(path).size() > 0;
+    QDataStream out(&file);
+    out.setByteOrder(QDataStream::LittleEndian);
+    out.writeRawData("RIFF", 4);
+    out << quint32(36 + dataBytes);
+    out.writeRawData("WAVEfmt ", 8);
+    out << quint32(16) << quint16(1) << quint16(kChannels) << quint32(kRate)
+        << quint32(kRate * kChannels * 2) << quint16(kChannels * 2) << quint16(16);
+    out.writeRawData("data", 4);
+    out << dataBytes;
+    const double step = 2.0 * std::numbers::pi * frequency / kRate;
+    for (qint64 i = 0; i < frames; ++i) {
+        const auto value = static_cast<qint16>(std::lround(kAmplitude * std::sin(step * i)));
+        for (int c = 0; c < kChannels; ++c) {
+            out << value;
+        }
+    }
+    return out.status() == QDataStream::Ok && file.commit();
 }
 
 } // namespace ft::rendering

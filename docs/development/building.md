@@ -33,10 +33,13 @@ The executables are written to `build/<preset>/bin/`: `frametrellis` (the editor
 
    ```sh
    pacman -Syu
-   pacman -S --needed git mingw-w64-ucrt-x86_64-{cc,cmake,ninja,pkgconf,qt6-base,qt6-declarative,qt6-svg,mlt,ffmpeg,SDL2}
+   pacman -S --needed git mingw-w64-ucrt-x86_64-{cc,cmake,ninja,pkgconf,qt6-base,qt6-declarative,qt6-svg,qt6-imageformats,mlt,fftw,libebur128,ffmpeg,SDL2}
    ```
 
-   MSYS2's MLT lists FFmpeg only as an optional dependency, so install `ffmpeg` explicitly.
+   MSYS2's MLT lists its plug-in libraries only as optional dependencies, so install them
+   explicitly: `ffmpeg` for the FFmpeg module, and `fftw` and `libebur128` for the "plus" module,
+   which provides the `affine` transition FrameTrellis uses to layer video tracks. Without them
+   FrameTrellis reports that the installation is incomplete.
 3. Configure, build and test:
 
    ```sh

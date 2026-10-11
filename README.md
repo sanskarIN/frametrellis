@@ -67,7 +67,7 @@ SDL 2 for audio playback. Full instructions for Windows 11, Linux and macOS are 
 Quick start on **Windows 11** (in an MSYS2 UCRT64 shell):
 
 ```sh
-pacman -S --needed mingw-w64-ucrt-x86_64-{cc,cmake,ninja,pkgconf,qt6-base,qt6-declarative,qt6-svg,mlt,ffmpeg,SDL2}
+pacman -S --needed mingw-w64-ucrt-x86_64-{cc,cmake,ninja,pkgconf,qt6-base,qt6-declarative,qt6-svg,qt6-imageformats,mlt,fftw,libebur128,ffmpeg,SDL2}
 cmake --preset windows-msys2
 cmake --build --preset windows-msys2
 ctest --preset windows-msys2

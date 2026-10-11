@@ -99,6 +99,8 @@ a **crossfade** of the sound on every track.
    its length, which you can change with the slider, and a button to remove it. **Delete** also
    removes it.
 
+![A dissolve between two clips on track V3, selected, with its length in the inspector](../images/transition.png)
+
 A transition is centred on the cut, so both clips need unused media around it: the first clip
 must continue after its end and the second must start earlier in its file. If a clip already
 uses its whole file, trim it a little first. Still images can always be blended. Moving a clip

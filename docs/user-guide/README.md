@@ -3,6 +3,7 @@
 FrameTrellis is a local-first video editor: your media stays on your computer and is never
 uploaded. This guide covers everything the current version can do.
 
+- [Installing FrameTrellis](installation.md)
 - [The workspace](#the-workspace)
 - [Projects](#projects)
 - [Importing media](#importing-media)
@@ -13,6 +14,7 @@ uploaded. This guide covers everything the current version can do.
 - [Missing media and recovery](#missing-media-and-recovery)
 - [Troubleshooting](#troubleshooting)
 - [Keyboard shortcuts](keyboard-shortcuts.md)
+- [Supported formats](formats.md)
 
 ## The workspace
 
@@ -48,8 +50,9 @@ FFmpeg cannot decode are reported and not added. Importing a file that is alread
 is ignored.
 
 Supported: most video formats FFmpeg decodes (MP4, MOV, MKV, WebM, AVI, MTS, …), audio (WAV, MP3,
-AAC/M4A, FLAC, Ogg, Opus, …) and still images (PNG, JPEG, BMP, GIF and others your Qt
-installation supports). Animated GIFs are treated as video.
+AAC/M4A, FLAC, Ogg, Opus, …) and still images (PNG, JPEG, BMP, GIF, TIFF, WebP and others your Qt
+installation supports). Animated GIFs are treated as video. See [Supported formats](formats.md)
+for the full list.
 
 Right-click a tile to add it to the timeline, show it in its folder, relink it or remove it from
 the project (removing never deletes the file; media in use must be removed from the timeline first).

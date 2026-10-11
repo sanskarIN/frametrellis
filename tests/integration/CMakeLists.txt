@@ -8,3 +8,11 @@ ft_add_test(tst_render SOURCES tst_render.cpp LIBS ft_render_engine ft_test_fixt
 target_compile_definitions(tst_render PRIVATE FT_RENDER_HELPER="$<TARGET_FILE:frametrellis-render>")
 add_dependencies(tst_render frametrellis-render)
 ft_add_test(tst_playback SOURCES tst_playback.cpp LIBS ft_playback ft_media ft_test_fixtures LABELS integration)
+
+# The installation self-test of the render helper, exactly as packages run it.
+add_test(NAME render_self_test
+    COMMAND frametrellis-render --self-test "${CMAKE_CURRENT_BINARY_DIR}/render-self-test")
+set_tests_properties(render_self_test PROPERTIES
+    LABELS integration
+    FAIL_REGULAR_EXPRESSION "(^|\n)FAIL "
+    ENVIRONMENT "QT_LOGGING_RULES=ft.*.info=false")

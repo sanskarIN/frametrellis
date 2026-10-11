@@ -8,6 +8,7 @@
 #include "project/project_serializer.h"
 #include "rendering/render_job.h"
 #include "rendering/render_runner.h"
+#include "rendering/self_test.h"
 
 #include <QDir>
 #include <QFile>
@@ -248,6 +249,40 @@ private slots:
         QCOMPARE(job.state(), RenderJob::State::Failed);
         QVERIFY(job.errorMessage().contains(QStringLiteral("offline")));
         QVERIFY(!QFile::exists(exportSettings.outputPath));
+    }
+
+    void selfTestPassesAndReportsEachStep()
+    {
+        QTemporaryDir dir;
+        QStringList seen;
+        const SelfTestReport report =
+            runSelfTest(dir.filePath(QStringLiteral("self test")), // a space exercises path quoting
+                        [&](const SelfTestStep& step) { seen << step.name; });
+        for (const SelfTestStep& step : report.steps) {
+            QVERIFY2(step.passed, qPrintable(step.name + QStringLiteral(": ") + step.detail));
+        }
+        QVERIFY(report.passed());
+        QCOMPARE(seen, (QStringList{QStringLiteral("engine"), QStringLiteral("encoders"),
+                                    QStringLiteral("media"), QStringLiteral("probe"),
+                                    QStringLiteral("project"), QStringLiteral("export"),
+                                    QStringLiteral("verify")}));
+        QVERIFY(QFile::exists(report.projectPath));
+        QVERIFY(QFile::exists(report.outputPath));
+        // The generated project opens like any other project.
+        QVERIFY(project_format::loadFromFile(report.projectPath));
+    }
+
+    void selfTestFailsWhenTheWorkFolderCannotBeCreated()
+    {
+        QTemporaryDir dir;
+        const QString blocker = dir.filePath(QStringLiteral("file"));
+        QFile file(blocker);
+        QVERIFY(file.open(QIODevice::WriteOnly));
+        file.close();
+        const SelfTestReport report = runSelfTest(blocker + QStringLiteral("/inside"));
+        QVERIFY(!report.passed());
+        QCOMPARE(report.steps.back().name, QStringLiteral("media"));
+        QVERIFY(!report.steps.back().passed);
     }
 
     void cleanupTestCase() { engine::MltRuntime::shutdown(); }

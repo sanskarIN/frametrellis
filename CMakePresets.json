@@ -41,6 +41,13 @@
       "condition": { "type": "equals", "lhs": "${hostSystemName}", "rhs": "Windows" }
     },
     {
+      "name": "windows-msys2-release",
+      "displayName": "Windows (MSYS2 UCRT64, Release for packaging)",
+      "description": "Optimised build without debug information, used for the Windows packages.",
+      "inherits": "windows-msys2",
+      "cacheVariables": { "CMAKE_BUILD_TYPE": "Release", "FT_WARNINGS_AS_ERRORS": "ON" }
+    },
+    {
       "name": "macos",
       "displayName": "macOS (Homebrew, experimental)",
       "inherits": "base",
@@ -53,6 +60,7 @@
     { "name": "linux-debug", "configurePreset": "linux-debug" },
     { "name": "linux-asan", "configurePreset": "linux-asan" },
     { "name": "windows-msys2", "configurePreset": "windows-msys2" },
+    { "name": "windows-msys2-release", "configurePreset": "windows-msys2-release" },
     { "name": "macos", "configurePreset": "macos" }
   ],
   "testPresets": [
@@ -71,6 +79,11 @@
       "environment": { "ASAN_OPTIONS": "detect_leaks=0:abort_on_error=1", "UBSAN_OPTIONS": "print_stacktrace=1:halt_on_error=1" }
     },
     { "name": "windows-msys2", "inherits": "base", "configurePreset": "windows-msys2" },
+    {
+      "name": "windows-msys2-release",
+      "inherits": "base",
+      "configurePreset": "windows-msys2-release"
+    },
     { "name": "macos", "inherits": "base", "configurePreset": "macos" }
   ]
 }

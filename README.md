@@ -16,9 +16,10 @@ account, no cloud processing, no telemetry and no advertising.
 
 ![The FrameTrellis workspace with media bin, program monitor, clip inspector and a three-track timeline](docs/images/workspace.png)
 
-> **Status: early development (pre-1.0).** The core editing workflow works end to end and is
-> covered by automated tests, but FrameTrellis has not had a stable release yet. Expect rough
-> edges, and keep backups of important projects.
+> **Status: 1.0, the first stable version.** Windows packages (an installer and a portable ZIP)
+> are published on the [releases page](https://github.com/sanskarIN/frametrellis/releases); on
+> Linux, build from source. FrameTrellis is a young project: please report problems, and keep
+> backups of important projects.
 
 ## Features
 
@@ -47,15 +48,15 @@ What works today (each item is implemented and covered by automated tests):
 - [x] Recent projects, dark and light themes, keyboard shortcuts, first-run guide
 
 Planned (see the [roadmap](docs/roadmap.md)): titles,
-subtitles, keyframes, proxy media, customisable shortcuts, more export formats and packaged
-releases for all platforms.
+subtitles, keyframes, proxy media, customisable shortcuts, more export formats, and Linux and
+macOS packages.
 
 ## Platforms
 
 | Platform | Status |
 |---|---|
-| Linux (x86-64) | Developed and tested here; builds and tests run in CI on Ubuntu 24.04 |
-| Windows 11 (x86-64) | Builds and tests run in CI with MSYS2 (UCRT64); packages are experimental until verified on real hardware |
+| Windows 11 and Windows 10 1809 or later (x64) | Installer and portable ZIP. Before each release they are verified automatically on clean Windows Server 2022, Windows Server 2025 and Windows 11 (ARM64, x64 emulation) machines |
+| Linux (x86-64) | Build from source; builds and tests run in CI on Ubuntu 24.04. No package yet |
 | macOS | Not supported yet (planned) |
 
 ## Building
@@ -109,7 +110,9 @@ The [user guide](docs/user-guide/README.md) explains every feature, and
 - Very large timelines (thousands of clips) are not optimised yet.
 - Picture adjustments need an FFmpeg/MLT build with a working `eq` filter; the inspector says
   when they are unavailable.
-- Windows packages have not yet been verified on physical Windows 11 machines.
+- The Windows packages are not code-signed, and their automatic checks run on clean virtual
+  machines, not on physical PCs.
+- There are no Linux or macOS packages yet.
 
 ## Testing
 
@@ -139,9 +142,19 @@ Security problems: see [SECURITY.md](SECURITY.md).
 
 ## Releases and downloads
 
-No release has been published yet. When packages are available they will appear on the
-[releases page](https://github.com/sanskarIN/frametrellis/releases) with checksums and a list of
-bundled components.
+Download FrameTrellis from the [releases page](https://github.com/sanskarIN/frametrellis/releases)
+or the [website](https://sanskarin.github.io/frametrellis/download/). Each release provides:
+
+- `FrameTrellis-<version>-windows-x64-setup.exe`: the installer (per user, no administrator
+  rights needed);
+- `FrameTrellis-<version>-windows-x64.zip`: the portable version;
+- `SHA256SUMS.txt`: SHA-256 checksums of the files;
+- `FrameTrellis-<version>-windows-x64.spdx.json`: a software bill of materials (SPDX 2.3);
+- `FrameTrellis-<version>-windows-x64-third-party-sources.tar`: the source code of every bundled
+  third-party component.
+
+The [installation guide](docs/user-guide/installation.md) explains each step, and the
+[release notes](docs/releases/) list what is new and the known limitations.
 
 ## License
 

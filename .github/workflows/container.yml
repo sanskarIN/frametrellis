@@ -1,0 +1,118 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
+# Builds the container image of frametrellis-render, the headless renderer, and checks that it
+# works: the installation self-test runs inside the image, and the project the self-test leaves
+# behind is rendered again from a mounted folder as an unprivileged user. Pull requests only
+# build and check the image. A version tag (pushed directly or created with a release in the web
+# interface), or a manual run for a version tag, also publishes it to GitHub Packages as
+# ghcr.io/<owner>/frametrellis-render:<version>.
+name: Container image
+
+on:
+  pull_request:
+    paths:
+      - "packaging/container/**"
+      - ".github/workflows/container.yml"
+      - "src/**"
+      - "cmake/**"
+      - "CMakeLists.txt"
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Version tag to build and publish, for example v1.0.0
+        required: true
+
+permissions:
+  contents: read
+
+concurrency:
+  group: container-${{ github.event.pull_request.number || inputs.tag || github.ref_name }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  image:
+    name: Build and check the render image
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      packages: write # only the publishing step, which pull requests skip, uses it
+    steps:
+      - uses: actions/checkout@v6
+      - id: source
+        name: Select the source to build
+        env:
+          INPUT_TAG: ${{ inputs.tag }}
+        run: |
+          set -euo pipefail
+          tag="$INPUT_TAG"
+          if [ "$GITHUB_REF_TYPE" = tag ]; then tag="$GITHUB_REF_NAME"; fi
+          if [ -n "$tag" ]; then
+            if ! [[ "$tag" =~ ^v[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.]+)?$ ]]; then
+              echo "::error::'$tag' is not a version tag such as v1.0.0"
+              exit 1
+            fi
+            # Build the released source; the Dockerfile comes from this workflow's commit.
+            git fetch --depth=1 origin "refs/tags/$tag:refs/tags/$tag"
+            git worktree add --detach "$RUNNER_TEMP/source" "$tag"
+            {
+              echo "context=$RUNNER_TEMP/source"
+              echo "version=${tag#v}"
+              echo "revision=$(git rev-parse "$tag^{commit}")"
+              echo "publish=true"
+            } >> "$GITHUB_OUTPUT"
+          else
+            version=$(grep -Pzo 'project\(FrameTrellis\s+VERSION\s+\K[0-9.]+' CMakeLists.txt | tr -d '\0')
+            {
+              echo "context=$GITHUB_WORKSPACE"
+              echo "version=$version-dev"
+              echo "revision=$GITHUB_SHA"
+              echo "publish=false"
+            } >> "$GITHUB_OUTPUT"
+          fi
+      - name: Build the image
+        env:
+          CONTEXT: ${{ steps.source.outputs.context }}
+          VERSION: ${{ steps.source.outputs.version }}
+          REVISION: ${{ steps.source.outputs.revision }}
+        run: |
+          docker build --file packaging/container/Dockerfile \
+            --build-arg VERSION="$VERSION" --build-arg REVISION="$REVISION" \
+            --tag frametrellis-render:check "$CONTEXT"
+          docker image ls frametrellis-render:check
+      - name: Check the image
+        env:
+          VERSION: ${{ steps.source.outputs.version }}
+        run: |
+          set -euo pipefail
+          docker run --rm frametrellis-render:check --version | tee version.txt
+          grep -q "${VERSION%-dev}" version.txt
+          work="$RUNNER_TEMP/work"
+          mkdir -p "$work"
+          run() { docker run --rm --user "$(id -u):$(id -g)" --volume "$work:/work" frametrellis-render:check "$@"; }
+          run --self-test /work/self-test | tee self-test.txt
+          grep -q '^Self-test passed' self-test.txt
+          if grep -q '^FAIL' self-test.txt; then exit 1; fi
+          # Render the project the self-test saved, as a user would, from the mounted folder.
+          run --project /work/self-test/self-test.ftproj --output /work/render.mp4 --short-side 360
+          test "$(stat -c %s "$work/render.mp4")" -gt 10000
+          head -c 12 "$work/render.mp4" | grep -q ftyp
+          echo "Rendered $(stat -c %s "$work/render.mp4") bytes"
+      - name: Publish to GitHub Packages
+        if: steps.source.outputs.publish == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ steps.source.outputs.version }}
+        run: |
+          set -euo pipefail
+          image="ghcr.io/${GITHUB_REPOSITORY_OWNER,,}/frametrellis-render"
+          echo "$GH_TOKEN" | docker login ghcr.io --username "$GITHUB_ACTOR" --password-stdin
+          tags=("$VERSION")
+          # Pre-releases (1.1.0-rc.1) do not move the "latest" tag.
+          if [[ "$VERSION" != *-* ]]; then tags+=(latest); fi
+          for tag in "${tags[@]}"; do
+            docker tag frametrellis-render:check "$image:$tag"
+            docker push "$image:$tag"
+          done
+          docker logout ghcr.io
+          echo "Published $image:${tags[*]}"

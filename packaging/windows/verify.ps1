@@ -62,6 +62,8 @@ function Invoke-Console([string] $Exe, [string[]] $Arguments, [int] $TimeoutSeco
     $info = [System.Diagnostics.ProcessStartInfo]::new($Exe)
     foreach ($argument in $Arguments) { $info.ArgumentList.Add($argument) }
     $info.UseShellExecute = $false
+    # Without a console, Qt sends log messages to the debugger; keep them in the job log.
+    $info.Environment['QT_FORCE_STDERR_LOGGING'] = '1'
     $info.RedirectStandardOutput = $true
     $info.RedirectStandardError = $true
     $process = [System.Diagnostics.Process]::Start($info)

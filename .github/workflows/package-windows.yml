@@ -9,6 +9,11 @@ on:
   push:
     branches: [main]
   workflow_dispatch:
+    inputs:
+      with-sources:
+        description: Also collect the source packages of all bundled components.
+        type: boolean
+        default: false
   workflow_call:
     inputs:
       with-sources:

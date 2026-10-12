@@ -5,7 +5,7 @@ FrameTrellis is maintained by **Sanskar** ([@sanskarIN](https://github.com/sansk
 The links below were checked on 2026-10-11: each URL resolved, and each profile either is
 linked from the maintainer's own website (<https://sanskarin.github.io>) or shows the
 maintainer's name. Only these links may be used in the project's README, website and About
-dialog. Pinterest, Reddit, Hashnode and Mastodon are intentionally **not** listed.
+dialog. Pinterest, Reddit, Hashnode, Mastodon and Discord are intentionally **not** listed.
 
 | Link | URL | How it was verified |
 |---|---|---|
@@ -20,7 +20,6 @@ dialog. Pinterest, Reddit, Hashnode and Mastodon are intentionally **not** liste
 | Instagram | https://instagram.com/SanskarCode | linked from the website |
 | Threads | https://www.threads.com/@SanskarCode | the website links the same username; profile "Sanskar (@sanskarcode)" |
 | Bluesky | https://bsky.app/profile/SanskarCodes.bsky.social | linked from the website |
-| Discord | https://discord.com/channels/1547184919455989760/1547187031057113098 | the same channel URL is linked from the website |
 | Buy Me a Coffee | https://buymeacoffee.com/SanskarCodes | page exists with the name "Sanskar" (the website currently links a different handle, `sanskarIN`) |
 | Razorpay | https://razorpay.me/@SanskarCodes | payment page exists (provided by the maintainer) |
 

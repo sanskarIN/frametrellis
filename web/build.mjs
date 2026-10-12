@@ -252,7 +252,6 @@ ${body}
           <li><a href="${link('docs/contributing/index.html')}">Contributing</a></li>
           <li><a href="${link('docs/code-of-conduct/index.html')}">Code of conduct</a></li>
           <li><a href="${link('docs/security-policy/index.html')}">Security policy</a></li>
-          ${ext('Discord', 'https://discord.com/channels/1547184919455989760/1547187031057113098')}
           ${ext('Contact', 'https://sanskarin.github.io/contact')}
         </ul>
       </div>

@@ -371,6 +371,10 @@ const latestRelease = readRelease();
 // The website names a version only once it has been published as a release; until then the
 // source version is labelled as a development version.
 const versionLabel = latestRelease ? `Version ${latestRelease.version}` : `In development (${version})`;
+const windowsStatus = latestRelease
+    ? `Supported. An installer and a portable ZIP, verified automatically on clean Windows machines
+      before each release. <a href="{{link:download/index.html}}">Download FrameTrellis ${escapeHtml(latestRelease.version)}</a>.`
+    : 'Primary platform. It is built and tested in CI with MSYS2. Installer and portable packages are being prepared for version 1.0.';
 
 function buildPages() {
     const pagesDir = path.join(webDir, 'site', 'pages');
@@ -390,7 +394,8 @@ function buildPages() {
             .replaceAll('{{root}}', root)
             .replaceAll('{{repo}}', REPO_URL)
             .replaceAll('{{version}}', version)
-            .replaceAll('{{versionLabel}}', versionLabel);
+            .replaceAll('{{versionLabel}}', versionLabel)
+            .replaceAll('{{windowsStatus}}', windowsStatus);
         // {{link:path}} resolves a site path relative to this page.
         body = body.replace(/\{\{link:([^}]+)\}\}/g, (_, target) =>
             absolute ? basePath + target.replace(/index\.html$/, '') : relUrl(meta.out, target));

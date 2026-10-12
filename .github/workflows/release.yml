@@ -1,18 +1,31 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
-# Publishes a GitHub release for a version tag (v1.2.3). The Windows packages are built and
-# verified on clean runners by the "Windows packages" workflow first; nothing is published if
-# any build, test or verification step fails.
+# Publishes the packages of a version (tag v1.2.3) to its GitHub release.
+#
+# It runs when a version tag is pushed and when a release is published in the GitHub web
+# interface (which can also create the tag). The Windows packages are built and verified on
+# clean runners by the "Windows packages" workflow first, and nothing is published if any build,
+# test or verification step fails. If the release does not exist yet, it is created with the
+# notes from docs/releases/<tag>.md; if it was created by hand, the packages are attached to it
+# and its notes are kept, completed with the download list and the checksums.
+#
+# A manual run rehearses everything for the version in CMakeLists.txt without publishing; the
+# release notes and checksums it would publish are kept as a workflow artifact.
 name: Release
 
 on:
   push:
     tags: ["v*"]
+  release:
+    types: [published]
+  workflow_dispatch:
 
 permissions:
   contents: read
 
 concurrency:
-  group: release-${{ github.ref }}
+  # A release published in the web interface may also push its tag; both runs share this group,
+  # and the second one finds the packages already attached and stops.
+  group: release-${{ github.event_name == 'workflow_dispatch' && 'rehearsal' || github.ref_name }}
   cancel-in-progress: false
 
 jobs:
@@ -21,48 +34,104 @@ jobs:
     runs-on: ubuntu-24.04
     outputs:
       version: ${{ steps.version.outputs.version }}
+      tag: ${{ steps.version.outputs.tag }}
+      build: ${{ steps.published.outputs.build }}
     steps:
       - uses: actions/checkout@v6
       - id: version
         name: Compare the tag with the project version
         run: |
           set -euo pipefail
-          tag="${GITHUB_REF_NAME}"
-          version="${tag#v}"
           # project() spans several lines; -z makes grep treat the file as one record.
           project=$(grep -Pzo 'project\(FrameTrellis\s+VERSION\s+\K[0-9.]+' CMakeLists.txt | tr -d '\0')
           if [ -z "$project" ]; then
             echo "::error::Cannot read the project version from CMakeLists.txt"
             exit 1
           fi
+          if [ "$GITHUB_EVENT_NAME" = workflow_dispatch ]; then
+            tag="v$project"
+            echo "Rehearsing the release of $tag; nothing will be published."
+          else
+            tag="$GITHUB_REF_NAME"
+          fi
+          version="${tag#v}"
           if [ "${version%%-*}" != "$project" ]; then
             echo "::error::Tag $tag does not match the project version $project in CMakeLists.txt"
             exit 1
           fi
-          if [ ! -f "docs/releases/$tag.md" ]; then
-            echo "::error::Release notes docs/releases/$tag.md are missing"
+          if [ ! -f "docs/releases/v${version%%-*}.md" ]; then
+            echo "::error::Release notes docs/releases/v${version%%-*}.md are missing"
             exit 1
           fi
-          if grep -qiE '^<!-- *draft' "docs/releases/$tag.md"; then
-            echo "::error::Release notes docs/releases/$tag.md are still marked as a draft"
+          if grep -qiE '^<!-- *draft' "docs/releases/v${version%%-*}.md"; then
+            echo "::error::Release notes docs/releases/v${version%%-*}.md are still marked as a draft"
             exit 1
           fi
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
           echo "version=$version" >> "$GITHUB_OUTPUT"
+      - id: published
+        name: Check whether the packages are already published
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ steps.version.outputs.tag }}
+        run: |
+          set -euo pipefail
+          build=true
+          if [ "$GITHUB_EVENT_NAME" != workflow_dispatch ] &&
+             gh release view "$TAG" --repo "$GITHUB_REPOSITORY" --json assets --jq '.assets[].name' 2>/dev/null |
+               grep -q -- '-windows-x64-setup\.exe$'; then
+            echo "::notice::The packages of $TAG are already attached to its release; nothing to do."
+            build=false
+          fi
+          echo "build=$build" >> "$GITHUB_OUTPUT"
 
   packages:
     name: Windows packages
     needs: check
+    if: needs.check.outputs.build == 'true'
     uses: ./.github/workflows/package-windows.yml
-    with:
-      with-sources: true
+
+  sources:
+    name: Collect corresponding source
+    needs: [check, packages]
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/download-artifact@v7
+        with:
+          name: windows-packages
+          path: dist
+      - name: Download the MSYS2 source packages of the bundled components
+        run: |
+          set -euo pipefail
+          list=$(ls dist/*-sources.json)
+          name=$(basename "$list" -sources.json)
+          mkdir -p "sources/$name-third-party-sources"
+          base=$(jq -r .base_url "$list")
+          jq -r '.archives[]' "$list" | while read -r archive; do
+            echo "Downloading $archive"
+            curl --fail --silent --show-error --location --retry 3 \
+              --output "sources/$name-third-party-sources/$archive" "$base$archive"
+          done
+          cp "$list" "sources/$name-third-party-sources/"
+          tar -C sources -cf "dist/$name-third-party-sources.tar" "$name-third-party-sources"
+          ls -l dist
+      - uses: actions/upload-artifact@v6
+        with:
+          name: windows-third-party-sources
+          path: dist/*-third-party-sources.tar
+          if-no-files-found: error
+          compression-level: 0
 
   publish:
     name: Publish the release
-    needs: [check, packages]
+    needs: [check, packages, sources]
     runs-on: ubuntu-24.04
     permissions:
       contents: write
       actions: write
+    env:
+      TAG: ${{ needs.check.outputs.tag }}
+      VERSION: ${{ needs.check.outputs.version }}
     steps:
       - uses: actions/checkout@v6
       - uses: actions/download-artifact@v7
@@ -73,35 +142,30 @@ jobs:
       - name: Prepare the assets and checksums
         run: |
           set -euo pipefail
-          version="${{ needs.check.outputs.version }}"
           mkdir -p release
-          cp assets/FrameTrellis-"$version"-windows-x64-setup.exe \
-             assets/FrameTrellis-"$version"-windows-x64.zip \
-             assets/FrameTrellis-"$version"-windows-x64.spdx.json \
-             assets/FrameTrellis-"$version"-windows-x64-third-party-sources.tar \
+          cp assets/FrameTrellis-"$VERSION"-windows-x64-setup.exe \
+             assets/FrameTrellis-"$VERSION"-windows-x64.zip \
+             assets/FrameTrellis-"$VERSION"-windows-x64.spdx.json \
+             assets/FrameTrellis-"$VERSION"-windows-x64-third-party-sources.tar \
              release/
           (cd release && sha256sum -- * > SHA256SUMS.txt && cat SHA256SUMS.txt)
       - name: Write the release notes
         run: |
           set -euo pipefail
-          tag="${GITHUB_REF_NAME}"
-          version="${{ needs.check.outputs.version }}"
           {
-            cat "docs/releases/$tag.md"
-            echo
             echo "## Downloads"
             echo
             echo "| File | Description |"
             echo "|---|---|"
-            echo "| \`FrameTrellis-$version-windows-x64-setup.exe\` | Installer for Windows 10 (1809 or later) and Windows 11, x64 |"
-            echo "| \`FrameTrellis-$version-windows-x64.zip\` | Portable version: extract and run \`frametrellis.exe\` |"
-            echo "| \`FrameTrellis-$version-windows-x64.spdx.json\` | Software bill of materials (SPDX 2.3) of the Windows package |"
-            echo "| \`FrameTrellis-$version-windows-x64-third-party-sources.tar\` | Source packages of all bundled third-party components |"
+            echo "| \`FrameTrellis-$VERSION-windows-x64-setup.exe\` | Installer for Windows 10 (1809 or later) and Windows 11, x64 |"
+            echo "| \`FrameTrellis-$VERSION-windows-x64.zip\` | Portable version: extract and run \`frametrellis.exe\` |"
+            echo "| \`FrameTrellis-$VERSION-windows-x64.spdx.json\` | Software bill of materials (SPDX 2.3) of the Windows package |"
+            echo "| \`FrameTrellis-$VERSION-windows-x64-third-party-sources.tar\` | Source packages of all bundled third-party components |"
             echo "| \`SHA256SUMS.txt\` | SHA-256 checksums of the files above |"
             echo
             echo "The packages are not code-signed, so Windows SmartScreen may ask for confirmation"
             echo "before the first start. Compare the checksum first: in PowerShell, run"
-            echo "\`Get-FileHash .\\FrameTrellis-$version-windows-x64-setup.exe\` and check the value"
+            echo "\`Get-FileHash .\\FrameTrellis-$VERSION-windows-x64-setup.exe\` and check the value"
             echo "against \`SHA256SUMS.txt\`."
             echo
             echo "Linux and macOS: no packages yet. Build from source as described in"
@@ -112,22 +176,44 @@ jobs:
             echo '```'
             cat release/SHA256SUMS.txt
             echo '```'
-          } > release-notes.md
+          } > release-assets.md
+          { cat "docs/releases/v${VERSION%%-*}.md"; echo; cat release-assets.md; } > release-notes.md
           cat release-notes.md
-      - name: Create the GitHub release
+      - name: Keep the release notes and checksums
+        uses: actions/upload-artifact@v6
+        with:
+          name: release-notes
+          path: |
+            release-notes.md
+            release/SHA256SUMS.txt
+      - name: Create the release or attach the packages to it
+        if: github.event_name != 'workflow_dispatch'
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
-          tag="${GITHUB_REF_NAME}"
-          prerelease=()
-          if [[ "$tag" == *-* ]]; then prerelease=(--prerelease); fi
-          gh release create "$tag" release/* \
-            --verify-tag \
-            --title "FrameTrellis ${{ needs.check.outputs.version }}" \
-            --notes-file release-notes.md \
-            "${prerelease[@]}"
+          if gh release view "$TAG" > /dev/null 2>&1; then
+            echo "The release $TAG exists; attaching the packages."
+            gh release upload "$TAG" release/* --clobber
+            body=$(gh release view "$TAG" --json body --jq .body)
+            if [ -z "${body//[[:space:]]/}" ]; then
+              gh release edit "$TAG" --notes-file release-notes.md
+            elif ! grep -q '^## Checksums' <<< "$body"; then
+              { printf '%s\n\n' "$body"; cat release-assets.md; } > merged-notes.md
+              gh release edit "$TAG" --notes-file merged-notes.md
+            fi
+          else
+            prerelease=()
+            if [[ "$TAG" == *-* ]]; then prerelease=(--prerelease); fi
+            gh release create "$TAG" release/* \
+              --verify-tag \
+              --title "FrameTrellis $VERSION" \
+              --notes-file release-notes.md \
+              "${prerelease[@]}"
+          fi
+          gh release view "$TAG" --json url,assets --jq '.url, (.assets[] | "\(.name)  \(.size) bytes")'
       - name: Refresh the website's download links
+        if: github.event_name != 'workflow_dispatch'
         env:
           GH_TOKEN: ${{ github.token }}
         run: gh workflow run pages.yml --ref main || echo "::warning::Could not start the website workflow"

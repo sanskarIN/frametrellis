@@ -187,8 +187,7 @@ FrameTrellis is maintained by **Sanskar**.
 [X](https://x.com/SanskarCodes) ·
 [Instagram](https://instagram.com/SanskarCode) ·
 [Threads](https://www.threads.com/@SanskarCode) ·
-[Bluesky](https://bsky.app/profile/SanskarCodes.bsky.social) ·
-[Discord](https://discord.com/channels/1547184919455989760/1547187031057113098)
+[Bluesky](https://bsky.app/profile/SanskarCodes.bsky.social)
 
 FrameTrellis is free and always will be. If you would like to support its development, you can
 [buy the maintainer a coffee](https://buymeacoffee.com/SanskarCodes) or contribute via

@@ -169,7 +169,7 @@ jobs:
             echo "against \`SHA256SUMS.txt\`."
             echo
             echo "Linux and macOS: no packages yet. Build from source as described in"
-            echo "[the building guide](https://sanskarin.github.io/frametrellis/docs/building/)."
+            echo "[the building guide](https://github.com/$GITHUB_REPOSITORY/blob/$TAG/docs/development/building.md)."
             echo
             echo "## Checksums"
             echo

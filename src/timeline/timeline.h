@@ -53,6 +53,13 @@ public:
     /// Clip boundaries usable as snap targets, sorted and de-duplicated.
     [[nodiscard]] std::vector<FrameCount> editPoints(const Id& excludeClipId = {}) const;
     [[nodiscard]] bool usesAsset(const Id& assetId) const;
+    [[nodiscard]] const Transition* transition(const Id& transitionId) const;
+    /// The transition at the cut after the given clip, if any.
+    [[nodiscard]] const Transition* transitionAfter(const Id& fromClipId) const;
+    /// The longest transition possible at the cut after the given clip (0 if none is possible:
+    /// no adjacent clip, or no media beyond the cut).
+    [[nodiscard]] FrameCount maxTransitionDuration(const Id& fromClipId,
+                                                   const SourceLookup& sources) const;
     [[nodiscard]] std::vector<Id> clipsUsingAsset(const Id& assetId) const;
 
     // Track operations
@@ -79,6 +86,14 @@ public:
     Result<Id> splitClip(const Id& clipId, FrameCount frame, const Id& newClipId = {});
     Status setClipProperties(const Id& clipId, const ClipProperties& properties);
 
+    // Transition operations
+    /// Adds a transition at the cut between the clip and the clip that starts where it ends.
+    Result<Id> addTransition(const Id& fromClipId, FrameCount duration, const SourceLookup& sources,
+                             const Id& newTransitionId = {});
+    Status setTransitionDuration(const Id& transitionId, FrameCount duration,
+                                 const SourceLookup& sources);
+    Result<Transition> removeTransition(const Id& transitionId);
+
     /// Replaces tracks wholesale. Used by the command history to restore previously validated
     /// states; regular editing goes through the validated operations above.
     void restoreTrack(const Track& track);
@@ -96,6 +111,14 @@ private:
     static Status checkSourceRange(const Clip& clip, const Track& track,
                                    const SourceLookup& sources);
     static void insertSorted(Track& track, Clip clip);
+    /// Why a transition cannot exist on a track as it is, or success. Without sources only the
+    /// arrangement is checked, not the media handles.
+    static Status checkTransition(const Track& track, const Transition& transition,
+                                  const SourceLookup* sources);
+    /// Removes transitions that an edit made impossible (clips moved apart, removed or trimmed
+    /// at the cut) and keeps the rest in timeline order.
+    static void pruneTransitions(Track& track, const SourceLookup* sources);
+    Transition* mutableTransition(const Id& transitionId, Track** owner);
 
     std::vector<Track> m_tracks;
 };

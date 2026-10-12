@@ -24,9 +24,11 @@ struct VideoSpec
 /// Writes an MP4 whose picture is one solid colour per second. Returns the path or empty on error.
 QString makeVideo(const QString& directory, const QString& name, const VideoSpec& spec = {});
 /// Writes a stereo 48 kHz WAV file containing a sine tone.
-QString makeTone(const QString& directory, const QString& name, double seconds, double frequency = 440.0);
+QString makeTone(const QString& directory, const QString& name, double seconds,
+                 double frequency = 440.0);
 /// Writes a PNG image filled with one colour.
-QString makeStill(const QString& directory, const QString& name, const QColor& color, QSize size = {64, 48});
+QString makeStill(const QString& directory, const QString& name, const QColor& color,
+                  QSize size = {64, 48});
 
 /// Mean colour of an image region (whole image by default).
 QColor averageColor(const QImage& image, QRect region = {});

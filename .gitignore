@@ -60,3 +60,7 @@ web/editor/dist/
 web/_site/
 test-results/
 playwright-report/
+
+# Python
+__pycache__/
+*.pyc

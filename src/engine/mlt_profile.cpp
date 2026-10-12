@@ -16,7 +16,8 @@ std::unique_ptr<Mlt::Profile> createProfile(int width, int height, const FrameRa
     profile->set_explicit(1);
     profile->set_width(width);
     profile->set_height(height);
-    profile->set_frame_rate(static_cast<int>(rate.numerator()), static_cast<int>(rate.denominator()));
+    profile->set_frame_rate(static_cast<int>(rate.numerator()),
+                            static_cast<int>(rate.denominator()));
     profile->set_progressive(1);
     profile->set_sample_aspect(1, 1);
     const int divisor = std::gcd(width, height);
@@ -30,7 +31,8 @@ QSize fitPreviewSize(QSize frameSize, QSize maxSize)
     if (frameSize.isEmpty()) {
         return {2, 2};
     }
-    if (maxSize.isEmpty() || (frameSize.width() <= maxSize.width() && frameSize.height() <= maxSize.height())) {
+    if (maxSize.isEmpty() ||
+        (frameSize.width() <= maxSize.width() && frameSize.height() <= maxSize.height())) {
         return frameSize;
     }
     const double scale = std::min(static_cast<double>(maxSize.width()) / frameSize.width(),

@@ -24,7 +24,8 @@ DropFrameParams dropFrameParams(const FrameRate& rate)
     p.nominal = rate.nominalFramesPerSecond();
     p.dropPerMinute = p.nominal == 60 ? 4 : 2;
     p.framesPerMinute = static_cast<FrameCount>(p.nominal) * 60 - p.dropPerMinute;
-    p.framesPerTenMinutes = static_cast<FrameCount>(p.nominal) * 600 - p.dropPerMinute * 9;
+    p.framesPerTenMinutes =
+        static_cast<FrameCount>(p.nominal) * 600 - static_cast<FrameCount>(p.dropPerMinute) * 9;
     return p;
 }
 
@@ -161,8 +162,9 @@ QString formatClock(FrameCount frames, const FrameRate& rate)
     const qint64 hours = totalSeconds / 3600;
     QString result = negative ? QStringLiteral("-") : QString();
     if (hours > 0) {
-        result += QStringLiteral("%1:%2:%3.%4").arg(hours).arg(pad(minutes), pad(seconds),
-                                                            pad(millis, 3));
+        result += QStringLiteral("%1:%2:%3.%4")
+                      .arg(hours)
+                      .arg(pad(minutes), pad(seconds), pad(millis, 3));
     } else {
         result += QStringLiteral("%1:%2.%3").arg(minutes).arg(pad(seconds), pad(millis, 3));
     }

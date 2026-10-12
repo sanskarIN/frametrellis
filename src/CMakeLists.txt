@@ -10,3 +10,8 @@ if(FT_BUILD_ENGINE)
     add_subdirectory(media)
     add_subdirectory(playback)
 endif()
+
+if(FT_BUILD_APP)
+    add_subdirectory(ui)
+    add_subdirectory(app)
+endif()

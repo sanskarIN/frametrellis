@@ -30,8 +30,7 @@ TimelineCommand::TimelineCommand(QString text, Operation operation, QString merg
     : m_text(std::move(text))
     , m_operation(std::move(operation))
     , m_mergeKey(std::move(mergeKey))
-{
-}
+{}
 
 Result<ChangeSet> TimelineCommand::redo(Project& project)
 {
@@ -90,8 +89,8 @@ ChangeSet TimelineCommand::undo(Project& project)
 bool TimelineCommand::mergeWith(EditCommand& next)
 {
     auto* other = dynamic_cast<TimelineCommand*>(&next);
-    if (!other || m_mergeKey.isEmpty() || other->m_mergeKey != m_mergeKey || m_structural
-        || other->m_structural) {
+    if (!other || m_mergeKey.isEmpty() || other->m_mergeKey != m_mergeKey || m_structural ||
+        other->m_structural) {
         return false;
     }
     for (size_t i = 0; i < other->m_after.size(); ++i) {
@@ -108,7 +107,9 @@ bool TimelineCommand::mergeWith(EditCommand& next)
     return true;
 }
 
-AddMediaCommand::AddMediaCommand(std::vector<MediaAsset> assets) : m_assets(std::move(assets)) {}
+AddMediaCommand::AddMediaCommand(std::vector<MediaAsset> assets)
+    : m_assets(std::move(assets))
+{}
 
 QString AddMediaCommand::text() const
 {
@@ -141,7 +142,9 @@ ChangeSet AddMediaCommand::undo(Project& project)
     return changes;
 }
 
-RemoveMediaCommand::RemoveMediaCommand(Id assetId) : m_assetId(std::move(assetId)) {}
+RemoveMediaCommand::RemoveMediaCommand(Id assetId)
+    : m_assetId(std::move(assetId))
+{}
 
 Result<ChangeSet> RemoveMediaCommand::redo(Project& project)
 {
@@ -169,8 +172,7 @@ ChangeSet RemoveMediaCommand::undo(Project& project)
 UpdateMediaCommand::UpdateMediaCommand(MediaAsset updated, QString text)
     : m_after(std::move(updated))
     , m_text(std::move(text))
-{
-}
+{}
 
 Result<ChangeSet> UpdateMediaCommand::redo(Project& project)
 {
@@ -215,11 +217,10 @@ ChangeSet UpdateMediaCommand::undo(Project& project)
     return changes;
 }
 
-ProjectSettingsCommand::ProjectSettingsCommand(ProjectSettings settings, QString name)
-    : m_settings(std::move(settings))
+ProjectSettingsCommand::ProjectSettingsCommand(const ProjectSettings& settings, QString name)
+    : m_settings(settings)
     , m_name(std::move(name))
-{
-}
+{}
 
 Result<ChangeSet> ProjectSettingsCommand::redo(Project& project)
 {

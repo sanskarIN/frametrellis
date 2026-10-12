@@ -111,8 +111,11 @@ private:
 class ProjectSettingsCommand final : public EditCommand
 {
 public:
-    ProjectSettingsCommand(ProjectSettings settings, QString name);
-    [[nodiscard]] QString text() const override { return QStringLiteral("Change Project Settings"); }
+    ProjectSettingsCommand(const ProjectSettings& settings, QString name);
+    [[nodiscard]] QString text() const override
+    {
+        return QStringLiteral("Change Project Settings");
+    }
     Result<ChangeSet> redo(Project& project) override;
     ChangeSet undo(Project& project) override;
 

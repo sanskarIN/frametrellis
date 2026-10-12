@@ -8,13 +8,13 @@
 #include "project/project_serializer.h"
 #include "rendering/render_job.h"
 #include "rendering/render_runner.h"
+#include "rendering/self_test.h"
 
 #include <QDir>
 #include <QFile>
 #include <QSignalSpy>
 #include <QTemporaryDir>
 #include <QTest>
-
 #include <mlt++/Mlt.h>
 
 using namespace ft;
@@ -68,7 +68,8 @@ private:
 
     QStringList partFiles() const
     {
-        return QDir(m_dir.path()).entryList({QStringLiteral(".*.part.mp4")}, QDir::Files | QDir::Hidden);
+        return QDir(m_dir.path())
+            .entryList({QStringLiteral(".*.part.mp4")}, QDir::Files | QDir::Hidden);
     }
 
 private slots:
@@ -108,7 +109,8 @@ private slots:
         QCOMPARE(info->height, 90);
         QVERIFY(info->hasAudio);
         QCOMPARE(info->audioCodec, QStringLiteral("aac"));
-        QVERIFY2(qAbs(info->durationUs - 2'000'000) <= 100'000, qPrintable(QString::number(info->durationUs)));
+        QVERIFY2(qAbs(info->durationUs - 2'000'000) <= 100'000,
+                 qPrintable(QString::number(info->durationUs)));
         // The picture follows the edit: green first, then blue.
         QVERIFY(isCloseTo(averageColor(frameOf(settings.outputPath, 5)), Qt::green));
         QVERIFY(isCloseTo(averageColor(frameOf(settings.outputPath, 40)), Qt::blue));
@@ -139,7 +141,28 @@ private slots:
         settings.speedPreset = QStringLiteral("veryslow");
         std::atomic<bool> cancel{false};
         RenderRunner runner(project(), settings);
-        const Status result = runner.run(cancel, {}, [&](const RenderRunner::Progress&) { cancel = true; });
+        const Status result =
+            runner.run(cancel, {}, [&](const RenderRunner::Progress&) { cancel = true; });
+        QVERIFY(!result);
+        QCOMPARE(result.error().code, ErrorCode::Cancelled);
+        QVERIFY(!QFile::exists(output));
+        QVERIFY(partFiles().isEmpty());
+    }
+
+    void cancelAfterTheLastFrameStillDiscardsTheOutput()
+    {
+        // The encoder may finish in the moment the user cancels; the request still wins.
+        const QString output = m_dir.filePath(QStringLiteral("late-cancel.mp4"));
+        ExportSettings settings;
+        settings.outputPath = output;
+        settings.speedPreset = QStringLiteral("ultrafast");
+        std::atomic<bool> cancel{false};
+        const Status result =
+            RenderRunner(project(), settings).run(cancel, {}, [&](const RenderRunner::Progress& p) {
+                if (p.frame == p.total) {
+                    cancel = true;
+                }
+            });
         QVERIFY(!result);
         QCOMPARE(result.error().code, ErrorCode::Cancelled);
         QVERIFY(!QFile::exists(output));
@@ -248,10 +271,41 @@ private slots:
         QVERIFY(!QFile::exists(exportSettings.outputPath));
     }
 
-    void cleanupTestCase()
+    void selfTestPassesAndReportsEachStep()
     {
-        engine::MltRuntime::shutdown();
+        QTemporaryDir dir;
+        QStringList seen;
+        const SelfTestReport report =
+            runSelfTest(dir.filePath(QStringLiteral("self test")), // a space exercises path quoting
+                        [&](const SelfTestStep& step) { seen << step.name; });
+        for (const SelfTestStep& step : report.steps) {
+            QVERIFY2(step.passed, qPrintable(step.name + QStringLiteral(": ") + step.detail));
+        }
+        QVERIFY(report.passed());
+        QCOMPARE(seen, (QStringList{QStringLiteral("engine"), QStringLiteral("encoders"),
+                                    QStringLiteral("media"), QStringLiteral("probe"),
+                                    QStringLiteral("project"), QStringLiteral("export"),
+                                    QStringLiteral("verify")}));
+        QVERIFY(QFile::exists(report.projectPath));
+        QVERIFY(QFile::exists(report.outputPath));
+        // The generated project opens like any other project.
+        QVERIFY(project_format::loadFromFile(report.projectPath));
     }
+
+    void selfTestFailsWhenTheWorkFolderCannotBeCreated()
+    {
+        QTemporaryDir dir;
+        const QString blocker = dir.filePath(QStringLiteral("file"));
+        QFile file(blocker);
+        QVERIFY(file.open(QIODevice::WriteOnly));
+        file.close();
+        const SelfTestReport report = runSelfTest(blocker + QStringLiteral("/inside"));
+        QVERIFY(!report.passed());
+        QCOMPARE(report.steps.back().name, QStringLiteral("media"));
+        QVERIFY(!report.steps.back().passed);
+    }
+
+    void cleanupTestCase() { engine::MltRuntime::shutdown(); }
 };
 
 QTEST_GUILESS_MAIN(RenderTest)

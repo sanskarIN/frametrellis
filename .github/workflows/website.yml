@@ -1,0 +1,39 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
+# Checks the website in pull requests: builds the landing pages and the documentation rendered
+# from the repository's Markdown files, and checks every internal link. Publishing happens in
+# pages.yml once a change reaches main.
+name: Website
+
+on:
+  pull_request:
+    paths:
+      - "web/**"
+      - "docs/**"
+      - "*.md"
+      - "CMakeLists.txt"
+      - ".github/workflows/website.yml"
+      - ".github/workflows/pages.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: website-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: Build and check the website
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: "22"
+      - name: Look up the latest release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh api "repos/${{ github.repository }}/releases/latest" > release.json || echo '{}' > release.json
+      - name: Build and check the links, including the download links
+        run: node web/build.mjs --release-json release.json --verify-downloads

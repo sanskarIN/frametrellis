@@ -69,7 +69,9 @@ QJsonObject clipToJson(const Clip& c)
 class Reader
 {
 public:
-    explicit Reader(QString path) : m_path(std::move(path)) {}
+    explicit Reader(QString path)
+        : m_path(std::move(path))
+    {}
 
     [[nodiscard]] bool failed() const { return m_error.has_value(); }
     [[nodiscard]] Error error() const { return m_error.value_or(Error{}); }
@@ -123,9 +125,10 @@ public:
             return *fallback;
         }
         const double d = v.toDouble(std::numeric_limits<double>::quiet_NaN());
-        if (!v.isDouble() || !std::isfinite(d) || std::trunc(d) != d || d < static_cast<double>(min)
-            || d > static_cast<double>(max)) {
-            fail(QLatin1String(key), QStringLiteral("expected an integer between %1 and %2").arg(min).arg(max));
+        if (!v.isDouble() || !std::isfinite(d) || std::trunc(d) != d ||
+            d < static_cast<double>(min) || d > static_cast<double>(max)) {
+            fail(QLatin1String(key),
+                 QStringLiteral("expected an integer between %1 and %2").arg(min).arg(max));
             return min;
         }
         return static_cast<std::int64_t>(d);
@@ -139,7 +142,8 @@ public:
         }
         const double d = v.toDouble(std::numeric_limits<double>::quiet_NaN());
         if (!v.isDouble() || !std::isfinite(d) || d < min || d > max) {
-            fail(QLatin1String(key), QStringLiteral("expected a number between %1 and %2").arg(min).arg(max));
+            fail(QLatin1String(key),
+                 QStringLiteral("expected a number between %1 and %2").arg(min).arg(max));
             return fallback;
         }
         return d;
@@ -243,11 +247,11 @@ MediaInfo readMediaInfo(Reader& r, const QJsonObject& o)
 QString resolveMediaPath(const QString& storedPath, const QString& relativePath,
                          const QString& projectDir)
 {
-    const QString absolute = QDir::cleanPath(QDir::fromNativeSeparators(storedPath));
+    QString absolute = QDir::cleanPath(QDir::fromNativeSeparators(storedPath));
     if (QFileInfo::exists(absolute) || relativePath.isEmpty() || projectDir.isEmpty()) {
         return absolute;
     }
-    const QString candidate = QDir::cleanPath(QDir(projectDir).absoluteFilePath(relativePath));
+    QString candidate = QDir::cleanPath(QDir(projectDir).absoluteFilePath(relativePath));
     if (QFileInfo::exists(candidate)) {
         qCInfo(lcProject) << "Resolved moved media" << absolute << "to" << candidate;
         return candidate;
@@ -295,6 +299,18 @@ QJsonObject toJson(const Project& project, const QString& projectDir)
             clips.append(clipToJson(c));
         }
         o[QLatin1String("clips")] = clips;
+        if (!t.transitions.empty()) {
+            QJsonArray transitions;
+            for (const Transition& tr : t.transitions) {
+                QJsonObject to;
+                to[QLatin1String("id")] = tr.id;
+                to[QLatin1String("from")] = tr.fromClip;
+                to[QLatin1String("to")] = tr.toClip;
+                to[QLatin1String("duration")] = static_cast<double>(tr.duration);
+                transitions.append(to);
+            }
+            o[QLatin1String("transitions")] = transitions;
+        }
         tracks.append(o);
     }
 
@@ -309,8 +325,8 @@ QJsonObject toJson(const Project& project, const QString& projectDir)
     QJsonObject root;
     root[QLatin1String("format")] = QLatin1String(kFormatName);
     root[QLatin1String("version")] = kCurrentVersion;
-    root[QLatin1String("generator")] =
-        QStringLiteral("%1 %2").arg(QLatin1String(version::applicationName), QLatin1String(version::string));
+    root[QLatin1String("generator")] = QStringLiteral("%1 %2").arg(
+        QLatin1String(version::applicationName), QLatin1String(version::string));
     root[QLatin1String("project")] = body;
     return root;
 }
@@ -445,6 +461,20 @@ Result<Project> fromJson(const QJsonObject& document, const QString& projectDir)
             tr.adopt(cr);
             track.clips.push_back(std::move(clip));
         }
+        // Optional: absent in files without transitions.
+        const QJsonArray transitions = tr.array(o, "transitions", 100'000);
+        for (qsizetype x = 0; x < transitions.size() && !tr.failed(); ++x) {
+            Reader xr(tr.path() + QStringLiteral(".transitions[%1]").arg(x));
+            const QJsonObject xo = transitions.at(x).toObject();
+            Transition transition;
+            transition.id = xr.id(xo, "id");
+            transition.fromClip = xr.id(xo, "from");
+            transition.toClip = xr.id(xo, "to");
+            transition.duration =
+                xr.integer(xo, "duration", kMinTransitionFrames, kMaxTimelineFrames);
+            tr.adopt(xr);
+            track.transitions.push_back(std::move(transition));
+        }
         r.adopt(tr);
         tracks.push_back(std::move(track));
     }
@@ -456,7 +486,8 @@ Result<Project> fromJson(const QJsonObject& document, const QString& projectDir)
     if (const Status valid = project.validate(); !valid) {
         Error error = valid.error();
         error.code = ErrorCode::InvalidDocument;
-        error.detail = error.detail.isEmpty() ? error.message : error.detail + QStringLiteral(": ") + error.message;
+        error.detail = error.detail.isEmpty() ? error.message
+                                              : error.detail + QStringLiteral(": ") + error.message;
         error.message = QStringLiteral("The project file is damaged or invalid.");
         return error;
     }
@@ -471,13 +502,15 @@ QByteArray toBytes(const Project& project, const QString& projectDir)
 Result<Project> fromBytes(const QByteArray& data, const QString& projectDir)
 {
     if (data.size() > kMaxDocumentBytes) {
-        return makeError(ErrorCode::InvalidDocument, QStringLiteral("The project file is too large."));
+        return makeError(ErrorCode::InvalidDocument,
+                         QStringLiteral("The project file is too large."));
     }
     QJsonParseError parseError;
     const QJsonDocument document = QJsonDocument::fromJson(data, &parseError);
     if (parseError.error != QJsonParseError::NoError) {
-        return makeError(ErrorCode::Parse, QStringLiteral("The project file could not be read."),
-                         QStringLiteral("%1 at offset %2").arg(parseError.errorString()).arg(parseError.offset));
+        return makeError(
+            ErrorCode::Parse, QStringLiteral("The project file could not be read."),
+            QStringLiteral("%1 at offset %2").arg(parseError.errorString()).arg(parseError.offset));
     }
     if (!document.isObject()) {
         return makeError(ErrorCode::InvalidDocument,
@@ -503,9 +536,10 @@ Status saveToFile(const Project& project, const QString& filePath)
                          QStringLiteral("%1: %2").arg(filePath, reason));
     }
     if (!file.commit()) {
-        return makeError(ErrorCode::Io,
-                         QStringLiteral("Saving failed. The previous version of the file was kept."),
-                         QStringLiteral("%1: %2").arg(filePath, file.errorString()));
+        return makeError(
+            ErrorCode::Io,
+            QStringLiteral("Saving failed. The previous version of the file was kept."),
+            QStringLiteral("%1: %2").arg(filePath, file.errorString()));
     }
     qCInfo(lcProject) << "Saved project to" << filePath;
     return {};
@@ -515,10 +549,12 @@ Result<Project> loadFromFile(const QString& filePath)
 {
     QFile file(filePath);
     if (!file.exists()) {
-        return makeError(ErrorCode::NotFound, QStringLiteral("The project file does not exist."), filePath);
+        return makeError(ErrorCode::NotFound, QStringLiteral("The project file does not exist."),
+                         filePath);
     }
     if (file.size() > kMaxDocumentBytes) {
-        return makeError(ErrorCode::InvalidDocument, QStringLiteral("The project file is too large."), filePath);
+        return makeError(ErrorCode::InvalidDocument,
+                         QStringLiteral("The project file is too large."), filePath);
     }
     if (!file.open(QIODevice::ReadOnly)) {
         return makeError(ErrorCode::Io, QStringLiteral("The project file could not be opened."),

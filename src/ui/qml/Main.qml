@@ -1,0 +1,400 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+// SPDX-FileCopyrightText: 2026 Sanskar and FrameTrellis contributors
+import QtQuick
+import QtQuick.Controls.Basic
+import QtQuick.Controls.impl
+import QtQuick.Dialogs
+import QtQuick.Layouts
+import QtQuick.Window
+import FrameTrellis
+
+ApplicationWindow {
+    id: window
+
+    required property AppController app
+    property bool allowClose: false
+    property var pendingAction: null
+    // Single-key editing shortcuts are disabled while a dialog is open, so that keys such as
+    // Space, Delete or the arrows act on the dialog instead of the timeline.
+    readonly property bool dialogOpen: newDialog.visible || exportDialog.visible || aboutDialog.visible
+                                       || shortcutsDialog.visible || welcome.visible || messageBox.visible
+                                       || unsavedDialog.visible || exportRunningDialog.visible || recoveryDialog.visible
+    readonly property bool editKeys: !dialogOpen
+
+    width: Math.min(1440, Screen.desktopAvailableWidth - 40)
+    height: Math.min(900, Screen.desktopAvailableHeight - 40)
+    minimumWidth: 960
+    minimumHeight: 600
+    visible: true
+    title: app.project.title + " — FrameTrellis"
+    color: Theme.window
+
+    palette.window: Theme.panel
+    palette.windowText: Theme.text
+    palette.base: Theme.panelAlt
+    palette.alternateBase: Theme.raised
+    palette.text: Theme.text
+    palette.button: Theme.raised
+    palette.buttonText: Theme.text
+    palette.highlight: Theme.accent
+    palette.highlightedText: Theme.accentText
+    palette.light: Theme.hover
+    palette.midlight: Theme.raised
+    palette.mid: Theme.border
+    palette.dark: Theme.borderStrong
+    palette.shadow: "#000000"
+    palette.toolTipBase: Theme.raised
+    palette.toolTipText: Theme.text
+    palette.placeholderText: Theme.textFaint
+    palette.brightText: Theme.text
+    palette.link: Theme.accent
+
+    Binding { target: Theme; property: "mode"; value: window.app.theme }
+
+    // ---------- Unsaved-changes guard ----------
+    function guarded(action, verb) {
+        if (!app.project.modified) {
+            action()
+            return
+        }
+        pendingAction = action
+        unsavedDialog.message = qsTr("Do you want to save the changes to “%1” before %2?").arg(app.project.name).arg(verb)
+        unsavedDialog.open()
+    }
+    function runPending() {
+        const action = pendingAction
+        pendingAction = null
+        if (action)
+            action()
+    }
+    function save(thenRun) {
+        if (app.project.hasFilePath) {
+            if (app.project.save() && thenRun)
+                runPending()
+        } else {
+            saveDialog.runAfterSave = thenRun
+            saveDialog.open()
+        }
+    }
+
+    onClosing: close => {
+        if (allowClose)
+            return
+        close.accepted = false
+        const quit = () => { app.prepareQuit(false); allowClose = true; window.close() }
+        if (app.exporter.busy) {
+            exportRunningDialog.open()
+            return
+        }
+        guarded(quit, qsTr("closing"))
+    }
+
+    Component.onCompleted: {
+        if (!app.engineReady)
+            messageBox.show(qsTr("The media engine could not start"),
+                            qsTr("FrameTrellis could not load the MLT multimedia framework, so media cannot be played or exported.\n\n%1\n\nReinstalling FrameTrellis usually fixes this.").arg(app.engineMessage))
+        else if (app.project.recovery.autosavePath)
+            recoveryDialog.open()
+        else if (app.firstRun)
+            welcome.open()
+    }
+
+    Connections {
+        target: window.app
+        function onErrorOccurred(title, message) { messageBox.show(title, message) }
+    }
+
+    // ---------- Menus ----------
+    menuBar: MenuBar {
+        background: Rectangle { color: Theme.panel; Rectangle { anchors.bottom: parent.bottom; width: parent.width; height: 1; color: Theme.border } }
+
+        Menu {
+            title: qsTr("&File")
+            Action { text: qsTr("&New Project…"); shortcut: StandardKey.New; onTriggered: window.guarded(() => newDialog.open(), qsTr("creating a new project")) }
+            Action { text: qsTr("&Open Project…"); shortcut: StandardKey.Open; onTriggered: window.guarded(() => openDialog.open(), qsTr("opening another project")) }
+            Menu {
+                id: recentMenu
+                title: qsTr("Open &Recent")
+                enabled: window.app.project.recentProjects.length > 0
+                Instantiator {
+                    model: window.app.project.recentProjects
+                    delegate: MenuItem {
+                        required property string modelData
+                        text: modelData
+                        onTriggered: window.guarded(() => window.app.project.openProject(modelData), qsTr("opening another project"))
+                    }
+                    onObjectAdded: (index, object) => recentMenu.insertItem(index, object)
+                    onObjectRemoved: (index, object) => recentMenu.removeItem(object)
+                }
+                MenuSeparator {}
+                Action { text: qsTr("Clear Recent Projects"); onTriggered: window.app.project.clearRecentProjects() }
+            }
+            MenuSeparator {}
+            Action { text: qsTr("&Save"); shortcut: StandardKey.Save; onTriggered: window.save(false) }
+            Action { text: qsTr("Save &As…"); shortcut: "Ctrl+Shift+S"; onTriggered: { saveDialog.runAfterSave = false; saveDialog.open() } }
+            MenuSeparator {}
+            Action { text: qsTr("&Import Media…"); shortcut: "Ctrl+I"; onTriggered: importDialog.open() }
+            Action { text: qsTr("&Export…"); shortcut: "Ctrl+E"; enabled: !window.app.timeline.empty || window.app.exporter.busy; onTriggered: exportDialog.open() }
+            MenuSeparator {}
+            Action { text: qsTr("&Quit"); shortcut: StandardKey.Quit; onTriggered: window.close() }
+        }
+        Menu {
+            title: qsTr("&Edit")
+            Action { text: window.app.project.canUndo ? qsTr("&Undo %1").arg(window.app.project.undoText) : qsTr("&Undo"); shortcut: StandardKey.Undo; enabled: window.app.project.canUndo; onTriggered: window.app.project.undo() }
+            Action { text: window.app.project.canRedo ? qsTr("&Redo %1").arg(window.app.project.redoText) : qsTr("&Redo"); shortcut: "Ctrl+Shift+Z"; enabled: window.app.project.canRedo; onTriggered: window.app.project.redo() }
+            MenuSeparator {}
+            Action { text: qsTr("&Split at Playhead"); shortcut: "S"; enabled: window.editKeys; onTriggered: window.app.timeline.splitAtPlayhead() }
+            Action { text: qsTr("Add &Transition"); shortcut: "T"; enabled: window.editKeys; onTriggered: window.app.timeline.addTransition() }
+            Action { text: qsTr("&Delete"); shortcut: StandardKey.Delete; enabled: window.editKeys; onTriggered: window.app.timeline.deleteSelection(false) }
+            Action { text: qsTr("Ripple De&lete"); shortcut: "Shift+Delete"; enabled: window.editKeys; onTriggered: window.app.timeline.deleteSelection(true) }
+            MenuSeparator {}
+            Action { text: qsTr("Select &All Clips"); shortcut: StandardKey.SelectAll; enabled: window.editKeys; onTriggered: window.app.timeline.selectAll() }
+            Action { text: qsTr("Clear Selection"); onTriggered: window.app.timeline.clearSelection() }
+            MenuSeparator {}
+            Action { text: qsTr("Check for Missing Media"); onTriggered: window.app.media.rescan() }
+        }
+        Menu {
+            title: qsTr("&View")
+            Action { text: qsTr("Zoom &In"); shortcut: "+"; enabled: window.editKeys; onTriggered: window.app.timeline.zoomIn() }
+            Action { text: qsTr("Zoom &Out"); shortcut: "-"; enabled: window.editKeys; onTriggered: window.app.timeline.zoomOut() }
+            Action { text: qsTr("&Snapping"); shortcut: "N"; enabled: window.editKeys; checkable: true; checked: window.app.timeline.snapping; onTriggered: window.app.timeline.snapping = checked }
+            MenuSeparator {}
+            Action { text: qsTr("Compact Tracks"); checkable: true; checked: timelinePanel.trackHeight === 44; onTriggered: timelinePanel.trackHeight = 44 }
+            Action { text: qsTr("Normal Tracks"); checkable: true; checked: timelinePanel.trackHeight === 60; onTriggered: timelinePanel.trackHeight = 60 }
+            Action { text: qsTr("Tall Tracks"); checkable: true; checked: timelinePanel.trackHeight === 84; onTriggered: timelinePanel.trackHeight = 84 }
+            MenuSeparator {}
+            Action { text: qsTr("Dark Theme"); checkable: true; checked: window.app.theme === "dark"; onTriggered: window.app.theme = "dark" }
+            Action { text: qsTr("Light Theme"); checkable: true; checked: window.app.theme === "light"; onTriggered: window.app.theme = "light" }
+        }
+        Menu {
+            title: qsTr("&Playback")
+            Action { text: window.app.playback.playing ? qsTr("&Pause") : qsTr("&Play"); shortcut: "Space"; enabled: window.editKeys; onTriggered: window.app.playback.togglePlay() }
+            Action { text: qsTr("Previous Frame"); shortcut: "Left"; enabled: window.editKeys; onTriggered: window.app.playback.step(-1) }
+            Action { text: qsTr("Next Frame"); shortcut: "Right"; enabled: window.editKeys; onTriggered: window.app.playback.step(1) }
+            Action { text: qsTr("Back One Second"); shortcut: "Shift+Left"; enabled: window.editKeys; onTriggered: window.app.playback.step(-Math.round(window.app.timeline.frameRate)) }
+            Action { text: qsTr("Forward One Second"); shortcut: "Shift+Right"; enabled: window.editKeys; onTriggered: window.app.playback.step(Math.round(window.app.timeline.frameRate)) }
+            Action { text: qsTr("Previous Edit Point"); shortcut: "Up"; enabled: window.editKeys; onTriggered: window.app.timeline.previousEditPoint() }
+            Action { text: qsTr("Next Edit Point"); shortcut: "Down"; enabled: window.editKeys; onTriggered: window.app.timeline.nextEditPoint() }
+            Action { text: qsTr("Go to Start"); shortcut: "Home"; enabled: window.editKeys; onTriggered: window.app.playback.goToStart() }
+            Action { text: qsTr("Go to End"); shortcut: "End"; enabled: window.editKeys; onTriggered: window.app.playback.goToEnd() }
+            MenuSeparator {}
+            Action { text: qsTr("Mute Preview"); checkable: true; checked: window.app.playback.muted; enabled: window.app.playback.audioAvailable; onTriggered: window.app.playback.muted = checked }
+        }
+        Menu {
+            title: qsTr("&Help")
+            Action { text: qsTr("&Keyboard Shortcuts"); shortcut: "F1"; onTriggered: shortcutsDialog.open() }
+            Action { text: qsTr("&Getting Started"); onTriggered: welcome.open() }
+            Action { text: qsTr("&Documentation"); onTriggered: window.app.openUrl("https://sanskarin.github.io/frametrellis/docs/") }
+            Action { text: qsTr("&Report an Issue"); onTriggered: window.app.openUrl("https://github.com/sanskarIN/frametrellis/issues") }
+            MenuSeparator {}
+            Action { text: qsTr("&About FrameTrellis"); onTriggered: aboutDialog.open() }
+        }
+    }
+
+    // ---------- Toolbar ----------
+    header: Rectangle {
+        height: 44
+        color: Theme.panel
+        Rectangle { anchors.bottom: parent.bottom; width: parent.width; height: 1; color: Theme.border }
+        RowLayout {
+            anchors.fill: parent
+            anchors.leftMargin: Theme.spacingS
+            anchors.rightMargin: Theme.spacingS
+            spacing: 2
+            Image {
+                source: "qrc:/qt/qml/FrameTrellis/icons/app-icon.svg"
+                sourceSize.width: 24
+                sourceSize.height: 24
+                Layout.rightMargin: Theme.spacingS
+                Accessible.ignored: true
+            }
+            IconButton { iconName: "file-new"; tip: qsTr("New project (Ctrl+N)"); onClicked: window.guarded(() => newDialog.open(), qsTr("creating a new project")) }
+            IconButton { iconName: "folder-open"; tip: qsTr("Open project (Ctrl+O)"); onClicked: window.guarded(() => openDialog.open(), qsTr("opening another project")) }
+            IconButton { iconName: "save"; tip: qsTr("Save (Ctrl+S)"); active: window.app.project.modified; onClicked: window.save(false) }
+            Rectangle { width: 1; height: 22; color: Theme.border; Layout.leftMargin: 6; Layout.rightMargin: 6 }
+            IconButton { iconName: "undo"; tip: window.app.project.canUndo ? qsTr("Undo %1 (Ctrl+Z)").arg(window.app.project.undoText) : qsTr("Nothing to undo"); enabled: window.app.project.canUndo; onClicked: window.app.project.undo() }
+            IconButton { iconName: "redo"; tip: window.app.project.canRedo ? qsTr("Redo %1 (Ctrl+Shift+Z)").arg(window.app.project.redoText) : qsTr("Nothing to redo"); enabled: window.app.project.canRedo; onClicked: window.app.project.redo() }
+            Rectangle { width: 1; height: 22; color: Theme.border; Layout.leftMargin: 6; Layout.rightMargin: 6 }
+            IconButton { iconName: "import"; text: qsTr("Import"); tip: qsTr("Import media (Ctrl+I)"); onClicked: importDialog.open() }
+            IconButton { iconName: "export"; text: qsTr("Export"); tip: qsTr("Export video (Ctrl+E)"); enabled: !window.app.timeline.empty || window.app.exporter.busy; onClicked: exportDialog.open() }
+            Item { Layout.fillWidth: true }
+            Text {
+                text: window.app.project.title
+                color: Theme.textMuted
+                font.pixelSize: Theme.fontSize
+                elide: Text.ElideMiddle
+                Layout.maximumWidth: 360
+            }
+            Item { Layout.fillWidth: true }
+            IconButton { iconName: window.app.theme === "dark" ? "sun" : "moon"; tip: window.app.theme === "dark" ? qsTr("Use light theme") : qsTr("Use dark theme"); onClicked: window.app.theme = window.app.theme === "dark" ? "light" : "dark" }
+            IconButton { iconName: "keyboard"; tip: qsTr("Keyboard shortcuts (F1)"); onClicked: shortcutsDialog.open() }
+            IconButton { iconName: "info"; tip: qsTr("About FrameTrellis"); onClicked: aboutDialog.open() }
+        }
+    }
+
+    // ---------- Workspace ----------
+    SplitView {
+        id: workspace
+        anchors.fill: parent
+        anchors.margins: Theme.spacingS
+        orientation: Qt.Vertical
+        handle: Rectangle {
+            implicitHeight: 6
+            color: SplitHandle.hovered || SplitHandle.pressed ? Theme.accent : "transparent"
+            opacity: 0.6
+        }
+
+        SplitView {
+            SplitView.preferredHeight: workspace.height * 0.56
+            SplitView.minimumHeight: 240
+            orientation: Qt.Horizontal
+            handle: Rectangle {
+                implicitWidth: 6
+                color: SplitHandle.hovered || SplitHandle.pressed ? Theme.accent : "transparent"
+                opacity: 0.6
+            }
+
+            MediaBinPanel {
+                app: window.app
+                SplitView.preferredWidth: 330
+                SplitView.minimumWidth: 200
+                onImportRequested: importDialog.open()
+                onRelinkRequested: (assetId, name) => { relinkDialog.assetId = assetId; relinkDialog.title = qsTr("Locate “%1”").arg(name); relinkDialog.open() }
+            }
+            MonitorPanel {
+                app: window.app
+                SplitView.fillWidth: true
+                SplitView.minimumWidth: 320
+            }
+            InspectorPanel {
+                app: window.app
+                SplitView.preferredWidth: 300
+                SplitView.minimumWidth: 220
+            }
+        }
+
+        TimelinePanel {
+            id: timelinePanel
+            app: window.app
+            SplitView.fillHeight: true
+            SplitView.minimumHeight: 180
+        }
+    }
+
+    // ---------- Status bar ----------
+    footer: Rectangle {
+        height: 28
+        color: Theme.panel
+        Rectangle { width: parent.width; height: 1; color: Theme.border }
+        RowLayout {
+            anchors.fill: parent
+            anchors.leftMargin: Theme.spacingM
+            anchors.rightMargin: Theme.spacingM
+            spacing: Theme.spacingM
+            Text {
+                Layout.fillWidth: true
+                text: window.app.statusMessage.length > 0 ? window.app.statusMessage
+                      : (window.app.media.importing ? qsTr("Importing %1 file(s)…").arg(window.app.media.pendingImports) : qsTr("Ready"))
+                color: Theme.textMuted
+                font.pixelSize: Theme.fontSizeSmall
+                elide: Text.ElideRight
+                Accessible.role: Accessible.StatusBar
+                Accessible.name: text
+            }
+            Row {
+                visible: window.app.media.model.missingCount > 0
+                spacing: 4
+                IconImage { source: "qrc:/qt/qml/FrameTrellis/icons/warning.svg"; sourceSize.width: 14; sourceSize.height: 14; color: Theme.warning; anchors.verticalCenter: parent.verticalCenter }
+                Text { text: qsTr("%1 offline").arg(window.app.media.model.missingCount); color: Theme.warning; font.pixelSize: Theme.fontSizeSmall; anchors.verticalCenter: parent.verticalCenter }
+            }
+            MouseArea {
+                visible: window.app.exporter.busy
+                implicitWidth: exportRow.implicitWidth
+                implicitHeight: exportRow.implicitHeight
+                cursorShape: Qt.PointingHandCursor
+                onClicked: exportDialog.open()
+                Row {
+                    id: exportRow
+                    spacing: 6
+                    Text { text: qsTr("Exporting"); color: Theme.accent; font.pixelSize: Theme.fontSizeSmall; anchors.verticalCenter: parent.verticalCenter }
+                    FtProgressBar { width: 120; value: window.app.exporter.progress; anchors.verticalCenter: parent.verticalCenter }
+                }
+            }
+            Text {
+                text: window.app.project.settingsSummary
+                color: Theme.textFaint
+                font.pixelSize: Theme.fontSizeSmall
+            }
+        }
+    }
+
+    // ---------- Dialogs ----------
+    FileDialog {
+        id: openDialog
+        title: qsTr("Open project")
+        nameFilters: [qsTr("FrameTrellis projects (*.ftproj)"), qsTr("All files (*)")]
+        currentFolder: window.app.fileUrl(window.app.project.projectFolder())
+        onAccepted: window.app.project.openProject(window.app.localPath(selectedFile))
+    }
+    FileDialog {
+        id: saveDialog
+        property bool runAfterSave: false
+        title: qsTr("Save project")
+        fileMode: FileDialog.SaveFile
+        defaultSuffix: "ftproj"
+        nameFilters: [qsTr("FrameTrellis projects (*.ftproj)")]
+        currentFolder: window.app.fileUrl(window.app.project.projectFolder())
+        selectedFile: window.app.fileUrl(window.app.project.projectFolder() + "/" + window.app.project.suggestedFileName())
+        onAccepted: {
+            if (window.app.project.saveAs(window.app.localPath(selectedFile)) && runAfterSave)
+                window.runPending()
+        }
+    }
+    FileDialog {
+        id: importDialog
+        title: qsTr("Import media")
+        fileMode: FileDialog.OpenFiles
+        nameFilters: window.app.media.nameFilters
+        onAccepted: window.app.media.importFiles(selectedFiles)
+    }
+    FileDialog {
+        id: relinkDialog
+        property string assetId
+        fileMode: FileDialog.OpenFile
+        nameFilters: window.app.media.nameFilters
+        onAccepted: window.app.media.relink(assetId, window.app.localPath(selectedFile))
+    }
+
+    NewProjectDialog { id: newDialog; app: window.app }
+    ExportDialog { id: exportDialog; objectName: "exportDialog"; app: window.app }
+    AboutDialog { id: aboutDialog; objectName: "aboutDialog"; app: window.app }
+    ShortcutsDialog { id: shortcutsDialog }
+    WelcomeOverlay { id: welcome; objectName: "welcome"; app: window.app; onImportRequested: importDialog.open() }
+    MessageBox { id: messageBox }
+
+    ConfirmDialog {
+        id: unsavedDialog
+        title: qsTr("Unsaved changes")
+        onSaveRequested: window.save(true)
+        onDiscardRequested: window.runPending()
+        onRejected: window.pendingAction = null
+    }
+    ConfirmDialog {
+        id: exportRunningDialog
+        title: qsTr("An export is running")
+        message: qsTr("Quitting now cancels the export. The partially written file is removed.")
+        acceptText: qsTr("Keep exporting")
+        discardText: qsTr("Cancel export and quit")
+        onDiscardRequested: { window.app.exporter.cancel(); window.guarded(() => { window.app.prepareQuit(false); window.allowClose = true; window.close() }, qsTr("closing")) }
+    }
+    ConfirmDialog {
+        id: recoveryDialog
+        title: qsTr("Recover unsaved work?")
+        message: qsTr("FrameTrellis closed unexpectedly while “%1” had unsaved changes. An automatic backup from %2 is available.")
+                 .arg(window.app.project.recovery.name || qsTr("a project")).arg(window.app.project.recovery.savedAt || "")
+        acceptText: qsTr("Recover")
+        discardText: qsTr("Discard backup")
+        onSaveRequested: window.app.project.recoverAutosave()
+        onDiscardRequested: window.app.project.discardAutosave()
+    }
+}

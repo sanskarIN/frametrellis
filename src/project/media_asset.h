@@ -27,14 +27,14 @@ struct MediaInfo
     bool hasAudio = false;
     int width = 0;
     int height = 0;
-    Rational frameRate;      ///< native video frame rate; invalid when unknown or not video
+    Rational frameRate; ///< native video frame rate; invalid when unknown or not video
     int audioChannels = 0;
     int audioSampleRate = 0;
-    QString container;       ///< demuxer name, e.g. "mov,mp4,m4a,3gp,3g2,mj2"
+    QString container; ///< demuxer name, e.g. "mov,mp4,m4a,3gp,3g2,mj2"
     QString videoCodec;
     QString audioCodec;
     qint64 fileSize = 0;
-    QDateTime lastModified;  ///< UTC modification time when probed
+    QDateTime lastModified; ///< UTC modification time when probed
 
     friend bool operator==(const MediaInfo&, const MediaInfo&) = default;
 };

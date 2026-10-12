@@ -12,8 +12,7 @@ namespace ft {
 ProjectDocument::ProjectDocument(Project project, QObject* parent)
     : QObject(parent)
     , m_project(std::move(project))
-{
-}
+{}
 
 ProjectDocument::~ProjectDocument() = default;
 
@@ -71,6 +70,15 @@ Status ProjectDocument::redo()
     }
     afterChange(*result, wasModified);
     return {};
+}
+
+void ProjectDocument::markModified()
+{
+    const bool wasModified = isModified();
+    m_history.markUnsaved();
+    if (!wasModified) {
+        emit modifiedChanged(true);
+    }
 }
 
 QString ProjectDocument::displayName() const

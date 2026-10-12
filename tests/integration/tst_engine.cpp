@@ -5,13 +5,16 @@
 #include "engine/mlt_runtime.h"
 #include "engine/timeline_graph.h"
 #include "media/media_probe.h"
+#include "media/waveform.h"
 #include "media_fixtures.h"
 
+#include <QDir>
 #include <QFile>
 #include <QTemporaryDir>
 #include <QTest>
-
 #include <mlt++/Mlt.h>
+
+#include <cmath>
 
 using namespace ft;
 using namespace ft::testing;
@@ -20,11 +23,13 @@ namespace {
 
 struct Media
 {
-    QString video;      // 3 s: red, green, blue; 440 Hz tone
-    QString videoMute;  // 2 s: white, black; no audio
-    QString tone;       // 2 s stereo WAV
+    QString video;       // 3 s: red, green, blue; 440 Hz tone
+    QString videoMute;   // 2 s: white, black; no audio
+    QString tone;        // 2 s stereo WAV
     QString still;       // yellow 16:9 PNG
     QString narrowStill; // yellow 1:1 PNG
+    QString red;         // 3 s of red with a 440 Hz tone
+    QString blue;        // 3 s of blue, silent
 };
 
 Clip clipOf(const Id& asset, FrameCount start, FrameCount in, FrameCount duration)
@@ -112,12 +117,23 @@ private slots:
         mute.withAudio = false;
         m_media.videoMute = makeVideo(m_dir.path(), QStringLiteral("mute.mp4"), mute);
         m_media.tone = makeTone(m_dir.path(), QStringLiteral("tone.wav"), 2.0);
-        m_media.still = makeStill(m_dir.path(), QStringLiteral("yellow.png"), Qt::yellow, QSize(64, 36));
-        m_media.narrowStill = makeStill(m_dir.path(), QStringLiteral("narrow.png"), Qt::yellow, QSize(48, 48));
+        m_media.still =
+            makeStill(m_dir.path(), QStringLiteral("yellow.png"), Qt::yellow, QSize(64, 36));
+        m_media.narrowStill =
+            makeStill(m_dir.path(), QStringLiteral("narrow.png"), Qt::yellow, QSize(48, 48));
         QVERIFY(!m_media.video.isEmpty());
         QVERIFY(!m_media.videoMute.isEmpty());
         QVERIFY(!m_media.tone.isEmpty());
         QVERIFY(!m_media.still.isEmpty());
+        VideoSpec red;
+        red.segmentColors = {Qt::red, Qt::red, Qt::red};
+        m_media.red = makeVideo(m_dir.path(), QStringLiteral("red.mp4"), red);
+        VideoSpec blue;
+        blue.segmentColors = {Qt::blue, Qt::blue, Qt::blue};
+        blue.withAudio = false;
+        m_media.blue = makeVideo(m_dir.path(), QStringLiteral("blue.mp4"), blue);
+        QVERIFY(!m_media.red.isEmpty());
+        QVERIFY(!m_media.blue.isEmpty());
     }
 
     void probeVideo()
@@ -158,7 +174,8 @@ private slots:
 
     void probeRejectsBadFiles()
     {
-        QCOMPARE(media::probeMedia(m_dir.filePath(QStringLiteral("missing.mp4"))).error().code, ErrorCode::NotFound);
+        QCOMPARE(media::probeMedia(m_dir.filePath(QStringLiteral("missing.mp4"))).error().code,
+                 ErrorCode::NotFound);
         QVERIFY(!media::probeMedia(m_dir.path()));
         QFile empty(m_dir.filePath(QStringLiteral("empty.mp4")));
         QVERIFY(empty.open(QIODevice::WriteOnly));
@@ -188,7 +205,8 @@ private slots:
         QVERIFY2(isCloseTo(averageColor(*thumb), Qt::red), qPrintable(averageColor(*thumb).name()));
         Result<MediaInfo> stillInfo = media::probeMedia(m_media.still);
         QVERIFY(stillInfo);
-        Result<QImage> stillThumb = media::renderThumbnail(m_media.still, *stillInfo, QSize(32, 32));
+        Result<QImage> stillThumb =
+            media::renderThumbnail(m_media.still, *stillInfo, QSize(32, 32));
         QVERIFY(stillThumb);
         QVERIFY(isCloseTo(averageColor(*stillThumb), Qt::yellow));
         Result<MediaInfo> toneInfo = media::probeMedia(m_media.tone);
@@ -224,8 +242,10 @@ private slots:
         QVERIFY2(isCloseTo(overlayColor, Qt::yellow), qPrintable(overlayColor.name()));
         // A still with another aspect ratio is pillarboxed; the transparent bars reveal V1.
         Project narrow = projectWith({m_media.video, m_media.narrowStill}, &ids);
-        QVERIFY(narrow.timeline().insertClip(narrow.timeline().tracks()[0].id, clipOf(ids[2], 0, 0, 50), narrow.sourceLookup()));
-        QVERIFY(narrow.timeline().insertClip(narrow.timeline().tracks()[1].id, clipOf(ids[3], 0, 0, 10), narrow.sourceLookup()));
+        QVERIFY(narrow.timeline().insertClip(narrow.timeline().tracks()[0].id,
+                                             clipOf(ids[2], 0, 0, 50), narrow.sourceLookup()));
+        QVERIFY(narrow.timeline().insertClip(narrow.timeline().tracks()[1].id,
+                                             clipOf(ids[3], 0, 0, 10), narrow.sourceLookup()));
         const QImage boxed = renderAt(narrow, 5);
         QVERIFY(isCloseTo(averageColor(boxed, QRect(70, 35, 20, 20)), Qt::yellow));
         QVERIFY(isCloseTo(averageColor(boxed, QRect(0, 0, 20, 90)), Qt::red));
@@ -239,7 +259,8 @@ private slots:
         props.video.opacity = 0.5;
         QVERIFY(p.timeline().setClipProperties(overlay, props));
         const QColor blended = averageColor(renderAt(p, 15));
-        QVERIFY2(blended.red() > 200 && blended.green() > 80 && blended.green() < 200, qPrintable(blended.name()));
+        QVERIFY2(blended.red() > 200 && blended.green() > 80 && blended.green() < 200,
+                 qPrintable(blended.name()));
     }
 
     void videoFadeIn()
@@ -253,7 +274,8 @@ private slots:
         const int start = averageColor(renderAt(p, 0)).lightness();
         const int middle = averageColor(renderAt(p, 10)).lightness();
         const int end = averageColor(renderAt(p, 22)).lightness();
-        QVERIFY2(start < 30 && middle > start + 40 && end > 220, qPrintable(QStringLiteral("%1 %2 %3").arg(start).arg(middle).arg(end)));
+        QVERIFY2(start < 30 && middle > start + 40 && end > 220,
+                 qPrintable(QStringLiteral("%1 %2 %3").arg(start).arg(middle).arg(end)));
     }
 
     void pictureAdjustments()
@@ -268,7 +290,8 @@ private slots:
         c.properties.video.saturation = 0.0; // red becomes grey
         QVERIFY(p.timeline().insertClip(v1, c, p.sourceLookup()));
         const QColor grey = averageColor(renderAt(p, 5));
-        QVERIFY2(qAbs(grey.red() - grey.green()) < 25 && qAbs(grey.green() - grey.blue()) < 25, qPrintable(grey.name()));
+        QVERIFY2(qAbs(grey.red() - grey.green()) < 25 && qAbs(grey.green() - grey.blue()) < 25,
+                 qPrintable(grey.name()));
     }
 
     void audioMixMuteAndGain()
@@ -286,7 +309,8 @@ private slots:
         quiet.gain = 0.25;
         QVERIFY(p.timeline().setClipProperties(toneClip, quiet));
         const int reduced = audioPeakAt(p, 10);
-        QVERIFY2(reduced > full / 6 && reduced < full / 2, qPrintable(QStringLiteral("%1 vs %2").arg(reduced).arg(full)));
+        QVERIFY2(reduced > full / 6 && reduced < full / 2,
+                 qPrintable(QStringLiteral("%1 vs %2").arg(reduced).arg(full)));
         ClipProperties muted;
         muted.muted = true;
         QVERIFY(p.timeline().setClipProperties(toneClip, muted));
@@ -298,10 +322,64 @@ private slots:
         QVERIFY(isCloseTo(averageColor(renderAt(p, 10)), Qt::white));
     }
 
+    void transitionsDissolveAndCrossfade()
+    {
+        QList<Id> ids;
+        Project p = projectWith({m_media.red, m_media.blue}, &ids);
+        const Id v1 = p.timeline().tracks()[0].id;
+        // Red until frame 50, then blue; a 20-frame transition spans frames 40 to 59.
+        QVERIFY(p.timeline().insertClip(v1, clipOf(ids[0], 0, 0, 50), p.sourceLookup()));
+        QVERIFY(p.timeline().insertClip(v1, clipOf(ids[1], 50, 25, 50), p.sourceLookup()));
+        const Id redClip = p.timeline().tracks()[0].clips[0].id;
+        QVERIFY(p.timeline().addTransition(redClip, 20, p.sourceLookup()));
+        QVERIFY(p.validate());
+
+        auto profile = engine::createProfile(160, 90, p.settings().frameRate);
+        engine::TimelineGraphBuilder builder(*profile);
+        Result<engine::GraphBuildResult> graph = builder.build(p);
+        QVERIFY(graph);
+        QCOMPARE(graph->tractor->get_playtime(), 100); // the timeline keeps its length
+
+        QVERIFY(isCloseTo(averageColor(renderAt(p, 30)), Qt::red));
+        const QColor middle = averageColor(renderAt(p, 50));
+        QVERIFY2(middle.red() > 70 && middle.red() < 190 && middle.blue() > 70 &&
+                     middle.blue() < 190 && middle.green() < 50,
+                 qPrintable(middle.name()));
+        QVERIFY(isCloseTo(averageColor(renderAt(p, 70)), Qt::blue));
+        QVERIFY(isCloseTo(averageColor(renderAt(p, 99)), Qt::blue));
+
+        // The sound of the red clip fades out across the transition instead of stopping at the
+        // cut, and is gone after it.
+        const int before = audioPeakAt(p, 30);
+        const int during = audioPeakAt(p, 50);
+        const int after = audioPeakAt(p, 70);
+        QVERIFY2(before > 8000, qPrintable(QString::number(before)));
+        QVERIFY2(during > 1000 && during < before,
+                 qPrintable(QStringLiteral("%1 of %2").arg(during).arg(before)));
+        QVERIFY2(after < 50, qPrintable(QString::number(after)));
+    }
+
+    void transitionsKeepClipVolume()
+    {
+        QList<Id> ids;
+        Project p = projectWith({m_media.red, m_media.blue}, &ids);
+        const Id v1 = p.timeline().tracks()[0].id;
+        QVERIFY(p.timeline().insertClip(v1, clipOf(ids[0], 0, 0, 50), p.sourceLookup()));
+        QVERIFY(p.timeline().insertClip(v1, clipOf(ids[1], 50, 25, 50), p.sourceLookup()));
+        const Id redClip = p.timeline().tracks()[0].clips[0].id;
+        QVERIFY(p.timeline().addTransition(redClip, 20, p.sourceLookup()));
+        ClipProperties muted;
+        muted.muted = true;
+        QVERIFY(p.timeline().setClipProperties(redClip, muted));
+        // A muted clip stays muted inside the transition.
+        QVERIFY(audioPeakAt(p, 45) < 50);
+    }
+
     void missingMediaUsesPlaceholderOrFails()
     {
         QTemporaryDir dir;
-        const QString path = makeStill(dir.path(), QStringLiteral("temp.png"), Qt::cyan, QSize(64, 36));
+        const QString path =
+            makeStill(dir.path(), QStringLiteral("temp.png"), Qt::cyan, QSize(64, 36));
         QList<Id> ids;
         Project p = projectWith({path}, &ids);
         const Id v1 = p.timeline().tracks()[0].id;
@@ -310,7 +388,8 @@ private slots:
         QVERIFY(QFile::remove(path));
         QStringList warnings;
         const QColor offline = averageColor(renderAt(p, 2, &warnings));
-        QVERIFY2(offline.red() > offline.green() + 30, qPrintable(offline.name())); // dark red placeholder
+        QVERIFY2(offline.red() > offline.green() + 30,
+                 qPrintable(offline.name())); // dark red placeholder
         QCOMPARE(warnings.size(), 1);
         auto profile = engine::createProfile(160, 90, p.settings().frameRate);
         engine::TimelineGraphBuilder builder(*profile);
@@ -352,10 +431,115 @@ private slots:
         QVERIFY(graph->tractor->get_length() >= 1);
     }
 
-    void cleanupTestCase()
+    void waveformOfAToneHasASteadyLevel()
     {
-        engine::MltRuntime::shutdown();
+        Result<MediaInfo> info = media::probeMedia(m_media.tone);
+        QVERIFY(info);
+        Result<media::WaveformData> wave = media::computeWaveform(m_media.tone, *info, 50);
+        QVERIFY2(wave, qPrintable(wave ? QString() : wave.error().toString()));
+        QCOMPARE(wave->binsPerSecond, 50);
+        // About 2 s; encoders may round the length to whole audio packets.
+        const auto expectedBins =
+            static_cast<std::size_t>(std::ceil(static_cast<double>(info->durationUs) * 50 / 1e6));
+        QCOMPARE(wave->peaks.size(), expectedBins);
+        QVERIFY(expectedBins >= 95 && expectedBins <= 101);
+        // The tone is written at -6 dBFS, half of full scale.
+        for (std::size_t i = 1; i + 1 < wave->peaks.size(); ++i) {
+            QVERIFY2(std::abs(int(wave->peaks[i]) - 128) <= 12,
+                     qPrintable(QStringLiteral("bin %1: %2").arg(i).arg(wave->peaks[i])));
+        }
     }
+
+    void waveformOfAVideoUsesItsSound()
+    {
+        Result<MediaInfo> info = media::probeMedia(m_media.video);
+        QVERIFY(info);
+        Result<media::WaveformData> wave = media::computeWaveform(m_media.video, *info);
+        QVERIFY(wave);
+        QVERIFY(std::abs(wave->durationSeconds() - 3.0) < 0.05);
+        const auto loud = std::count_if(wave->peaks.begin(), wave->peaks.end(),
+                                        [](std::uint8_t p) { return p > 90; });
+        QVERIFY(loud > static_cast<long>(wave->peaks.size() * 9 / 10));
+    }
+
+    void waveformNeedsSound()
+    {
+        Result<MediaInfo> info = media::probeMedia(m_media.videoMute);
+        QVERIFY(info);
+        Result<media::WaveformData> wave = media::computeWaveform(m_media.videoMute, *info);
+        QVERIFY(!wave);
+        QCOMPARE(wave.error().code, ErrorCode::Media);
+    }
+
+    void waveformCanBeCancelled()
+    {
+        Result<MediaInfo> info = media::probeMedia(m_media.tone);
+        QVERIFY(info);
+        const std::atomic<bool> cancel{true};
+        Result<media::WaveformData> wave =
+            media::computeWaveform(m_media.tone, *info, 100, &cancel);
+        QVERIFY(!wave);
+        QCOMPARE(wave.error().code, ErrorCode::Cancelled);
+    }
+
+    void waveformCacheRoundTrip()
+    {
+        QTemporaryDir cacheDir;
+        const media::WaveformCache cache(cacheDir.path());
+        Result<MediaInfo> info = media::probeMedia(m_media.tone);
+        QVERIFY(info);
+        const QString key = cache.keyFor(m_media.tone, *info);
+        QVERIFY(!cache.load(key));
+
+        media::WaveformData data;
+        data.binsPerSecond = 100;
+        data.peaks = {0, 10, 200, 255, 128};
+        QVERIFY(cache.store(key, data));
+        QCOMPARE(cache.load(key), std::optional<media::WaveformData>(data));
+
+        // A damaged cache file is ignored rather than trusted.
+        QFile file(QDir(cacheDir.path()).filePath(key + QStringLiteral(".ftwf")));
+        QVERIFY(file.open(QIODevice::Append));
+        file.write("junk");
+        file.close();
+        QVERIFY(!cache.load(key));
+
+        // Another file (or the same file changed) has another key.
+        Result<MediaInfo> other = media::probeMedia(m_media.video);
+        QVERIFY(other);
+        QVERIFY(cache.keyFor(m_media.video, *other) != key);
+    }
+
+    void waveformRendering()
+    {
+        media::WaveformData data;
+        data.binsPerSecond = 10;
+        data.peaks = std::vector<std::uint8_t>(10, 128);
+        data.peaks.resize(20, 255); // 1 s at half level, then 1 s at full level
+        const QImage image =
+            media::renderWaveform(data, 0.0, 2.0, QSize(100, 40), QColor(Qt::white));
+        QCOMPARE(image.size(), QSize(100, 40));
+        const auto columnHeight = [&](int x) {
+            int painted = 0;
+            for (int y = 0; y < image.height(); ++y) {
+                painted += qAlpha(image.pixel(x, y)) > 0 ? 1 : 0;
+            }
+            return painted;
+        };
+        QVERIFY(std::abs(columnHeight(20) - 20) <= 2); // half of the height
+        QCOMPARE(columnHeight(80), 40);                // full height
+        QCOMPARE(qAlpha(image.pixel(20, 2)), 0);       // nothing drawn above a half level
+
+        // Gain scales the outline; showing only the second half draws full columns throughout.
+        const QImage louder =
+            media::renderWaveform(data, 0.0, 2.0, QSize(100, 40), QColor(Qt::white), 2.0);
+        QVERIFY(qAlpha(louder.pixel(20, 2)) > 0);
+        const QImage tail = media::renderWaveform(data, 1.0, 1.0, QSize(50, 40), QColor(Qt::white));
+        QVERIFY(qAlpha(tail.pixel(0, 0)) > 0 && qAlpha(tail.pixel(49, 39)) > 0);
+        QVERIFY(media::renderWaveform({}, 0.0, 1.0, QSize(10, 10), Qt::white).pixel(5, 5) == 0);
+    }
+
+    void cleanupTestCase() { engine::MltRuntime::shutdown(); }
 };
 
 QTEST_GUILESS_MAIN(EngineTest)

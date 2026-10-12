@@ -172,10 +172,7 @@ private slots:
         QCOMPARE(engine.position(), FrameCount{0});
     }
 
-    void cleanupTestCase()
-    {
-        engine::MltRuntime::shutdown();
-    }
+    void cleanupTestCase() { engine::MltRuntime::shutdown(); }
 };
 
 QTEST_GUILESS_MAIN(PlaybackTest)

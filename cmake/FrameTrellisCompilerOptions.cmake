@@ -11,7 +11,12 @@ if(MSVC)
 else()
     target_compile_options(ft_compile_options INTERFACE
         -Wall -Wextra -Wpedantic -Wshadow -Wnon-virtual-dtor -Wold-style-cast -Wcast-align
-        -Woverloaded-virtual -Wnull-dereference -Wimplicit-fallthrough)
+        -Woverloaded-virtual -Wimplicit-fallthrough)
+    if(CMAKE_CXX_COMPILER_ID MATCHES "Clang")
+        # GCC reports false positives for this warning inside Qt's inlined container and
+        # global-static code at -O2, so it is only enabled where it is reliable.
+        target_compile_options(ft_compile_options INTERFACE -Wnull-dereference)
+    endif()
     if(FT_WARNINGS_AS_ERRORS)
         target_compile_options(ft_compile_options INTERFACE -Werror)
     endif()
@@ -28,3 +33,8 @@ target_compile_definitions(ft_compile_options INTERFACE
     QT_NO_NARROWING_CONVERSIONS_IN_CONNECT
     QT_NO_FOREACH
     QT_DISABLE_DEPRECATED_UP_TO=0x060500)
+
+if(WIN32)
+    # Keep <windows.h> from defining min/max macros and pulling in rarely used headers.
+    target_compile_definitions(ft_compile_options INTERFACE NOMINMAX WIN32_LEAN_AND_MEAN)
+endif()

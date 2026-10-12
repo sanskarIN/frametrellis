@@ -1,0 +1,64 @@
+<!--page
+{
+  "out": "download/index.html",
+  "nav": "download",
+  "title": "Download",
+  "description": "Download FrameTrellis for Windows, or build it from source on Windows and Linux."
+}
+-->
+<div class="wrap page-head">
+  <h1>Download FrameTrellis</h1>
+  <p class="sub">FrameTrellis is free and open source. Packages are published on the
+    <a href="{{repo}}/releases" rel="noopener">GitHub releases page</a>, each with SHA-256 checksums,
+    a software bill of materials and the license notices of every bundled component.</p>
+</div>
+
+<section aria-labelledby="packages">
+  <div class="wrap">
+    <h2 id="packages">Packages</h2>
+    {{downloads}}
+  </div>
+</section>
+
+<section aria-labelledby="source">
+  <div class="wrap">
+    <h2 id="source">Build from source</h2>
+    <p class="sub">FrameTrellis needs a C++20 compiler, CMake 3.21 or newer, Qt 6.5 or newer, MLT 7 with its FFmpeg
+      module, and optionally SDL 2 for audio playback. The <a href="{{link:docs/building/index.html}}">building guide</a>
+      has the complete instructions.</p>
+    <div class="split">
+      <div>
+        <h3>Windows 11 (MSYS2 UCRT64 shell)</h3>
+<pre><code>pacman -S --needed mingw-w64-ucrt-x86_64-{cc,cmake,ninja,pkgconf,qt6-base,qt6-declarative,qt6-svg,qt6-imageformats,mlt,fftw,libebur128,ffmpeg,SDL2}
+git clone https://github.com/sanskarIN/frametrellis.git
+cd frametrellis
+cmake --preset windows-msys2
+cmake --build --preset windows-msys2
+ctest --preset windows-msys2</code></pre>
+      </div>
+      <div>
+        <h3>Ubuntu 24.04</h3>
+<pre><code>sudo apt install build-essential cmake ninja-build pkg-config git \
+  libavformat-dev libavcodec-dev libavutil-dev libavfilter-dev libavdevice-dev \
+  libswscale-dev libswresample-dev libsdl2-dev libgl1-mesa-dev libxkbcommon-x11-0 libxcb-cursor0
+pipx install aqtinstall                      # Ubuntu 24.04's Qt 6.4 is too old
+aqt install-qt linux desktop 6.8.3 linux_gcc_64 -O "$HOME/Qt"
+git clone https://github.com/sanskarIN/frametrellis.git &amp;&amp; cd frametrellis
+scripts/build-mlt.sh v7.22.0 "$HOME/.local/mlt"   # the MLT modules FrameTrellis needs
+cmake --preset linux -DCMAKE_PREFIX_PATH="$HOME/Qt/6.8.3/gcc_64;$HOME/.local/mlt"
+cmake --build --preset linux
+ctest --preset linux
+./build/linux/bin/frametrellis</code></pre>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section aria-labelledby="verify">
+  <div class="wrap">
+    <h2 id="verify">Verifying a download</h2>
+    <p class="sub">Every release lists the SHA-256 checksum of each file in <code>SHA256SUMS.txt</code>. On Windows, compare it with:</p>
+<pre><code>Get-FileHash .\FrameTrellis-&lt;version&gt;-windows-x64-setup.exe -Algorithm SHA256</code></pre>
+    <p class="muted">On Linux and macOS, use <code>sha256sum -c SHA256SUMS.txt</code>.</p>
+  </div>
+</section>

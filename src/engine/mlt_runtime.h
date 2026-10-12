@@ -19,7 +19,7 @@ struct EngineCapabilities
     bool avformatConsumer = false;
     bool colorProducer = false;
     bool mixTransition = false;
-    QString compositor; ///< "affine" or "composite"; empty if neither exists
+    QString compositor; ///< "affine" when available; empty otherwise
     bool volumeFilter = false;
     bool brightnessFilter = false;
     bool eqFilter = false; ///< libavfilter "eq" bridge for brightness/contrast/saturation

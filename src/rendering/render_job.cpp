@@ -65,7 +65,8 @@ void RenderJob::setState(State state)
         return;
     }
     if (!canTransition(m_state, state)) {
-        qCWarning(lcRender) << "Ignoring invalid render state transition" << int(m_state) << "->" << int(state);
+        qCWarning(lcRender) << "Ignoring invalid render state transition" << int(m_state) << "->"
+                            << int(state);
         return;
     }
     m_state = state;
@@ -89,7 +90,8 @@ void RenderJob::fail(const QString& message, const QString& detail)
     setState(State::Failed);
 }
 
-Status RenderJob::start(const Project& project, const ExportSettings& settings, const QString& projectFilePath)
+Status RenderJob::start(const Project& project, const ExportSettings& settings,
+                        const QString& projectFilePath)
 {
     if (!canTransition(m_state, State::Starting)) {
         return makeError(ErrorCode::Conflict, QStringLiteral("An export is already running."));
@@ -98,12 +100,14 @@ Status RenderJob::start(const Project& project, const ExportSettings& settings, 
         return valid;
     }
     if (!QFileInfo(m_helperProgram).isExecutable()) {
-        return makeError(ErrorCode::NotFound, QStringLiteral("The render helper is missing from this installation."),
+        return makeError(ErrorCode::NotFound,
+                         QStringLiteral("The render helper is missing from this installation."),
                          m_helperProgram);
     }
     auto snapshotDir = std::make_unique<QTemporaryDir>();
     if (!snapshotDir->isValid()) {
-        return makeError(ErrorCode::Io, QStringLiteral("Could not create a temporary folder for the export."));
+        return makeError(ErrorCode::Io,
+                         QStringLiteral("Could not create a temporary folder for the export."));
     }
     const QString snapshot = snapshotDir->filePath(QStringLiteral("render.ftproj"));
     if (const Status saved = project_format::saveToFile(project, snapshot); !saved) {
@@ -122,13 +126,14 @@ Status RenderJob::start(const Project& project, const ExportSettings& settings, 
     m_finalElapsed = -1;
     m_elapsed.start();
 
-    QStringList arguments{QStringLiteral("--project"), snapshot,
-                          QStringLiteral("--output"), settings.outputPath,
-                          QStringLiteral("--short-side"), QString::number(settings.shortSide),
-                          QStringLiteral("--crf"), QString::number(settings.crf),
-                          QStringLiteral("--preset"), settings.speedPreset,
-                          QStringLiteral("--audio-bitrate"), QString::number(settings.audioBitrateKbps),
-                          QStringLiteral("--watch-stdin")};
+    QStringList arguments{
+        QStringLiteral("--project"),       snapshot,
+        QStringLiteral("--output"),        settings.outputPath,
+        QStringLiteral("--short-side"),    QString::number(settings.shortSide),
+        QStringLiteral("--crf"),           QString::number(settings.crf),
+        QStringLiteral("--preset"),        settings.speedPreset,
+        QStringLiteral("--audio-bitrate"), QString::number(settings.audioBitrateKbps),
+        QStringLiteral("--watch-stdin")};
     if (!settings.includeAudio) {
         arguments << QStringLiteral("--no-audio");
     }
@@ -180,7 +185,8 @@ double RenderJob::progress() const
     if (m_totalFrames <= 0) {
         return 0.0;
     }
-    return std::clamp(static_cast<double>(m_framesDone) / static_cast<double>(m_totalFrames), 0.0, 1.0);
+    return std::clamp(static_cast<double>(m_framesDone) / static_cast<double>(m_totalFrames), 0.0,
+                      1.0);
 }
 
 qint64 RenderJob::elapsedMilliseconds() const
@@ -212,7 +218,7 @@ void RenderJob::onReadyRead()
             handleEvent(*event);
         }
     }
-    if (m_buffer.size() > 1024 * 1024) {
+    if (m_buffer.size() > qsizetype{1024} * 1024) {
         m_buffer.clear(); // never let unexpected output grow without bound
     }
 }
@@ -222,7 +228,8 @@ void RenderJob::handleEvent(const QJsonObject& event)
     const QString type = event.value(QLatin1String("event")).toString();
     if (type == QLatin1String("started")) {
         m_encoder = event.value(QLatin1String("encoder")).toString();
-        m_totalFrames = static_cast<FrameCount>(event.value(QLatin1String("total")).toDouble(double(m_totalFrames)));
+        m_totalFrames = static_cast<FrameCount>(
+            event.value(QLatin1String("total")).toDouble(double(m_totalFrames)));
         emit progressChanged();
     } else if (type == QLatin1String("progress")) {
         m_framesDone = static_cast<FrameCount>(event.value(QLatin1String("frame")).toDouble());
@@ -249,17 +256,21 @@ void RenderJob::onProcessFinished(int exitCode, QProcess::ExitStatus status)
     }
     if (status == QProcess::NormalExit && exitCode == protocol::Success && m_sawFinished) {
         setState(State::Succeeded);
-    } else if (m_state == State::Cancelling || (status == QProcess::NormalExit && exitCode == protocol::Cancelled)) {
+    } else if (m_state == State::Cancelling ||
+               (status == QProcess::NormalExit && exitCode == protocol::Cancelled)) {
         if (m_state != State::Cancelling) {
             setState(State::Cancelling);
         }
         // A killed helper may leave its temporary file behind; it never touches the destination.
         setState(State::Cancelled);
     } else if (status == QProcess::CrashExit) {
-        fail(QStringLiteral("The renderer stopped unexpectedly. Your project is safe; please try again."),
+        fail(QStringLiteral(
+                 "The renderer stopped unexpectedly. Your project is safe; please try again."),
              m_errorDetail);
     } else {
-        fail(m_errorMessage.isEmpty() ? QStringLiteral("Rendering failed (exit code %1).").arg(exitCode) : m_errorMessage,
+        fail(m_errorMessage.isEmpty()
+                 ? QStringLiteral("Rendering failed (exit code %1).").arg(exitCode)
+                 : m_errorMessage,
              m_errorDetail);
     }
     qCInfo(lcRender) << "Render job finished with state" << int(m_state);
@@ -268,7 +279,8 @@ void RenderJob::onProcessFinished(int exitCode, QProcess::ExitStatus status)
 void RenderJob::onProcessError(QProcess::ProcessError error)
 {
     if (error == QProcess::FailedToStart) {
-        fail(QStringLiteral("The render helper could not be started."), m_helperProgram + QStringLiteral(": ") + m_process->errorString());
+        fail(QStringLiteral("The render helper could not be started."),
+             m_helperProgram + QStringLiteral(": ") + m_process->errorString());
     }
 }
 

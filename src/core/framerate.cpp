@@ -4,6 +4,8 @@
 
 #include <QRegularExpression>
 
+#include <algorithm>
+
 namespace ft {
 
 namespace {
@@ -12,8 +14,8 @@ constexpr std::int64_t kMicrosecondsPerSecond = 1'000'000;
 
 std::optional<FrameRate> FrameRate::create(std::int64_t numerator, std::int64_t denominator)
 {
-    if (numerator <= 0 || denominator <= 0 || numerator > maxNumerator
-        || denominator > maxDenominator) {
+    if (numerator <= 0 || denominator <= 0 || numerator > maxNumerator ||
+        denominator > maxDenominator) {
         return std::nullopt;
     }
     const Rational rate(numerator, denominator);
@@ -28,14 +30,21 @@ std::optional<FrameRate> FrameRate::fromRational(const Rational& rational)
     return create(rational.numerator(), rational.denominator());
 }
 
+FrameRate FrameRate::integer(int framesPerSecond)
+{
+    return FrameRate(Rational(std::clamp(framesPerSecond, 1, 1000), 1));
+}
+
 QList<FrameRate> FrameRate::standardRates()
 {
     QList<FrameRate> rates;
-    const std::pair<std::int64_t, std::int64_t> values[] = {
-        {24000, 1001}, {24, 1}, {25, 1}, {30000, 1001}, {30, 1},
-        {48, 1},       {50, 1}, {60000, 1001}, {60, 1}};
+    const std::pair<std::int64_t, std::int64_t> values[] = {{24000, 1001}, {24, 1},       {25, 1},
+                                                            {30000, 1001}, {30, 1},       {48, 1},
+                                                            {50, 1},       {60000, 1001}, {60, 1}};
     for (const auto& [num, den] : values) {
-        rates.append(*create(num, den));
+        if (const auto rate = create(num, den)) {
+            rates.append(*rate);
+        }
     }
     return rates;
 }
@@ -56,8 +65,8 @@ QString FrameRate::displayName() const
     if (denominator() == 1) {
         return QStringLiteral("%1 fps").arg(numerator());
     }
-    return QStringLiteral("%1 fps").arg(QString::number(toDouble(), 'f', 3).remove(
-        QRegularExpression(QStringLiteral("0+$"))));
+    return QStringLiteral("%1 fps").arg(
+        QString::number(toDouble(), 'f', 3).remove(QRegularExpression(QStringLiteral("0+$"))));
 }
 
 std::optional<std::int64_t> FrameRate::framesToMicroseconds(FrameCount frames) const
@@ -75,8 +84,8 @@ std::optional<FrameCount> FrameRate::microsecondsToFrames(std::int64_t microseco
 
 double FrameRate::framesToSeconds(FrameCount frames) const
 {
-    return static_cast<double>(frames) * static_cast<double>(denominator())
-           / static_cast<double>(numerator());
+    return static_cast<double>(frames) * static_cast<double>(denominator()) /
+           static_cast<double>(numerator());
 }
 
 } // namespace ft

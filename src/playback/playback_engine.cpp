@@ -11,7 +11,6 @@
 
 #include <QMetaObject>
 #include <QPointer>
-
 #include <mlt++/Mlt.h>
 
 #include <chrono>
@@ -33,8 +32,21 @@ constexpr double kAudioLeadSeconds = 0.12;
 
 struct Command
 {
-    enum class Type { SetProject, ClearProject, Play, Pause, Seek, Step, PreviewSize, Audio, Volume, Quit };
-    explicit Command(Type t) : type(t) {}
+    enum class Type {
+        SetProject,
+        ClearProject,
+        Play,
+        Pause,
+        Seek,
+        Step,
+        PreviewSize,
+        Audio,
+        Volume,
+        Quit
+    };
+    explicit Command(Type t)
+        : type(t)
+    {}
     Type type;
     std::shared_ptr<const Project> project;
     FrameCount frame = 0;
@@ -48,7 +60,10 @@ struct Command
 class PlaybackEngine::Worker
 {
 public:
-    explicit Worker(PlaybackEngine* owner) : m_owner(owner), m_thread([this] { run(); }) {}
+    explicit Worker(PlaybackEngine* owner)
+        : m_owner(owner)
+        , m_thread([this] { run(); })
+    {}
 
     ~Worker()
     {
@@ -160,11 +175,14 @@ void PlaybackEngine::Worker::setPlaying(bool playing)
     }
     m_clockStart = Clock::now();
     m_clockStartFrame = m_position;
-    QMetaObject::invokeMethod(m_owner, [owner = QPointer<PlaybackEngine>(m_owner)] {
-        if (owner) {
-            owner->deliverFromWorker();
-        }
-    }, Qt::QueuedConnection);
+    QMetaObject::invokeMethod(
+        m_owner,
+        [owner = QPointer<PlaybackEngine>(m_owner)] {
+            if (owner) {
+                owner->deliverFromWorker();
+            }
+        },
+        Qt::QueuedConnection);
 }
 
 void PlaybackEngine::Worker::ensureProfile()
@@ -201,11 +219,14 @@ void PlaybackEngine::Worker::rebuild()
         m_tractor.reset();
         const QString message = built.error().toString();
         qCWarning(lcPlayback) << "Preview graph failed:" << message;
-        QMetaObject::invokeMethod(m_owner, [owner = QPointer<PlaybackEngine>(m_owner), message] {
-            if (owner) {
-                emit owner->errorOccurred(message);
-            }
-        }, Qt::QueuedConnection);
+        QMetaObject::invokeMethod(
+            m_owner,
+            [owner = QPointer<PlaybackEngine>(m_owner), message] {
+                if (owner) {
+                    emit owner->errorOccurred(message);
+                }
+            },
+            Qt::QueuedConnection);
         return;
     }
     m_tractor = std::move(built->tractor);
@@ -215,12 +236,15 @@ void PlaybackEngine::Worker::rebuild()
         m_position = std::max<FrameCount>(m_duration - 1, 0);
     }
     const QStringList warnings = built->warnings;
-    QMetaObject::invokeMethod(m_owner, [owner = QPointer<PlaybackEngine>(m_owner), warnings] {
-        if (owner) {
-            emit owner->warningsChanged(warnings);
-            owner->deliverFromWorker();
-        }
-    }, Qt::QueuedConnection);
+    QMetaObject::invokeMethod(
+        m_owner,
+        [owner = QPointer<PlaybackEngine>(m_owner), warnings] {
+            if (owner) {
+                emit owner->warningsChanged(warnings);
+                owner->deliverFromWorker();
+            }
+        },
+        Qt::QueuedConnection);
     m_needsRender = true;
 }
 
@@ -249,11 +273,14 @@ void PlaybackEngine::Worker::publish(const QImage& image, FrameCount position)
     }
     m_owner->m_position = position;
     if (schedule) {
-        QMetaObject::invokeMethod(m_owner, [owner = QPointer<PlaybackEngine>(m_owner)] {
-            if (owner) {
-                owner->deliverFromWorker();
-            }
-        }, Qt::QueuedConnection);
+        QMetaObject::invokeMethod(
+            m_owner,
+            [owner = QPointer<PlaybackEngine>(m_owner)] {
+                if (owner) {
+                    owner->deliverFromWorker();
+                }
+            },
+            Qt::QueuedConnection);
     }
 }
 
@@ -261,8 +288,9 @@ bool PlaybackEngine::Worker::applyCommands(std::deque<Command>& commands)
 {
     for (Command& command : commands) {
         // Commands that depend on the sequence length must see the latest project.
-        if (m_needsRebuild && (command.type == Command::Type::Seek || command.type == Command::Type::Step
-                               || command.type == Command::Type::Play)) {
+        if (m_needsRebuild &&
+            (command.type == Command::Type::Seek || command.type == Command::Type::Step ||
+             command.type == Command::Type::Play)) {
             rebuild();
         }
         switch (command.type) {
@@ -291,7 +319,8 @@ bool PlaybackEngine::Worker::applyCommands(std::deque<Command>& commands)
             m_needsRender = true;
             break;
         case Command::Type::Seek:
-            m_position = std::clamp<FrameCount>(command.frame, 0, std::max<FrameCount>(m_duration - 1, 0));
+            m_position =
+                std::clamp<FrameCount>(command.frame, 0, std::max<FrameCount>(m_duration - 1, 0));
             m_needsRender = true;
             if (m_playing) {
                 if (m_audio) {
@@ -303,7 +332,8 @@ bool PlaybackEngine::Worker::applyCommands(std::deque<Command>& commands)
             break;
         case Command::Type::Step:
             setPlaying(false);
-            m_position = std::clamp<FrameCount>(m_position + command.frame, 0, std::max<FrameCount>(m_duration - 1, 0));
+            m_position = std::clamp<FrameCount>(m_position + command.frame, 0,
+                                                std::max<FrameCount>(m_duration - 1, 0));
             m_needsRender = true;
             break;
         case Command::Type::PreviewSize:
@@ -333,7 +363,9 @@ void PlaybackEngine::Worker::run()
     while (true) {
         {
             std::unique_lock lock(m_mutex);
-            m_cv.wait(lock, [this] { return !m_queue.empty() || m_playing || m_needsRender || m_needsRebuild; });
+            m_cv.wait(lock, [this] {
+                return !m_queue.empty() || m_playing || m_needsRender || m_needsRebuild;
+            });
             commands.swap(m_queue);
         }
         if (!applyCommands(commands)) {
@@ -375,7 +407,8 @@ void PlaybackEngine::Worker::run()
         const double fps = m_profileRate.toDouble();
         const bool useAudio = m_audio && m_audioEnabled;
         if (useAudio) {
-            engine::AudioBlock audio = engine::frameToAudio(*frame, fps, kAudioFrequency, kAudioChannels, m_position);
+            engine::AudioBlock audio =
+                engine::frameToAudio(*frame, fps, kAudioFrequency, kAudioChannels, m_position);
             if (m_volume != 1.0) {
                 for (std::int16_t& s : audio.samples) {
                     s = static_cast<std::int16_t>(std::clamp(s * m_volume, -32768.0, 32767.0));
@@ -396,12 +429,14 @@ void PlaybackEngine::Worker::run()
             // The picture belongs to the audio that starts after what is already queued.
             const std::int64_t queued = m_audio->queuedSampleFrames();
             m_audio->write(audio.samples.data(), audio.sampleFrames());
-            const auto displayAt = Clock::now() + std::chrono::microseconds(queued * 1'000'000 / kAudioFrequency);
+            const auto displayAt =
+                Clock::now() + std::chrono::microseconds(queued * 1'000'000 / kAudioFrequency);
             // Once its audio is queued the frame is always shown; a command that interrupts the
             // wait is handled on the next iteration.
             (void)sleepUntil(displayAt);
         } else {
-            const auto offset = m_profileRate.framesToMicroseconds(m_position - m_clockStartFrame).value_or(0);
+            const auto offset =
+                m_profileRate.framesToMicroseconds(m_position - m_clockStartFrame).value_or(0);
             const auto displayAt = m_clockStart + std::chrono::microseconds(offset);
             if (Clock::now() - displayAt > std::chrono::milliseconds(500)) {
                 // Rendering fell far behind (slow machine or debugger): restart the clock.
@@ -425,7 +460,8 @@ void PlaybackEngine::Worker::run()
     }
 }
 
-PlaybackEngine::PlaybackEngine(QObject* parent) : QObject(parent)
+PlaybackEngine::PlaybackEngine(QObject* parent)
+    : QObject(parent)
 {
     qRegisterMetaType<ft::FrameCount>("ft::FrameCount");
     m_worker = std::make_unique<Worker>(this);

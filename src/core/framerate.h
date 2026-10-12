@@ -30,6 +30,8 @@ public:
     /// Returns a frame rate when num/den describes a positive rate within supported limits.
     static std::optional<FrameRate> create(std::int64_t numerator, std::int64_t denominator);
     static std::optional<FrameRate> fromRational(const Rational& rational);
+    /// A whole-number rate, clamped to 1..1000 fps (always valid).
+    static FrameRate integer(int framesPerSecond);
 
     /// Commonly used production frame rates, in ascending order.
     static QList<FrameRate> standardRates();
@@ -55,7 +57,9 @@ public:
     friend bool operator==(const FrameRate& a, const FrameRate& b) = default;
 
 private:
-    explicit FrameRate(Rational rate) : m_rate(rate) {}
+    explicit FrameRate(Rational rate)
+        : m_rate(rate)
+    {}
     Rational m_rate{25, 1};
 };
 

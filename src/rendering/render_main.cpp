@@ -10,6 +10,7 @@
 #include "project/project_serializer.h"
 #include "rendering/render_protocol.h"
 #include "rendering/render_runner.h"
+#include "rendering/self_test.h"
 
 #include <QCommandLineParser>
 #include <QCoreApplication>
@@ -54,6 +55,27 @@ extern "C" void handleSignal(int)
     g_cancel = true;
 }
 
+int runSelfTestCommand(const QString& directory)
+{
+    std::printf("FrameTrellis %s self-test\n", version::string);
+    std::fflush(stdout);
+    if (const Status engine = engine::MltRuntime::initialize(); !engine) {
+        std::printf("FAIL engine: %s\n", qPrintable(engine.error().toString()));
+        return protocol::Failure;
+    }
+    SelfTestReport report;
+    {
+        report = rendering::runSelfTest(directory, [](const SelfTestStep& step) {
+            std::printf("%s %s: %s\n", step.passed ? "PASS" : "FAIL", qPrintable(step.name),
+                        qPrintable(step.detail));
+            std::fflush(stdout);
+        });
+    }
+    engine::MltRuntime::shutdown();
+    std::printf("Self-test %s.\n", report.passed() ? "passed" : "FAILED");
+    return report.passed() ? protocol::Success : protocol::Failure;
+}
+
 void watchStdin()
 {
     // A "cancel" line, or the parent closing the pipe (for example because it crashed), stops
@@ -65,7 +87,9 @@ void watchStdin()
         while (true) {
 #ifdef Q_OS_WIN
             DWORD count = 0;
-            if (!ReadFile(GetStdHandle(STD_INPUT_HANDLE), buffer, sizeof(buffer), &count, nullptr) || count == 0) {
+            if (!ReadFile(GetStdHandle(STD_INPUT_HANDLE), buffer, sizeof(buffer), &count,
+                          nullptr) ||
+                count == 0) {
                 break;
             }
 #else
@@ -98,22 +122,49 @@ int main(int argc, char** argv)
     QCoreApplication::setApplicationVersion(QLatin1String(version::string));
 
     QCommandLineParser parser;
-    parser.setApplicationDescription(QStringLiteral("Renders a FrameTrellis project to an H.264/AAC MP4 file."));
+    parser.setApplicationDescription(
+        QStringLiteral("Renders a FrameTrellis project to an H.264/AAC MP4 file."));
     parser.addHelpOption();
     parser.addVersionOption();
-    const QCommandLineOption projectOption(QStringLiteral("project"), QStringLiteral("Project file (.ftproj)."), QStringLiteral("file"));
-    const QCommandLineOption outputOption(QStringLiteral("output"), QStringLiteral("Output .mp4 file."), QStringLiteral("file"));
-    const QCommandLineOption shortSideOption(QStringLiteral("short-side"), QStringLiteral("Scale so the shorter side has this many pixels (0 = project size)."), QStringLiteral("pixels"), QStringLiteral("0"));
-    const QCommandLineOption crfOption(QStringLiteral("crf"), QStringLiteral("Quality, 0 (best) to 51."), QStringLiteral("value"), QStringLiteral("20"));
-    const QCommandLineOption presetOption(QStringLiteral("preset"), QStringLiteral("Encoder speed preset."), QStringLiteral("name"), QStringLiteral("medium"));
-    const QCommandLineOption audioOption(QStringLiteral("audio-bitrate"), QStringLiteral("AAC bitrate in kbit/s."), QStringLiteral("kbps"), QStringLiteral("192"));
-    const QCommandLineOption noAudioOption(QStringLiteral("no-audio"), QStringLiteral("Export without audio."));
-    const QCommandLineOption watchStdinOption(QStringLiteral("watch-stdin"), QStringLiteral("Cancel when stdin receives \"cancel\" or is closed."));
-    parser.addOptions({projectOption, outputOption, shortSideOption, crfOption, presetOption, audioOption, noAudioOption, watchStdinOption});
+    const QCommandLineOption projectOption(QStringLiteral("project"),
+                                           QStringLiteral("Project file (.ftproj)."),
+                                           QStringLiteral("file"));
+    const QCommandLineOption outputOption(
+        QStringLiteral("output"), QStringLiteral("Output .mp4 file."), QStringLiteral("file"));
+    const QCommandLineOption shortSideOption(
+        QStringLiteral("short-side"),
+        QStringLiteral("Scale so the shorter side has this many pixels (0 = project size)."),
+        QStringLiteral("pixels"), QStringLiteral("0"));
+    const QCommandLineOption crfOption(QStringLiteral("crf"),
+                                       QStringLiteral("Quality, 0 (best) to 51."),
+                                       QStringLiteral("value"), QStringLiteral("20"));
+    const QCommandLineOption presetOption(QStringLiteral("preset"),
+                                          QStringLiteral("Encoder speed preset."),
+                                          QStringLiteral("name"), QStringLiteral("medium"));
+    const QCommandLineOption audioOption(QStringLiteral("audio-bitrate"),
+                                         QStringLiteral("AAC bitrate in kbit/s."),
+                                         QStringLiteral("kbps"), QStringLiteral("192"));
+    const QCommandLineOption noAudioOption(QStringLiteral("no-audio"),
+                                           QStringLiteral("Export without audio."));
+    const QCommandLineOption watchStdinOption(
+        QStringLiteral("watch-stdin"),
+        QStringLiteral("Cancel when stdin receives \"cancel\" or is closed."));
+    const QCommandLineOption selfTestOption(
+        QStringLiteral("self-test"),
+        QStringLiteral("Check the installation: generate sample media in <directory>, edit and "
+                       "export it, and report each step. Exits with 0 when everything works."),
+        QStringLiteral("directory"));
+    parser.addOptions({projectOption, outputOption, shortSideOption, crfOption, presetOption,
+                       audioOption, noAudioOption, watchStdinOption, selfTestOption});
     parser.process(app);
 
+    if (parser.isSet(selfTestOption)) {
+        return runSelfTestCommand(QFileInfo(parser.value(selfTestOption)).absoluteFilePath());
+    }
+
     if (!parser.isSet(projectOption) || !parser.isSet(outputOption)) {
-        emitError(makeError(ErrorCode::InvalidArgument, QStringLiteral("Both --project and --output are required.")));
+        emitError(makeError(ErrorCode::InvalidArgument,
+                            QStringLiteral("Both --project and --output are required.")));
         return protocol::BadArguments;
     }
     ExportSettings settings;
@@ -127,7 +178,8 @@ int main(int argc, char** argv)
     settings.speedPreset = parser.value(presetOption);
     settings.includeAudio = !parser.isSet(noAudioOption);
     if (!ok1 || !ok2 || !ok3) {
-        emitError(makeError(ErrorCode::InvalidArgument, QStringLiteral("Numeric options must be whole numbers.")));
+        emitError(makeError(ErrorCode::InvalidArgument,
+                            QStringLiteral("Numeric options must be whole numbers.")));
         return protocol::BadArguments;
     }
 
@@ -167,7 +219,8 @@ int main(int argc, char** argv)
     engine::MltRuntime::shutdown();
 
     if (result) {
-        emitEvent({{QStringLiteral("event"), QStringLiteral("finished")}, {QStringLiteral("output"), settings.outputPath}});
+        emitEvent({{QStringLiteral("event"), QStringLiteral("finished")},
+                   {QStringLiteral("output"), settings.outputPath}});
         return protocol::Success;
     }
     if (result.error().code == ErrorCode::Cancelled) {

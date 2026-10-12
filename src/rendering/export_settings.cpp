@@ -60,7 +60,8 @@ QSize outputSize(const ExportSettings& settings, const ProjectSettings& project)
     return {even(project.width * scale), even(project.height * scale)};
 }
 
-Status validateExport(const ExportSettings& settings, const Project& project, const QString& projectFilePath)
+Status validateExport(const ExportSettings& settings, const Project& project,
+                      const QString& projectFilePath)
 {
     if (project.timeline().duration() <= 0) {
         return makeError(ErrorCode::InvalidArgument,
@@ -76,24 +77,30 @@ Status validateExport(const ExportSettings& settings, const Project& project, co
         }
     }
     if (offline > 0) {
-        return makeError(ErrorCode::Media,
-                         QStringLiteral("%1 clip(s) use media that is offline. Relink the missing files before exporting.")
-                             .arg(offline));
+        return makeError(
+            ErrorCode::Media,
+            QStringLiteral(
+                "%1 clip(s) use media that is offline. Relink the missing files before exporting.")
+                .arg(offline));
     }
 
     const QString path = settings.outputPath.trimmed();
     if (path.isEmpty()) {
-        return makeError(ErrorCode::InvalidArgument, QStringLiteral("Choose where to save the exported file."));
+        return makeError(ErrorCode::InvalidArgument,
+                         QStringLiteral("Choose where to save the exported file."));
     }
     const QFileInfo output(path);
     if (!output.isAbsolute()) {
-        return makeError(ErrorCode::InvalidArgument, QStringLiteral("The output path must be absolute."));
+        return makeError(ErrorCode::InvalidArgument,
+                         QStringLiteral("The output path must be absolute."));
     }
     if (output.suffix().compare(QLatin1String("mp4"), Qt::CaseInsensitive) != 0) {
-        return makeError(ErrorCode::InvalidArgument, QStringLiteral("The output file name must end in .mp4."));
+        return makeError(ErrorCode::InvalidArgument,
+                         QStringLiteral("The output file name must end in .mp4."));
     }
     if (output.exists() && !output.isFile()) {
-        return makeError(ErrorCode::InvalidArgument, QStringLiteral("The output path is a folder, not a file."));
+        return makeError(ErrorCode::InvalidArgument,
+                         QStringLiteral("The output path is a folder, not a file."));
     }
     const QFileInfo directory(output.absolutePath());
     if (!directory.exists() || !directory.isDir()) {
@@ -105,33 +112,43 @@ Status validateExport(const ExportSettings& settings, const Project& project, co
     const QString outputKey = canonicalMediaKey(output.absoluteFilePath());
     for (const MediaAsset& asset : project.media()) {
         if (canonicalMediaKey(asset.filePath) == outputKey) {
-            return makeError(ErrorCode::Conflict,
-                             QStringLiteral("The output file would overwrite the source media \"%1\". Choose another name.")
-                                 .arg(asset.name));
+            return makeError(
+                ErrorCode::Conflict,
+                QStringLiteral(
+                    "The output file would overwrite the source media \"%1\". Choose another name.")
+                    .arg(asset.name));
         }
     }
     if (!projectFilePath.isEmpty() && canonicalMediaKey(projectFilePath) == outputKey) {
-        return makeError(ErrorCode::Conflict, QStringLiteral("The output file would overwrite the project file."));
+        return makeError(ErrorCode::Conflict,
+                         QStringLiteral("The output file would overwrite the project file."));
     }
 
     const QSize size = outputSize(settings, project.settings());
-    if (size.width() < kMinFrameDimension || size.height() < kMinFrameDimension
-        || size.width() > kMaxFrameDimension || size.height() > kMaxFrameDimension) {
-        return makeError(ErrorCode::OutOfRange, QStringLiteral("The export resolution is out of range."));
+    if (size.width() < kMinFrameDimension || size.height() < kMinFrameDimension ||
+        size.width() > kMaxFrameDimension || size.height() > kMaxFrameDimension) {
+        return makeError(ErrorCode::OutOfRange,
+                         QStringLiteral("The export resolution is out of range."));
     }
     if (settings.crf < 0 || settings.crf > 51) {
-        return makeError(ErrorCode::OutOfRange, QStringLiteral("The quality value must be between 0 and 51."));
+        return makeError(ErrorCode::OutOfRange,
+                         QStringLiteral("The quality value must be between 0 and 51."));
     }
     if (!speedPresets().contains(settings.speedPreset)) {
-        return makeError(ErrorCode::InvalidArgument, QStringLiteral("Unknown encoder speed preset."));
+        return makeError(ErrorCode::InvalidArgument,
+                         QStringLiteral("Unknown encoder speed preset."));
     }
-    if (settings.includeAudio && (settings.audioBitrateKbps < 32 || settings.audioBitrateKbps > 512)) {
+    if (settings.includeAudio &&
+        (settings.audioBitrateKbps < 32 || settings.audioBitrateKbps > 512)) {
         return makeError(ErrorCode::OutOfRange,
                          QStringLiteral("The audio bitrate must be between 32 and 512 kbit/s."));
     }
     const QStorageInfo storage(directory.absoluteFilePath());
-    if (storage.isValid() && storage.bytesAvailable() >= 0 && storage.bytesAvailable() < kMinimumFreeBytes) {
-        return makeError(ErrorCode::Io, QStringLiteral("There is not enough free disk space in the output folder."));
+    if (storage.isValid() && storage.bytesAvailable() >= 0 &&
+        storage.bytesAvailable() < kMinimumFreeBytes) {
+        return makeError(
+            ErrorCode::Io,
+            QStringLiteral("There is not enough free disk space in the output folder."));
     }
     return {};
 }

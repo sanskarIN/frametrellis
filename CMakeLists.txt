@@ -4,7 +4,7 @@
 cmake_minimum_required(VERSION 3.21)
 
 project(FrameTrellis
-    VERSION 0.1.0
+    VERSION 1.0.0
     DESCRIPTION "A local-first, open-source desktop video editor for precise, multi-track editing."
     HOMEPAGE_URL "https://github.com/sanskarIN/frametrellis"
     LANGUAGES CXX)
@@ -28,8 +28,9 @@ if(FT_BUILD_APP AND NOT FT_BUILD_ENGINE)
 endif()
 
 include(FrameTrellisCompilerOptions)
+include(FrameTrellisWindowsResources)
 
-set(FT_QT_COMPONENTS Core Gui Test)
+set(FT_QT_COMPONENTS Core Gui Concurrent Test)
 if(FT_BUILD_APP)
     list(APPEND FT_QT_COMPONENTS Qml Quick QuickControls2 Svg)
 endif()

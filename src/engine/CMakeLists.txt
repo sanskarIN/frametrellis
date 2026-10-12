@@ -9,3 +9,7 @@ add_library(ft_engine STATIC
 target_link_libraries(ft_engine
     PUBLIC ft_project Qt6::Gui
     PRIVATE FrameTrellis::Mlt ft_compile_options)
+if(FT_MLT_MODULE_DIR)
+    target_compile_definitions(ft_engine PRIVATE
+        FT_MLT_MODULE_DIR="${FT_MLT_MODULE_DIR}" FT_MLT_DATA_DIR="${FT_MLT_DATA_DIR}")
+endif()

@@ -9,7 +9,6 @@
 #include <QFile>
 #include <QFileInfo>
 #include <QSet>
-
 #include <mlt++/Mlt.h>
 
 #include <cmath>
@@ -29,8 +28,10 @@ QString keyframes(std::initializer_list<std::pair<FrameCount, double>> points)
     return parts.join(QLatin1Char(';'));
 }
 
-/// Applies the clip's audio gain, mute and fades.
-void attachAudioFilters(Mlt::Profile& profile, Mlt::Producer& cut, const Clip& clip)
+/// Applies the clip's audio gain, mute and fades. @p offset is the number of extra frames the
+/// cut starts before the clip's visible start (the handle of an incoming transition).
+void attachAudioFilters(Mlt::Profile& profile, Mlt::Producer& cut, const Clip& clip,
+                        FrameCount offset)
 {
     const ClipProperties& p = clip.properties;
     const bool silent = p.muted || p.gain <= 0.0;
@@ -51,15 +52,17 @@ void attachAudioFilters(Mlt::Profile& profile, Mlt::Producer& cut, const Clip& c
         volume.set("gain", p.gain);
     } else {
         const double base = gainToDecibels(p.gain);
-        const FrameCount last = clip.duration - 1;
+        const FrameCount first = offset;
+        const FrameCount last = offset + clip.duration - 1;
         QStringList points;
         if (p.fadeIn > 0) {
-            points << keyframes({{0, kSilenceDb}, {p.fadeIn, base}});
+            points << keyframes({{first, kSilenceDb}, {first + p.fadeIn, base}});
         } else {
-            points << keyframes({{0, base}});
+            points << keyframes({{first, base}});
         }
         if (p.fadeOut > 0) {
-            points << keyframes({{std::max<FrameCount>(last - p.fadeOut, p.fadeIn), base}, {last, kSilenceDb}});
+            points << keyframes({{std::max<FrameCount>(last - p.fadeOut, first + p.fadeIn), base},
+                                 {last, kSilenceDb}});
         } else {
             points << keyframes({{last, base}});
         }
@@ -68,8 +71,9 @@ void attachAudioFilters(Mlt::Profile& profile, Mlt::Producer& cut, const Clip& c
     cut.attach(volume);
 }
 
-/// Applies video fades, opacity and picture adjustments.
-void attachVideoFilters(Mlt::Profile& profile, Mlt::Producer& cut, const Clip& clip)
+/// Applies video fades, opacity and picture adjustments (see attachAudioFilters for @p offset).
+void attachVideoFilters(Mlt::Profile& profile, Mlt::Producer& cut, const Clip& clip,
+                        FrameCount offset)
 {
     const ClipProperties& p = clip.properties;
     const auto& caps = MltRuntime::capabilities();
@@ -91,12 +95,16 @@ void attachVideoFilters(Mlt::Profile& profile, Mlt::Producer& cut, const Clip& c
         if (alpha.is_valid()) {
             alpha.set_in_and_out(cut.get_in(), cut.get_out());
             alpha.set("level", 1.0);
-            const FrameCount last = clip.duration - 1;
+            const FrameCount first = offset;
+            const FrameCount last = offset + clip.duration - 1;
             const double full = v.opacity;
             QStringList points;
-            points << (p.fadeIn > 0 ? keyframes({{0, 0.0}, {p.fadeIn, full}}) : keyframes({{0, full}}));
+            points << (p.fadeIn > 0 ? keyframes({{first, 0.0}, {first + p.fadeIn, full}})
+                                    : keyframes({{first, full}}));
             points << (p.fadeOut > 0
-                           ? keyframes({{std::max<FrameCount>(last - p.fadeOut, p.fadeIn), full}, {last, 0.0}})
+                           ? keyframes(
+                                 {{std::max<FrameCount>(last - p.fadeOut, first + p.fadeIn), full},
+                                  {last, 0.0}})
                            : keyframes({{last, full}}));
             alpha.set("alpha", points.join(QLatin1Char(';')).toUtf8().constData());
             cut.attach(alpha);
@@ -122,7 +130,9 @@ struct TimelineGraphBuilder::CacheEntry
     std::shared_ptr<Mlt::Producer> producer;
 };
 
-TimelineGraphBuilder::TimelineGraphBuilder(Mlt::Profile& profile) : m_profile(profile) {}
+TimelineGraphBuilder::TimelineGraphBuilder(Mlt::Profile& profile)
+    : m_profile(profile)
+{}
 
 TimelineGraphBuilder::~TimelineGraphBuilder() = default;
 
@@ -131,7 +141,8 @@ void TimelineGraphBuilder::clearCache()
     m_cache.clear();
 }
 
-std::unique_ptr<Mlt::Producer> TimelineGraphBuilder::openProducer(Mlt::Profile& profile, const QString& path,
+std::unique_ptr<Mlt::Producer> TimelineGraphBuilder::openProducer(Mlt::Profile& profile,
+                                                                  const QString& path,
                                                                   MediaKind kind, bool audioOnly)
 {
     if (kind == MediaKind::Image) {
@@ -151,18 +162,22 @@ std::unique_ptr<Mlt::Producer> TimelineGraphBuilder::openProducer(Mlt::Profile& 
     return producer;
 }
 
-std::shared_ptr<Mlt::Producer> TimelineGraphBuilder::producerFor(const MediaAsset& asset, const Id& trackId,
-                                                                 bool audioOnly, QStringList& warnings)
+std::shared_ptr<Mlt::Producer> TimelineGraphBuilder::producerFor(const MediaAsset& asset,
+                                                                 const Id& trackId, bool audioOnly,
+                                                                 QStringList& warnings)
 {
-    const QString key = asset.id + QLatin1Char('|') + trackId + (audioOnly ? QStringLiteral("|a") : QStringLiteral("|av"));
+    const QString key = asset.id + QLatin1Char('|') + trackId +
+                        (audioOnly ? QStringLiteral("|a") : QStringLiteral("|av"));
     const QFileInfo info(asset.filePath);
     if (const auto it = m_cache.constFind(key); it != m_cache.constEnd()) {
         const CacheEntry& entry = **it;
-        if (entry.path == asset.filePath && entry.size == info.size() && entry.modified == info.lastModified()) {
+        if (entry.path == asset.filePath && entry.size == info.size() &&
+            entry.modified == info.lastModified()) {
             return entry.producer;
         }
     }
-    std::shared_ptr<Mlt::Producer> producer = openProducer(m_profile, asset.filePath, asset.info.kind, audioOnly);
+    std::shared_ptr<Mlt::Producer> producer =
+        openProducer(m_profile, asset.filePath, asset.info.kind, audioOnly);
     if (!producer) {
         warnings << QStringLiteral("Could not open \"%1\".").arg(asset.name);
         return nullptr;
@@ -179,14 +194,16 @@ std::shared_ptr<Mlt::Producer> TimelineGraphBuilder::producerFor(const MediaAsse
 std::unique_ptr<Mlt::Producer> TimelineGraphBuilder::placeholder(TrackKind kind, FrameCount length)
 {
     // Offline media is shown as a dark red frame and is silent.
-    auto producer = std::make_unique<Mlt::Producer>(m_profile, "color", kind == TrackKind::Video ? "0x6b1d1dff" : "0x00000000");
+    auto producer = std::make_unique<Mlt::Producer>(
+        m_profile, "color", kind == TrackKind::Video ? "0x6b1d1dff" : "0x00000000");
     producer->set("length", static_cast<int>(length));
     producer->set_in_and_out(0, static_cast<int>(length) - 1);
     producer->set("ft.placeholder", 1);
     return producer;
 }
 
-Result<GraphBuildResult> TimelineGraphBuilder::build(const Project& project, const GraphOptions& options)
+Result<GraphBuildResult> TimelineGraphBuilder::build(const Project& project,
+                                                     const GraphOptions& options)
 {
     if (!MltRuntime::isInitialized()) {
         return makeError(ErrorCode::Engine, QStringLiteral("The media engine is not initialised."));
@@ -197,14 +214,16 @@ Result<GraphBuildResult> TimelineGraphBuilder::build(const Project& project, con
     result.duration = timeline.duration();
     const FrameCount total = std::max<FrameCount>(result.duration, 1);
     if (total > std::numeric_limits<int>::max() / 2) {
-        return makeError(ErrorCode::OutOfRange, QStringLiteral("The sequence is too long to play."));
+        return makeError(ErrorCode::OutOfRange,
+                         QStringLiteral("The sequence is too long to play."));
     }
     const int totalFrames = static_cast<int>(total);
 
     auto tractor = std::make_unique<Mlt::Tractor>(m_profile);
     Mlt::Producer background(m_profile, "color", "0x000000ff");
     if (!background.is_valid()) {
-        return makeError(ErrorCode::Engine, QStringLiteral("The media engine could not create the background."));
+        return makeError(ErrorCode::Engine,
+                         QStringLiteral("The media engine could not create the background."));
     }
     background.set("length", totalFrames);
     background.set_in_and_out(0, totalFrames - 1);
@@ -218,43 +237,113 @@ Result<GraphBuildResult> TimelineGraphBuilder::build(const Project& project, con
     for (const Track& track : timeline.tracks()) {
         Mlt::Playlist playlist(m_profile);
         playlist.set("ft.track", track.id.toUtf8().constData());
-        FrameCount cursor = 0;
+
+        // Transitions overlap the clips around a cut: the outgoing clip continues after() frames
+        // past its end and the incoming clip starts before() frames early. The extended clips are
+        // laid out one after another and then blended with MLT's playlist mixes, which shortens
+        // the playlist back to the timeline's length.
+        QHash<Id, FrameCount> extendBefore;
+        QHash<Id, FrameCount> extendAfter;
+        QHash<Id, const Transition*> incoming;
+        for (const Transition& tr : track.transitions) {
+            extendAfter.insert(tr.fromClip, tr.after());
+            extendBefore.insert(tr.toClip, tr.before());
+            incoming.insert(tr.toClip, &tr);
+        }
+        struct PendingMix
+        {
+            int entry = 0; ///< playlist index of the outgoing clip
+            int length = 0;
+        };
+        std::vector<PendingMix> mixes;
+        QHash<Id, int> entryOf;
+        FrameCount cursor = 0; // position in the playlist before mixing
+        FrameCount shift = 0;  // frames of overlap added by the transitions placed so far
         for (const Clip& clip : track.clips) {
-            if (clip.start > cursor) {
-                playlist.blank(static_cast<int>(clip.start - cursor - 1));
+            const FrameCount before = extendBefore.value(clip.id, 0);
+            const FrameCount after = extendAfter.value(clip.id, 0);
+            const Transition* in = incoming.value(clip.id, nullptr);
+            if (in) {
+                shift += in->duration;
+            }
+            const FrameCount position = clip.start - before + shift;
+            if (position > cursor) {
+                playlist.blank(static_cast<int>(position - cursor - 1));
             }
             const MediaAsset* asset = project.asset(clip.assetId);
-            const bool missing = !asset || asset->status == MediaStatus::Missing || !QFileInfo::exists(asset->filePath);
+            const bool missing = !asset || asset->status == MediaStatus::Missing ||
+                                 !QFileInfo::exists(asset->filePath);
             std::shared_ptr<Mlt::Producer> source;
             if (!missing) {
-                source = producerFor(*asset, track.id, track.kind == TrackKind::Audio, result.warnings);
+                source =
+                    producerFor(*asset, track.id, track.kind == TrackKind::Audio, result.warnings);
                 usedKeys.insert(asset->id + QLatin1Char('|') + track.id);
             }
             const QString assetName = asset ? asset->name : clip.assetId;
+            const FrameCount length = clip.duration + before + after;
             if (!source) {
                 if (!options.placeholdersForMissingMedia) {
-                    return makeError(ErrorCode::Media,
-                                     QStringLiteral("The media file \"%1\" is missing or cannot be opened.").arg(assetName));
+                    return makeError(
+                        ErrorCode::Media,
+                        QStringLiteral("The media file \"%1\" is missing or cannot be opened.")
+                            .arg(assetName));
                 }
                 if (missing) {
                     result.warnings << QStringLiteral("\"%1\" is offline.").arg(assetName);
                 }
-                std::unique_ptr<Mlt::Producer> stand = placeholder(track.kind, clip.duration);
-                playlist.append(*stand, 0, static_cast<int>(clip.duration) - 1);
+                std::unique_ptr<Mlt::Producer> stand = placeholder(track.kind, length);
+                playlist.append(*stand, 0, static_cast<int>(length) - 1);
             } else {
-                std::unique_ptr<Mlt::Producer> cut(source->cut(static_cast<int>(clip.sourceIn),
-                                                               static_cast<int>(clip.sourceOut() - 1)));
+                std::unique_ptr<Mlt::Producer> cut(
+                    source->cut(static_cast<int>(clip.sourceIn - before),
+                                static_cast<int>(clip.sourceOut() - 1 + after)));
                 if (!cut || !cut->is_valid()) {
-                    return makeError(ErrorCode::Engine, QStringLiteral("Could not prepare clip \"%1\".").arg(assetName));
+                    return makeError(
+                        ErrorCode::Engine,
+                        QStringLiteral("Could not prepare clip \"%1\".").arg(assetName));
                 }
                 cut->set("ft.clip", clip.id.toUtf8().constData());
-                attachAudioFilters(m_profile, *cut, clip);
+                attachAudioFilters(m_profile, *cut, clip, before);
                 if (track.kind == TrackKind::Video) {
-                    attachVideoFilters(m_profile, *cut, clip);
+                    attachVideoFilters(m_profile, *cut, clip, before);
                 }
-                playlist.append(*cut);
+                if (before > 0 || after > 0) {
+                    // Mixing cuts the clip again from its source; wrapping it keeps the clip's
+                    // filters (volume, fades, picture) active inside the transition.
+                    Mlt::Playlist wrapper(m_profile);
+                    wrapper.append(*cut);
+                    playlist.append(wrapper);
+                } else {
+                    playlist.append(*cut);
+                }
             }
-            cursor = clip.end();
+            entryOf.insert(clip.id, playlist.count() - 1);
+            if (in) {
+                mixes.push_back({entryOf.value(in->fromClip), static_cast<int>(in->duration)});
+            }
+            cursor = position + length;
+        }
+        // Mix from the end so that earlier playlist indices stay valid.
+        std::sort(mixes.begin(), mixes.end(),
+                  [](const PendingMix& a, const PendingMix& b) { return a.entry > b.entry; });
+        for (const PendingMix& mix : mixes) {
+            if (playlist.mix(mix.entry, mix.length) != 0) {
+                return makeError(ErrorCode::Engine,
+                                 QStringLiteral("Could not prepare a transition."));
+            }
+            const int region = mix.entry + 1;
+            if (track.kind == TrackKind::Video) {
+                Mlt::Transition dissolve(m_profile, "luma");
+                if (dissolve.is_valid()) {
+                    playlist.mix_add(region, &dissolve);
+                }
+            }
+            Mlt::Transition crossfade(m_profile, "mix");
+            if (crossfade.is_valid()) {
+                crossfade.set("start", 0.0);
+                crossfade.set("end", 1.0);
+                playlist.mix_add(region, &crossfade);
+            }
         }
 
         int hide = 0;
@@ -278,14 +367,9 @@ Result<GraphBuildResult> TimelineGraphBuilder::build(const Project& project, con
         if (track.kind == TrackKind::Video) {
             Mlt::Transition composite(m_profile, caps.compositor.toUtf8().constData());
             composite.set("always_active", 1);
-            if (caps.compositor == QLatin1String("affine")) {
-                composite.set("fill", 1);
-                composite.set("distort", 0);
-                composite.set("rect", "0 0 100% 100% 1");
-            } else {
-                composite.set("geometry", "0/0:100%x100%:100");
-                composite.set("fill", 1);
-            }
+            composite.set("fill", 1);
+            composite.set("distort", 0);
+            composite.set("rect", "0 0 100% 100% 1");
             field->plant_transition(composite, 0, mltTrack);
         }
         ++mltTrack;

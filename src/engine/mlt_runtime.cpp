@@ -15,6 +15,11 @@
 #include <memory>
 #include <mutex>
 
+#ifdef Q_OS_WIN
+#include <string>
+#include <windows.h>
+#endif
+
 namespace ft::engine {
 
 namespace {
@@ -45,6 +50,32 @@ void mltLogCallback(void* service, int level, const char* format, va_list args)
         qCDebug(lcEngine).noquote() << "MLT:" << message;
     }
 }
+
+#ifdef Q_OS_WIN
+/// MLT loads its modules with LoadLibraryEx(LOAD_WITH_ALTERED_SEARCH_PATH). For the dependencies
+/// of a module, Windows then searches the module's own folder (lib/mlt) instead of the
+/// application folder, where a relocatable package keeps FFmpeg and the other libraries. Adding
+/// the application folder to the DLL search path lets the modules find them without relying on
+/// PATH. It also takes the current folder out of the search path.
+void addApplicationFolderToDllSearchPath()
+{
+    std::wstring path(MAX_PATH, L'\0');
+    DWORD length = 0;
+    while ((length = GetModuleFileNameW(nullptr, path.data(), static_cast<DWORD>(path.size()))) ==
+           path.size()) {
+        path.resize(path.size() * 2);
+    }
+    const auto separator = path.find_last_of(L"\\/", length);
+    if (length == 0 || separator == std::wstring::npos) {
+        qCWarning(lcEngine) << "Cannot determine the application folder for the DLL search path";
+        return;
+    }
+    path.resize(separator);
+    if (!SetDllDirectoryW(path.c_str())) {
+        qCWarning(lcEngine) << "SetDllDirectory failed with error" << GetLastError();
+    }
+}
+#endif
 
 QString findRepository()
 {
@@ -202,6 +233,9 @@ Status MltRuntime::initialize()
     if (g_initialized) {
         return {};
     }
+#ifdef Q_OS_WIN
+    addApplicationFolderToDllSearchPath();
+#endif
     const QString repositoryPath = findRepository();
     configureDataPath(repositoryPath);
     mlt_log_set_level(MLT_LOG_WARNING);

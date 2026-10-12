@@ -108,6 +108,8 @@ macOS is not supported yet. The code base is portable, and a macOS build is plan
 | Autosave and crash recovery | `%APPDATA%\FrameTrellis\FrameTrellis\autosave` | `~/.local/share/FrameTrellis/FrameTrellis/autosave` |
 | Log files | `%APPDATA%\FrameTrellis\FrameTrellis\logs` | `~/.local/share/FrameTrellis/FrameTrellis/logs` |
 | Thumbnail cache | `%LOCALAPPDATA%\FrameTrellis\FrameTrellis\cache\thumbnails` | `~/.cache/FrameTrellis/FrameTrellis/thumbnails` |
+| Waveform cache | `%LOCALAPPDATA%\FrameTrellis\FrameTrellis\cache\waveforms` | `~/.cache/FrameTrellis/FrameTrellis/waveforms` |
 
-Projects (`.ftproj`) and exported videos are saved wherever you choose. FrameTrellis never
+The caches can be deleted at any time; FrameTrellis recreates them when needed. Projects
+(`.ftproj`) and exported videos are saved wherever you choose. FrameTrellis never
 moves, changes or deletes your media files.

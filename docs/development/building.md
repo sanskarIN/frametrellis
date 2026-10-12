@@ -162,6 +162,18 @@ attributed to the MSYS2 package that installed it; the script copies those packa
 files and writes `BUNDLED_COMPONENTS.txt`, `SOURCES.txt` and an SPDX 2.3 software bill of
 materials (`dist/FrameTrellis-<version>-windows-x64.spdx.json`).
 
+Some MSYS2 packages (FFmpeg, x264, x265, ICU and about twenty others) install no license file.
+For those, the script downloads the package's MSYS2 source package and copies the license and
+notice files (`COPYING*`, `LICENSE*`, `NOTICE*` and similar) from the upstream source, reading
+Git sources at the revision that was built. This needs `curl`, `zstd` and `git` in the MSYS2
+shell (`pacman -S --needed curl git zstd`); downloads are cached in
+`<build-dir>/msys2-sources`. Packaging stops if any bundled component is left without a license
+text. The script's unit tests run on any platform:
+
+```sh
+python3 -m unittest discover -s packaging/tests -v
+```
+
 The installer is built from that folder with [Inno Setup](https://jrsoftware.org/isinfo.php) 6:
 
 ```powershell
@@ -173,6 +185,12 @@ ISCC.exe /DAppVersion=<version> /DStageDir=dist\FrameTrellis-<version>-windows-x
 nothing but Windows on the `PATH`. It runs the engine self-test (`frametrellis-render
 --self-test <folder>`), starts the editor, checks that every loaded library comes from the
 package or from Windows, then installs, tests and uninstalls the installer.
+
+The MLT modules live in `lib/mlt`, but their dependencies (FFmpeg and the other libraries) sit
+next to the executables. MLT loads modules with an altered DLL search path that skips the
+application folder, so the engine adds that folder with `SetDllDirectory` before it starts MLT.
+Development builds do not notice this because MSYS2 is on their `PATH`; the clean-machine
+check is what catches it.
 
 ### Linux
 

@@ -58,7 +58,9 @@ If you distribute FrameTrellis binaries (including the project's own release pac
 GPL and LGPL require you to:
 
 1. **Ship the license texts.** Packages include `LICENSE`, `THIRD_PARTY_NOTICES.md` and, for the
-   Windows package, the license files of the bundled libraries.
+   Windows package, the license files of every bundled library. Where an MSYS2 package installs
+   no license file, the packaging script takes the texts from its upstream source, and the
+   package build fails if any bundled component would be left without one.
 2. **Provide the Corresponding Source** for FrameTrellis *and* for every bundled GPL/LGPL library
    (Qt, MLT, FFmpeg and FFmpeg's GPL dependencies such as x264), for the exact versions shipped.
    For FrameTrellis this is the tagged source in this repository. Each Windows package contains

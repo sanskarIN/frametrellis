@@ -16,3 +16,15 @@ set_tests_properties(render_self_test PROPERTIES
     LABELS integration
     FAIL_REGULAR_EXPRESSION "(^|\n)FAIL "
     ENVIRONMENT "QT_LOGGING_RULES=ft.*.info=false")
+
+# A module that cannot be loaded must be reported with the loader's reason, so that a broken
+# package explains itself.
+set(FT_BROKEN_MLT_REPOSITORY "${CMAKE_CURRENT_BINARY_DIR}/broken-mlt-repository")
+file(WRITE "${FT_BROKEN_MLT_REPOSITORY}/libmltbroken${CMAKE_SHARED_LIBRARY_SUFFIX}"
+    "not a shared library\n")
+add_test(NAME render_self_test_reports_unloadable_modules
+    COMMAND frametrellis-render --self-test "${CMAKE_CURRENT_BINARY_DIR}/render-self-test-broken")
+set_tests_properties(render_self_test_reports_unloadable_modules PROPERTIES
+    LABELS integration
+    PASS_REGULAR_EXPRESSION "FAIL engine: [^\n]*failed to dlopen [^\n]*libmltbroken"
+    ENVIRONMENT "FRAMETRELLIS_MLT_REPOSITORY=${FT_BROKEN_MLT_REPOSITORY};QT_LOGGING_RULES=ft.*.info=false")

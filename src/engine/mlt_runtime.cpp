@@ -27,6 +27,8 @@ namespace {
 std::mutex g_mutex;
 bool g_initialized = false;
 EngineCapabilities g_capabilities;
+/// While MLT loads its modules, collects the reasons why a module could not be loaded.
+thread_local QStringList* t_moduleLoadErrors = nullptr;
 
 void mltLogCallback(void* service, int level, const char* format, va_list args)
 {
@@ -43,6 +45,11 @@ void mltLogCallback(void* service, int level, const char* format, va_list args)
         service ? mlt_properties_get(static_cast<mlt_properties>(service), "mlt_service") : nullptr;
     if (serviceName) {
         message = QStringLiteral("[%1] %2").arg(QString::fromUtf8(serviceName), message);
+    }
+    if (t_moduleLoadErrors && message.contains(QLatin1String("failed to dlopen"))) {
+        t_moduleLoadErrors->append(message.simplified());
+        qCWarning(lcEngine).noquote() << "MLT:" << message.simplified();
+        return;
     }
     if (level <= MLT_LOG_ERROR) {
         qCWarning(lcEngine).noquote() << "MLT error:" << message;
@@ -242,8 +249,11 @@ Status MltRuntime::initialize()
     mlt_log_set_callback(mltLogCallback);
 
     const QByteArray encoded = QFile::encodeName(repositoryPath);
+    QStringList moduleLoadErrors;
+    t_moduleLoadErrors = &moduleLoadErrors;
     Mlt::Repository* repository =
         Mlt::Factory::init(repositoryPath.isEmpty() ? nullptr : encoded.constData());
+    t_moduleLoadErrors = nullptr;
     if (!repository) {
         return makeError(
             ErrorCode::Engine, QStringLiteral("The MLT multimedia framework could not be started."),
@@ -276,10 +286,15 @@ Status MltRuntime::initialize()
     if (!essentials.isEmpty()) {
         qCWarning(lcEngine).noquote()
             << "Missing MLT services:" << essentials.join(QStringLiteral(", "));
+        QString details = essentials.join(QStringLiteral(", "));
+        if (!moduleLoadErrors.isEmpty()) {
+            // The modules that failed to load usually explain why services are missing.
+            details += QStringLiteral("; ") + moduleLoadErrors.join(u' ');
+        }
         return makeError(
             ErrorCode::Engine,
             QStringLiteral("The installation is incomplete: required MLT services are missing."),
-            essentials.join(QStringLiteral(", ")));
+            details);
     }
     for (const QString& optional : caps.missingOptional()) {
         qCWarning(lcEngine).noquote() << "Optional MLT service unavailable:" << optional;

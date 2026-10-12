@@ -14,6 +14,7 @@ release workflow, and never make a channel the only way to get a release.
 | Channel | Platform | Decision | Precondition |
 |---|---|---|---|
 | GitHub Releases | Windows | Used from 1.0.0 | None |
+| [GitHub Packages](https://github.com/sanskarIN/frametrellis/pkgs/container/frametrellis-render) (container registry) | Linux x86-64 | Used from 1.0.0 for the headless renderer | An image built and checked in CI |
 | [WinGet](https://learn.microsoft.com/windows/package-manager/) | Windows | Submit after 1.0.0 is published | A published, verified release |
 | [Flathub](https://flathub.org/) | Linux | Planned | A Flatpak that is built and verified in CI |
 | [Homebrew](https://brew.sh/) (cask) | macOS | Planned | A verified macOS build and `.dmg` |
@@ -63,6 +64,21 @@ asset, and only then submit the manifest to Flathub.
 A Homebrew cask installs a macOS `.dmg` from the release. There is no macOS build yet: it needs a
 macOS CI job, a verified `.dmg` and, in practice, notarisation, because macOS refuses to open
 unsigned applications downloaded from the internet. A cask will be submitted after that.
+
+## GitHub Packages
+
+The renderer, `frametrellis-render`, is useful on its own: it renders FrameTrellis projects
+without a display, on servers and in CI pipelines. It is published as a container image,
+`ghcr.io/sanskarin/frametrellis-render`, by the
+[container workflow](../../.github/workflows/container.yml) whenever a version tag is pushed or
+a release is published in the web interface. Before publishing, the workflow runs the
+installation self-test inside the image and renders the project it saves from a mounted folder
+as an unprivileged user. Pull requests that touch the code or the image build and check it
+without publishing. How to use it is described in
+[Rendering in a container](../user-guide/container.md).
+
+The image for a version that was tagged before the workflow existed (such as 1.0.0) is built
+from that tag's source by running the workflow by hand with the tag as input.
 
 ## Package registries
 

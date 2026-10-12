@@ -86,6 +86,16 @@ FFmpeg DLLs. As verified in the MSYS2 package recipes used at the time of writin
 The bundled set is determined at packaging time, so the manifest generated for each release is
 the authoritative list for that release.
 
+### Container image
+
+The `frametrellis-render` container image in GitHub Packages contains FrameTrellis's renderer
+and Debian 13 packages of Qt, MLT, FFmpeg and their dependencies. The image keeps Debian's
+license files (`/usr/share/doc/<package>/copyright`) and lists every Debian package with its
+exact version in `/usr/share/doc/frametrellis/debian-packages.txt`; the corresponding source
+of each of them is available from the Debian archive and from
+[snapshot.debian.org](https://snapshot.debian.org/) at that version. The FrameTrellis license
+and third-party notices are in `/usr/share/doc/frametrellis`.
+
 ### Patent-encumbered codecs
 
 Some formats (notably H.264/AVC, H.265/HEVC and AAC) may be covered by patents in some

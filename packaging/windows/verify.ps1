@@ -122,6 +122,26 @@ function Test-Editor([string] $Folder, [string] $Project, [string] $What) {
     }
     Check ($process.ExitCode -eq 0) "$What editor started, opened the project and rendered its window (exit code $($process.ExitCode))"
     Check ((Test-Path $shot) -and (Get-Item $shot).Length -gt 20000) "$What editor screenshot saved"
+    if ($process.ExitCode -ne 0) { Write-CrashReport $process.StartTime }
+}
+
+# Prints what Windows recorded about a crash (faulting module and offset) and the end of the
+# editor's own log, so that a failure can be diagnosed from the job log alone.
+function Write-CrashReport([datetime] $Since) {
+    Start-Sleep -Seconds 3 # Windows Error Reporting writes its event shortly after the crash
+    try {
+        Get-WinEvent -FilterHashtable @{ LogName = 'Application'; ProviderName = 'Application Error'; StartTime = $Since } -ErrorAction Stop |
+            Select-Object -First 3 | ForEach-Object { Write-Host $_.Message }
+    } catch {
+        Write-Host "No crash event was recorded: $_"
+    }
+    $logs = Join-Path $env:APPDATA 'FrameTrellis\FrameTrellis\logs'
+    $latest = Get-ChildItem $logs -Filter *.log -ErrorAction SilentlyContinue |
+        Sort-Object LastWriteTime -Descending | Select-Object -First 1
+    if ($latest) {
+        Write-Host "Last lines of $($latest.FullName):"
+        Get-Content $latest.FullName -Tail 40 | ForEach-Object { Write-Host "  $_" }
+    }
 }
 
 # --- Portable ZIP ------------------------------------------------------------------------------

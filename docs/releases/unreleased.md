@@ -21,8 +21,10 @@ First public development snapshot of FrameTrellis.
 - `frametrellis-render --self-test <folder>` checks an installation end to end (engine, sample
   media, project round trip, export and verification).
 - Windows packaging: a portable ZIP and a per-user installer that bundle Qt, MLT and FFmpeg with
-  their license files, a component list and an SPDX software bill of materials; both are verified
-  automatically on clean Windows runners.
+  the license texts of every bundled component (taken from the upstream source where the MSYS2
+  package installs none), a component list and an SPDX software bill of materials; both are
+  verified automatically on clean Windows runners.
+- The installation self-test names the media-engine modules that could not be loaded, and why.
 - Automated unit, integration and GUI tests; CI for Linux and Windows (MSYS2).
 
 ## Fixed

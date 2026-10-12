@@ -9,17 +9,7 @@ on:
   push:
     branches: [main]
   workflow_dispatch:
-    inputs:
-      with-sources:
-        description: Also collect the source packages of all bundled components.
-        type: boolean
-        default: false
   workflow_call:
-    inputs:
-      with-sources:
-        description: Also collect the source packages of all bundled components.
-        type: boolean
-        default: false
 
 permissions:
   contents: read
@@ -133,35 +123,3 @@ jobs:
           name: verification-${{ matrix.os }}
           path: ${{ runner.temp }}/ft-artifacts
           if-no-files-found: ignore
-
-  sources:
-    name: Collect corresponding source
-    if: inputs.with-sources
-    needs: build
-    runs-on: ubuntu-24.04
-    steps:
-      - uses: actions/download-artifact@v7
-        with:
-          name: windows-packages
-          path: dist
-      - name: Download the MSYS2 source packages of the bundled components
-        run: |
-          set -euo pipefail
-          list=$(ls dist/*-sources.json)
-          name=$(basename "$list" -sources.json)
-          mkdir -p "sources/$name-third-party-sources"
-          base=$(jq -r .base_url "$list")
-          jq -r '.archives[]' "$list" | while read -r archive; do
-            echo "Downloading $archive"
-            curl --fail --silent --show-error --location --retry 3 \
-              --output "sources/$name-third-party-sources/$archive" "$base$archive"
-          done
-          cp "$list" "sources/$name-third-party-sources/"
-          tar -C sources -cf "dist/$name-third-party-sources.tar" "$name-third-party-sources"
-          ls -l dist
-      - uses: actions/upload-artifact@v6
-        with:
-          name: windows-third-party-sources
-          path: dist/*-third-party-sources.tar
-          if-no-files-found: error
-          compression-level: 0

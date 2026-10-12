@@ -206,3 +206,6 @@ Server 2025 and Windows 11 (ARM64, x64 emulation) runners. The
 [release workflow](../../.github/workflows/release.yml) runs on version tags. It publishes a
 GitHub release only when every build, test and verification step has passed, and it attaches
 the installer, the portable ZIP, the SBOM, the third-party source archive and `SHA256SUMS.txt`.
+
+Which other channels (WinGet, Flathub, Homebrew) are planned, and what each one needs, is
+described in [Distribution channels](distribution.md).

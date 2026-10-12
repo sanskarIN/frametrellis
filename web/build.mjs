@@ -56,6 +56,8 @@ const DOC_GROUPS = [
               summary: 'The media FrameTrellis imports and the files it exports.' },
             { src: 'docs/user-guide/keyboard-shortcuts.md', slug: 'keyboard-shortcuts',
               label: 'Keyboard shortcuts', summary: 'All shortcuts, also listed in the app.' },
+            { src: 'docs/user-guide/container.md', slug: 'container', label: 'Rendering in a container',
+              summary: 'Render projects on a server or in CI with the container image.' },
             { src: 'docs/releases/README.md', slug: 'releases', label: 'Releases',
               summary: 'How releases are published and where their notes live.' },
             { src: 'docs/releases/unreleased.md', slug: 'unreleased', label: 'Unreleased changes',

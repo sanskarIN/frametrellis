@@ -156,6 +156,10 @@ or the [website](https://sanskarin.github.io/frametrellis/download/). Each relea
 The [installation guide](docs/user-guide/installation.md) explains each step, and the
 [release notes](docs/releases/) list what is new and the known limitations.
 
+To render FrameTrellis projects without a display (on a server or in CI), use the container
+image of the renderer from GitHub Packages, `ghcr.io/sanskarin/frametrellis-render`; see
+[Rendering in a container](docs/user-guide/container.md).
+
 ## License
 
 FrameTrellis is free software: you can redistribute it and/or modify it under the terms of the

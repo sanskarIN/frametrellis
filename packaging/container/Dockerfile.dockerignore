@@ -1,0 +1,8 @@
+# Files the container build does not need (BuildKit reads <Dockerfile>.dockerignore).
+.git
+build
+out
+dist
+web/_site
+web/node_modules
+**/__pycache__

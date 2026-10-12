@@ -203,9 +203,13 @@ only after it has been verified.
 The [Windows packages workflow](../../.github/workflows/package-windows.yml) builds the
 packages on every pull request and verifies them on clean Windows Server 2022, Windows
 Server 2025 and Windows 11 (ARM64, x64 emulation) runners. The
-[release workflow](../../.github/workflows/release.yml) runs on version tags. It publishes a
-GitHub release only when every build, test and verification step has passed, and it attaches
-the installer, the portable ZIP, the SBOM, the third-party source archive and `SHA256SUMS.txt`.
+[release workflow](../../.github/workflows/release.yml) runs when a version tag is pushed or a
+release is published in the GitHub web interface. It builds and verifies the packages again,
+collects the source of every bundled component, and only when all of that has passed attaches
+the installer, the portable ZIP, the SBOM, the third-party source archive and `SHA256SUMS.txt`
+to the release. Started by hand, it rehearses all of this without publishing anything. The
+website is checked in pull requests by the [website workflow](../../.github/workflows/website.yml)
+and published from `main` by the [Pages workflow](../../.github/workflows/pages.yml).
 
 Which other channels (WinGet, Flathub, Homebrew) are planned, and what each one needs, is
 described in [Distribution channels](distribution.md).

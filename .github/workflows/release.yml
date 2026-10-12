@@ -43,6 +43,10 @@ jobs:
             echo "::error::Release notes docs/releases/$tag.md are missing"
             exit 1
           fi
+          if grep -qiE '^<!-- *draft' "docs/releases/$tag.md"; then
+            echo "::error::Release notes docs/releases/$tag.md are still marked as a draft"
+            exit 1
+          fi
           echo "version=$version" >> "$GITHUB_OUTPUT"
 
   packages:

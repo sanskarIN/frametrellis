@@ -42,8 +42,6 @@ const REPO_BLOB = `${REPO_URL}/blob/main/`;
 const REPO_TREE = `${REPO_URL}/tree/main/`;
 const version = /project\(FrameTrellis\s+VERSION\s+([\d.]+)/.exec(
     fs.readFileSync(path.join(repoRoot, 'CMakeLists.txt'), 'utf8'))?.[1] ?? 'unknown';
-// Versions below 1.0 are development snapshots and are labelled as such on the website.
-const versionLabel = version.startsWith('0.') ? `In development (${version})` : `Version ${version}`;
 
 // Documentation pages: repository Markdown file → page slug under docs/.
 const DOC_GROUPS = [
@@ -367,6 +365,9 @@ async function verifyReleaseLinks(release) {
 }
 
 const latestRelease = readRelease();
+// The website names a version only once it has been published as a release; until then the
+// source version is labelled as a development version.
+const versionLabel = latestRelease ? `Version ${latestRelease.version}` : `In development (${version})`;
 
 function buildPages() {
     const pagesDir = path.join(webDir, 'site', 'pages');

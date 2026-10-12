@@ -6,7 +6,7 @@ A project is a UTF-8 JSON document. Version 1 looks like this (abridged):
 {
   "format": "org.frametrellis.project",
   "version": 1,
-  "generator": "FrameTrellis 0.1.0",
+  "generator": "FrameTrellis 1.0.0",
   "project": {
     "id": "6d0f…",
     "name": "Holiday",

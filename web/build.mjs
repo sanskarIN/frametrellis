@@ -67,6 +67,9 @@ const DOC_GROUPS = [
         items: [
             { src: 'docs/development/building.md', slug: 'building', label: 'Building from source',
               summary: 'Build instructions for Windows 11, Linux and macOS.' },
+            { src: 'docs/development/distribution.md', slug: 'distribution',
+              label: 'Distribution channels',
+              summary: 'Release assets, and the plans for WinGet, Flathub and Homebrew.' },
             { src: 'docs/testing.md', slug: 'testing', label: 'Testing',
               summary: 'Unit, integration and GUI tests, sanitizers and static analysis.' },
             { src: 'CONTRIBUTING.md', slug: 'contributing', label: 'Contributing',

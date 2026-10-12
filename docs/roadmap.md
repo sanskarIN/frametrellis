@@ -37,25 +37,29 @@ separate releases.
 - ✅ Versioned project format, atomic saves, undo/redo, autosave and crash recovery
 - ✅ Missing-media detection and relinking, recent projects
 
-## v0.8.0 — Polish and robustness 🚧
+## v0.8.0 — Polish and robustness ✅
 - ✅ Error handling and accessibility labels throughout the UI
-- 🚧 Windows installer and portable ZIP, verified automatically on clean Windows Server 2022,
+- ✅ Windows installer and portable ZIP, verified automatically on clean Windows Server 2022,
   Windows Server 2025 and Windows 11 (ARM64, x64 emulation) machines
 - ✅ Installation self-test (`frametrellis-render --self-test`)
 
-## v0.9.0 — Release candidate 🚧
+## v0.9.0 — Release candidate ✅
 - ✅ Dissolve and crossfade transitions between touching clips
 - ✅ Audio waveforms on clips
-- 🚧 Release workflow with SHA-256 checksums, an SPDX software bill of materials and the source
+- ✅ Release workflow with SHA-256 checksums, an SPDX software bill of materials and the source
   code of every bundled component
+- ✅ License texts of every bundled component in the Windows packages
 
-## v1.0.0 — First stable release
-Acceptance criteria (all must hold):
-- the documented build succeeds in the release environment, CI is green on all supported platforms;
-- import → preview → edit → save → reopen → export works end to end and is tested;
-- no known crash or data-loss bug; fresh-install instructions verified;
-- packages contain the expected files, licenses and notices; website and links checked;
-- limitations and platform support are explicit in the release notes.
+## v1.0.0 — First stable release ✅
+Acceptance criteria, each checked before the release:
+- ✅ the documented build succeeds in the release environment, CI is green on all supported
+  platforms (Linux and Windows);
+- ✅ import → preview → edit → save → reopen → export works end to end and is tested;
+- ✅ no known crash or data-loss bug; the installer and the portable ZIP are installed, run and
+  removed on clean Windows machines;
+- ✅ packages contain the expected files, licenses and notices; the website's links are checked
+  on every build;
+- ✅ limitations and platform support are explicit in the [release notes](releases/v1.0.0.md).
 
 ## v1.1 — Next
 - ⏳ Basic title overlays

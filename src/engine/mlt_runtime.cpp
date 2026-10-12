@@ -84,6 +84,21 @@ void addApplicationFolderToDllSearchPath()
 }
 #endif
 
+/// MLT's loader producer, which opens every file, sets up two global tables the first time it is
+/// used, without a lock: the normalising filters (loader.ini) and the file-type dictionary
+/// (loader.dict). The editor opens files on several threads at once (preview, thumbnails and
+/// waveforms), so concurrent first uses could initialise and free the same table twice. Use the
+/// loader once here, before any other thread can.
+void initializeLoaderTables()
+{
+    Mlt::Profile profile;
+    // A service:resource that exists loads the normalising filters...
+    const Mlt::Producer color(profile, "color:0x00000000");
+    // ...and one whose service does not exist makes the loader fall back to its dictionary.
+    // Nothing is opened: no MLT service and no FFmpeg protocol has this name.
+    const Mlt::Producer none(profile, "frametrellis-loader-setup:");
+}
+
 QString findRepository()
 {
     for (const char* variable : {"FRAMETRELLIS_MLT_REPOSITORY", "MLT_REPOSITORY"}) {
@@ -260,6 +275,7 @@ Status MltRuntime::initialize()
             QStringLiteral("repository: %1")
                 .arg(repositoryPath.isEmpty() ? QStringLiteral("<default>") : repositoryPath));
     }
+    initializeLoaderTables();
 
     EngineCapabilities caps;
     caps.mltVersion = QString::fromLatin1(mlt_version_get_string());

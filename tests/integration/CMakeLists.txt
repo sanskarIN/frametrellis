@@ -8,6 +8,7 @@ ft_add_test(tst_render SOURCES tst_render.cpp LIBS ft_render_engine ft_test_fixt
 target_compile_definitions(tst_render PRIVATE FT_RENDER_HELPER="$<TARGET_FILE:frametrellis-render>")
 add_dependencies(tst_render frametrellis-render)
 ft_add_test(tst_playback SOURCES tst_playback.cpp LIBS ft_playback ft_media ft_test_fixtures LABELS integration)
+ft_add_test(tst_engine_threads SOURCES tst_engine_threads.cpp LIBS ft_test_fixtures FrameTrellis::Mlt LABELS integration)
 
 # The installation self-test of the render helper, exactly as packages run it.
 add_test(NAME render_self_test

@@ -1,0 +1,63 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
+# Builds the website from main and publishes it to GitHub Pages. The download page lists the
+# assets of the latest published release, so the release workflow runs this workflow again
+# after it has published a version. Pull requests are checked by website.yml.
+name: Publish website
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "web/**"
+      - "docs/**"
+      - "*.md"
+      - "CMakeLists.txt"
+      - ".github/workflows/pages.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    name: Build and check the website
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Publish only from main
+        if: github.ref != 'refs/heads/main'
+        run: |
+          echo "::error::The website is published from main only, not from $GITHUB_REF_NAME"
+          exit 1
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: "22"
+      - name: Look up the latest release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh api "repos/${{ github.repository }}/releases/latest" > release.json || echo '{}' > release.json
+      - name: Build and check the links, including the download links
+        run: node web/build.mjs --release-json release.json --verify-downloads
+      - name: Upload the site
+        uses: actions/upload-pages-artifact@v5
+        with:
+          path: web/_site
+
+  deploy:
+    name: Deploy to GitHub Pages
+    needs: build
+    runs-on: ubuntu-24.04
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/configure-pages@v6
+      - id: deployment
+        uses: actions/deploy-pages@v5

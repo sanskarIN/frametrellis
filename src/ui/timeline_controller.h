@@ -89,6 +89,9 @@ public:
     /// Stores the attributes of one selected clip and applies them to later selections.
     Q_INVOKABLE bool copySelectionAttributes();
     Q_INVOKABLE bool pasteSelectionAttributes();
+    /// Audio muting and picture-reset batch commands; each operation is a single undo step.
+    Q_INVOKABLE bool muteSelection(bool muted);
+    Q_INVOKABLE bool resetSelectionPictures();
     Q_INVOKABLE bool deleteSelection(bool ripple);
     Q_INVOKABLE void select(const QString& clipId, bool toggle);
     Q_INVOKABLE void clearSelection();

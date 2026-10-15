@@ -40,6 +40,11 @@ std::unique_ptr<EditCommand> splitClips(const QList<Id>& clipIds, FrameCount fra
 /// Updates clip properties; consecutive updates of the same clip merge into one undo step.
 std::unique_ptr<EditCommand> setClipProperties(const Id& clipId, const ClipProperties& properties,
                                                const QString& text);
+/// Applies copied volume, picture and fade settings to multiple clips as one undo step.
+/// Fade lengths are shortened to fit each destination clip's duration.
+std::unique_ptr<EditCommand> pasteClipProperties(const QList<Id>& clipIds,
+                                                  const ClipProperties& properties);
+
 
 /// Adds a transition at the cut after the clip. The id lets callers select the new transition.
 std::unique_ptr<EditCommand> addTransition(const Id& fromClipId, FrameCount duration,

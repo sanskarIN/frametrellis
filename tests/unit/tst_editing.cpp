@@ -217,6 +217,89 @@ private slots:
         QCOMPARE(f.doc.undoText(), undoText);
     }
 
+    void nudgingAdjacentClipsAcrossTracksPreservesSyncAndUndo()
+    {
+        Fixture f;
+        QVERIFY(f.doc.execute(
+            edits::addClip(f.v1, clipOf(QStringLiteral("m1"), 20, 40, QStringLiteral("left")))));
+        QVERIFY(f.doc.execute(
+            edits::addClip(f.v1, clipOf(QStringLiteral("m1"), 60, 30, QStringLiteral("right")))));
+        QVERIFY(f.doc.execute(
+            edits::addClip(f.v2, clipOf(QStringLiteral("m1"), 20, 50, QStringLiteral("overlay")))));
+        const Timeline before = f.doc.project().timeline();
+        QVERIFY(f.doc.execute(edits::nudgeClips(
+            {QStringLiteral("right"), QStringLiteral("overlay"), QStringLiteral("left")}, 5)));
+        const Timeline moved = f.doc.project().timeline();
+        QCOMPARE(moved.clip(QStringLiteral("left"))->start, FrameCount{25});
+        QCOMPARE(moved.clip(QStringLiteral("right"))->start, FrameCount{65});
+        QCOMPARE(moved.clip(QStringLiteral("overlay"))->start, FrameCount{25});
+        QCOMPARE(f.doc.undoText(), QStringLiteral("Nudge Clips Right"));
+        QVERIFY(f.doc.undo());
+        QCOMPARE(f.doc.project().timeline(), before);
+        QVERIFY(f.doc.redo());
+        QCOMPARE(f.doc.project().timeline(), moved);
+        QVERIFY(f.doc.execute(edits::nudgeClips(
+            {QStringLiteral("left"), QStringLiteral("right"), QStringLiteral("overlay")}, -5)));
+        QCOMPARE(f.doc.project().timeline(), before);
+    }
+
+    void nudgeRejectsBoundaryAndCollisionsWithoutChangingHistory()
+    {
+        Fixture f;
+        QVERIFY(f.doc.execute(
+            edits::addClip(f.v1, clipOf(QStringLiteral("m1"), 0, 40, QStringLiteral("first")))));
+        QVERIFY(f.doc.execute(
+            edits::addClip(f.v1, clipOf(QStringLiteral("m1"), 40, 40, QStringLiteral("second")))));
+        const Project before = f.doc.project();
+        const QString undoText = f.doc.undoText();
+        QVERIFY(!f.doc.execute(edits::nudgeClips({QStringLiteral("first")}, -1)));
+        QVERIFY(!f.doc.execute(edits::nudgeClips({QStringLiteral("first")}, 1)));
+        QVERIFY(!f.doc.execute(edits::nudgeClips({}, 1)));
+        QVERIFY(!f.doc.execute(edits::nudgeClips({QStringLiteral("first")}, 0)));
+        QVERIFY(!f.doc.execute(edits::nudgeClips(
+            {QStringLiteral("first"), QStringLiteral("first")}, 1)));
+        QVERIFY(!f.doc.execute(edits::nudgeClips({QStringLiteral("missing")}, 1)));
+        QCOMPARE(f.doc.project(), before);
+        QCOMPARE(f.doc.undoText(), undoText);
+    }
+
+    void nudgingLockedSelectionIsAtomic()
+    {
+        Fixture f;
+        QVERIFY(f.doc.execute(
+            edits::addClip(f.v1, clipOf(QStringLiteral("m1"), 10, 40, QStringLiteral("one")))));
+        QVERIFY(f.doc.execute(
+            edits::addClip(f.v2, clipOf(QStringLiteral("m1"), 10, 40, QStringLiteral("two")))));
+        QVERIFY(f.doc.execute(edits::setTrackLocked(f.v2, true)));
+        const Project before = f.doc.project();
+        const QString undoText = f.doc.undoText();
+        QVERIFY(!f.doc.execute(
+            edits::nudgeClips({QStringLiteral("one"), QStringLiteral("two")}, 10)));
+        QCOMPARE(f.doc.project(), before);
+        QCOMPARE(f.doc.undoText(), undoText);
+    }
+
+    void nudgingBothEndsOfTransitionKeepsItValid()
+    {
+        Fixture f;
+        Clip first = clipOf(QStringLiteral("m1"), 10, 60, QStringLiteral("first"));
+        Clip second = clipOf(QStringLiteral("m1"), 70, 70, QStringLiteral("second"));
+        second.sourceIn = 120;
+        QVERIFY(f.doc.execute(edits::addClip(f.v1, first)));
+        QVERIFY(f.doc.execute(edits::addClip(f.v1, second)));
+        QVERIFY(f.doc.execute(edits::addTransition(first.id, 10)));
+        const Timeline before = f.doc.project().timeline();
+        QVERIFY(f.doc.execute(edits::nudgeClips({first.id, second.id}, 1)));
+        QCOMPARE(f.doc.project().timeline().clip(first.id)->start, FrameCount{11});
+        QCOMPARE(f.doc.project().timeline().clip(second.id)->start, FrameCount{71});
+        QVERIFY(f.doc.project().timeline().transitionAfter(first.id));
+        const Timeline moved = f.doc.project().timeline();
+        QVERIFY(!f.doc.execute(edits::nudgeClips({first.id}, 1)));
+        QCOMPARE(f.doc.project().timeline(), moved);
+        QVERIFY(f.doc.undo());
+        QCOMPARE(f.doc.project().timeline(), before);
+    }
+
     void pasteAttributesToClipsClampsFadesAndUndoesTogether()
     {
         Fixture f;

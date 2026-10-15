@@ -90,6 +90,8 @@ public:
     Q_INVOKABLE bool splitAtPlayhead();
     /// Duplicates a single selected clip, or a time-aligned block of several selected clips.
     Q_INVOKABLE bool duplicateSelection();
+    /// Shift all selected clips by signed project frames without changing their source trims.
+    Q_INVOKABLE bool nudgeSelection(int frames);
     /// Stores the attributes of one selected clip and applies them to later selections.
     Q_INVOKABLE bool copySelectionAttributes();
     Q_INVOKABLE bool pasteSelectionAttributes();

@@ -272,8 +272,7 @@ private slots:
             edits::addClip(f.v1, clipOf(QStringLiteral("m1"), 20, 10, QStringLiteral("fixed")))));
         const Timeline before = f.doc.project().timeline();
         QVERIFY(f.doc.execute(edits::nudgeClips({QStringLiteral("moving")}, 40)));
-        QCOMPARE(f.doc.project().timeline().clip(QStringLiteral("moving"))->start,
-                 FrameCount{40});
+        QCOMPARE(f.doc.project().timeline().clip(QStringLiteral("moving"))->start, FrameCount{40});
         const Track* track = f.doc.project().timeline().track(f.v1);
         QVERIFY(track);
         QCOMPARE(track->clips.size(), size_t{2});

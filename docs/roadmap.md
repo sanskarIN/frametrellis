@@ -71,6 +71,12 @@ Acceptance criteria, each checked before the release:
 - ✅ Prevent title creation when there is no unlocked video track
 - ✅ Test transparent PNG compositing through an exported MP4
 
+## v1.2.0 — Batch editing and clip attributes 🚧
+- 🚧 Multi-clip duplication across audio and video tracks with preserved timing
+- 🚧 One-to-many copy/paste of clip volume, fades, mute and picture attributes
+- 🚧 Batch mute/unmute and picture-reset actions with atomic undo and locked-track safety
+- 🚧 Unit, GUI, Linux sanitizers, Windows packaging and installer smoke test verification
+
 ## Next milestones
 - ⏳ A Linux package (AppImage or Flatpak), published once it has been verified
 - ⏳ A macOS build in CI, then a `.dmg` package once it has been verified

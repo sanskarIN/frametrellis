@@ -67,6 +67,10 @@ Acceptance criteria, each checked before the release:
 - ✅ Linux and Windows CI, transparency compositing, GUI interaction and packaging tests
 - ✅ Headless renderer container image with installation self-test
 
+## v1.1.1 — Patch release ✅
+- ✅ Prevent title creation when there is no unlocked video track
+- ✅ Test transparent PNG compositing through an exported MP4
+
 ## Next milestones
 - ⏳ A Linux package (AppImage or Flatpak), published once it has been verified
 - ⏳ A macOS build in CI, then a `.dmg` package once it has been verified

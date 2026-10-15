@@ -489,6 +489,7 @@ private slots:
         QCOMPARE(copy->duration, originalDuration);
         QCOMPARE(copy->assetId, originalAsset);
         QVERIFY(m_app->project()->canUndo());
+        screenshot(QStringLiteral("07-clip-duplication"));
         m_app->project()->undo();
         QVERIFY(!m_app->project()->project().timeline().clip(selection.front()));
     }
@@ -527,6 +528,15 @@ private slots:
             m_app->timeline()->selection().front());
         QVERIFY(titleTrack);
         QCOMPARE(titleTrack->kind, TrackKind::Video);
+        if (!qEnvironmentVariableIsEmpty("FT_SCREENSHOT_DIR")) {
+            const Clip* titleClip = m_app->project()->project().timeline().clip(
+                m_app->timeline()->selection().front());
+            QVERIFY(titleClip);
+            m_app->playback()->seek(static_cast<double>(titleClip->start + 5));
+            m_app->showStatus(QStringLiteral("Title overlay on the timeline"));
+            QTest::qWait(800);
+            screenshot(QStringLiteral("08-title-overlay"));
+        }
         QVERIFY(m_app->project()->save());
         const QString savedPath = m_app->project()->filePath();
         QVERIFY(m_app->project()->openProject(savedPath));

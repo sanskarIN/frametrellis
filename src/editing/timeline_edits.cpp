@@ -288,6 +288,69 @@ std::unique_ptr<EditCommand> pasteClipProperties(const QList<Id>& clipIds,
                    });
 }
 
+std::unique_ptr<EditCommand> muteClips(const QList<Id>& clipIds, bool muted)
+{
+    return command(muted ? QStringLiteral("Mute Selected Clips")
+                         : QStringLiteral("Unmute Selected Clips"),
+                   [clipIds, muted](Timeline& timeline, const SourceLookup&) -> Status {
+                       if (clipIds.isEmpty()) {
+                           return makeError(ErrorCode::InvalidArgument,
+                                            QStringLiteral("Select clips to update."));
+                       }
+                       QSet<Id> visited;
+                       for (const Id& id : clipIds) {
+                           if (visited.contains(id)) {
+                               return makeError(ErrorCode::InvalidArgument,
+                                                QStringLiteral("A clip was selected twice."));
+                           }
+                           visited.insert(id);
+                           const Clip* clip = timeline.clip(id);
+                           if (!clip) {
+                               return makeError(ErrorCode::NotFound,
+                                                QStringLiteral("A selected clip was not found."));
+                           }
+                           ClipProperties properties = clip->properties;
+                           properties.muted = muted;
+                           if (const Status updated = timeline.setClipProperties(id, properties);
+                               !updated) {
+                               return updated;
+                           }
+                       }
+                       return {};
+                   });
+}
+
+std::unique_ptr<EditCommand> resetClipPictures(const QList<Id>& clipIds)
+{
+    return command(QStringLiteral("Reset Selected Pictures"),
+                   [clipIds](Timeline& timeline, const SourceLookup&) -> Status {
+                       if (clipIds.isEmpty()) {
+                           return makeError(ErrorCode::InvalidArgument,
+                                            QStringLiteral("Select clips to update."));
+                       }
+                       QSet<Id> visited;
+                       for (const Id& id : clipIds) {
+                           if (visited.contains(id)) {
+                               return makeError(ErrorCode::InvalidArgument,
+                                                QStringLiteral("A clip was selected twice."));
+                           }
+                           visited.insert(id);
+                           const Clip* clip = timeline.clip(id);
+                           if (!clip) {
+                               return makeError(ErrorCode::NotFound,
+                                                QStringLiteral("A selected clip was not found."));
+                           }
+                           ClipProperties properties = clip->properties;
+                           properties.video = VideoAdjustments{};
+                           if (const Status updated = timeline.setClipProperties(id, properties);
+                               !updated) {
+                               return updated;
+                           }
+                       }
+                       return {};
+                   });
+}
+
 std::unique_ptr<EditCommand> addTransition(const Id& fromClipId, FrameCount duration,
                                            const Id& transitionId)
 {

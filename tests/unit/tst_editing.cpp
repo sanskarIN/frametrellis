@@ -256,8 +256,8 @@ private slots:
         QVERIFY(!f.doc.execute(edits::nudgeClips({QStringLiteral("first")}, 1)));
         QVERIFY(!f.doc.execute(edits::nudgeClips({}, 1)));
         QVERIFY(!f.doc.execute(edits::nudgeClips({QStringLiteral("first")}, 0)));
-        QVERIFY(!f.doc.execute(edits::nudgeClips(
-            {QStringLiteral("first"), QStringLiteral("first")}, 1)));
+        QVERIFY(!f.doc.execute(
+            edits::nudgeClips({QStringLiteral("first"), QStringLiteral("first")}, 1)));
         QVERIFY(!f.doc.execute(edits::nudgeClips({QStringLiteral("missing")}, 1)));
         QCOMPARE(f.doc.project(), before);
         QCOMPARE(f.doc.undoText(), undoText);

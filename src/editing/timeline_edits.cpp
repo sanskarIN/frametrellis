@@ -258,6 +258,18 @@ std::unique_ptr<EditCommand> nudgeClips(const QList<Id>& clipIds, FrameCount del
                     std::stable_sort(
                         changed.clips.begin(), changed.clips.end(),
                         [](const Clip& a, const Clip& b) { return a.start < b.start; });
+                    // Transitions are iterated in cut order by the editor and renderer.
+                    // A group move may pass another valid transition on this track.
+                    const auto cutOf = [&](const Transition& transition) {
+                        const auto it = std::find_if(
+                            changed.clips.begin(), changed.clips.end(),
+                            [&](const Clip& clip) { return clip.id == transition.fromClip; });
+                        return it == changed.clips.end() ? FrameCount{0} : it->end();
+                    };
+                    std::stable_sort(changed.transitions.begin(), changed.transitions.end(),
+                                     [&](const Transition& a, const Transition& b) {
+                                         return cutOf(a) < cutOf(b);
+                                     });
                     timeline.restoreTrack(changed);
                 }
             }

@@ -47,9 +47,11 @@ What works today (each item is implemented and covered by automated tests):
 - [x] Autosave every minute and crash recovery
 - [x] Recent projects, dark and light themes, keyboard shortcuts, first-run guide
 
-Planned (see the [roadmap](docs/roadmap.md)): titles,
-subtitles, keyframes, proxy media, customisable shortcuts, more export formats, and Linux and
-macOS packages.
+In development for v1.1: undoable clip duplication and transparent PNG title overlays. These
+changes are not part of the published v1.0.0 packages until the next release is verified.
+
+Planned (see the [roadmap](docs/roadmap.md)): editable title layers, subtitles, keyframes,
+proxy media, customisable shortcuts, more export formats, and Linux and macOS packages.
 
 ## Platforms
 

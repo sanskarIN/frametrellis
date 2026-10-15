@@ -5,6 +5,9 @@
 #include "core/logging.h"
 #include "media/media_probe.h"
 #include "ui/project_controller.h"
+#include "ui/title_image.h"
+
+#include "core/ids.h"
 
 #include <QDesktopServices>
 #include <QFileInfo>

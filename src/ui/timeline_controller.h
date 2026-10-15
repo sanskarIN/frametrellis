@@ -75,6 +75,8 @@ public:
     Q_INVOKABLE bool trimStart(const QString& clipId, double newStart);
     Q_INVOKABLE bool trimEnd(const QString& clipId, double newEnd);
     Q_INVOKABLE bool splitAtPlayhead();
+    /// Appends a copy of the single selected clip to its track and selects the copy.
+    Q_INVOKABLE bool duplicateSelection();
     Q_INVOKABLE bool deleteSelection(bool ripple);
     Q_INVOKABLE void select(const QString& clipId, bool toggle);
     Q_INVOKABLE void clearSelection();

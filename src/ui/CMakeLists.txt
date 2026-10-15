@@ -31,6 +31,7 @@ qt_add_qml_module(ft_ui
         qml/dialogs/MessageBox.qml
         qml/dialogs/NewProjectDialog.qml
         qml/dialogs/ShortcutsDialog.qml
+        qml/dialogs/TitleDialog.qml
         qml/dialogs/WelcomeOverlay.qml
         qml/panels/ClipItem.qml
         qml/panels/InspectorPanel.qml

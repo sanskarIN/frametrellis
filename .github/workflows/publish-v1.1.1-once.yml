@@ -1,0 +1,51 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
+# One-time publication bootstrap. Remove after the versioned release has been verified.
+# Runs only when this file itself changes on main; never on normal source pushes.
+name: Start FrameTrellis 1.1.1 release
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/publish-v1.1.1-once.yml"
+
+permissions: {}
+
+jobs:
+  dispatch:
+    name: Create version tag and dispatch verified release
+    if: github.repository == 'sanskarIN/frametrellis' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+      actions: write
+    steps:
+      - uses: actions/checkout@v6
+      - name: Verify version, notes and tag
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: v1.1.1
+        run: |
+          set -euo pipefail
+          project=$(grep -Pzo 'project\(FrameTrellis\s+VERSION\s+\K[0-9.]+' CMakeLists.txt | tr -d '\0')
+          test "$project" = "1.1.1"
+          test -s docs/releases/v1.1.1.md
+          if gh api "repos/$GITHUB_REPOSITORY/git/ref/tags/$TAG" > tag.json 2>/dev/null; then
+            existing=$(jq -r '.object.sha' tag.json)
+            if [ "$existing" != "$GITHUB_SHA" ]; then
+              echo "::error::Refusing to move an existing tag ($existing) to $GITHUB_SHA"
+              exit 1
+            fi
+            echo "Tag already exists on this release commit."
+          else
+            gh api -X POST "repos/$GITHUB_REPOSITORY/git/refs" \
+              -f ref="refs/tags/$TAG" -f sha="$GITHUB_SHA" > tag.json
+            echo "Created $TAG at $GITHUB_SHA"
+          fi
+      - name: Start the existing full release pipeline
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          gh workflow run release.yml --repo "$GITHUB_REPOSITORY" --ref v1.1.1 -f publish=true
+          echo "The release workflow will build, verify, and upload the 1.1.1 packages."

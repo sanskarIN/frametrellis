@@ -2,6 +2,10 @@
 // SPDX-FileCopyrightText: 2026 Sanskar and FrameTrellis contributors
 #include "editing/timeline_edits.h"
 
+#include <QSet>
+
+#include <algorithm>
+
 namespace ft::edits {
 
 namespace {
@@ -105,6 +109,65 @@ std::unique_ptr<EditCommand> duplicateClip(const Id& clipId, const Id& newClipId
                        copy.id = id;
                        copy.start = track->end();
                        return timeline.insertClip(track->id, copy, sources);
+                   });
+}
+
+std::unique_ptr<EditCommand> duplicateClips(const QList<Id>& clipIds,
+                                             const QList<Id>& newClipIds)
+{
+    return command(QStringLiteral("Duplicate %1 Clips").arg(clipIds.size()),
+                   [clipIds, newClipIds](Timeline& timeline, const SourceLookup& sources) -> Status {
+                       if (clipIds.isEmpty() || clipIds.size() != newClipIds.size()) {
+                           return makeError(ErrorCode::InvalidArgument,
+                                            QStringLiteral("Select clips to duplicate."));
+                       }
+                       QSet<Id> sourceIds;
+                       QSet<Id> destinationIds;
+                       struct Original
+                       {
+                           Id trackId;
+                           Clip clip;
+                       };
+                       std::vector<Original> originals;
+                       originals.reserve(static_cast<size_t>(clipIds.size()));
+                       FrameCount earliest = kMaxTimelineFrames;
+                       for (qsizetype i = 0; i < clipIds.size(); ++i) {
+                           const Id& id = clipIds.at(i);
+                           const Id& newId = newClipIds.at(i);
+                           const Clip* clip = timeline.clip(id);
+                           const Track* track = timeline.trackOfClip(id);
+                           if (!clip || !track) {
+                               return makeError(ErrorCode::NotFound,
+                                                QStringLiteral("A selected clip was not found."));
+                           }
+                           if (sourceIds.contains(id) || newId.isEmpty() ||
+                               destinationIds.contains(newId) || timeline.clip(newId)) {
+                               return makeError(ErrorCode::Conflict,
+                                                QStringLiteral("Duplicate clip ids are not allowed."));
+                           }
+                           sourceIds.insert(id);
+                           destinationIds.insert(newId);
+                           earliest = std::min(earliest, clip->start);
+                           originals.push_back({track->id, *clip});
+                       }
+                       const FrameCount appendAt = timeline.duration();
+                       for (qsizetype i = 0; i < clipIds.size(); ++i) {
+                           Clip copy = originals.at(static_cast<size_t>(i)).clip;
+                           const FrameCount relative = copy.start - earliest;
+                           if (relative > kMaxTimelineFrames - appendAt ||
+                               copy.duration > kMaxTimelineFrames - appendAt - relative) {
+                               return makeError(ErrorCode::OutOfRange,
+                                                QStringLiteral("The duplicates exceed the timeline limit."));
+                           }
+                           copy.start = appendAt + relative;
+                           copy.id = newClipIds.at(i);
+                           if (const Status added = timeline.insertClip(
+                                   originals.at(static_cast<size_t>(i)).trackId, copy, sources);
+                               !added) {
+                               return added;
+                           }
+                       }
+                       return {};
                    });
 }
 

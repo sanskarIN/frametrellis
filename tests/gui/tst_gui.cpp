@@ -630,6 +630,51 @@ private slots:
         }
     }
 
+    void nudgeSelectionUsingKeyboard()
+    {
+        QString assetId;
+        for (const MediaAsset& asset : m_app->project()->project().media()) {
+            if (asset.info.hasVideo) {
+                assetId = asset.id;
+                break;
+            }
+        }
+        QVERIFY(!assetId.isEmpty());
+        QVERIFY(m_app->timeline()->addTrack(QStringLiteral("video")));
+
+        Id trackId;
+        for (const Track& track : m_app->project()->project().timeline().tracks()) {
+            if (track.kind == TrackKind::Video && track.clips.empty()) {
+                trackId = track.id;
+            }
+        }
+        QVERIFY(!trackId.isEmpty());
+        QVERIFY(m_app->timeline()->dropAsset(assetId, trackId, 100));
+        QCOMPARE(m_app->timeline()->selection().size(), 1);
+        const Id clipId = m_app->timeline()->selection().front();
+        m_window->requestActivate();
+        QTest::keyClick(m_window, Qt::Key_Right, Qt::AltModifier);
+        QVERIFY(QTest::qWaitFor(
+            [&] {
+                const Clip* clip = m_app->project()->project().timeline().clip(clipId);
+                return clip && clip->start == 101;
+            },
+            2000));
+        QTest::keyClick(m_window, Qt::Key_Left, Qt::AltModifier | Qt::ShiftModifier);
+        QVERIFY(QTest::qWaitFor(
+            [&] {
+                const Clip* clip = m_app->project()->project().timeline().clip(clipId);
+                return clip && clip->start == 91;
+            },
+            2000));
+        m_app->project()->undo();
+        QCOMPARE(m_app->project()->project().timeline().clip(clipId)->start, FrameCount{101});
+        m_app->project()->undo();
+        QCOMPARE(m_app->project()->project().timeline().clip(clipId)->start, FrameCount{100});
+        QVERIFY(m_app->timeline()->deleteSelection(false));
+        QVERIFY(m_app->timeline()->removeTrack(trackId));
+    }
+
     void cleanupTestCase()
     {
         m_engine.reset();

@@ -7,6 +7,9 @@ release.
 - Duplicate a selected timeline clip with Ctrl+D, the Edit menu or timeline toolbar. The copy
   retains source trims and adjustments, is appended without overwriting clips, and can be undone
   in one step.
+- Basic title overlays created inside the editor: configurable text, size and colour rendered
+  onto transparent PNGs. Images are stored beside the project and imported onto the upper video
+  track, where they can be moved, trimmed and rendered with normal image clips.
 - A container image of the headless renderer, `ghcr.io/sanskarin/frametrellis-render`, in
   GitHub Packages: it renders FrameTrellis projects to MP4 on servers and in CI pipelines. Each
   image is checked with the installation self-test and a real render before it is published.

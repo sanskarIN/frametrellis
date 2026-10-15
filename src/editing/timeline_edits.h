@@ -23,6 +23,13 @@ std::unique_ptr<EditCommand> addClip(const Id& trackId, const Clip& clip);
 /// Copies a clip to the end of its current track, retaining source trims and effects. The
 /// source clip's transitions are not copied. The operation is a single undoable edit.
 std::unique_ptr<EditCommand> duplicateClip(const Id& clipId, const Id& newClipId = {});
+/// Duplicates a selection as a time-aligned block after the complete timeline.
+/// Keeps track assignments, relative gaps, source trims and adjustments. Existing transitions
+/// are not copied. Source ids and destination ids must have the same non-zero count.
+/// A failure (including a locked track or overflow) leaves every clip untouched.
+std::unique_ptr<EditCommand> duplicateClips(const QList<Id>& clipIds,
+                                             const QList<Id>& newClipIds);
+
 std::unique_ptr<EditCommand> removeClips(const QList<Id>& clipIds);
 std::unique_ptr<EditCommand> rippleRemoveClip(const Id& clipId);
 std::unique_ptr<EditCommand> moveClip(const Id& clipId, const Id& targetTrackId, FrameCount start);

@@ -152,7 +152,7 @@ private slots:
         QVERIFY(f.doc.execute(
             edits::duplicateClips({QStringLiteral("second"), QStringLiteral("first")},
                                   {QStringLiteral("copy-second"), QStringLiteral("copy-first")})));
-        const Timeline& after = f.doc.project().timeline();
+        const Timeline after = f.doc.project().timeline();
         QCOMPARE(after.clip(QStringLiteral("copy-first"))->start, FrameCount{160});
         QCOMPARE(after.clip(QStringLiteral("copy-second"))->start, FrameCount{205});
         QCOMPARE(after.clip(QStringLiteral("copy-first"))->sourceIn, first.sourceIn);

@@ -10,7 +10,10 @@
 #include "core/ids.h"
 
 #include <QDesktopServices>
+#include <QDir>
+#include <QFile>
 #include <QFileInfo>
+#include <QSaveFile>
 #include <QUrl>
 
 namespace ft::ui {

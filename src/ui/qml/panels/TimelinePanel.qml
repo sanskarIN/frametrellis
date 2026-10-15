@@ -51,6 +51,7 @@ PanelFrame {
         IconButton { iconName: "audio"; text: qsTr("+ Audio"); tip: qsTr("Add an audio track"); onClicked: panel.timeline.addTrack("audio") },
         Rectangle { width: 1; height: 20; color: Theme.border; anchors.verticalCenter: parent ? parent.verticalCenter : undefined },
         IconButton { iconName: "split"; tip: qsTr("Split at playhead (S)"); enabled: !panel.timeline.empty; onClicked: panel.timeline.splitAtPlayhead() },
+        IconButton { iconName: "duplicate"; tip: qsTr("Duplicate selected clip to end of track (Ctrl+D)"); enabled: panel.timeline.selection.length === 1; onClicked: panel.timeline.duplicateSelection() },
         IconButton { iconName: "trash"; tip: qsTr("Delete selected clips (Delete)"); enabled: panel.timeline.selection.length > 0; onClicked: panel.timeline.deleteSelection(false) },
         IconButton { iconName: "ripple"; tip: qsTr("Ripple delete: remove and close the gap (Shift+Delete)"); enabled: panel.timeline.selection.length === 1; onClicked: panel.timeline.deleteSelection(true) },
         Rectangle { width: 1; height: 20; color: Theme.border; anchors.verticalCenter: parent ? parent.verticalCenter : undefined },

@@ -263,6 +263,33 @@ private slots:
                  qPrintable(blended.name()));
     }
 
+    void transparentImageOverlayRevealsFootage()
+    {
+        // A generated title is a PNG with an alpha channel. Transparent pixels must leave the
+        // footage below visible while opaque text pixels draw over it.
+        const QString path = m_dir.filePath(QStringLiteral("transparent-overlay.png"));
+        QImage layer(QSize(160, 90), QImage::Format_RGBA8888);
+        layer.fill(Qt::transparent);
+        for (int y = 30; y < 60; ++y) {
+            for (int x = 40; x < 120; ++x) {
+                layer.setPixelColor(x, y, Qt::yellow);
+            }
+        }
+        QVERIFY(layer.save(path));
+
+        QList<Id> ids;
+        Project project = projectWith({m_media.red, path}, &ids);
+        QCOMPARE(ids.size(), 2);
+        QVERIFY(project.timeline().insertClip(project.timeline().tracks()[0].id,
+                                              clipOf(ids[0], 0, 0, 25), project.sourceLookup()));
+        QVERIFY(project.timeline().insertClip(project.timeline().tracks()[1].id,
+                                              clipOf(ids[1], 0, 0, 25), project.sourceLookup()));
+        const QImage picture = renderAt(project, 10);
+        QVERIFY(!picture.isNull());
+        QVERIFY(isCloseTo(averageColor(picture, QRect(0, 0, 20, 20)), Qt::red));
+        QVERIFY(isCloseTo(averageColor(picture, QRect(60, 40, 20, 10)), Qt::yellow));
+    }
+
     void videoFadeIn()
     {
         QList<Id> ids;

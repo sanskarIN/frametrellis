@@ -10,6 +10,8 @@
 #include <QSet>
 #include <QVariantMap>
 
+#include <optional>
+
 namespace ft::ui {
 
 class PlaybackController;
@@ -28,6 +30,7 @@ class TimelineController : public QObject
     Q_PROPERTY(double maxPixelsPerFrame READ maxPixelsPerFrame CONSTANT)
     Q_PROPERTY(bool snapping READ snapping WRITE setSnapping NOTIFY snappingChanged)
     Q_PROPERTY(QStringList selection READ selection NOTIFY selectionChanged)
+    Q_PROPERTY(bool hasCopiedClipAttributes READ hasCopiedClipAttributes NOTIFY copiedClipAttributesChanged)
     Q_PROPERTY(QVariantMap selectedClip READ selectedClip NOTIFY selectedClipChanged)
     Q_PROPERTY(
         QVariantMap selectedTransition READ selectedTransition NOTIFY selectedTransitionChanged)
@@ -48,6 +51,7 @@ public:
     [[nodiscard]] bool snapping() const { return m_snapping; }
     void setSnapping(bool snapping);
     [[nodiscard]] QStringList selection() const;
+    [[nodiscard]] bool hasCopiedClipAttributes() const { return m_copiedClipAttributes.has_value(); }
     [[nodiscard]] QVariantMap selectedClip() const;
     [[nodiscard]] double duration() const;
     [[nodiscard]] double frameRate() const;
@@ -80,8 +84,11 @@ public:
     Q_INVOKABLE bool trimStart(const QString& clipId, double newStart);
     Q_INVOKABLE bool trimEnd(const QString& clipId, double newEnd);
     Q_INVOKABLE bool splitAtPlayhead();
-    /// Appends a copy of the single selected clip to its track and selects the copy.
+    /// Duplicates a single selected clip, or a time-aligned block of several selected clips.
     Q_INVOKABLE bool duplicateSelection();
+    /// Stores the attributes of one selected clip and applies them to later selections.
+    Q_INVOKABLE bool copySelectionAttributes();
+    Q_INVOKABLE bool pasteSelectionAttributes();
     Q_INVOKABLE bool deleteSelection(bool ripple);
     Q_INVOKABLE void select(const QString& clipId, bool toggle);
     Q_INVOKABLE void clearSelection();
@@ -119,6 +126,7 @@ signals:
     void zoomChanged();
     void snappingChanged();
     void selectionChanged();
+    void copiedClipAttributesChanged();
     void selectedClipChanged();
     void selectedTransitionChanged();
     void durationChanged();
@@ -137,6 +145,7 @@ private:
     PlaybackController* m_playback;
     TimelineModel m_model;
     QSet<Id> m_selection;
+    std::optional<ClipProperties> m_copiedClipAttributes;
     Id m_selectedTransition;
     double m_pixelsPerFrame = 2.0;
     bool m_snapping = true;

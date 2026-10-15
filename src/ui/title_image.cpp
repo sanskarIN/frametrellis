@@ -17,10 +17,11 @@ Result<QImage> makeTitleImage(const QString& text, QSize resolution, int fontPix
         return makeError(ErrorCode::InvalidArgument,
                          QStringLiteral("Enter a title with 1 to 200 characters."));
     }
-    if (resolution.width() < 16 || resolution.height() < 16 ||
-        resolution.width() > 4096 || resolution.height() > 4096) {
-        return makeError(ErrorCode::OutOfRange,
-                         QStringLiteral("Title images support sequences up to 4096 pixels per side."));
+    if (resolution.width() < 16 || resolution.height() < 16 || resolution.width() > 4096 ||
+        resolution.height() > 4096) {
+        return makeError(
+            ErrorCode::OutOfRange,
+            QStringLiteral("Title images support sequences up to 4096 pixels per side."));
     }
     if (fontPixels < 16 || fontPixels > 240 || !color.isValid() || color.alpha() == 0) {
         return makeError(ErrorCode::InvalidArgument,
@@ -43,8 +44,8 @@ Result<QImage> makeTitleImage(const QString& text, QSize resolution, int fontPix
 
     // Leave a safe margin for TV overscan and vertical titles. Wrapping occurs within
     // the safe rectangle; the source image itself remains completely transparent.
-    const QRect area(resolution.width() / 12, resolution.height() / 8,
-                     resolution.width() * 5 / 6, resolution.height() * 3 / 4);
+    const QRect area(resolution.width() / 12, resolution.height() / 8, resolution.width() * 5 / 6,
+                     resolution.height() * 3 / 4);
     const int alignment = Qt::AlignHCenter | Qt::AlignVCenter | Qt::TextWordWrap;
     const int shadow = std::clamp(fontPixels / 35, 1, 6);
     painter.setPen(QColor(0, 0, 0, 220));

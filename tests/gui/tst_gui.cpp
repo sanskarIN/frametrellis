@@ -494,6 +494,48 @@ private slots:
         QVERIFY(!m_app->project()->project().timeline().clip(selection.front()));
     }
 
+    void duplicateSelectionAndPasteAttributesThroughKeyboard()
+    {
+        const Timeline& timeline = m_app->project()->project().timeline();
+        const auto& videos = timeline.tracks()[0].clips;
+        QVERIFY(videos.size() >= 2);
+        const Id first = videos[0].id;
+        const Id second = videos[1].id;
+        QVERIFY(m_app->timeline()->setClipProperty(first, QStringLiteral("opacity"), 0.4));
+        m_app->timeline()->select(first, false);
+        m_window->requestActivate();
+        QTest::keyClick(m_window, Qt::Key_C, Qt::ControlModifier | Qt::AltModifier);
+        QVERIFY(m_app->timeline()->hasCopiedClipAttributes());
+
+        m_app->timeline()->select(second, true);
+        const int count = timeline.clipCount();
+        QTest::keyClick(m_window, Qt::Key_D, Qt::ControlModifier);
+        QVERIFY(QTest::qWaitFor(
+            [&] { return m_app->project()->project().timeline().clipCount() == count + 2; },
+            2000));
+        const QStringList copies = m_app->timeline()->selection();
+        QCOMPARE(copies.size(), 2);
+        for (const Id& id : copies) {
+            QVERIFY(id != first && id != second);
+            QVERIFY(m_app->project()->project().timeline().clip(id));
+        }
+        const Timeline beforePaste = m_app->project()->project().timeline();
+        QTest::keyClick(m_window, Qt::Key_V, Qt::ControlModifier | Qt::AltModifier);
+        for (const Id& id : copies) {
+            const Clip* clip = m_app->project()->project().timeline().clip(id);
+            QVERIFY(clip);
+            QCOMPARE(clip->properties.video.opacity, 0.4);
+        }
+        QCOMPARE(m_app->project()->undoText(), QStringLiteral("Paste Clip Attributes"));
+        m_app->project()->undo();
+        QCOMPARE(m_app->project()->project().timeline(), beforePaste);
+        m_app->project()->redo();
+        for (const Id& id : copies) {
+            QCOMPARE(m_app->project()->project().timeline().clip(id)->properties.video.opacity,
+                     0.4);
+        }
+    }
+
     void titleImageGenerationAndProjectRoundTrip()
     {
         QVERIFY(!ui::makeTitleImage(QString(), QSize(320, 180), 36, Qt::white));

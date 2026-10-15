@@ -89,6 +89,21 @@ Clips on audio tracks show the waveform of their sound, scaled by the clip's vol
 time a file is used, FrameTrellis reads its sound in the background (a few seconds for a long
 file) and keeps the result in its cache, so the waveform appears instantly afterwards.
 
+## Title overlays
+
+Choose **File → Create Title…** after saving your project. Enter the text, choose a font size and
+colour, and press **Create title**. FrameTrellis draws the text with a subtle shadow onto a
+transparent PNG at the project's resolution. It stores that PNG in a **FrameTrellis Titles**
+folder beside your `.ftproj` file and imports it as a normal image.
+
+The title is initially placed at the end of the **uppermost unlocked video track**. Drag it to
+the part of the sequence where it should appear, and trim its edges to control how long it is
+visible. Keep titles on a track **above** footage you want visible behind the lettering.
+
+These are **raster title overlays**, not editable text layers: create a new image if you need to
+change the wording, font size or colour. Keep the title folder together with the project when
+sharing it. Title creation currently supports dimensions up to 4096 × 4096 pixels.
+
 ## Transitions
 
 A transition blends one clip into the next where they meet: a **dissolve** on video tracks and

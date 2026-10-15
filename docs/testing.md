@@ -61,6 +61,19 @@ The render integration suite also exports an MP4 containing a transparent PNG ab
 video. It decodes the result and verifies that opaque title pixels appear while transparent
 regions reveal footage underneath. This protects export compositing, not only the editor preview.
 
+## Batch timeline editing regression checks
+
+The editing unit tests verify that copying selected clips between multiple video tracks
+keeps their relative timing and clip properties intact. The same suite checks that undo
+and redo restore exact timeline states, including when the edit is rejected because
+a track is locked or the requested clip ids are invalid.
+
+Clip-attribute copy/paste tests check the behaviour for destination clips shorter than
+the source, including clamped audio fades. Batch mute/unmute and picture reset tests
+confirm that unrelated clip attributes are preserved and that a failed edit makes
+no partial changes. A real QML GUI test drives Ctrl+D and the clip attribute
+clipboard shortcuts and inspects the resulting timeline and undo state.
+
 ## What is not covered automatically
 
 * Real audio output devices (tests use SDL's dummy driver).

@@ -5,6 +5,7 @@ GitHub release description. Unreleased changes are collected in [unreleased.md](
 
 | Version | Notes |
 |---|---|
+| 1.2.0 | [v1.2.0.md](v1.2.0.md) — multi-clip editing, clip attributes clipboard and batch adjustments |
 | 1.1.1 | [v1.1.1.md](v1.1.1.md) — title creation guard and export regression tests |
 | 1.1.0 | [v1.1.0.md](v1.1.0.md) — clip duplication, title overlays and container renderer |
 | 1.0.0 | [v1.0.0.md](v1.0.0.md) — the first stable release |
@@ -14,8 +15,10 @@ GitHub release description. Unreleased changes are collected in [unreleased.md](
 1. Make sure the version in `CMakeLists.txt` is the version to release, that
    `docs/releases/vX.Y.Z.md` exists and is not marked as a draft, and that CI and the Windows
    packages workflow are green on `main`. Optionally rehearse the release first: run the
-   **Release** workflow by hand from the Actions tab; it builds and verifies everything and
-   keeps the release notes and checksums it would publish, without publishing.
+   **Release** workflow by hand from the Actions tab with **publish=false**; it builds and
+   verifies everything and keeps the release notes and checksums without publishing.
+   A maintainer may instead choose **publish=true** to create or update the release only
+   after the verified packages and source archive have been produced.
 2. Publish the release, in either of two ways:
    * **In the web interface:** *Releases → Draft a new release*, choose a new tag `vX.Y.Z` on
      `main`, title it `FrameTrellis X.Y.Z`, and either paste the notes from `vX.Y.Z.md` or leave

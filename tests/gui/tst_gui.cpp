@@ -494,6 +494,47 @@ private slots:
         QVERIFY(!m_app->project()->project().timeline().clip(selection.front()));
     }
 
+    void duplicateSelectionAndPasteAttributesThroughKeyboard()
+    {
+        const Timeline& timeline = m_app->project()->project().timeline();
+        const auto& videos = timeline.tracks()[0].clips;
+        QVERIFY(videos.size() >= 2);
+        const Id first = videos[0].id;
+        const Id second = videos[1].id;
+        QVERIFY(m_app->timeline()->setClipProperty(first, QStringLiteral("opacity"), 0.4));
+        m_app->timeline()->select(first, false);
+        m_window->requestActivate();
+        QTest::keyClick(m_window, Qt::Key_C, Qt::ControlModifier | Qt::AltModifier);
+        QVERIFY(m_app->timeline()->hasCopiedClipAttributes());
+
+        m_app->timeline()->select(second, true);
+        const int count = timeline.clipCount();
+        QTest::keyClick(m_window, Qt::Key_D, Qt::ControlModifier);
+        QVERIFY(QTest::qWaitFor(
+            [&] { return m_app->project()->project().timeline().clipCount() == count + 2; }, 2000));
+        const QStringList copies = m_app->timeline()->selection();
+        QCOMPARE(copies.size(), 2);
+        for (const Id& id : copies) {
+            QVERIFY(id != first && id != second);
+            QVERIFY(m_app->project()->project().timeline().clip(id));
+        }
+        const Timeline beforePaste = m_app->project()->project().timeline();
+        QTest::keyClick(m_window, Qt::Key_V, Qt::ControlModifier | Qt::AltModifier);
+        for (const Id& id : copies) {
+            const Clip* clip = m_app->project()->project().timeline().clip(id);
+            QVERIFY(clip);
+            QCOMPARE(clip->properties.video.opacity, 0.4);
+        }
+        QCOMPARE(m_app->project()->undoText(), QStringLiteral("Paste Clip Attributes"));
+        m_app->project()->undo();
+        QCOMPARE(m_app->project()->project().timeline(), beforePaste);
+        m_app->project()->redo();
+        for (const Id& id : copies) {
+            QCOMPARE(m_app->project()->project().timeline().clip(id)->properties.video.opacity,
+                     0.4);
+        }
+    }
+
     void titleImageGenerationAndProjectRoundTrip()
     {
         QVERIFY(!ui::makeTitleImage(QString(), QSize(320, 180), 36, Qt::white));
@@ -587,6 +628,51 @@ private slots:
         for (const Id& id : videoTracks) {
             QVERIFY(m_app->timeline()->setTrackFlag(id, QStringLiteral("locked"), false));
         }
+    }
+
+    void nudgeSelectionUsingKeyboard()
+    {
+        QString assetId;
+        for (const MediaAsset& asset : m_app->project()->project().media()) {
+            if (asset.info.hasVideo) {
+                assetId = asset.id;
+                break;
+            }
+        }
+        QVERIFY(!assetId.isEmpty());
+        QVERIFY(m_app->timeline()->addTrack(QStringLiteral("video")));
+
+        Id trackId;
+        for (const Track& track : m_app->project()->project().timeline().tracks()) {
+            if (track.kind == TrackKind::Video && track.clips.empty()) {
+                trackId = track.id;
+            }
+        }
+        QVERIFY(!trackId.isEmpty());
+        QVERIFY(m_app->timeline()->dropAsset(assetId, trackId, 100));
+        QCOMPARE(m_app->timeline()->selection().size(), 1);
+        const Id clipId = m_app->timeline()->selection().front();
+        m_window->requestActivate();
+        QTest::keyClick(m_window, Qt::Key_Right, Qt::AltModifier);
+        QVERIFY(QTest::qWaitFor(
+            [&] {
+                const Clip* clip = m_app->project()->project().timeline().clip(clipId);
+                return clip && clip->start == 101;
+            },
+            2000));
+        QTest::keyClick(m_window, Qt::Key_Left, Qt::AltModifier | Qt::ShiftModifier);
+        QVERIFY(QTest::qWaitFor(
+            [&] {
+                const Clip* clip = m_app->project()->project().timeline().clip(clipId);
+                return clip && clip->start == 91;
+            },
+            2000));
+        m_app->project()->undo();
+        QCOMPARE(m_app->project()->project().timeline().clip(clipId)->start, FrameCount{101});
+        m_app->project()->undo();
+        QCOMPARE(m_app->project()->project().timeline().clip(clipId)->start, FrameCount{100});
+        QVERIFY(m_app->timeline()->deleteSelection(false));
+        QVERIFY(m_app->timeline()->removeTrack(trackId));
     }
 
     void cleanupTestCase()

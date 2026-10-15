@@ -8,7 +8,13 @@
 | Up / Down | Previous / next edit point |
 | Home / End | Go to start / end |
 | S | Split at playhead |
-| Ctrl+D | Duplicate the selected clip at the end of its track |
+| Ctrl+D | Duplicate one clip at the end of its track, or a multi-clip selection after the timeline while preserving relative spacing |
+| Alt+Left / Alt+Right | Move selected clips one frame left / right; rejects overlap or locked tracks |
+| Alt+Shift+Left / Alt+Shift+Right | Move selected clips ten frames left / right as one undoable operation |
+| Ctrl+Alt+C | Copy volume, fades, mute and picture adjustments from one selected clip |
+| Ctrl+Alt+V | Paste copied clip attributes to selected clips in one undoable action |
+| Ctrl+Alt+M | Mute audio on the selected clips |
+| Ctrl+Alt+U | Unmute audio on the selected clips |
 | T | Add a transition after the selected clip |
 | Delete | Delete selected clips or the selected transition |
 | Shift+Delete | Ripple delete |

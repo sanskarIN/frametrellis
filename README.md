@@ -16,7 +16,9 @@ account, no cloud processing, no telemetry and no advertising.
 
 ![The FrameTrellis workspace with media bin, program monitor, clip inspector and a three-track timeline](docs/images/workspace.png)
 
-> **Status: 1.1.1, stable release.** Windows packages (an installer and a portable ZIP)
+> **Status: 1.2.0, stable release.** Windows installer and portable ZIP packages are
+> published on the [releases page](https://github.com/sanskarIN/frametrellis/releases); on
+> Linux, build from source. Keep backups of important projects and report problems. Windows packages (an installer and a portable ZIP)
 > are published on the [releases page](https://github.com/sanskarIN/frametrellis/releases); on
 > Linux, build from source. FrameTrellis is a young project: please report problems, and keep
 > backups of important projects.
@@ -34,13 +36,14 @@ What works today (each item is implemented and covered by automated tests):
 - [x] Multi-track timeline with any number of video and audio tracks (up to 99)
 - [x] Drag media from the bin onto tracks, move clips (also between tracks), trim either edge,
       split at the playhead, delete and ripple delete — overlapping edits are refused, not destructive
-- [x] Duplicate the selected clip with Ctrl+D, preserving trims and adjustments; undoable in one step
+- [x] Duplicate one or many selected clips with Ctrl+D; multi-clip copies retain their gaps and relative video/audio alignment in one undoable operation
 - [x] Create transparent PNG title overlays with font size and colour choices, stored beside
       the saved project and editable on the timeline as ordinary image clips
 - [x] Snapping to clip edges and the playhead, zoom, frame-accurate timecode (including
       drop-frame for 29.97/59.94 fps)
 - [x] Real-time preview with audio (SDL2), seeking, frame stepping and edit-point navigation
-- [x] Track mute, hide and lock; clip volume, mute, fade in/out and opacity
+- [x] Track mute, hide and lock; clip volume, mute, fade in/out and opacity; batch mute/unmute,
+      copy/paste clip attributes and reset picture adjustments for multi-selections
 - [x] Real audio waveforms on audio clips, computed in the background and cached
 - [x] Transitions between touching clips: a dissolve for the picture and a crossfade for the sound
 - [x] Brightness, contrast and saturation per clip (when the FFmpeg `eq` filter is available)

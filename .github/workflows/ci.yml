@@ -28,7 +28,15 @@ jobs:
       - name: Check clang-format
         run: |
           clang-format --version
-          git ls-files '*.cpp' '*.h' | xargs clang-format --dry-run --Werror
+          files=$(git ls-files '*.cpp' '*.h')
+          if ! echo "$files" | xargs clang-format --dry-run --Werror; then
+            echo "::group::Changes required by clang-format"
+            while IFS= read -r file; do
+              diff -u "$file" <(clang-format "$file") || true
+            done <<< "$files"
+            echo "::endgroup::"
+            exit 1
+          fi
 
   scripts:
     name: Packaging scripts
@@ -83,7 +91,20 @@ jobs:
         run: cmake --build --preset linux-debug
 
       - name: Test
+        env:
+          FT_SCREENSHOT_DIR: ${{ runner.temp }}/frametrellis-screenshots
         run: ctest --preset linux-debug
+
+      - name: Upload feature screenshots
+        if: always()
+        uses: actions/upload-artifact@v6
+        with:
+          name: frametrellis-feature-screenshots
+          path: |
+            ${{ runner.temp }}/frametrellis-screenshots/07-clip-duplication.png
+            ${{ runner.temp }}/frametrellis-screenshots/08-title-overlay.png
+          if-no-files-found: warn
+          retention-days: 14
 
       - name: Static analysis (clang-tidy)
         run: |

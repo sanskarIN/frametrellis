@@ -8,6 +8,7 @@ uploaded. This guide covers everything the current version can do.
 - [Projects](#projects)
 - [Importing media](#importing-media)
 - [Editing on the timeline](#editing-on-the-timeline)
+- [Title overlays](#title-overlays)
 - [Transitions](#transitions)
 - [Adjusting clips](#adjusting-clips)
 - [Playback](#playback)
@@ -72,6 +73,9 @@ the project (removing never deletes the file; media in use must be removed from 
   source media.
 * **Split:** move the playhead and press **S**. With clips selected, only those are split;
   otherwise every unlocked clip under the playhead is split.
+* **Duplicate:** select one clip and press **Ctrl+D** (or use the timeline copy button). The copy
+  retains its source trim and adjustments, and is appended to the end of the same track without
+  moving other clips. Transitions are not copied; undo removes the duplicate in one step.
 * **Delete:** **Delete** removes the selected clips and leaves a gap; **Shift+Delete** (ripple
   delete) removes one clip and moves the following clips on that track left to close the gap.
 * **Snapping** (N) aligns clip edges with other clips and the playhead.
@@ -84,6 +88,21 @@ Every change can be undone (Ctrl+Z) and redone (Ctrl+Shift+Z).
 Clips on audio tracks show the waveform of their sound, scaled by the clip's volume. The first
 time a file is used, FrameTrellis reads its sound in the background (a few seconds for a long
 file) and keeps the result in its cache, so the waveform appears instantly afterwards.
+
+## Title overlays
+
+Choose **File → Create Title…** after saving your project. Enter the text, choose a font size and
+colour, and press **Create title**. FrameTrellis draws the text with a subtle shadow onto a
+transparent PNG at the project's resolution. It stores that PNG in a **FrameTrellis Titles**
+folder beside your `.ftproj` file and imports it as a normal image.
+
+The title is initially placed at the end of the **uppermost unlocked video track**. Drag it to
+the part of the sequence where it should appear, and trim its edges to control how long it is
+visible. Keep titles on a track **above** footage you want visible behind the lettering.
+
+These are **raster title overlays**, not editable text layers: create a new image if you need to
+change the wording, font size or colour. Keep the title folder together with the project when
+sharing it. Title creation currently supports dimensions up to 4096 × 4096 pixels.
 
 ## Transitions
 

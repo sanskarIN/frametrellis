@@ -59,6 +59,8 @@ public:
 
     // Placing media
     Q_INVOKABLE bool appendAsset(const QString& assetId);
+    /// Append a title still to the uppermost unlocked video track.
+    Q_INVOKABLE bool appendTitleAsset(const QString& assetId);
     Q_INVOKABLE bool dropAsset(const QString& assetId, const QString& trackId, double frame);
     Q_INVOKABLE double assetDuration(const QString& assetId) const;
     Q_INVOKABLE bool acceptsAsset(const QString& trackId, const QString& assetId) const;
@@ -75,6 +77,8 @@ public:
     Q_INVOKABLE bool trimStart(const QString& clipId, double newStart);
     Q_INVOKABLE bool trimEnd(const QString& clipId, double newEnd);
     Q_INVOKABLE bool splitAtPlayhead();
+    /// Appends a copy of the single selected clip to its track and selects the copy.
+    Q_INVOKABLE bool duplicateSelection();
     Q_INVOKABLE bool deleteSelection(bool ripple);
     Q_INVOKABLE void select(const QString& clipId, bool toggle);
     Q_INVOKABLE void clearSelection();

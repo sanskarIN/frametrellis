@@ -17,6 +17,7 @@ FtDialog {
         ["Up / Down", qsTr("Previous / next edit point")],
         ["Home / End", qsTr("Go to start / end")],
         ["S", qsTr("Split at playhead")],
+        ["Ctrl+D", qsTr("Duplicate selected clip")],
         ["T", qsTr("Add a transition after the selected clip")],
         ["Delete", qsTr("Delete selected clips or transition")],
         ["Shift+Delete", qsTr("Ripple delete")],

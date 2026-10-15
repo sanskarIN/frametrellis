@@ -16,7 +16,7 @@ ApplicationWindow {
     property var pendingAction: null
     // Single-key editing shortcuts are disabled while a dialog is open, so that keys such as
     // Space, Delete or the arrows act on the dialog instead of the timeline.
-    readonly property bool dialogOpen: newDialog.visible || exportDialog.visible || aboutDialog.visible
+    readonly property bool dialogOpen: newDialog.visible || titleDialog.visible || exportDialog.visible || aboutDialog.visible
                                        || shortcutsDialog.visible || welcome.visible || messageBox.visible
                                        || unsavedDialog.visible || exportRunningDialog.visible || recoveryDialog.visible
     readonly property bool editKeys: !dialogOpen
@@ -134,6 +134,7 @@ ApplicationWindow {
             Action { text: qsTr("Save &As…"); shortcut: "Ctrl+Shift+S"; onTriggered: { saveDialog.runAfterSave = false; saveDialog.open() } }
             MenuSeparator {}
             Action { text: qsTr("&Import Media…"); shortcut: "Ctrl+I"; onTriggered: importDialog.open() }
+            Action { text: qsTr("Create &Title…"); onTriggered: titleDialog.open() }
             Action { text: qsTr("&Export…"); shortcut: "Ctrl+E"; enabled: !window.app.timeline.empty || window.app.exporter.busy; onTriggered: exportDialog.open() }
             MenuSeparator {}
             Action { text: qsTr("&Quit"); shortcut: StandardKey.Quit; onTriggered: window.close() }
@@ -144,6 +145,7 @@ ApplicationWindow {
             Action { text: window.app.project.canRedo ? qsTr("&Redo %1").arg(window.app.project.redoText) : qsTr("&Redo"); shortcut: "Ctrl+Shift+Z"; enabled: window.app.project.canRedo; onTriggered: window.app.project.redo() }
             MenuSeparator {}
             Action { text: qsTr("&Split at Playhead"); shortcut: "S"; enabled: window.editKeys; onTriggered: window.app.timeline.splitAtPlayhead() }
+            Action { text: qsTr("D&uplicate Clip"); shortcut: "Ctrl+D"; enabled: window.editKeys && window.app.timeline.selection.length === 1; onTriggered: window.app.timeline.duplicateSelection() }
             Action { text: qsTr("Add &Transition"); shortcut: "T"; enabled: window.editKeys; onTriggered: window.app.timeline.addTransition() }
             Action { text: qsTr("&Delete"); shortcut: StandardKey.Delete; enabled: window.editKeys; onTriggered: window.app.timeline.deleteSelection(false) }
             Action { text: qsTr("Ripple De&lete"); shortcut: "Shift+Delete"; enabled: window.editKeys; onTriggered: window.app.timeline.deleteSelection(true) }
@@ -366,6 +368,7 @@ ApplicationWindow {
     }
 
     NewProjectDialog { id: newDialog; app: window.app }
+    TitleDialog { id: titleDialog; objectName: "titleDialog"; app: window.app }
     ExportDialog { id: exportDialog; objectName: "exportDialog"; app: window.app }
     AboutDialog { id: aboutDialog; objectName: "aboutDialog"; app: window.app }
     ShortcutsDialog { id: shortcutsDialog }

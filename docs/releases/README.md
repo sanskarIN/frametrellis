@@ -5,6 +5,7 @@ GitHub release description. Unreleased changes are collected in [unreleased.md](
 
 | Version | Notes |
 |---|---|
+| 1.1.0 | [v1.1.0.md](v1.1.0.md) — clip duplication, title overlays and container renderer |
 | 1.0.0 | [v1.0.0.md](v1.0.0.md) — the first stable release |
 
 ## Publishing a release

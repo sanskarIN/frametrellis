@@ -88,6 +88,26 @@ std::unique_ptr<EditCommand> addClip(const Id& trackId, const Clip& clip)
                    });
 }
 
+std::unique_ptr<EditCommand> duplicateClip(const Id& clipId, const Id& newClipId)
+{
+    const Id id = newClipId.isEmpty() ? createId() : newClipId;
+    return command(QStringLiteral("Duplicate Clip"),
+                   [clipId, id](Timeline& timeline, const SourceLookup& sources) -> Status {
+                       const Clip* original = timeline.clip(clipId);
+                       const Track* track = timeline.trackOfClip(clipId);
+                       if (!original || !track) {
+                           return makeError(ErrorCode::NotFound,
+                                            QStringLiteral("The selected clip was not found."));
+                       }
+                       // Copy only the clip: transitions connect cuts and must be created
+                       // explicitly. Append to avoid disturbing neighbouring clips.
+                       Clip copy = *original;
+                       copy.id = id;
+                       copy.start = track->end();
+                       return timeline.insertClip(track->id, copy, sources);
+                   });
+}
+
 std::unique_ptr<EditCommand> removeClips(const QList<Id>& clipIds)
 {
     const QString text = clipIds.size() == 1

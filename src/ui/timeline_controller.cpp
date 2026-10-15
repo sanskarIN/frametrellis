@@ -221,6 +221,26 @@ bool TimelineController::acceptsAsset(const QString& trackId, const QString& ass
     return track->kind == TrackKind::Video ? asset->info.hasVideo : asset->info.hasAudio;
 }
 
+bool TimelineController::appendTitleAsset(const QString& assetId)
+{
+    const MediaAsset* asset = project().asset(assetId);
+    if (!asset || !asset->info.hasVideo) {
+        emit statusMessage(QStringLiteral("The title image is not available."));
+        return false;
+    }
+    const Track* upper = nullptr;
+    for (const Track& track : project().timeline().tracks()) {
+        if (track.kind == TrackKind::Video && !track.locked) {
+            upper = &track;
+        }
+    }
+    if (!upper) {
+        emit statusMessage(QStringLiteral("Add an unlocked video track for the title first."));
+        return false;
+    }
+    return dropAsset(assetId, upper->id, static_cast<double>(upper->end()));
+}
+
 bool TimelineController::appendAsset(const QString& assetId)
 {
     const MediaAsset* asset = project().asset(assetId);
@@ -370,6 +390,24 @@ bool TimelineController::splitAtPlayhead()
         return false;
     }
     return m_project->execute(edits::splitClips(targets, frame));
+}
+
+bool TimelineController::duplicateSelection()
+{
+    if (m_selection.size() != 1) {
+        emit statusMessage(QStringLiteral("Select one clip to duplicate."));
+        return false;
+    }
+    const Id newId = createId();
+    if (!m_project->execute(edits::duplicateClip(*m_selection.cbegin(), newId))) {
+        return false;
+    }
+    m_selection = {newId};
+    setTransitionSelection({});
+    m_model.updateSelection(m_selection);
+    emit selectionChanged();
+    emit selectedClipChanged();
+    return true;
 }
 
 bool TimelineController::deleteSelection(bool ripple)

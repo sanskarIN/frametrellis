@@ -16,7 +16,7 @@ account, no cloud processing, no telemetry and no advertising.
 
 ![The FrameTrellis workspace with media bin, program monitor, clip inspector and a three-track timeline](docs/images/workspace.png)
 
-> **Status: 1.0, the first stable version.** Windows packages (an installer and a portable ZIP)
+> **Status: 1.1.0, stable release.** Windows packages (an installer and a portable ZIP)
 > are published on the [releases page](https://github.com/sanskarIN/frametrellis/releases); on
 > Linux, build from source. FrameTrellis is a young project: please report problems, and keep
 > backups of important projects.
@@ -34,6 +34,9 @@ What works today (each item is implemented and covered by automated tests):
 - [x] Multi-track timeline with any number of video and audio tracks (up to 99)
 - [x] Drag media from the bin onto tracks, move clips (also between tracks), trim either edge,
       split at the playhead, delete and ripple delete — overlapping edits are refused, not destructive
+- [x] Duplicate the selected clip with Ctrl+D, preserving trims and adjustments; undoable in one step
+- [x] Create transparent PNG title overlays with font size and colour choices, stored beside
+      the saved project and editable on the timeline as ordinary image clips
 - [x] Snapping to clip edges and the playhead, zoom, frame-accurate timecode (including
       drop-frame for 29.97/59.94 fps)
 - [x] Real-time preview with audio (SDL2), seeking, frame stepping and edit-point navigation
@@ -47,9 +50,8 @@ What works today (each item is implemented and covered by automated tests):
 - [x] Autosave every minute and crash recovery
 - [x] Recent projects, dark and light themes, keyboard shortcuts, first-run guide
 
-Planned (see the [roadmap](docs/roadmap.md)): titles,
-subtitles, keyframes, proxy media, customisable shortcuts, more export formats, and Linux and
-macOS packages.
+Planned (see the [roadmap](docs/roadmap.md)): editable title layers, subtitles, keyframes,
+proxy media, customisable shortcuts, more export formats, and Linux and macOS packages.
 
 ## Platforms
 
@@ -105,7 +107,8 @@ The [user guide](docs/user-guide/README.md) explains every feature, and
 
 ## Current limitations
 
-- No titles or keyframes yet; dissolve/crossfade is the only transition.
+- Titles are PNG image overlays, not editable text layers; there are no keyframes yet and
+  dissolve/crossfade is the only transition. Keep generated PNGs when moving the project.
 - Only MP4 (H.264 + AAC) export; frame rate is fixed once clips are on the timeline.
 - Very large timelines (thousands of clips) are not optimised yet.
 - Picture adjustments need an FFmpeg/MLT build with a working `eq` filter; the inspector says

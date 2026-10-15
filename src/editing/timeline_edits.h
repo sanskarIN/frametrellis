@@ -20,6 +20,9 @@ std::unique_ptr<EditCommand> setTrackLocked(const Id& trackId, bool locked);
 
 /// Places a new clip; fails if the range is occupied.
 std::unique_ptr<EditCommand> addClip(const Id& trackId, const Clip& clip);
+/// Copies a clip to the end of its current track, retaining source trims and effects. The
+/// source clip's transitions are not copied. The operation is a single undoable edit.
+std::unique_ptr<EditCommand> duplicateClip(const Id& clipId, const Id& newClipId = {});
 std::unique_ptr<EditCommand> removeClips(const QList<Id>& clipIds);
 std::unique_ptr<EditCommand> rippleRemoveClip(const Id& clipId);
 std::unique_ptr<EditCommand> moveClip(const Id& clipId, const Id& targetTrackId, FrameCount start);

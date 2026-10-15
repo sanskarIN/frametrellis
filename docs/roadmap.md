@@ -61,8 +61,13 @@ Acceptance criteria, each checked before the release:
   on every build;
 - ✅ limitations and platform support are explicit in the [release notes](releases/v1.0.0.md).
 
-## v1.1 — Next
-- ⏳ Basic title overlays
+## v1.1.0 — Clip duplication and title overlays ✅
+- ✅ Undoable clip duplication with Ctrl+D, preserving trims and adjustments
+- ✅ Basic raster title overlays as transparent PNG images, with project-local storage
+- ✅ Linux and Windows CI, transparency compositing, GUI interaction and packaging tests
+- ✅ Headless renderer container image with installation self-test
+
+## Next milestones
 - ⏳ A Linux package (AppImage or Flatpak), published once it has been verified
 - ⏳ A macOS build in CI, then a `.dmg` package once it has been verified
 - ⏳ Faster exports (MLT's parallel frame rendering is disabled because it corrupted audio)

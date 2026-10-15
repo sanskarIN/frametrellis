@@ -1,9 +1,6 @@
 # Unreleased
 
-Changes since [FrameTrellis 1.0.0](v1.0.0.md) are collected here and become the notes of the next
-release.
+Changes made after [FrameTrellis 1.1.0](v1.1.0.md) are collected here for a future
+release. The 1.1.0 highlights and limitations are recorded in [its release notes](v1.1.0.md).
 
-## Added
-- A container image of the headless renderer, `ghcr.io/sanskarin/frametrellis-render`, in
-  GitHub Packages: it renders FrameTrellis projects to MP4 on servers and in CI pipelines. Each
-  image is checked with the installation self-test and a real render before it is published.
+No changes recorded yet.

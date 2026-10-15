@@ -8,6 +8,7 @@
 #include "engine/mlt_runtime.h"
 #include "media_fixtures.h"
 #include "ui/app_controller.h"
+#include "ui/title_image.h"
 
 #include <QDir>
 #include <QGuiApplication>
@@ -465,6 +466,82 @@ private slots:
         QCOMPARE(m_app->project()->project().timeline(), saved);
         QTest::qWait(300);
         QCOMPARE(m_app->media()->model()->rowCount(), static_cast<int>(m_media.size()));
+    }
+
+    void duplicateClipUsingKeyboard()
+    {
+        const Track& video = track(0);
+        QVERIFY(!video.clips.empty());
+        const Id original = video.clips.front().id;
+        const Id originalAsset = video.clips.front().assetId;
+        const FrameCount originalDuration = video.clips.front().duration;
+        const int before = m_app->project()->project().timeline().clipCount();
+        m_app->timeline()->select(original, false);
+        QTest::keyClick(m_window, Qt::Key_D, Qt::ControlModifier);
+        QVERIFY(QTest::qWaitFor(
+            [&] { return m_app->project()->project().timeline().clipCount() == before + 1; },
+            2000));
+        const QStringList selection = m_app->timeline()->selection();
+        QCOMPARE(selection.size(), 1);
+        QVERIFY(selection.front() != original);
+        const Clip* copy = m_app->project()->project().timeline().clip(selection.front());
+        QVERIFY(copy);
+        QCOMPARE(copy->duration, originalDuration);
+        QCOMPARE(copy->assetId, originalAsset);
+        QVERIFY(m_app->project()->canUndo());
+        screenshot(QStringLiteral("07-clip-duplication"));
+        m_app->project()->undo();
+        QVERIFY(!m_app->project()->project().timeline().clip(selection.front()));
+    }
+
+    void titleImageGenerationAndProjectRoundTrip()
+    {
+        QVERIFY(!ui::makeTitleImage(QString(), QSize(320, 180), 36, Qt::white));
+        QVERIFY(!ui::makeTitleImage(QStringLiteral("Title"), QSize(8192, 8192), 36, Qt::white));
+        QVERIFY(!ui::makeTitleImage(QStringLiteral("Title"), QSize(320, 180), 0, Qt::white));
+        const auto image = ui::makeTitleImage(QStringLiteral("FrameTrellis"), QSize(320, 180), 42,
+                                              QColor(QStringLiteral("#ffffff")));
+        QVERIFY(image);
+        QCOMPARE(image->size(), QSize(320, 180));
+        QCOMPARE(QColor::fromRgba(image->pixel(0, 0)).alpha(), 0);
+        bool hasText = false;
+        for (int y = 0; y < image->height() && !hasText; ++y) {
+            for (int x = 0; x < image->width(); ++x) {
+                if (qAlpha(image->pixel(x, y)) != 0) {
+                    hasText = true;
+                    break;
+                }
+            }
+        }
+        QVERIFY(hasText);
+
+        const QString created = m_app->media()->createTitle(QStringLiteral("A title overlay"), 72,
+                                                            QStringLiteral("#ffffff"));
+        QVERIFY(!created.isEmpty());
+        const MediaAsset* asset = m_app->project()->project().asset(created);
+        QVERIFY(asset);
+        QCOMPARE(asset->info.kind, MediaKind::Image);
+        QVERIFY(QFileInfo::exists(asset->filePath));
+        QVERIFY(asset->filePath.contains(QStringLiteral("FrameTrellis Titles")));
+        QVERIFY(m_app->timeline()->appendTitleAsset(created));
+        const Track* titleTrack = m_app->project()->project().timeline().trackOfClip(
+            m_app->timeline()->selection().front());
+        QVERIFY(titleTrack);
+        QCOMPARE(titleTrack->kind, TrackKind::Video);
+        if (!qEnvironmentVariableIsEmpty("FT_SCREENSHOT_DIR")) {
+            const Clip* titleClip =
+                m_app->project()->project().timeline().clip(m_app->timeline()->selection().front());
+            QVERIFY(titleClip);
+            m_app->playback()->seek(static_cast<double>(titleClip->start + 5));
+            m_app->showStatus(QStringLiteral("Title overlay on the timeline"));
+            QTest::qWait(800);
+            screenshot(QStringLiteral("08-title-overlay"));
+        }
+        QVERIFY(m_app->project()->save());
+        const QString savedPath = m_app->project()->filePath();
+        QVERIFY(m_app->project()->openProject(savedPath));
+        QVERIFY(m_app->project()->project().asset(created));
+        QCOMPARE(m_app->project()->project().asset(created)->status, MediaStatus::Online);
     }
 
     void cleanupTestCase()

@@ -263,6 +263,29 @@ private slots:
         QCOMPARE(f.doc.undoText(), undoText);
     }
 
+    void nudgeCanCrossAnUnselectedClipWhenDestinationIsFree()
+    {
+        Fixture f;
+        QVERIFY(f.doc.execute(
+            edits::addClip(f.v1, clipOf(QStringLiteral("m1"), 0, 10, QStringLiteral("moving")))));
+        QVERIFY(f.doc.execute(
+            edits::addClip(f.v1, clipOf(QStringLiteral("m1"), 20, 10, QStringLiteral("fixed")))));
+        const Timeline before = f.doc.project().timeline();
+        QVERIFY(f.doc.execute(edits::nudgeClips({QStringLiteral("moving")}, 40)));
+        QCOMPARE(f.doc.project().timeline().clip(QStringLiteral("moving"))->start,
+                 FrameCount{40});
+        const Track* track = f.doc.project().timeline().track(f.v1);
+        QVERIFY(track);
+        QCOMPARE(track->clips.size(), size_t{2});
+        QCOMPARE(track->clips.front().id, QStringLiteral("fixed"));
+        QCOMPARE(track->clips.back().id, QStringLiteral("moving"));
+        QVERIFY(f.doc.undo());
+        QCOMPARE(f.doc.project().timeline(), before);
+        QVERIFY(f.doc.redo());
+        QCOMPARE(f.doc.project().timeline().track(f.v1)->clips.front().id,
+                 QStringLiteral("fixed"));
+    }
+
     void nudgingLockedSelectionIsAtomic()
     {
         Fixture f;

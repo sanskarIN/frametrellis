@@ -192,6 +192,32 @@ private slots:
         QCOMPARE(f.doc.project().timeline(), before);
     }
 
+    void batchDuplicationRejectsMalformedSelectionsWithoutEdits()
+    {
+        Fixture f;
+        QVERIFY(f.doc.execute(
+            edits::addClip(f.v1, clipOf(QStringLiteral("m1"), 0, 40, QStringLiteral("one")))));
+        QVERIFY(f.doc.execute(
+            edits::addClip(f.v2, clipOf(QStringLiteral("m1"), 60, 50, QStringLiteral("two")))));
+        const Project before = f.doc.project();
+        const QString undoText = f.doc.undoText();
+
+        // Invalid requests must neither append a partial batch nor enter undo history.
+        QVERIFY(!f.doc.execute(edits::duplicateClips({}, {})));
+        QVERIFY(!f.doc.execute(edits::duplicateClips({QStringLiteral("one")}, {})));
+        QVERIFY(!f.doc.execute(
+            edits::duplicateClips({QStringLiteral("one"), QStringLiteral("one")},
+                                  {QStringLiteral("first-copy"), QStringLiteral("second-copy")})));
+        QVERIFY(!f.doc.execute(
+            edits::duplicateClips({QStringLiteral("one"), QStringLiteral("two")},
+                                  {QStringLiteral("one"), QStringLiteral("two-copy")})));
+        QVERIFY(!f.doc.execute(
+            edits::duplicateClips({QStringLiteral("one"), QStringLiteral("two")},
+                                  {QStringLiteral("first-copy"), QString()})));
+        QCOMPARE(f.doc.project(), before);
+        QCOMPARE(f.doc.undoText(), undoText);
+    }
+
     void pasteAttributesToClipsClampsFadesAndUndoesTogether()
     {
         Fixture f;

@@ -93,8 +93,8 @@ private slots:
         source.properties.fadeIn = 12;
         source.properties.video.contrast = 1.3;
         QVERIFY(f.doc.execute(edits::addClip(f.v1, source)));
-        QVERIFY(f.doc.execute(edits::addClip(
-            f.v1, clipOf(QStringLiteral("m1"), 300, 40, QStringLiteral("later")))));
+        QVERIFY(f.doc.execute(
+            edits::addClip(f.v1, clipOf(QStringLiteral("m1"), 300, 40, QStringLiteral("later")))));
         const Timeline before = f.doc.project().timeline();
 
         QVERIFY(f.doc.execute(edits::duplicateClip(source.id, QStringLiteral("copy"))));
@@ -121,8 +121,8 @@ private slots:
     void duplicateRejectsLockedMissingAndConflictingClips()
     {
         Fixture f;
-        QVERIFY(f.doc.execute(edits::addClip(
-            f.v1, clipOf(QStringLiteral("m1"), 0, 30, QStringLiteral("original")))));
+        QVERIFY(f.doc.execute(
+            edits::addClip(f.v1, clipOf(QStringLiteral("m1"), 0, 30, QStringLiteral("original")))));
         const Timeline before = f.doc.project().timeline();
         QVERIFY(!f.doc.execute(edits::duplicateClip(QStringLiteral("missing"))));
         QCOMPARE(f.doc.project().timeline(), before);

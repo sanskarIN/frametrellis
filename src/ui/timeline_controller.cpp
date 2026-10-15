@@ -472,6 +472,37 @@ bool TimelineController::pasteSelectionAttributes()
     return true;
 }
 
+bool TimelineController::muteSelection(bool muted)
+{
+    if (m_selection.isEmpty()) {
+        emit statusMessage(QStringLiteral("Select one or more clips first."));
+        return false;
+    }
+    QList<Id> ids(m_selection.cbegin(), m_selection.cend());
+    std::sort(ids.begin(), ids.end());
+    if (!m_project->execute(edits::muteClips(ids, muted))) {
+        return false;
+    }
+    emit statusMessage(muted ? QStringLiteral("Muted selected clips.")
+                             : QStringLiteral("Unmuted selected clips."));
+    return true;
+}
+
+bool TimelineController::resetSelectionPictures()
+{
+    if (m_selection.isEmpty()) {
+        emit statusMessage(QStringLiteral("Select one or more clips first."));
+        return false;
+    }
+    QList<Id> ids(m_selection.cbegin(), m_selection.cend());
+    std::sort(ids.begin(), ids.end());
+    if (!m_project->execute(edits::resetClipPictures(ids))) {
+        return false;
+    }
+    emit statusMessage(QStringLiteral("Reset picture adjustments for selected clips."));
+    return true;
+}
+
 bool TimelineController::deleteSelection(bool ripple)
 {
     if (m_selection.isEmpty() && !m_selectedTransition.isEmpty()) {

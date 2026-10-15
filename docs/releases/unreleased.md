@@ -1,15 +1,6 @@
 # Unreleased
 
-Changes since [FrameTrellis 1.0.0](v1.0.0.md) are collected here and become the notes of the next
-release.
+Changes made after [FrameTrellis 1.1.0](v1.1.0.md) are collected here for a future
+release. The 1.1.0 highlights and limitations are recorded in [its release notes](v1.1.0.md).
 
-## Added
-- Duplicate a selected timeline clip with Ctrl+D, the Edit menu or timeline toolbar. The copy
-  retains source trims and adjustments, is appended without overwriting clips, and can be undone
-  in one step.
-- Basic title overlays created inside the editor: configurable text, size and colour rendered
-  onto transparent PNGs. Images are stored beside the project and imported onto the upper video
-  track, where they can be moved, trimmed and rendered with normal image clips.
-- A container image of the headless renderer, `ghcr.io/sanskarin/frametrellis-render`, in
-  GitHub Packages: it renders FrameTrellis projects to MP4 on servers and in CI pipelines. Each
-  image is checked with the installation self-test and a real render before it is published.
+No changes recorded yet.

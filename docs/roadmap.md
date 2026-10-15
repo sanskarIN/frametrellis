@@ -78,6 +78,7 @@ Acceptance criteria, each checked before the release:
 - ✅ Unit, GUI, Linux sanitizers and Windows CI verification
 - ✅ Windows installer and portable ZIP built and verified through release workflows
 
+- ✅ Atomic frame-accurate group nudging across tracks, with undo/redo and collision validation
 ## Next milestones
 - ⏳ A Linux package (AppImage or Flatpak), published once it has been verified
 - ⏳ A macOS build in CI, then a `.dmg` package once it has been verified

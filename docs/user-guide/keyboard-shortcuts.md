@@ -8,6 +8,7 @@
 | Up / Down | Previous / next edit point |
 | Home / End | Go to start / end |
 | S | Split at playhead |
+| Ctrl+D | Duplicate the selected clip at the end of its track |
 | T | Add a transition after the selected clip |
 | Delete | Delete selected clips or the selected transition |
 | Shift+Delete | Ripple delete |

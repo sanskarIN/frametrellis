@@ -34,6 +34,7 @@ class TimelineController : public QObject
     Q_PROPERTY(double duration READ duration NOTIFY durationChanged)
     Q_PROPERTY(double frameRate READ frameRate NOTIFY durationChanged)
     Q_PROPERTY(bool empty READ empty NOTIFY durationChanged)
+    Q_PROPERTY(bool canAppendTitle READ canAppendTitle NOTIFY canAppendTitleChanged)
 
 public:
     TimelineController(ProjectController* project, PlaybackController* playback,
@@ -59,6 +60,8 @@ public:
 
     // Placing media
     Q_INVOKABLE bool appendAsset(const QString& assetId);
+    /// Whether at least one unlocked video track can receive a new title.
+    [[nodiscard]] bool canAppendTitle() const;
     /// Append a title still to the uppermost unlocked video track.
     Q_INVOKABLE bool appendTitleAsset(const QString& assetId);
     Q_INVOKABLE bool dropAsset(const QString& assetId, const QString& trackId, double frame);
@@ -119,6 +122,7 @@ signals:
     void selectedClipChanged();
     void selectedTransitionChanged();
     void durationChanged();
+    void canAppendTitleChanged();
     void statusMessage(const QString& message);
 
 private:

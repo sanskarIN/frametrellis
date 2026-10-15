@@ -479,7 +479,8 @@ private slots:
         m_app->timeline()->select(original, false);
         QTest::keyClick(m_window, Qt::Key_D, Qt::ControlModifier);
         QVERIFY(QTest::qWaitFor(
-            [&] { return m_app->project()->project().timeline().clipCount() == before + 1; }, 2000));
+            [&] { return m_app->project()->project().timeline().clipCount() == before + 1; },
+            2000));
         const QStringList selection = m_app->timeline()->selection();
         QCOMPARE(selection.size(), 1);
         QVERIFY(selection.front() != original);
@@ -497,8 +498,8 @@ private slots:
         QVERIFY(!ui::makeTitleImage(QString(), QSize(320, 180), 36, Qt::white));
         QVERIFY(!ui::makeTitleImage(QStringLiteral("Title"), QSize(8192, 8192), 36, Qt::white));
         QVERIFY(!ui::makeTitleImage(QStringLiteral("Title"), QSize(320, 180), 0, Qt::white));
-        const auto image = ui::makeTitleImage(QStringLiteral("FrameTrellis"), QSize(320, 180),
-                                              42, QColor(QStringLiteral("#ffffff")));
+        const auto image = ui::makeTitleImage(QStringLiteral("FrameTrellis"), QSize(320, 180), 42,
+                                              QColor(QStringLiteral("#ffffff")));
         QVERIFY(image);
         QCOMPARE(image->size(), QSize(320, 180));
         QCOMPARE(QColor::fromRgba(image->pixel(0, 0)).alpha(), 0);

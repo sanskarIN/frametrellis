@@ -211,9 +211,8 @@ private slots:
         QVERIFY(!f.doc.execute(
             edits::duplicateClips({QStringLiteral("one"), QStringLiteral("two")},
                                   {QStringLiteral("one"), QStringLiteral("two-copy")})));
-        QVERIFY(!f.doc.execute(
-            edits::duplicateClips({QStringLiteral("one"), QStringLiteral("two")},
-                                  {QStringLiteral("first-copy"), QString()})));
+        QVERIFY(!f.doc.execute(edits::duplicateClips({QStringLiteral("one"), QStringLiteral("two")},
+                                                     {QStringLiteral("first-copy"), QString()})));
         QCOMPARE(f.doc.project(), before);
         QCOMPARE(f.doc.undoText(), undoText);
     }

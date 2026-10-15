@@ -281,8 +281,7 @@ private slots:
         QVERIFY(f.doc.undo());
         QCOMPARE(f.doc.project().timeline(), before);
         QVERIFY(f.doc.redo());
-        QCOMPARE(f.doc.project().timeline().track(f.v1)->clips.front().id,
-                 QStringLiteral("fixed"));
+        QCOMPARE(f.doc.project().timeline().track(f.v1)->clips.front().id, QStringLiteral("fixed"));
     }
 
     void nudgingLockedSelectionIsAtomic()

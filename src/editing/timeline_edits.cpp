@@ -236,8 +236,9 @@ std::unique_ptr<EditCommand> nudgeClips(const QList<Id>& clipIds, FrameCount del
                 }
                 if (delta > 0 &&
                     (delta > kMaxTimelineFrames || clip->end() > kMaxTimelineFrames - delta)) {
-                    return makeError(ErrorCode::OutOfRange,
-                                     QStringLiteral("Clips cannot move beyond the timeline limit."));
+                    return makeError(
+                        ErrorCode::OutOfRange,
+                        QStringLiteral("Clips cannot move beyond the timeline limit."));
                 }
             }
             // Update each affected track as a whole so adjacent selected clips do not

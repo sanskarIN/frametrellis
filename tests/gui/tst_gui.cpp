@@ -511,8 +511,7 @@ private slots:
         const int count = timeline.clipCount();
         QTest::keyClick(m_window, Qt::Key_D, Qt::ControlModifier);
         QVERIFY(QTest::qWaitFor(
-            [&] { return m_app->project()->project().timeline().clipCount() == count + 2; },
-            2000));
+            [&] { return m_app->project()->project().timeline().clipCount() == count + 2; }, 2000));
         const QStringList copies = m_app->timeline()->selection();
         QCOMPARE(copies.size(), 2);
         for (const Id& id : copies) {

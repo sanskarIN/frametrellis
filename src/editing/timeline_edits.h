@@ -32,6 +32,9 @@ std::unique_ptr<EditCommand> duplicateClips(const QList<Id>& clipIds, const QLis
 std::unique_ptr<EditCommand> removeClips(const QList<Id>& clipIds);
 std::unique_ptr<EditCommand> rippleRemoveClip(const Id& clipId);
 std::unique_ptr<EditCommand> moveClip(const Id& clipId, const Id& targetTrackId, FrameCount start);
+/// Move a selection together by a signed number of frames. Keeps relative spacing, refuses
+/// collisions and invalid transitions, and commits as one atomic undoable edit.
+std::unique_ptr<EditCommand> nudgeClips(const QList<Id>& clipIds, FrameCount delta);
 std::unique_ptr<EditCommand> trimClipStart(const Id& clipId, FrameCount newStart);
 std::unique_ptr<EditCommand> trimClipEnd(const Id& clipId, FrameCount newEnd);
 /// Splits every given clip that spans the frame. Fails when none does.

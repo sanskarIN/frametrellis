@@ -407,19 +407,68 @@ bool TimelineController::splitAtPlayhead()
 
 bool TimelineController::duplicateSelection()
 {
-    if (m_selection.size() != 1) {
-        emit statusMessage(QStringLiteral("Select one clip to duplicate."));
+    if (m_selection.isEmpty()) {
+        emit statusMessage(QStringLiteral("Select one or more clips to duplicate."));
         return false;
     }
-    const Id newId = createId();
-    if (!m_project->execute(edits::duplicateClip(*m_selection.cbegin(), newId))) {
+    QList<Id> ids(m_selection.cbegin(), m_selection.cend());
+    std::sort(ids.begin(), ids.end());
+    QList<Id> copies;
+    copies.reserve(ids.size());
+    for (qsizetype i = 0; i < ids.size(); ++i) {
+        copies.append(createId());
+    }
+    if (ids.size() == 1) {
+        if (!m_project->execute(edits::duplicateClip(ids.front(), copies.front()))) {
+            return false;
+        }
+    } else if (!m_project->execute(edits::duplicateClips(ids, copies))) {
         return false;
     }
-    m_selection = {newId};
+    m_selection.clear();
+    for (const Id& id : copies) {
+        m_selection.insert(id);
+    }
     setTransitionSelection({});
     m_model.updateSelection(m_selection);
     emit selectionChanged();
     emit selectedClipChanged();
+    emit statusMessage(QStringLiteral("Duplicated %1 clip(s).").arg(copies.size()));
+    return true;
+}
+
+bool TimelineController::copySelectionAttributes()
+{
+    if (m_selection.size() != 1) {
+        emit statusMessage(QStringLiteral("Select one source clip to copy its attributes."));
+        return false;
+    }
+    const Clip* clip = project().timeline().clip(*m_selection.cbegin());
+    if (!clip) {
+        return false;
+    }
+    m_copiedClipAttributes = clip->properties;
+    emit copiedClipAttributesChanged();
+    emit statusMessage(QStringLiteral("Copied volume, fades and picture adjustments."));
+    return true;
+}
+
+bool TimelineController::pasteSelectionAttributes()
+{
+    if (!m_copiedClipAttributes) {
+        emit statusMessage(QStringLiteral("Copy attributes from a clip first."));
+        return false;
+    }
+    if (m_selection.isEmpty()) {
+        emit statusMessage(QStringLiteral("Select destination clips to paste attributes."));
+        return false;
+    }
+    QList<Id> ids(m_selection.cbegin(), m_selection.cend());
+    std::sort(ids.begin(), ids.end());
+    if (!m_project->execute(edits::pasteClipProperties(ids, *m_copiedClipAttributes))) {
+        return false;
+    }
+    emit statusMessage(QStringLiteral("Applied clip attributes to %1 clip(s).").arg(ids.size()));
     return true;
 }
 

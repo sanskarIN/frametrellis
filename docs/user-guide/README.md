@@ -72,6 +72,9 @@ the project (removing never deletes the file; media in use must be removed from 
   source media.
 * **Split:** move the playhead and press **S**. With clips selected, only those are split;
   otherwise every unlocked clip under the playhead is split.
+* **Duplicate:** select one clip and press **Ctrl+D** (or use the timeline copy button). The copy
+  retains its source trim and adjustments, and is appended to the end of the same track without
+  moving other clips. Transitions are not copied; undo removes the duplicate in one step.
 * **Delete:** **Delete** removes the selected clips and leaves a gap; **Shift+Delete** (ripple
   delete) removes one clip and moves the following clips on that track left to close the gap.
 * **Snapping** (N) aligns clip edges with other clips and the playhead.

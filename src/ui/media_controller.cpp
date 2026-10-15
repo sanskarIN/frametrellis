@@ -2,12 +2,11 @@
 // SPDX-FileCopyrightText: 2026 Sanskar and FrameTrellis contributors
 #include "ui/media_controller.h"
 
+#include "core/ids.h"
 #include "core/logging.h"
 #include "media/media_probe.h"
 #include "ui/project_controller.h"
 #include "ui/title_image.h"
-
-#include "core/ids.h"
 
 #include <QDesktopServices>
 #include <QDir>
@@ -125,9 +124,8 @@ QString MediaController::createTitle(const QString& text, int fontPixels, const 
                                            "image can be kept beside the project file."));
         return {};
     }
-    const Result<QImage> rendered =
-        makeTitleImage(text, QSize(m_project->frameWidth(), m_project->frameHeight()),
-                       fontPixels, QColor(color));
+    const Result<QImage> rendered = makeTitleImage(
+        text, QSize(m_project->frameWidth(), m_project->frameHeight()), fontPixels, QColor(color));
     if (!rendered) {
         emit importProblems(QStringLiteral("Could not create title"), rendered.error().message);
         return {};
@@ -139,8 +137,8 @@ QString MediaController::createTitle(const QString& text, int fontPixels, const 
                             QStringLiteral("Could not create the title image folder."));
         return {};
     }
-    const QString path =
-        projectDir.filePath(folder + QStringLiteral("/title-") + createId() + QStringLiteral(".png"));
+    const QString path = projectDir.filePath(folder + QStringLiteral("/title-") + createId() +
+                                             QStringLiteral(".png"));
     QSaveFile output(path);
     if (!output.open(QIODevice::WriteOnly)) {
         emit importProblems(QStringLiteral("Could not create title"), output.errorString());

@@ -204,6 +204,69 @@ std::unique_ptr<EditCommand> moveClip(const Id& clipId, const Id& targetTrackId,
                    });
 }
 
+std::unique_ptr<EditCommand> nudgeClips(const QList<Id>& clipIds, FrameCount delta)
+{
+    return command(
+        delta < 0 ? QStringLiteral("Nudge Clips Left") : QStringLiteral("Nudge Clips Right"),
+        [clipIds, delta](Timeline& timeline, const SourceLookup& sources) -> Status {
+            if (clipIds.isEmpty() || delta == 0) {
+                return makeError(ErrorCode::InvalidArgument,
+                                 QStringLiteral("Select clips and a nonzero frame movement."));
+            }
+            QSet<Id> selected;
+            for (const Id& id : clipIds) {
+                if (selected.contains(id)) {
+                    return makeError(ErrorCode::InvalidArgument,
+                                     QStringLiteral("The same clip was selected twice."));
+                }
+                selected.insert(id);
+                const Clip* clip = timeline.clip(id);
+                const Track* track = timeline.trackOfClip(id);
+                if (!clip || !track) {
+                    return makeError(ErrorCode::NotFound,
+                                     QStringLiteral("A selected clip was not found."));
+                }
+                if (track->locked) {
+                    return makeError(ErrorCode::Conflict,
+                                     QStringLiteral("Unlock every selected clip's track."));
+                }
+                if (delta < 0 && (delta < -kMaxTimelineFrames || clip->start < -delta)) {
+                    return makeError(ErrorCode::OutOfRange,
+                                     QStringLiteral("Clips cannot move before frame zero."));
+                }
+                if (delta > 0 &&
+                    (delta > kMaxTimelineFrames || clip->end() > kMaxTimelineFrames - delta)) {
+                    return makeError(ErrorCode::OutOfRange,
+                                     QStringLiteral("Clips cannot move beyond the timeline limit."));
+                }
+            }
+            // Update each affected track as a whole so adjacent selected clips do not
+            // collide with their old positions as a side effect of iteration order.
+            for (const Track& original : timeline.tracks()) {
+                Track changed = original;
+                bool touched = false;
+                for (Clip& clip : changed.clips) {
+                    if (selected.contains(clip.id)) {
+                        clip.start += delta;
+                        touched = true;
+                    }
+                }
+                if (touched) {
+                    timeline.restoreTrack(changed);
+                }
+            }
+            // Also rejects overlaps with unselected clips and broken cut transitions.
+            // TimelineCommand executes on a copy: a failed validation cannot partially edit
+            // the live project or create a history entry.
+            if (const Status valid = timeline.validate(sources); !valid) {
+                return makeError(ErrorCode::Conflict,
+                                 QStringLiteral("The selected clips cannot move together."),
+                                 valid.error().toString());
+            }
+            return {};
+        });
+}
+
 std::unique_ptr<EditCommand> trimClipStart(const Id& clipId, FrameCount newStart)
 {
     return command(QStringLiteral("Trim Clip Start"),

@@ -529,8 +529,8 @@ private slots:
         QVERIFY(titleTrack);
         QCOMPARE(titleTrack->kind, TrackKind::Video);
         if (!qEnvironmentVariableIsEmpty("FT_SCREENSHOT_DIR")) {
-            const Clip* titleClip = m_app->project()->project().timeline().clip(
-                m_app->timeline()->selection().front());
+            const Clip* titleClip =
+                m_app->project()->project().timeline().clip(m_app->timeline()->selection().front());
             QVERIFY(titleClip);
             m_app->playback()->seek(static_cast<double>(titleClip->start + 5));
             m_app->showStatus(QStringLiteral("Title overlay on the timeline"));

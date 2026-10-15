@@ -59,6 +59,8 @@ public:
 
     // Placing media
     Q_INVOKABLE bool appendAsset(const QString& assetId);
+    /// Append a title still to the uppermost unlocked video track.
+    Q_INVOKABLE bool appendTitleAsset(const QString& assetId);
     Q_INVOKABLE bool dropAsset(const QString& assetId, const QString& trackId, double frame);
     Q_INVOKABLE double assetDuration(const QString& assetId) const;
     Q_INVOKABLE bool acceptsAsset(const QString& trackId, const QString& assetId) const;

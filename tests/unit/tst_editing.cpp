@@ -84,6 +84,57 @@ private slots:
         QVERIFY(!f.doc.redo());
     }
 
+    void duplicatePreservesSourceEditsAndHistory()
+    {
+        Fixture f;
+        Clip source = clipOf(QStringLiteral("m1"), 25, 120, QStringLiteral("original"));
+        source.sourceIn = 30;
+        source.properties.gain = 0.6;
+        source.properties.fadeIn = 12;
+        source.properties.video.contrast = 1.3;
+        QVERIFY(f.doc.execute(edits::addClip(f.v1, source)));
+        QVERIFY(f.doc.execute(edits::addClip(
+            f.v1, clipOf(QStringLiteral("m1"), 300, 40, QStringLiteral("later")))));
+        const Timeline before = f.doc.project().timeline();
+
+        QVERIFY(f.doc.execute(edits::duplicateClip(source.id, QStringLiteral("copy"))));
+        const Timeline& timeline = f.doc.project().timeline();
+        const Clip* copy = timeline.clip(QStringLiteral("copy"));
+        QVERIFY(copy);
+        QCOMPARE(copy->start, FrameCount{340});
+        QCOMPARE(copy->sourceIn, source.sourceIn);
+        QCOMPARE(copy->duration, source.duration);
+        QCOMPARE(copy->assetId, source.assetId);
+        QCOMPARE(copy->properties, source.properties);
+        QCOMPARE(timeline.trackOfClip(copy->id)->id, f.v1);
+        QCOMPARE(timeline.clipCount(), 3);
+        QVERIFY(f.doc.undo());
+        QCOMPARE(f.doc.project().timeline(), before);
+        QVERIFY(f.doc.redo());
+        QCOMPARE(f.doc.project().timeline().clip(QStringLiteral("copy"))->start, FrameCount{340});
+
+        // The new id is independent: changing the copy never alters its source.
+        QVERIFY(f.doc.execute(edits::trimClipEnd(QStringLiteral("copy"), 370)));
+        QCOMPARE(f.doc.project().timeline().clip(source.id)->duration, source.duration);
+    }
+
+    void duplicateRejectsLockedMissingAndConflictingClips()
+    {
+        Fixture f;
+        QVERIFY(f.doc.execute(edits::addClip(
+            f.v1, clipOf(QStringLiteral("m1"), 0, 30, QStringLiteral("original")))));
+        const Timeline before = f.doc.project().timeline();
+        QVERIFY(!f.doc.execute(edits::duplicateClip(QStringLiteral("missing"))));
+        QCOMPARE(f.doc.project().timeline(), before);
+        QVERIFY(!f.doc.execute(
+            edits::duplicateClip(QStringLiteral("original"), QStringLiteral("original"))));
+        QCOMPARE(f.doc.project().timeline(), before);
+        QVERIFY(f.doc.execute(edits::setTrackLocked(f.v1, true)));
+        const Timeline locked = f.doc.project().timeline();
+        QVERIFY(!f.doc.execute(edits::duplicateClip(QStringLiteral("original"))));
+        QCOMPARE(f.doc.project().timeline(), locked);
+    }
+
     void failedEditChangesNothingAndIsNotRecorded()
     {
         Fixture f;

@@ -46,6 +46,9 @@ void TimelineController::onProjectChanged(const ChangeSet& changes)
     m_model.update(project(), changes.trackStructure, changes.media || changes.settings,
                    changes.tracks, m_selection);
     emit durationChanged();
+    if (changes.trackStructure || !changes.tracks.isEmpty()) {
+        emit canAppendTitleChanged();
+    }
     emit selectedClipChanged();
     emit selectedTransitionChanged();
     if (changes.settings) {
@@ -219,6 +222,16 @@ bool TimelineController::acceptsAsset(const QString& trackId, const QString& ass
         return false;
     }
     return track->kind == TrackKind::Video ? asset->info.hasVideo : asset->info.hasAudio;
+}
+
+bool TimelineController::canAppendTitle() const
+{
+    for (const Track& track : project().timeline().tracks()) {
+        if (track.kind == TrackKind::Video && !track.locked) {
+            return true;
+        }
+    }
+    return false;
 }
 
 bool TimelineController::appendTitleAsset(const QString& assetId)

@@ -51,6 +51,16 @@ repository. The feature screenshots do not replace automated assertions.
 integration tests that way. `clang-tidy` (configured in `.clang-tidy`) and `clang-format` run in
 CI as well.
 
+## Title overlay regression checks
+
+The GUI test verifies that the Create Title dialog disables generation when all video
+tracks are locked, then becomes available again when an unlocked video track exists.
+This prevents the normal UI path from leaving a generated title image without a timeline clip.
+
+The render integration suite also exports an MP4 containing a transparent PNG above
+video. It decodes the result and verifies that opaque title pixels appear while transparent
+regions reveal footage underneath. This protects export compositing, not only the editor preview.
+
 ## What is not covered automatically
 
 * Real audio output devices (tests use SDL's dummy driver).

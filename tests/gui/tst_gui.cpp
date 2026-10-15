@@ -544,6 +544,51 @@ private slots:
         QCOMPARE(m_app->project()->project().asset(created)->status, MediaStatus::Online);
     }
 
+    void creatingTitlesRequiresAnUnlockedVideoTrack()
+    {
+        QObject* dialog = m_window->findChild<QObject*>(QStringLiteral("titleDialog"));
+        QVERIFY(dialog);
+        QList<Id> videoTracks;
+        for (const Track& track : m_app->project()->project().timeline().tracks()) {
+            if (track.kind == TrackKind::Video) {
+                videoTracks.append(track.id);
+            }
+        }
+        QVERIFY(!videoTracks.isEmpty());
+        QSignalSpy changed(m_app->timeline(), &ui::TimelineController::canAppendTitleChanged);
+        for (const Id& id : videoTracks) {
+            QVERIFY(m_app->timeline()->setTrackFlag(id, QStringLiteral("locked"), true));
+        }
+        QVERIFY(!m_app->timeline()->canAppendTitle());
+        QVERIFY(changed.count() > 0);
+
+        const size_t before = m_app->project()->project().media().size();
+        QVERIFY(QMetaObject::invokeMethod(dialog, "open"));
+        QVERIFY(QTest::qWaitFor([&] { return dialog->property("opened").toBool(); }, 2000));
+        QObject* textField = dialog->findChild<QObject*>(QStringLiteral("titleTextField"));
+        QObject* createButton = dialog->findChild<QObject*>(QStringLiteral("createTitleButton"));
+        QVERIFY(textField);
+        QVERIFY(createButton);
+        QVERIFY(textField->setProperty("text", QStringLiteral("Do not generate this title")));
+        QTRY_VERIFY(!createButton->property("enabled").toBool());
+        QCOMPARE(m_app->project()->project().media().size(), before);
+        QVERIFY(QMetaObject::invokeMethod(dialog, "close"));
+
+        // Unlocking a video track re-enables the title action without restarting the dialog.
+        QVERIFY(
+            m_app->timeline()->setTrackFlag(videoTracks.front(), QStringLiteral("locked"), false));
+        QVERIFY(m_app->timeline()->canAppendTitle());
+        QVERIFY(QMetaObject::invokeMethod(dialog, "open"));
+        QVERIFY(QTest::qWaitFor([&] { return dialog->property("opened").toBool(); }, 2000));
+        QVERIFY(textField->setProperty("text", QStringLiteral("Can place this title")));
+        QTRY_VERIFY(createButton->property("enabled").toBool());
+        QVERIFY(QMetaObject::invokeMethod(dialog, "close"));
+        // Restore the test project's track state for follow-up editing.
+        for (const Id& id : videoTracks) {
+            QVERIFY(m_app->timeline()->setTrackFlag(id, QStringLiteral("locked"), false));
+        }
+    }
+
     void cleanupTestCase()
     {
         m_engine.reset();

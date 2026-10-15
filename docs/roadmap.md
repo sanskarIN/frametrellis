@@ -62,6 +62,7 @@ Acceptance criteria, each checked before the release:
 - ✅ limitations and platform support are explicit in the [release notes](releases/v1.0.0.md).
 
 ## v1.1 — Next
+- ✅ Undoable clip duplication with Ctrl+D (development branch; release gates pending)
 - ⏳ Basic title overlays
 - ⏳ A Linux package (AppImage or Flatpak), published once it has been verified
 - ⏳ A macOS build in CI, then a `.dmg` package once it has been verified

@@ -514,9 +514,8 @@ private slots:
         }
         QVERIFY(hasText);
 
-        const QString created =
-            m_app->media()->createTitle(QStringLiteral("A title overlay"), 72,
-                                        QStringLiteral("#ffffff"));
+        const QString created = m_app->media()->createTitle(QStringLiteral("A title overlay"), 72,
+                                                            QStringLiteral("#ffffff"));
         QVERIFY(!created.isEmpty());
         const MediaAsset* asset = m_app->project()->project().asset(created);
         QVERIFY(asset);

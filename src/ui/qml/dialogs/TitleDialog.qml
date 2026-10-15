@@ -25,6 +25,7 @@ FtDialog {
         Label { text: qsTr("Title text"); color: Theme.textMuted }
         TextField {
             id: caption
+            objectName: "titleTextField"
             Layout.fillWidth: true
             placeholderText: qsTr("Enter a short title")
             maximumLength: 200
@@ -70,9 +71,11 @@ FtDialog {
             wrapMode: Text.WordWrap
             color: Theme.textFaint
             font.pixelSize: Theme.fontSizeSmall
-            text: dialog.app.project.hasFilePath
-                  ? qsTr("A transparent PNG is saved in the “FrameTrellis Titles” folder alongside your project and added to the highest unlocked video track. Move or trim it like any image clip.")
-                  : qsTr("Save this project first to create a title image beside the project file.")
+            text: !dialog.app.project.hasFilePath
+                  ? qsTr("Save this project first to create a title image beside the project file.")
+                  : !dialog.app.timeline.canAppendTitle
+                    ? qsTr("Unlock or add a video track before creating a title. No image will be created until a track is available.")
+                    : qsTr("A transparent PNG is saved in the “FrameTrellis Titles” folder alongside your project and added to the highest unlocked video track. Move or trim it like any image clip.")
         }
     }
 
@@ -81,16 +84,16 @@ FtDialog {
         FtButton { text: qsTr("Cancel"); onClicked: dialog.close() }
         FtButton {
             id: addButton
+            objectName: "createTitleButton"
             text: qsTr("Create title")
             primary: true
-            enabled: dialog.app.project.hasFilePath && caption.text.trim().length > 0
+            enabled: dialog.app.project.hasFilePath && dialog.app.timeline.canAppendTitle
+                     && caption.text.trim().length > 0
             onClicked: {
                 const assetId = dialog.app.media.createTitle(caption.text, fontSize.value,
                                                                dialog.titleColors[titleColor.currentIndex])
-                if (assetId.length > 0) {
-                    dialog.app.timeline.appendTitleAsset(assetId)
+                if (assetId.length > 0 && dialog.app.timeline.appendTitleAsset(assetId))
                     dialog.close()
-                }
             }
         }
     }

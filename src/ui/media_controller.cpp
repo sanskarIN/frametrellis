@@ -117,6 +117,59 @@ void MediaController::onImported(const std::vector<MediaAsset>& assets,
     }
 }
 
+QString MediaController::createTitle(const QString& text, int fontPixels, const QString& color)
+{
+    if (!m_project->hasFilePath()) {
+        emit importProblems(QStringLiteral("Save your project first"),
+                            QStringLiteral("Save the project before creating a title, so its "
+                                           "image can be kept beside the project file."));
+        return {};
+    }
+    const Result<QImage> rendered =
+        makeTitleImage(text, QSize(m_project->frameWidth(), m_project->frameHeight()),
+                       fontPixels, QColor(color));
+    if (!rendered) {
+        emit importProblems(QStringLiteral("Could not create title"), rendered.error().message);
+        return {};
+    }
+    QDir projectDir(m_project->projectFolder());
+    const QString folder = QStringLiteral("FrameTrellis Titles");
+    if (!projectDir.mkpath(folder)) {
+        emit importProblems(QStringLiteral("Could not create title"),
+                            QStringLiteral("Could not create the title image folder."));
+        return {};
+    }
+    const QString path =
+        projectDir.filePath(folder + QStringLiteral("/title-") + createId() + QStringLiteral(".png"));
+    QSaveFile output(path);
+    if (!output.open(QIODevice::WriteOnly)) {
+        emit importProblems(QStringLiteral("Could not create title"), output.errorString());
+        return {};
+    }
+    if (!rendered->save(&output, "PNG") || !output.commit()) {
+        output.cancelWriting();
+        emit importProblems(QStringLiteral("Could not create title"),
+                            QStringLiteral("The PNG image could not be saved."));
+        return {};
+    }
+    Result<MediaAsset> asset = media::createAsset(path);
+    if (!asset) {
+        QFile::remove(path);
+        emit importProblems(QStringLiteral("Could not import title"), asset.error().message);
+        return {};
+    }
+    const Id id = asset->id;
+    std::vector<MediaAsset> items;
+    items.push_back(std::move(asset).value());
+    if (!m_project->execute(std::make_unique<AddMediaCommand>(std::move(items)))) {
+        QFile::remove(path);
+        return {};
+    }
+    emit imported(1);
+    emit statusMessage(QStringLiteral("Created a title image alongside the project."));
+    return id;
+}
+
 void MediaController::remove(const QString& assetId)
 {
     const MediaAsset* asset = m_project->project().asset(assetId);

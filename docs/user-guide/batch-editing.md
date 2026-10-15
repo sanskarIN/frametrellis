@@ -58,3 +58,7 @@ be undone or redone with **Ctrl+Z / Ctrl+Shift+Z**.
 - No clipboard operation changes or copies transition relationships.
 - Neither group duplication nor attribute pasting bypasses track locks.
 - In this version the clipboard is *in-app*, not the system clipboard.
+
+## Frame-accurate group nudging
+
+Select any combination of video or audio clips. Use **Alt+Left / Alt+Right** to move them one project frame, or **Alt+Shift+Left / Alt+Shift+Right** to move ten frames. Edits retain source trims and synchronized spacing; all clips move together in one undo step. Moves are refused if a track is locked, the move overlaps an unselected clip, exceeds timeline boundaries, or would invalidate a transition. Undo restores every clip and transition.

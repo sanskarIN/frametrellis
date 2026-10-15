@@ -156,7 +156,7 @@ QString MediaController::createTitle(const QString& text, int fontPixels, const 
         emit importProblems(QStringLiteral("Could not import title"), asset.error().message);
         return {};
     }
-    const Id id = asset->id;
+    Id id = asset->id;
     std::vector<MediaAsset> items;
     items.push_back(std::move(asset).value());
     if (!m_project->execute(std::make_unique<AddMediaCommand>(std::move(items)))) {

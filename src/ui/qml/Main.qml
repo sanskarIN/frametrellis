@@ -16,7 +16,7 @@ ApplicationWindow {
     property var pendingAction: null
     // Single-key editing shortcuts are disabled while a dialog is open, so that keys such as
     // Space, Delete or the arrows act on the dialog instead of the timeline.
-    readonly property bool dialogOpen: newDialog.visible || exportDialog.visible || aboutDialog.visible
+    readonly property bool dialogOpen: newDialog.visible || titleDialog.visible || exportDialog.visible || aboutDialog.visible
                                        || shortcutsDialog.visible || welcome.visible || messageBox.visible
                                        || unsavedDialog.visible || exportRunningDialog.visible || recoveryDialog.visible
     readonly property bool editKeys: !dialogOpen

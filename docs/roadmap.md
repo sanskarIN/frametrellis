@@ -63,7 +63,7 @@ Acceptance criteria, each checked before the release:
 
 ## v1.1 — Next
 - ✅ Undoable clip duplication with Ctrl+D (development branch; release gates pending)
-- ⏳ Basic title overlays
+- ✅ Basic raster title overlays using transparent PNGs (development branch; release gates pending)
 - ⏳ A Linux package (AppImage or Flatpak), published once it has been verified
 - ⏳ A macOS build in CI, then a `.dmg` package once it has been verified
 - ⏳ Faster exports (MLT's parallel frame rendering is disabled because it corrupted audio)

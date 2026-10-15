@@ -51,6 +51,7 @@ qt_add_qml_module(ft_ui
         thumbnail_provider.cpp thumbnail_provider.h
         waveform_provider.cpp waveform_provider.h
         timeline_controller.cpp timeline_controller.h
+        title_image.cpp title_image.h
         timeline_model.cpp timeline_model.h
     RESOURCES
         ${FT_UI_ICONS}

@@ -575,8 +575,8 @@ private slots:
         QVERIFY(QMetaObject::invokeMethod(dialog, "close"));
 
         // Unlocking a video track re-enables the title action without restarting the dialog.
-        QVERIFY(m_app->timeline()->setTrackFlag(videoTracks.front(), QStringLiteral("locked"),
-                                                 false));
+        QVERIFY(
+            m_app->timeline()->setTrackFlag(videoTracks.front(), QStringLiteral("locked"), false));
         QVERIFY(m_app->timeline()->canAppendTitle());
         QVERIFY(QMetaObject::invokeMethod(dialog, "open"));
         QVERIFY(QTest::qWaitFor([&] { return dialog->property("opened").toBool(); }, 2000));

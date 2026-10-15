@@ -368,6 +368,7 @@ ApplicationWindow {
     }
 
     NewProjectDialog { id: newDialog; app: window.app }
+    TitleDialog { id: titleDialog; objectName: "titleDialog"; app: window.app }
     ExportDialog { id: exportDialog; objectName: "exportDialog"; app: window.app }
     AboutDialog { id: aboutDialog; objectName: "aboutDialog"; app: window.app }
     ShortcutsDialog { id: shortcutsDialog }

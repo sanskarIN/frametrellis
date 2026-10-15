@@ -117,6 +117,44 @@ private slots:
         QVERIFY(partFiles().isEmpty());
     }
 
+    void exportPreservesTransparentTitleOverlay()
+    {
+        // An image overlay must survive encoding: opaque title pixels appear on top of the
+        // video, while transparent pixels continue to reveal the footage underneath.
+        const QString overlayPath = m_dir.filePath(QStringLiteral("export-title.png"));
+        QImage title(QSize(160, 90), QImage::Format_ARGB32);
+        title.fill(Qt::transparent);
+        for (int y = 30; y < 60; ++y) {
+            for (int x = 40; x < 120; ++x) {
+                title.setPixelColor(x, y, Qt::yellow);
+            }
+        }
+        QVERIFY(title.save(overlayPath));
+
+        Project p = project(25);
+        Result<MediaAsset> asset = media::createAsset(overlayPath);
+        QVERIFY(asset);
+        QVERIFY(p.addAsset(*asset));
+        Clip clip;
+        clip.id = createId();
+        clip.assetId = asset->id;
+        clip.duration = 25;
+        QVERIFY(p.timeline().insertClip(p.timeline().tracks()[1].id, clip, p.sourceLookup()));
+
+        ExportSettings settings;
+        settings.outputPath = m_dir.filePath(QStringLiteral("export-title.mp4"));
+        settings.includeAudio = false;
+        settings.speedPreset = QStringLiteral("ultrafast");
+        std::atomic<bool> cancel{false};
+        const Status rendered = RenderRunner(p, settings).run(cancel);
+        QVERIFY2(rendered, qPrintable(rendered ? QString() : rendered.error().toString()));
+        const QImage frame = frameOf(settings.outputPath, 5);
+        QVERIFY(!frame.isNull());
+        QVERIFY(isCloseTo(averageColor(frame, QRect(0, 0, 20, 20)), Qt::green));
+        QVERIFY(isCloseTo(averageColor(frame, QRect(55, 37, 40, 15)), Qt::yellow));
+        QVERIFY(partFiles().isEmpty());
+    }
+
     void scalesWithShortSide()
     {
         ExportSettings settings;

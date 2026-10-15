@@ -284,6 +284,37 @@ private slots:
         QCOMPARE(f.doc.project().timeline().track(f.v1)->clips.front().id, QStringLiteral("fixed"));
     }
 
+    void nudgingAcrossAnotherTransitionKeepsCutOrder()
+    {
+        Fixture f;
+        Clip a = clipOf(QStringLiteral("m1"), 10, 60, QStringLiteral("a"));
+        Clip b = clipOf(QStringLiteral("m1"), 70, 60, QStringLiteral("b"));
+        Clip c = clipOf(QStringLiteral("m1"), 150, 60, QStringLiteral("c"));
+        Clip d = clipOf(QStringLiteral("m1"), 210, 60, QStringLiteral("d"));
+        b.sourceIn = 120;
+        d.sourceIn = 120;
+        QVERIFY(f.doc.execute(edits::addClip(f.v1, a)));
+        QVERIFY(f.doc.execute(edits::addClip(f.v1, b)));
+        QVERIFY(f.doc.execute(edits::addClip(f.v1, c)));
+        QVERIFY(f.doc.execute(edits::addClip(f.v1, d)));
+        QVERIFY(f.doc.execute(edits::addTransition(a.id, 10, QStringLiteral("t1"))));
+        QVERIFY(f.doc.execute(edits::addTransition(c.id, 10, QStringLiteral("t2"))));
+        const Timeline before = f.doc.project().timeline();
+        const Track* track = before.track(f.v1);
+        QVERIFY(track);
+        QCOMPARE(track->transitions.front().id, QStringLiteral("t1"));
+
+        QVERIFY(f.doc.execute(edits::nudgeClips({a.id, b.id}, 300)));
+        track = f.doc.project().timeline().track(f.v1);
+        QVERIFY(track);
+        QCOMPARE(track->transitions.size(), size_t{2});
+        QCOMPARE(track->transitions.front().id, QStringLiteral("t2"));
+        QCOMPARE(track->transitions.back().id, QStringLiteral("t1"));
+        QVERIFY(f.doc.project().timeline().validate(f.doc.project().sourceLookup()));
+        QVERIFY(f.doc.undo());
+        QCOMPARE(f.doc.project().timeline(), before);
+    }
+
     void nudgingLockedSelectionIsAtomic()
     {
         Fixture f;

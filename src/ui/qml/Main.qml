@@ -148,6 +148,10 @@ ApplicationWindow {
             Action { text: qsTr("D&uplicate Selected Clips"); shortcut: "Ctrl+D"; enabled: window.editKeys && window.app.timeline.selection.length > 0; onTriggered: window.app.timeline.duplicateSelection() }
             Action { text: qsTr("Copy Clip &Attributes"); shortcut: "Ctrl+Alt+C"; enabled: window.editKeys && window.app.timeline.selection.length === 1; onTriggered: window.app.timeline.copySelectionAttributes() }
             Action { text: qsTr("&Paste Clip Attributes"); shortcut: "Ctrl+Alt+V"; enabled: window.editKeys && window.app.timeline.selection.length > 0 && window.app.timeline.hasCopiedClipAttributes; onTriggered: window.app.timeline.pasteSelectionAttributes() }
+            MenuSeparator {}
+            Action { text: qsTr("&Mute Selected Clips"); shortcut: "Ctrl+Alt+M"; enabled: window.editKeys && window.app.timeline.selection.length > 0; onTriggered: window.app.timeline.muteSelection(true) }
+            Action { text: qsTr("Unmute Selected Clips"); shortcut: "Ctrl+Alt+U"; enabled: window.editKeys && window.app.timeline.selection.length > 0; onTriggered: window.app.timeline.muteSelection(false) }
+            Action { text: qsTr("&Reset Selected Picture Adjustments"); enabled: window.editKeys && window.app.timeline.selection.length > 0; onTriggered: window.app.timeline.resetSelectionPictures() }
             Action { text: qsTr("Add &Transition"); shortcut: "T"; enabled: window.editKeys; onTriggered: window.app.timeline.addTransition() }
             Action { text: qsTr("&Delete"); shortcut: StandardKey.Delete; enabled: window.editKeys; onTriggered: window.app.timeline.deleteSelection(false) }
             Action { text: qsTr("Ripple De&lete"); shortcut: "Shift+Delete"; enabled: window.editKeys; onTriggered: window.app.timeline.deleteSelection(true) }

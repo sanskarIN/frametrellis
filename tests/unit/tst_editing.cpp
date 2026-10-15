@@ -145,13 +145,13 @@ private slots:
         second.properties.video.opacity = 0.4;
         QVERIFY(f.doc.execute(edits::addClip(f.v1, first)));
         QVERIFY(f.doc.execute(edits::addClip(f.v2, second)));
-        QVERIFY(f.doc.execute(edits::addClip(
-            f.v1, clipOf(QStringLiteral("m1"), 140, 20, QStringLiteral("late")))));
+        QVERIFY(f.doc.execute(
+            edits::addClip(f.v1, clipOf(QStringLiteral("m1"), 140, 20, QStringLiteral("late")))));
         const Timeline before = f.doc.project().timeline();
         QCOMPARE(before.duration(), FrameCount{160});
-        QVERIFY(f.doc.execute(edits::duplicateClips(
-            {QStringLiteral("second"), QStringLiteral("first")},
-            {QStringLiteral("copy-second"), QStringLiteral("copy-first")})));
+        QVERIFY(f.doc.execute(
+            edits::duplicateClips({QStringLiteral("second"), QStringLiteral("first")},
+                                  {QStringLiteral("copy-second"), QStringLiteral("copy-first")})));
         const Timeline& after = f.doc.project().timeline();
         QCOMPARE(after.clip(QStringLiteral("copy-first"))->start, FrameCount{160});
         QCOMPARE(after.clip(QStringLiteral("copy-second"))->start, FrameCount{205});
@@ -170,37 +170,37 @@ private slots:
     void duplicateBatchFailsAtomicallyOnLockedTrackAndDuplicateIds()
     {
         Fixture f;
-        QVERIFY(f.doc.execute(edits::addClip(
-            f.v1, clipOf(QStringLiteral("m1"), 0, 40, QStringLiteral("one")))));
-        QVERIFY(f.doc.execute(edits::addClip(
-            f.v2, clipOf(QStringLiteral("m1"), 0, 40, QStringLiteral("two")))));
+        QVERIFY(f.doc.execute(
+            edits::addClip(f.v1, clipOf(QStringLiteral("m1"), 0, 40, QStringLiteral("one")))));
+        QVERIFY(f.doc.execute(
+            edits::addClip(f.v2, clipOf(QStringLiteral("m1"), 0, 40, QStringLiteral("two")))));
         QVERIFY(f.doc.execute(edits::setTrackLocked(f.v2, true)));
         const Timeline before = f.doc.project().timeline();
         const QString priorUndo = f.doc.undoText();
-        QVERIFY(!f.doc.execute(edits::duplicateClips(
-            {QStringLiteral("one"), QStringLiteral("two")},
-            {QStringLiteral("copy-one"), QStringLiteral("copy-two")})));
+        QVERIFY(!f.doc.execute(
+            edits::duplicateClips({QStringLiteral("one"), QStringLiteral("two")},
+                                  {QStringLiteral("copy-one"), QStringLiteral("copy-two")})));
         QCOMPARE(f.doc.project().timeline(), before);
         QCOMPARE(f.doc.undoText(), priorUndo);
-        QVERIFY(!f.doc.execute(edits::duplicateClips(
-            {QStringLiteral("one"), QStringLiteral("two")},
-            {QStringLiteral("shared"), QStringLiteral("shared")})));
+        QVERIFY(!f.doc.execute(
+            edits::duplicateClips({QStringLiteral("one"), QStringLiteral("two")},
+                                  {QStringLiteral("shared"), QStringLiteral("shared")})));
         QCOMPARE(f.doc.project().timeline(), before);
-        QVERIFY(!f.doc.execute(edits::duplicateClips(
-            {QStringLiteral("one"), QStringLiteral("missing")},
-            {QStringLiteral("a"), QStringLiteral("b")})));
+        QVERIFY(
+            !f.doc.execute(edits::duplicateClips({QStringLiteral("one"), QStringLiteral("missing")},
+                                                 {QStringLiteral("a"), QStringLiteral("b")})));
         QCOMPARE(f.doc.project().timeline(), before);
     }
 
     void pasteAttributesToClipsClampsFadesAndUndoesTogether()
     {
         Fixture f;
-        QVERIFY(f.doc.execute(edits::addClip(
-            f.v1, clipOf(QStringLiteral("m1"), 0, 100, QStringLiteral("long")))));
-        QVERIFY(f.doc.execute(edits::addClip(
-            f.v1, clipOf(QStringLiteral("m1"), 150, 35, QStringLiteral("short")))));
-        QVERIFY(f.doc.execute(edits::addClip(
-            f.v2, clipOf(QStringLiteral("m1"), 0, 60, QStringLiteral("other")))));
+        QVERIFY(f.doc.execute(
+            edits::addClip(f.v1, clipOf(QStringLiteral("m1"), 0, 100, QStringLiteral("long")))));
+        QVERIFY(f.doc.execute(
+            edits::addClip(f.v1, clipOf(QStringLiteral("m1"), 150, 35, QStringLiteral("short")))));
+        QVERIFY(f.doc.execute(
+            edits::addClip(f.v2, clipOf(QStringLiteral("m1"), 0, 60, QStringLiteral("other")))));
         const Timeline before = f.doc.project().timeline();
         ClipProperties copied;
         copied.gain = 0.3;
@@ -229,26 +229,26 @@ private slots:
     void pasteAttributesRejectsLockedDestinationsWithoutPartialEdits()
     {
         Fixture f;
-        QVERIFY(f.doc.execute(edits::addClip(
-            f.v1, clipOf(QStringLiteral("m1"), 0, 100, QStringLiteral("one")))));
-        QVERIFY(f.doc.execute(edits::addClip(
-            f.v2, clipOf(QStringLiteral("m1"), 0, 100, QStringLiteral("two")))));
+        QVERIFY(f.doc.execute(
+            edits::addClip(f.v1, clipOf(QStringLiteral("m1"), 0, 100, QStringLiteral("one")))));
+        QVERIFY(f.doc.execute(
+            edits::addClip(f.v2, clipOf(QStringLiteral("m1"), 0, 100, QStringLiteral("two")))));
         QVERIFY(f.doc.execute(edits::setTrackLocked(f.v2, true)));
         const Timeline before = f.doc.project().timeline();
         ClipProperties copied;
         copied.video.saturation = 2.0;
-        QVERIFY(!f.doc.execute(edits::pasteClipProperties(
-            {QStringLiteral("one"), QStringLiteral("two")}, copied)));
+        QVERIFY(!f.doc.execute(
+            edits::pasteClipProperties({QStringLiteral("one"), QStringLiteral("two")}, copied)));
         QCOMPARE(f.doc.project().timeline(), before);
     }
 
     void batchMuteAndPictureResetPreserveUnrelatedAttributes()
     {
         Fixture f;
-        QVERIFY(f.doc.execute(edits::addClip(
-            f.v1, clipOf(QStringLiteral("m1"), 0, 100, QStringLiteral("one")))));
-        QVERIFY(f.doc.execute(edits::addClip(
-            f.v2, clipOf(QStringLiteral("m1"), 0, 100, QStringLiteral("two")))));
+        QVERIFY(f.doc.execute(
+            edits::addClip(f.v1, clipOf(QStringLiteral("m1"), 0, 100, QStringLiteral("one")))));
+        QVERIFY(f.doc.execute(
+            edits::addClip(f.v2, clipOf(QStringLiteral("m1"), 0, 100, QStringLiteral("two")))));
         ClipProperties settings;
         settings.gain = 0.35;
         settings.fadeIn = 8;
@@ -257,8 +257,8 @@ private slots:
         QVERIFY(f.doc.execute(
             edits::pasteClipProperties({QStringLiteral("one"), QStringLiteral("two")}, settings)));
         const Timeline original = f.doc.project().timeline();
-        QVERIFY(f.doc.execute(
-            edits::muteClips({QStringLiteral("one"), QStringLiteral("two")}, true)));
+        QVERIFY(
+            f.doc.execute(edits::muteClips({QStringLiteral("one"), QStringLiteral("two")}, true)));
         for (const Id& id : {QStringLiteral("one"), QStringLiteral("two")}) {
             const ClipProperties& properties = f.doc.project().timeline().clip(id)->properties;
             QVERIFY(properties.muted);
@@ -266,8 +266,8 @@ private slots:
             QCOMPARE(properties.fadeIn, FrameCount{8});
             QCOMPARE(properties.video.contrast, 1.4);
         }
-        QVERIFY(f.doc.execute(edits::resetClipPictures(
-            {QStringLiteral("one"), QStringLiteral("two")})));
+        QVERIFY(f.doc.execute(
+            edits::resetClipPictures({QStringLiteral("one"), QStringLiteral("two")})));
         for (const Id& id : {QStringLiteral("one"), QStringLiteral("two")}) {
             const ClipProperties& properties = f.doc.project().timeline().clip(id)->properties;
             QVERIFY(properties.muted);
@@ -288,10 +288,10 @@ private slots:
     void batchChangesRejectLockedClipsWithoutPartialChanges()
     {
         Fixture f;
-        QVERIFY(f.doc.execute(edits::addClip(
-            f.v1, clipOf(QStringLiteral("m1"), 0, 90, QStringLiteral("one")))));
-        QVERIFY(f.doc.execute(edits::addClip(
-            f.v2, clipOf(QStringLiteral("m1"), 0, 90, QStringLiteral("two")))));
+        QVERIFY(f.doc.execute(
+            edits::addClip(f.v1, clipOf(QStringLiteral("m1"), 0, 90, QStringLiteral("one")))));
+        QVERIFY(f.doc.execute(
+            edits::addClip(f.v2, clipOf(QStringLiteral("m1"), 0, 90, QStringLiteral("two")))));
         QVERIFY(f.doc.execute(edits::setTrackLocked(f.v2, true)));
         const Timeline before = f.doc.project().timeline();
         const QList<Id> ids{QStringLiteral("one"), QStringLiteral("two")};

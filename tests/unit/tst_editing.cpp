@@ -242,6 +242,65 @@ private slots:
         QCOMPARE(f.doc.project().timeline(), before);
     }
 
+    void batchMuteAndPictureResetPreserveUnrelatedAttributes()
+    {
+        Fixture f;
+        QVERIFY(f.doc.execute(edits::addClip(
+            f.v1, clipOf(QStringLiteral("m1"), 0, 100, QStringLiteral("one")))));
+        QVERIFY(f.doc.execute(edits::addClip(
+            f.v2, clipOf(QStringLiteral("m1"), 0, 100, QStringLiteral("two")))));
+        ClipProperties settings;
+        settings.gain = 0.35;
+        settings.fadeIn = 8;
+        settings.video.contrast = 1.4;
+        settings.video.saturation = 1.7;
+        QVERIFY(f.doc.execute(
+            edits::pasteClipProperties({QStringLiteral("one"), QStringLiteral("two")}, settings)));
+        const Timeline original = f.doc.project().timeline();
+        QVERIFY(f.doc.execute(
+            edits::muteClips({QStringLiteral("one"), QStringLiteral("two")}, true)));
+        for (const Id& id : {QStringLiteral("one"), QStringLiteral("two")}) {
+            const ClipProperties& properties = f.doc.project().timeline().clip(id)->properties;
+            QVERIFY(properties.muted);
+            QCOMPARE(properties.gain, 0.35);
+            QCOMPARE(properties.fadeIn, FrameCount{8});
+            QCOMPARE(properties.video.contrast, 1.4);
+        }
+        QVERIFY(f.doc.execute(edits::resetClipPictures(
+            {QStringLiteral("one"), QStringLiteral("two")})));
+        for (const Id& id : {QStringLiteral("one"), QStringLiteral("two")}) {
+            const ClipProperties& properties = f.doc.project().timeline().clip(id)->properties;
+            QVERIFY(properties.muted);
+            QCOMPARE(properties.video, VideoAdjustments{});
+            QCOMPARE(properties.gain, 0.35);
+        }
+        QVERIFY(f.doc.undo());
+        QCOMPARE(f.doc.project().timeline().clip(QStringLiteral("one"))->properties.video.contrast,
+                 1.4);
+        QVERIFY(f.doc.undo());
+        QCOMPARE(f.doc.project().timeline(), original);
+        QVERIFY(f.doc.redo());
+        QVERIFY(f.doc.redo());
+        QCOMPARE(f.doc.project().timeline().clip(QStringLiteral("two"))->properties.video,
+                 VideoAdjustments{});
+    }
+
+    void batchChangesRejectLockedClipsWithoutPartialChanges()
+    {
+        Fixture f;
+        QVERIFY(f.doc.execute(edits::addClip(
+            f.v1, clipOf(QStringLiteral("m1"), 0, 90, QStringLiteral("one")))));
+        QVERIFY(f.doc.execute(edits::addClip(
+            f.v2, clipOf(QStringLiteral("m1"), 0, 90, QStringLiteral("two")))));
+        QVERIFY(f.doc.execute(edits::setTrackLocked(f.v2, true)));
+        const Timeline before = f.doc.project().timeline();
+        const QList<Id> ids{QStringLiteral("one"), QStringLiteral("two")};
+        QVERIFY(!f.doc.execute(edits::muteClips(ids, true)));
+        QCOMPARE(f.doc.project().timeline(), before);
+        QVERIFY(!f.doc.execute(edits::resetClipPictures(ids)));
+        QCOMPARE(f.doc.project().timeline(), before);
+    }
+
     void failedEditChangesNothingAndIsNotRecorded()
     {
         Fixture f;

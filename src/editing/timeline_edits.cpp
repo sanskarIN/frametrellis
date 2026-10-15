@@ -255,6 +255,39 @@ std::unique_ptr<EditCommand> setClipProperties(const Id& clipId, const ClipPrope
         QStringLiteral("clip-properties:") + clipId + QLatin1Char(':') + text);
 }
 
+std::unique_ptr<EditCommand> pasteClipProperties(const QList<Id>& clipIds,
+                                                  const ClipProperties& properties)
+{
+    return command(QStringLiteral("Paste Clip Attributes"),
+                   [clipIds, properties](Timeline& timeline, const SourceLookup&) -> Status {
+                       if (clipIds.isEmpty()) {
+                           return makeError(ErrorCode::InvalidArgument,
+                                            QStringLiteral("Select clips to update."));
+                       }
+                       QSet<Id> unique;
+                       for (const Id& id : clipIds) {
+                           if (unique.contains(id)) {
+                               return makeError(ErrorCode::InvalidArgument,
+                                                QStringLiteral("A clip was selected twice."));
+                           }
+                           unique.insert(id);
+                           const Clip* clip = timeline.clip(id);
+                           if (!clip) {
+                               return makeError(ErrorCode::NotFound,
+                                                QStringLiteral("A selected clip was not found."));
+                           }
+                           ClipProperties copy = properties;
+                           copy.fadeIn = std::min(copy.fadeIn, clip->duration);
+                           copy.fadeOut = std::min(copy.fadeOut, clip->duration - copy.fadeIn);
+                           if (const Status updated = timeline.setClipProperties(id, copy);
+                               !updated) {
+                               return updated;
+                           }
+                       }
+                       return {};
+                   });
+}
+
 std::unique_ptr<EditCommand> addTransition(const Id& fromClipId, FrameCount duration,
                                            const Id& transitionId)
 {

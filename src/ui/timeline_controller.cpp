@@ -437,6 +437,26 @@ bool TimelineController::duplicateSelection()
     return true;
 }
 
+bool TimelineController::nudgeSelection(int frames)
+{
+    if (m_selection.isEmpty()) {
+        emit statusMessage(QStringLiteral("Select one or more clips to nudge."));
+        return false;
+    }
+    if (frames == 0) {
+        return false;
+    }
+    QList<Id> ids(m_selection.cbegin(), m_selection.cend());
+    std::sort(ids.begin(), ids.end());
+    if (!m_project->execute(edits::nudgeClips(ids, static_cast<FrameCount>(frames)))) {
+        return false;
+    }
+    emit statusMessage(QStringLiteral("Moved %1 clip(s) by %2 frame(s).")
+                           .arg(ids.size())
+                           .arg(frames));
+    return true;
+}
+
 bool TimelineController::copySelectionAttributes()
 {
     if (m_selection.size() != 1) {

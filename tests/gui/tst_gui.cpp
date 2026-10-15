@@ -8,6 +8,7 @@
 #include "engine/mlt_runtime.h"
 #include "media_fixtures.h"
 #include "ui/app_controller.h"
+#include "ui/title_image.h"
 
 #include <QDir>
 #include <QGuiApplication>

@@ -91,7 +91,20 @@ jobs:
         run: cmake --build --preset linux-debug
 
       - name: Test
+        env:
+          FT_SCREENSHOT_DIR: ${{ runner.temp }}/frametrellis-screenshots
         run: ctest --preset linux-debug
+
+      - name: Upload feature screenshots
+        if: always()
+        uses: actions/upload-artifact@v6
+        with:
+          name: frametrellis-feature-screenshots
+          path: |
+            ${{ runner.temp }}/frametrellis-screenshots/07-clip-duplication.png
+            ${{ runner.temp }}/frametrellis-screenshots/08-title-overlay.png
+          if-no-files-found: warn
+          retention-days: 14
 
       - name: Static analysis (clang-tidy)
         run: |

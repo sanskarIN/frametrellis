@@ -8,7 +8,9 @@
 | Up / Down | Previous / next edit point |
 | Home / End | Go to start / end |
 | S | Split at playhead |
-| Ctrl+D | Duplicate the selected clip at the end of its track |
+| Ctrl+D | Duplicate one clip at the end of its track, or a multi-clip selection after the timeline while preserving relative spacing |
+| Ctrl+Alt+C | Copy volume, fades, mute and picture adjustments from one selected clip |
+| Ctrl+Alt+V | Paste copied clip attributes to selected clips in one undoable action |
 | T | Add a transition after the selected clip |
 | Delete | Delete selected clips or the selected transition |
 | Shift+Delete | Ripple delete |

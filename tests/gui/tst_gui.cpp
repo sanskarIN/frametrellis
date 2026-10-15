@@ -473,18 +473,20 @@ private slots:
         const Track& video = track(0);
         QVERIFY(!video.clips.empty());
         const Id original = video.clips.front().id;
+        const Id originalAsset = video.clips.front().assetId;
         const FrameCount originalDuration = video.clips.front().duration;
+        const int before = m_app->project()->project().timeline().clipCount();
         m_app->timeline()->select(original, false);
         QTest::keyClick(m_window, Qt::Key_D, Qt::ControlModifier);
         QVERIFY(QTest::qWaitFor(
-            [&] { return m_app->project()->project().timeline().clipCount() >= 2; }, 2000));
+            [&] { return m_app->project()->project().timeline().clipCount() == before + 1; }, 2000));
         const QStringList selection = m_app->timeline()->selection();
         QCOMPARE(selection.size(), 1);
         QVERIFY(selection.front() != original);
         const Clip* copy = m_app->project()->project().timeline().clip(selection.front());
         QVERIFY(copy);
         QCOMPARE(copy->duration, originalDuration);
-        QCOMPARE(copy->assetId, video.clips.front().assetId);
+        QCOMPARE(copy->assetId, originalAsset);
         QVERIFY(m_app->project()->canUndo());
         m_app->project()->undo();
         QVERIFY(!m_app->project()->project().timeline().clip(selection.front()));

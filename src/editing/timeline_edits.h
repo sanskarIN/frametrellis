@@ -44,6 +44,10 @@ std::unique_ptr<EditCommand> setClipProperties(const Id& clipId, const ClipPrope
 /// Fade lengths are shortened to fit each destination clip's duration.
 std::unique_ptr<EditCommand> pasteClipProperties(const QList<Id>& clipIds,
                                                   const ClipProperties& properties);
+/// Toggle audio muting for all selected clips without altering their other adjustments.
+std::unique_ptr<EditCommand> muteClips(const QList<Id>& clipIds, bool muted);
+/// Reset picture adjustments across selected clips without changing sound or fades.
+std::unique_ptr<EditCommand> resetClipPictures(const QList<Id>& clipIds);
 
 
 /// Adds a transition at the cut after the clip. The id lets callers select the new transition.

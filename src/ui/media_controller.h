@@ -38,6 +38,9 @@ public:
 
     /// Accepts file URLs or local paths. Folders are not expanded.
     Q_INVOKABLE void importFiles(const QVariantList& urls);
+    /// Save a transparent PNG alongside the project and import it into the media bin.
+    /// Returns the new asset id, or an empty string on failure.
+    Q_INVOKABLE QString createTitle(const QString& text, int fontPixels, const QString& color);
     Q_INVOKABLE void remove(const QString& assetId);
     Q_INVOKABLE bool relink(const QString& assetId, const QString& urlOrPath);
     Q_INVOKABLE void rescan();

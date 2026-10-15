@@ -8,6 +8,7 @@ uploaded. This guide covers everything the current version can do.
 - [Projects](#projects)
 - [Importing media](#importing-media)
 - [Editing on the timeline](#editing-on-the-timeline)
+- [Title overlays](#title-overlays)
 - [Transitions](#transitions)
 - [Adjusting clips](#adjusting-clips)
 - [Playback](#playback)

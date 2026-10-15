@@ -28,7 +28,15 @@ jobs:
       - name: Check clang-format
         run: |
           clang-format --version
-          git ls-files '*.cpp' '*.h' | xargs clang-format --dry-run --Werror
+          files=$(git ls-files '*.cpp' '*.h')
+          if ! echo "$files" | xargs clang-format --dry-run --Werror; then
+            echo "::group::Changes required by clang-format"
+            while IFS= read -r file; do
+              diff -u "$file" <(clang-format "$file") || true
+            done <<< "$files"
+            echo "::endgroup::"
+            exit 1
+          fi
 
   scripts:
     name: Packaging scripts

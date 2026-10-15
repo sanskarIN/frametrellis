@@ -273,8 +273,8 @@ private slots:
         QVERIFY(f.doc.execute(edits::setTrackLocked(f.v2, true)));
         const Project before = f.doc.project();
         const QString undoText = f.doc.undoText();
-        QVERIFY(!f.doc.execute(
-            edits::nudgeClips({QStringLiteral("one"), QStringLiteral("two")}, 10)));
+        QVERIFY(
+            !f.doc.execute(edits::nudgeClips({QStringLiteral("one"), QStringLiteral("two")}, 10)));
         QCOMPARE(f.doc.project(), before);
         QCOMPARE(f.doc.undoText(), undoText);
     }

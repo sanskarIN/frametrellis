@@ -255,8 +255,9 @@ std::unique_ptr<EditCommand> nudgeClips(const QList<Id>& clipIds, FrameCount del
                 if (touched) {
                     // Moving past an unselected clip is valid when the destination is free.
                     // Keep track clips sorted by timeline position before validation.
-                    std::stable_sort(changed.clips.begin(), changed.clips.end(),
-                                     [](const Clip& a, const Clip& b) { return a.start < b.start; });
+                    std::stable_sort(
+                        changed.clips.begin(), changed.clips.end(),
+                        [](const Clip& a, const Clip& b) { return a.start < b.start; });
                     timeline.restoreTrack(changed);
                 }
             }

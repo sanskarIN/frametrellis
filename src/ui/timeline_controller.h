@@ -30,7 +30,8 @@ class TimelineController : public QObject
     Q_PROPERTY(double maxPixelsPerFrame READ maxPixelsPerFrame CONSTANT)
     Q_PROPERTY(bool snapping READ snapping WRITE setSnapping NOTIFY snappingChanged)
     Q_PROPERTY(QStringList selection READ selection NOTIFY selectionChanged)
-    Q_PROPERTY(bool hasCopiedClipAttributes READ hasCopiedClipAttributes NOTIFY copiedClipAttributesChanged)
+    Q_PROPERTY(bool hasCopiedClipAttributes READ hasCopiedClipAttributes NOTIFY
+                   copiedClipAttributesChanged)
     Q_PROPERTY(QVariantMap selectedClip READ selectedClip NOTIFY selectedClipChanged)
     Q_PROPERTY(
         QVariantMap selectedTransition READ selectedTransition NOTIFY selectedTransitionChanged)
@@ -51,7 +52,10 @@ public:
     [[nodiscard]] bool snapping() const { return m_snapping; }
     void setSnapping(bool snapping);
     [[nodiscard]] QStringList selection() const;
-    [[nodiscard]] bool hasCopiedClipAttributes() const { return m_copiedClipAttributes.has_value(); }
+    [[nodiscard]] bool hasCopiedClipAttributes() const
+    {
+        return m_copiedClipAttributes.has_value();
+    }
     [[nodiscard]] QVariantMap selectedClip() const;
     [[nodiscard]] double duration() const;
     [[nodiscard]] double frameRate() const;

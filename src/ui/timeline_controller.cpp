@@ -372,6 +372,24 @@ bool TimelineController::splitAtPlayhead()
     return m_project->execute(edits::splitClips(targets, frame));
 }
 
+bool TimelineController::duplicateSelection()
+{
+    if (m_selection.size() != 1) {
+        emit statusMessage(QStringLiteral("Select one clip to duplicate."));
+        return false;
+    }
+    const Id newId = createId();
+    if (!m_project->execute(edits::duplicateClip(*m_selection.cbegin(), newId))) {
+        return false;
+    }
+    m_selection = {newId};
+    setTransitionSelection({});
+    m_model.updateSelection(m_selection);
+    emit selectionChanged();
+    emit selectedClipChanged();
+    return true;
+}
+
 bool TimelineController::deleteSelection(bool ripple)
 {
     if (m_selection.isEmpty() && !m_selectedTransition.isEmpty()) {

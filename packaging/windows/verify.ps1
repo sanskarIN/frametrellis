@@ -104,8 +104,14 @@ function Get-ForeignModules([System.Diagnostics.Process] $Process, [string] $Roo
 function Test-Editor([string] $Folder, [string] $Project, [string] $What) {
     $exe = Join-Path $Folder 'frametrellis.exe'
     $shot = Join-Path $Artifacts "screenshot-$Label-$What.png"
+    $stdout = Join-Path $Artifacts "editor-$Label-$What.stdout.log"
+    $stderr = Join-Path $Artifacts "editor-$Label-$What.stderr.log"
     $arguments = @('--screenshot', "`"$shot`"", '--screenshot-delay', '15000', "`"$Project`"")
-    $process = Start-Process -FilePath $exe -ArgumentList $arguments -PassThru
+    # Qt Quick GUI applications often send diagnostics to the debugger instead of
+    # stderr. Force Qt logging to stderr and retain it as a workflow artifact.
+    $env:QT_FORCE_STDERR_LOGGING = '1'
+    $process = Start-Process -FilePath $exe -ArgumentList $arguments -PassThru `
+        -RedirectStandardOutput $stdout -RedirectStandardError $stderr
     $null = $process.Handle # keeps the exit code available after the process ends
     Start-Sleep -Seconds 10
     if (-not $process.HasExited) {
@@ -126,12 +132,18 @@ function Test-Editor([string] $Folder, [string] $Project, [string] $What) {
     }
     Check ($process.ExitCode -eq 0) "$What editor started, opened the project and rendered its window (exit code $($process.ExitCode))"
     Check ((Test-Path $shot) -and (Get-Item $shot).Length -gt 20000) "$What editor screenshot saved"
-    if ($process.ExitCode -ne 0) { Write-CrashReport $process.StartTime }
+    if ($process.ExitCode -ne 0) {
+        if (Test-Path $stderr) {
+            Write-Host "Last lines of Qt stderr ($stderr):"
+            Get-Content $stderr -Tail 80 | ForEach-Object { Write-Host "  $_" }
+        }
+        Write-CrashReport $process.StartTime $What
+    }
 }
 
 # Prints what Windows recorded about a crash (faulting module and offset) and the end of the
 # editor's own log, so that a failure can be diagnosed from the job log alone.
-function Write-CrashReport([datetime] $Since) {
+function Write-CrashReport([datetime] $Since, [string] $What) {
     Start-Sleep -Seconds 3 # Windows Error Reporting writes its event shortly after the crash
     try {
         Get-WinEvent -FilterHashtable @{ LogName = 'Application'; ProviderName = 'Application Error'; StartTime = $Since } -ErrorAction Stop |
@@ -145,6 +157,7 @@ function Write-CrashReport([datetime] $Since) {
     if ($latest) {
         Write-Host "Last lines of $($latest.FullName):"
         Get-Content $latest.FullName -Tail 40 | ForEach-Object { Write-Host "  $_" }
+        Copy-Item $latest.FullName (Join-Path $Artifacts "editor-$Label-$What.app.log") -Force
     }
 }
 

@@ -30,6 +30,9 @@ jobs:
         shell: pwsh
         run: git config --global core.autocrlf false
       - uses: actions/checkout@v6
+      - name: Test Windows module path security boundaries
+        shell: pwsh
+        run: ./packaging/tests/test_verify_module_paths.ps1
       - uses: msys2/setup-msys2@v2
         with:
           msystem: UCRT64

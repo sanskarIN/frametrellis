@@ -90,7 +90,20 @@ as independent tests. Both must pass, with separately named screenshots and Qt s
 stderr logs in the `verification-windows-11-arm` Actions artifact. A crash prints the
 relevant Windows Application Error event and saves a copy of the application's own log.
 The verifier remains strict about the portable package's library boundaries; other
-runner environments retain one normal GUI launch.
+runner environments retain one normal GUI launch. A failed inspection of loaded DLLs
+is itself a failed check, not a silent skip. Each launch deletes old screenshots and
+Qt logs before starting, so a screenshot from an earlier attempt cannot be accepted.
+
+The Windows package build job runs the PowerShell-only regression suite before
+building packages:
+
+```powershell
+pwsh -NoProfile -File packaging/tests/test_verify_module_paths.ps1
+```
+
+This checks allowed Windows/package module paths as well as sibling-directory
+prefix spoofing, case-insensitive paths and directory traversal. It needs Windows
+PowerShell 7 but does not require compiled editor binaries.
 
 For manual diagnosis on a Windows test machine with the release files available:
 

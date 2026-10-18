@@ -79,11 +79,14 @@ Acceptance criteria, each checked before the release:
 - ✅ Windows installer and portable ZIP built and verified through release workflows
 - ✅ Atomic frame-accurate group nudging across tracks, with undo/redo and collision validation
 
-## v1.2.1 — Startup and package-verification maintenance 🚧
-- 🚧 Investigate an intermittent Windows 11 ARM64 x64-emulation portable GUI startup crash
-- 🚧 Preserve regular cleanup on QML startup failure, record Qt stderr and worker-shutdown diagnostics
-- 🚧 Check two independent portable launches on ARM64; treat either failure as a failed check
-- ⏳ Complete investigations and automated validation before tagging or publishing
+## v1.2.1 — Startup and package-verification maintenance ✅
+- ✅ Preserve normal cleanup when QML window initialization fails; log startup and shutdown checkpoints
+- ✅ Save Qt stderr and available crash logs during portable/installed Windows package verification
+- ✅ Require two independent portable GUI launches on Windows 11 ARM64; reject failures and stale artifacts
+- ✅ Harden DLL-module boundary checks and cover them with Windows regression tests
+- ✅ Pass CI, sanitizer, website, container and Windows packaging checks on the development branch
+- ℹ️ The earlier intermittent Qt6Core.dll ARM64 incident was not reproduced or root-caused; see
+  [v1.2.1 known limitations](releases/v1.2.1.md). Do not claim a confirmed crash fix.
 
 ## v1.2.2 — Potential WinGet distribution ⏳
 - ⏳ Evaluate a stable Windows package identifier, installer metadata and hash-verified manifests

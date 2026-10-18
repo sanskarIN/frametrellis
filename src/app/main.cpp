@@ -87,27 +87,40 @@ int main(int argc, char* argv[])
             QObject::connect(
                 &engine, &QQmlApplicationEngine::objectCreationFailed, &app,
                 [] { QCoreApplication::exit(1); }, Qt::QueuedConnection);
+            qCInfo(lcUi) << "Loading QML main window";
             engine.loadFromModule("FrameTrellis", "Main");
             if (engine.rootObjects().isEmpty()) {
-                return 1;
+                // Do not return here: even failed QML startup must destroy controllers,
+                // join background work and shut MLT down in the usual order.
+                qCCritical(lcUi) << "QML main window creation failed";
+                exitCode = 1;
+            } else {
+                qCInfo(lcUi) << "QML main window created";
+                const QStringList positional = parser.positionalArguments();
+                if (!positional.isEmpty()) {
+                    controller.project()->openProject(
+                        QFileInfo(positional.first()).absoluteFilePath());
+                }
+                if (parser.isSet(screenshotOption)) {
+                    auto* window = qobject_cast<QQuickWindow*>(engine.rootObjects().first());
+                    const QString target = parser.value(screenshotOption);
+                    QTimer::singleShot(parser.value(delayOption).toInt(), &app, [window, target] {
+                        const bool saved = window && window->grabWindow().save(target);
+                        qCInfo(lcUi) << "Screenshot" << target << (saved ? "saved" : "failed");
+                        QCoreApplication::exit(saved ? 0 : 2);
+                    });
+                }
+                exitCode = QGuiApplication::exec();
+                qCInfo(lcUi) << "Qt event loop stopped with exit code" << exitCode;
             }
-            const QStringList positional = parser.positionalArguments();
-            if (!positional.isEmpty()) {
-                controller.project()->openProject(QFileInfo(positional.first()).absoluteFilePath());
-            }
-            if (parser.isSet(screenshotOption)) {
-                auto* window = qobject_cast<QQuickWindow*>(engine.rootObjects().first());
-                const QString target = parser.value(screenshotOption);
-                QTimer::singleShot(parser.value(delayOption).toInt(), &app, [window, target] {
-                    const bool saved = window && window->grabWindow().save(target);
-                    qCInfo(lcUi) << "Screenshot" << target << (saved ? "saved" : "failed");
-                    QCoreApplication::exit(saved ? 0 : 2);
-                });
-            }
-            exitCode = QGuiApplication::exec();
+            qCInfo(lcUi) << "Destroying QML engine";
         } // the QML engine goes first: it references the controllers
+        qCInfo(lcUi) << "Destroying application controllers";
     } // controllers next: playback and export stop their threads and processes
+    qCInfo(lcUi) << "Waiting for outstanding worker tasks";
     QThreadPool::globalInstance()->waitForDone(); // pending probes and thumbnails use MLT
+    qCInfo(lcUi) << "Shutting down MLT";
     ft::engine::MltRuntime::shutdown();
+    qCInfo(lcUi) << "Startup and shutdown sequence finished with code" << exitCode;
     return exitCode;
 }

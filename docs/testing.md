@@ -74,6 +74,35 @@ confirm that unrelated clip attributes are preserved and that a failed edit make
 no partial changes. A real QML GUI test drives Ctrl+D and the clip attribute
 clipboard shortcuts and inspects the resulting timeline and undo state.
 
+## Windows portable GUI stability checks (v1.2.1 work in progress)
+
+The Windows package workflow builds a portable ZIP and an installer, then opens the editor
+with a generated test project and captures a screenshot on clean Windows 2022, 2025 and
+Windows 11 ARM64 runners (the last executes the x64 package via emulation).
+
+A v1.2.0 post-release `main` workflow encountered an intermittent portable editor
+access violation in `Qt6Core.dll` on Windows 11 ARM64. The installed version, renderer
+and other hosts passed; rerunning the failed ARM64 job passed. The root cause remains
+unknown and must not be reported as resolved merely because a rerun succeeded.
+
+In the v1.2.1 development branch, the ARM64 smoke test executes the portable GUI twice
+as independent tests. Both must pass, with separately named screenshots and Qt stdout/
+stderr logs in the `verification-windows-11-arm` Actions artifact. A crash prints the
+relevant Windows Application Error event and saves a copy of the application's own log.
+The verifier remains strict about the portable package's library boundaries; other
+runner environments retain one normal GUI launch.
+
+For manual diagnosis on a Windows test machine with the release files available:
+
+```powershell
+./packaging/windows/verify.ps1 -Zip dist/FrameTrellis-1.2.0-windows-x64.zip `
+    -Installer dist/FrameTrellis-1.2.0-windows-x64-setup.exe `
+    -WorkDir "$env:TEMP/frametrellis-verify" -PortableGuiRuns 2
+```
+
+Keep the run's full log and screenshots when investigating a failure. A passing
+emulated runner does not replace testing on physical ARM64 machines.
+
 ## What is not covered automatically
 
 * Real audio output devices (tests use SDL's dummy driver).

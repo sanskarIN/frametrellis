@@ -13,6 +13,12 @@ maintenance release. The published [v1.2.0 release](v1.2.0.md) is unchanged.
   package verification.
 - Exercise the portable x64 editor twice independently on Windows 11 ARM64. Each run must
   produce a valid screenshot and succeed; a successful rerun never erases a failure.
+- Reject module library paths that only share an allowed directory's name or escape it
+  through traversal, and fail verification if loaded-module inspection cannot complete.
+- Remove prior screenshots and redirected Qt logs before each GUI launch so stale files
+  cannot satisfy a later run.
+- Run Windows PowerShell regression tests for the DLL path-boundary checks as part of
+  package CI.
 - Record the implementation phases in the [v1.2.1 development plan](../development/v1.2.1-plan.md).
 
 ## Still required before a release

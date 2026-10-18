@@ -30,6 +30,8 @@ param(
     [ValidateRange(1, 5)] [int] $PortableGuiRuns = 1
 )
 
+. (Join-Path $PSScriptRoot 'module-paths.ps1')
+
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 
@@ -91,22 +93,16 @@ function Test-SelfTest([string] $Folder, [string] $What) {
     return (Join-Path $work 'self-test.ftproj')
 }
 
-function Get-ForeignModules([System.Diagnostics.Process] $Process, [string] $Root) {
-    $allowed = @($Root, $env:SystemRoot, "$env:ProgramData\Microsoft\Windows Defender",
-        "$env:ProgramFiles\Windows Defender")
-    $Process.Refresh()
-    $Process.Modules | ForEach-Object FileName | Where-Object {
-        $path = $_
-        -not ($allowed | Where-Object { $path.StartsWith($_, [System.StringComparison]::OrdinalIgnoreCase) })
-    }
-}
-
 function Test-Editor([string] $Folder, [string] $Project, [string] $What) {
     $exe = Join-Path $Folder 'frametrellis.exe'
     $shot = Join-Path $Artifacts "screenshot-$Label-$What.png"
     $stdout = Join-Path $Artifacts "editor-$Label-$What.stdout.log"
     $stderr = Join-Path $Artifacts "editor-$Label-$What.stderr.log"
     $arguments = @('--screenshot', "`"$shot`"", '--screenshot-delay', '15000', "`"$Project`"")
+    # A repeated manual verification must not accept artifacts from an earlier run.
+    foreach ($file in @($shot, $stdout, $stderr)) {
+        Remove-Item -LiteralPath $file -Force -ErrorAction SilentlyContinue
+    }
     # Qt Quick GUI applications often send diagnostics to the debugger instead of
     # stderr. Force Qt logging to stderr and retain it as a workflow artifact.
     $env:QT_FORCE_STDERR_LOGGING = '1'
@@ -123,11 +119,17 @@ function Test-Editor([string] $Folder, [string] $Project, [string] $What) {
             Check ($foreign.Count -eq 0) "$What editor loads libraries only from the package and Windows"
         } catch {
             Write-Host "Could not list the editor's modules: $_"
+            Check $false "$What editor module inspection completed"
         }
+    } else {
+        # The smoke-test editor is requested to remain open for 15 seconds.
+        # A premature exit cannot count as a validated module inspection.
+        Check $false "$What editor remained running for module inspection"
     }
     if (-not $process.WaitForExit(180000)) {
         Stop-Process -Id $process.Id -Force
         Check $false "$What editor finished within three minutes"
+        Write-CrashReport $process.StartTime $What
         return
     }
     Check ($process.ExitCode -eq 0) "$What editor started, opened the project and rendered its window (exit code $($process.ExitCode))"

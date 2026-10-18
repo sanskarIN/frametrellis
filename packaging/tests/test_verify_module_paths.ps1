@@ -26,7 +26,7 @@ function Assert-ModulePath([string] $Name, [string] $Candidate, [bool] $Expected
 
 Assert-ModulePath 'package root DLL' (Join-Path $package 'Qt6Core.dll') $true
 Assert-ModulePath 'nested package plugin' (Join-Path $package 'plugins/platforms/qwindows.dll') $true
-Assert-ModulePath 'case insensitive package path' (Join-Path $package 'BIN/QT6CORE.DLL').ToUpperInvariant() $true
+Assert-ModulePath 'case insensitive package path' ((Join-Path $package 'BIN/QT6CORE.DLL').ToUpperInvariant()) $true
 Assert-ModulePath 'Windows System32 DLL' (Join-Path $windows 'System32/kernel32.dll') $true
 Assert-ModulePath 'package prefix spoofing' (Join-Path "${package}-other" 'Qt6Core.dll') $false
 Assert-ModulePath 'Windows directory prefix spoofing' (Join-Path "${windows}-other" 'System32/kernel32.dll') $false

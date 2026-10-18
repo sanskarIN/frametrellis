@@ -1,6 +1,7 @@
 # Unreleased
 
-Changes made after [FrameTrellis 1.2.0](v1.2.0.md) are collected here for the next
-release. See the [v1.2.0 release notes](v1.2.0.md) for the latest stable features.
+Changes after [FrameTrellis 1.2.1](v1.2.1.md) will be collected here
+for a future release. For details of the latest maintenance work, see the
+[v1.2.1 release notes](v1.2.1.md).
 
-No changes recorded yet.
+No unreleased changes recorded yet.

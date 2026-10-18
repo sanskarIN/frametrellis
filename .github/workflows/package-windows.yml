@@ -30,6 +30,9 @@ jobs:
         shell: pwsh
         run: git config --global core.autocrlf false
       - uses: actions/checkout@v6
+      - name: Test Windows module path security boundaries
+        shell: pwsh
+        run: ./packaging/tests/test_verify_module_paths.ps1
       - uses: msys2/setup-msys2@v2
         with:
           msystem: UCRT64
@@ -114,8 +117,12 @@ jobs:
         run: |
           $zip = Get-ChildItem dist\*.zip | Select-Object -First 1
           $setup = Get-ChildItem dist\*-setup.exe | Select-Object -First 1
+          # The ARM64 host exercises the x64 portable GUI twice independently.
+          # We do not retry an individual failure as a passing smoke test.
+          $portableRuns = if ("${{ matrix.os }}" -eq "windows-11-arm") { 2 } else { 1 }
           ./packaging/windows/verify.ps1 -Zip $zip.FullName -Installer $setup.FullName `
-            -WorkDir "$env:RUNNER_TEMP\ft" -Artifacts "$env:RUNNER_TEMP\ft-artifacts" -Label "${{ matrix.os }}"
+            -WorkDir "$env:RUNNER_TEMP\ft" -Artifacts "$env:RUNNER_TEMP\ft-artifacts" `
+            -Label "${{ matrix.os }}" -PortableGuiRuns $portableRuns
       - name: Upload screenshots and logs
         if: always()
         uses: actions/upload-artifact@v6

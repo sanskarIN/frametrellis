@@ -26,8 +26,11 @@ param(
     [string] $Installer,
     [Parameter(Mandatory)] [string] $WorkDir,
     [string] $Label = 'windows',
-    [string] $Artifacts
+    [string] $Artifacts,
+    [ValidateRange(1, 5)] [int] $PortableGuiRuns = 1
 )
+
+. (Join-Path $PSScriptRoot 'module-paths.ps1')
 
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
@@ -39,6 +42,9 @@ if ($Installer) { $Installer = (Resolve-Path $Installer).Path }
 $WorkDir = Join-Path $WorkDir 'verify packages'
 if (-not $Artifacts) { $Artifacts = Join-Path $WorkDir 'artifacts' }
 New-Item -ItemType Directory -Force -Path $WorkDir, $Artifacts | Out-Null
+Write-Host "Verification host OS architecture: $([System.Runtime.InteropServices.RuntimeInformation]::OSArchitecture)"
+Write-Host "Verification process architecture: $([System.Runtime.InteropServices.RuntimeInformation]::ProcessArchitecture)"
+Write-Host "Independent portable GUI launches required: $PortableGuiRuns"
 
 # Only Windows itself may be found on the PATH: the package has to bring everything else.
 $env:PATH = @("$env:SystemRoot\System32", $env:SystemRoot, "$env:SystemRoot\System32\Wbem",
@@ -87,21 +93,21 @@ function Test-SelfTest([string] $Folder, [string] $What) {
     return (Join-Path $work 'self-test.ftproj')
 }
 
-function Get-ForeignModules([System.Diagnostics.Process] $Process, [string] $Root) {
-    $allowed = @($Root, $env:SystemRoot, "$env:ProgramData\Microsoft\Windows Defender",
-        "$env:ProgramFiles\Windows Defender")
-    $Process.Refresh()
-    $Process.Modules | ForEach-Object FileName | Where-Object {
-        $path = $_
-        -not ($allowed | Where-Object { $path.StartsWith($_, [System.StringComparison]::OrdinalIgnoreCase) })
-    }
-}
-
 function Test-Editor([string] $Folder, [string] $Project, [string] $What) {
     $exe = Join-Path $Folder 'frametrellis.exe'
     $shot = Join-Path $Artifacts "screenshot-$Label-$What.png"
+    $stdout = Join-Path $Artifacts "editor-$Label-$What.stdout.log"
+    $stderr = Join-Path $Artifacts "editor-$Label-$What.stderr.log"
     $arguments = @('--screenshot', "`"$shot`"", '--screenshot-delay', '15000', "`"$Project`"")
-    $process = Start-Process -FilePath $exe -ArgumentList $arguments -PassThru
+    # A repeated manual verification must not accept artifacts from an earlier run.
+    foreach ($file in @($shot, $stdout, $stderr)) {
+        Remove-Item -LiteralPath $file -Force -ErrorAction SilentlyContinue
+    }
+    # Qt Quick GUI applications often send diagnostics to the debugger instead of
+    # stderr. Force Qt logging to stderr and retain it as a workflow artifact.
+    $env:QT_FORCE_STDERR_LOGGING = '1'
+    $process = Start-Process -FilePath $exe -ArgumentList $arguments -PassThru `
+        -RedirectStandardOutput $stdout -RedirectStandardError $stderr
     $null = $process.Handle # keeps the exit code available after the process ends
     Start-Sleep -Seconds 10
     if (-not $process.HasExited) {
@@ -113,21 +119,33 @@ function Test-Editor([string] $Folder, [string] $Project, [string] $What) {
             Check ($foreign.Count -eq 0) "$What editor loads libraries only from the package and Windows"
         } catch {
             Write-Host "Could not list the editor's modules: $_"
+            Check $false "$What editor module inspection completed"
         }
+    } else {
+        # The smoke-test editor is requested to remain open for 15 seconds.
+        # A premature exit cannot count as a validated module inspection.
+        Check $false "$What editor remained running for module inspection"
     }
     if (-not $process.WaitForExit(180000)) {
         Stop-Process -Id $process.Id -Force
         Check $false "$What editor finished within three minutes"
+        Write-CrashReport $process.StartTime $What
         return
     }
     Check ($process.ExitCode -eq 0) "$What editor started, opened the project and rendered its window (exit code $($process.ExitCode))"
     Check ((Test-Path $shot) -and (Get-Item $shot).Length -gt 20000) "$What editor screenshot saved"
-    if ($process.ExitCode -ne 0) { Write-CrashReport $process.StartTime }
+    if ($process.ExitCode -ne 0) {
+        if (Test-Path $stderr) {
+            Write-Host "Last lines of Qt stderr ($stderr):"
+            Get-Content $stderr -Tail 80 | ForEach-Object { Write-Host "  $_" }
+        }
+        Write-CrashReport $process.StartTime $What
+    }
 }
 
 # Prints what Windows recorded about a crash (faulting module and offset) and the end of the
 # editor's own log, so that a failure can be diagnosed from the job log alone.
-function Write-CrashReport([datetime] $Since) {
+function Write-CrashReport([datetime] $Since, [string] $What) {
     Start-Sleep -Seconds 3 # Windows Error Reporting writes its event shortly after the crash
     try {
         Get-WinEvent -FilterHashtable @{ LogName = 'Application'; ProviderName = 'Application Error'; StartTime = $Since } -ErrorAction Stop |
@@ -141,6 +159,7 @@ function Write-CrashReport([datetime] $Since) {
     if ($latest) {
         Write-Host "Last lines of $($latest.FullName):"
         Get-Content $latest.FullName -Tail 40 | ForEach-Object { Write-Host "  $_" }
+        Copy-Item $latest.FullName (Join-Path $Artifacts "editor-$Label-$What.app.log") -Force
     }
 }
 
@@ -171,7 +190,14 @@ Check ($Zip -match [regex]::Escape("FrameTrellis-$version-")) 'version resource 
 $help = Invoke-Console (Join-Path $portable 'frametrellis-render.exe') @('--version')
 Check ($help.ExitCode -eq 0 -and $help.Output -match [regex]::Escape($version)) 'render helper reports its version'
 $project = Test-SelfTest $portable 'portable'
-if (Test-Path $project) { Test-Editor $portable $project 'portable' }
+if (Test-Path $project) {
+    for ($run = 1; $run -le $PortableGuiRuns; ++$run) {
+        $name = if ($PortableGuiRuns -eq 1) { 'portable' } else { "portable-$run" }
+        # Every launch has its own screenshot and results. A later success never
+        # cancels out an earlier failure in the check accumulator.
+        Test-Editor $portable $project $name
+    }
+}
 
 # --- Installer ---------------------------------------------------------------------------------
 if ($Installer) {

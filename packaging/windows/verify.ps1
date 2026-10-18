@@ -26,7 +26,8 @@ param(
     [string] $Installer,
     [Parameter(Mandatory)] [string] $WorkDir,
     [string] $Label = 'windows',
-    [string] $Artifacts
+    [string] $Artifacts,
+    [ValidateRange(1, 5)] [int] $PortableGuiRuns = 1
 )
 
 Set-StrictMode -Version Latest
@@ -39,6 +40,9 @@ if ($Installer) { $Installer = (Resolve-Path $Installer).Path }
 $WorkDir = Join-Path $WorkDir 'verify packages'
 if (-not $Artifacts) { $Artifacts = Join-Path $WorkDir 'artifacts' }
 New-Item -ItemType Directory -Force -Path $WorkDir, $Artifacts | Out-Null
+Write-Host "Verification host OS architecture: $([System.Runtime.InteropServices.RuntimeInformation]::OSArchitecture)"
+Write-Host "Verification process architecture: $([System.Runtime.InteropServices.RuntimeInformation]::ProcessArchitecture)"
+Write-Host "Independent portable GUI launches required: $PortableGuiRuns"
 
 # Only Windows itself may be found on the PATH: the package has to bring everything else.
 $env:PATH = @("$env:SystemRoot\System32", $env:SystemRoot, "$env:SystemRoot\System32\Wbem",
@@ -171,7 +175,14 @@ Check ($Zip -match [regex]::Escape("FrameTrellis-$version-")) 'version resource 
 $help = Invoke-Console (Join-Path $portable 'frametrellis-render.exe') @('--version')
 Check ($help.ExitCode -eq 0 -and $help.Output -match [regex]::Escape($version)) 'render helper reports its version'
 $project = Test-SelfTest $portable 'portable'
-if (Test-Path $project) { Test-Editor $portable $project 'portable' }
+if (Test-Path $project) {
+    for ($run = 1; $run -le $PortableGuiRuns; ++$run) {
+        $name = if ($PortableGuiRuns -eq 1) { 'portable' } else { "portable-$run" }
+        # Every launch has its own screenshot and results. A later success never
+        # cancels out an earlier failure in the check accumulator.
+        Test-Editor $portable $project $name
+    }
+}
 
 # --- Installer ---------------------------------------------------------------------------------
 if ($Installer) {

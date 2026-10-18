@@ -77,8 +77,19 @@ Acceptance criteria, each checked before the release:
 - ✅ Batch mute/unmute and picture-reset actions with atomic undo and locked-track safety
 - ✅ Unit, GUI, Linux sanitizers and Windows CI verification
 - ✅ Windows installer and portable ZIP built and verified through release workflows
-
 - ✅ Atomic frame-accurate group nudging across tracks, with undo/redo and collision validation
+
+## v1.2.1 — Startup and package-verification maintenance 🚧
+- 🚧 Investigate an intermittent Windows 11 ARM64 x64-emulation portable GUI startup crash
+- 🚧 Preserve regular cleanup on QML startup failure, record Qt stderr and worker-shutdown diagnostics
+- 🚧 Check two independent portable launches on ARM64; treat either failure as a failed check
+- ⏳ Complete investigations and automated validation before tagging or publishing
+
+## v1.2.2 — Potential WinGet distribution ⏳
+- ⏳ Evaluate a stable Windows package identifier, installer metadata and hash-verified manifests
+- ⏳ Submit only after separately confirming the process and release readiness
+- ⏳ No WinGet changes belong to the v1.2.1 maintenance branch
+
 ## Next milestones
 - ⏳ A Linux package (AppImage or Flatpak), published once it has been verified
 - ⏳ A macOS build in CI, then a `.dmg` package once it has been verified

@@ -12,6 +12,7 @@
 #include <QTest>
 
 #include <algorithm>
+#include <limits>
 
 using namespace ft;
 using namespace ft::rendering;
@@ -163,6 +164,26 @@ private slots:
         QCOMPARE(outputSize(s, odd), QSize(640, 360));
         s.shortSide = 0;
         QCOMPARE(outputSize(s, hd), QSize(1920, 1080));
+    }
+
+    void rejectsBadRequestedExportDimensions()
+    {
+        const Project p = projectWithClip();
+        ExportSettings s = settingsFor(QStringLiteral("invalid-short-side.mp4"));
+        for (const int invalid : {-1, 8193, std::numeric_limits<int>::max()}) {
+            s.shortSide = invalid;
+            s.avoidUpscaling = true; // invalid input cannot hide behind this shortcut
+            const Status status = validateExport(s, p);
+            QVERIFY(!status);
+            QCOMPARE(status.error().code, ErrorCode::OutOfRange);
+        }
+
+        // Zero retains the project canvas. An allowed high target with no-upscale
+        // leaves a smaller project untouched without unsafe dimension calculations.
+        s.shortSide = 0;
+        QVERIFY(validateExport(s, p));
+        s.shortSide = kMaxFrameDimension;
+        QVERIFY(validateExport(s, p));
     }
 
     void presetsAndEncoders()

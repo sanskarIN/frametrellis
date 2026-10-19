@@ -172,6 +172,9 @@ rendering::ExportSettings ExportController::toSettings(const QVariantMap& map) c
     if (map.contains(QStringLiteral("includeAudio"))) {
         s.includeAudio = map.value(QStringLiteral("includeAudio")).toBool();
     }
+    if (map.contains(QStringLiteral("avoidUpscaling"))) {
+        s.avoidUpscaling = map.value(QStringLiteral("avoidUpscaling")).toBool();
+    }
     return s;
 }
 

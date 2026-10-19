@@ -14,6 +14,7 @@ uploaded. This guide covers everything the current version can do.
 - [Adjusting clips](#adjusting-clips)
 - [Playback](#playback)
 - [Exporting](#exporting)
+- [Faster export profiles](faster-export.md)
 - [Missing media and recovery](#missing-media-and-recovery)
 - [Troubleshooting](#troubleshooting)
 - [Keyboard shortcuts](keyboard-shortcuts.md)

@@ -35,7 +35,7 @@ QList<ExportPreset> exportPresets()
          QStringLiteral("Fast, lower-quality review export without unnecessary upscaling."), 720,
          28, QStringLiteral("veryfast"), 128, true},
         {QStringLiteral("turbo"), QStringLiteral("Turbo preview (up to 720p)"),
-         QStringLiteral("Superfast encoding for reviews; larger files and lower image quality."),
+         QStringLiteral("Superfast review encoding; compression efficiency may decrease."),
          720, 26, QStringLiteral("superfast"), 128, true},
     };
 }

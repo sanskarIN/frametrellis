@@ -26,6 +26,7 @@ FtDialog {
             outputPath: outputPath,
             crf: Math.round(quality.value),
             speedPreset: speedBox.currentText,
+            avoidUpscaling: noUpscaleCheck.checked,
             audioBitrateKbps: parseInt(audioBox.currentText),
             includeAudio: audioCheck.checked
         }

@@ -45,6 +45,7 @@ ExportSettings applyPreset(const ExportPreset& preset, const QString& outputPath
     ExportSettings s;
     s.outputPath = outputPath;
     s.shortSide = preset.shortSide;
+    s.avoidUpscaling = preset.avoidUpscaling;
     s.crf = preset.crf;
     s.speedPreset = preset.speedPreset;
     s.audioBitrateKbps = preset.audioBitrateKbps;

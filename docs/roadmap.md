@@ -99,7 +99,8 @@ Acceptance criteria, each checked before the release:
 ## Next milestones
 - ⏳ A Linux package (AppImage or Flatpak), published once it has been verified
 - ⏳ A macOS build in CI, then a `.dmg` package once it has been verified
-- ⏳ Faster exports (MLT's parallel frame rendering is disabled because it corrupted audio)
+- ⏳ Further export acceleration beyond safe encoder speed presets (MLT parallel frame
+  rendering is still disabled because it previously corrupted audio)
 - ⏳ Performance work for very long timelines (virtualised clip views, thumbnail strips)
 - ⏳ Proxy media for demanding footage
 - ⏳ Code-signed Windows packages

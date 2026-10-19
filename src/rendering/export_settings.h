@@ -18,6 +18,7 @@ struct ExportSettings
 {
     QString outputPath;
     int shortSide = 0; ///< 0 keeps the project size; otherwise scales so the shorter side matches
+    bool avoidUpscaling = false; ///< fast exports never magnify smaller source resolutions
     int crf = 20;      ///< constant rate factor, 0 (lossless) .. 51 (worst)
     QString speedPreset = QStringLiteral("medium");
     int audioBitrateKbps = 192;

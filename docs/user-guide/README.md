@@ -160,6 +160,10 @@ an existing file once the export succeeded. FrameTrellis refuses to overwrite yo
 or the project file. Exports need all media to be available (relink offline files first).
 
 Output: MP4 with H.264 video (yuv420p) and AAC audio, which plays almost everywhere.
+For v1.2.2 and later, **Quick export** and **Turbo preview** optimize encoder speed.
+Enable **Do not upscale smaller projects** to preserve native size instead of magnifying
+small projects, and watch the measured frames/second in the export progress dialog.
+See [Faster export](faster-export.md) for presets and tradeoffs.
 
 ## Missing media and recovery
 

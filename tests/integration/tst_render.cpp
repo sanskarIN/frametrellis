@@ -251,6 +251,30 @@ private slots:
         QVERIFY(partFiles().isEmpty());
     }
 
+    void invalidExportSizePreservesExistingFile()
+    {
+        const QString output = m_dir.filePath(QStringLiteral("bad-size-existing.mp4"));
+        {
+            QFile existing(output);
+            QVERIFY(existing.open(QIODevice::WriteOnly));
+            QCOMPARE(existing.write("previous successful output"), qint64{26});
+        }
+
+        ExportSettings settings;
+        settings.outputPath = output;
+        settings.shortSide = 1000000;
+        settings.avoidUpscaling = true;
+        std::atomic<bool> cancel{false};
+        const Status result = RenderRunner(project(25), settings).run(cancel);
+        QVERIFY(!result);
+        QCOMPARE(result.error().code, ErrorCode::OutOfRange);
+
+        QFile preserved(output);
+        QVERIFY(preserved.open(QIODevice::ReadOnly));
+        QCOMPARE(preserved.readAll(), QByteArray("previous successful output"));
+        QVERIFY(partFiles().isEmpty());
+    }
+
     void existingFileIsReplacedOnlyOnSuccess()
     {
         const QString output = m_dir.filePath(QStringLiteral("existing.mp4"));

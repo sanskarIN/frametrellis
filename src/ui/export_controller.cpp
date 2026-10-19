@@ -138,7 +138,8 @@ QVariantList ExportController::presets() const
                                 {QStringLiteral("shortSide"), preset.shortSide},
                                 {QStringLiteral("crf"), preset.crf},
                                 {QStringLiteral("speedPreset"), preset.speedPreset},
-                                {QStringLiteral("audioBitrateKbps"), preset.audioBitrateKbps}});
+                                {QStringLiteral("audioBitrateKbps"), preset.audioBitrateKbps},
+                                {QStringLiteral("avoidUpscaling"), preset.avoidUpscaling}});
     }
     return list;
 }

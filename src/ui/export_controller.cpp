@@ -189,12 +189,13 @@ QString ExportController::describeOutput(const QVariantMap& settings) const
 {
     const rendering::ExportSettings s = toSettings(settings);
     const QSize size = rendering::outputSize(s, m_project->project().settings());
-    return QStringLiteral("%1×%2 · %3 · H.264 + %4")
+    return QStringLiteral("%1×%2 · %3 · H.264 + %4%5")
         .arg(size.width())
         .arg(size.height())
         .arg(m_project->project().settings().frameRate.displayName(),
              s.includeAudio ? QStringLiteral("AAC %1 kbit/s").arg(s.audioBitrateKbps)
-                            : QStringLiteral("no audio"));
+                            : QStringLiteral("no audio"),
+             s.avoidUpscaling ? QStringLiteral(" · no upscaling") : QString());
 }
 
 bool ExportController::start(const QVariantMap& settings)

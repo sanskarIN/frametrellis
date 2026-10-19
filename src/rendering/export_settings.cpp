@@ -65,6 +65,9 @@ QSize outputSize(const ExportSettings& settings, const ProjectSettings& project)
         return {project.width, project.height};
     }
     const int shortSide = std::min(project.width, project.height);
+    if (settings.avoidUpscaling && settings.shortSide >= shortSide) {
+        return {project.width, project.height};
+    }
     const double scale = static_cast<double>(settings.shortSide) / shortSide;
     auto even = [](double v) { return std::max(2, static_cast<int>(std::lround(v / 2.0)) * 2); };
     return {even(project.width * scale), even(project.height * scale)};

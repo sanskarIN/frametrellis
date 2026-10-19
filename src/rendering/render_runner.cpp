@@ -280,23 +280,23 @@ Status RenderRunner::run(const std::atomic<bool>& cancelRequested, const Started
     const auto toleranceUs = projectSettings.frameRate.framesToMicroseconds(3).value_or(0) + 50'000;
     // Verify the size as well as the duration. Fast/no-upscale presets must never
     // publish a video with dimensions different from those shown in the dialog.
-    const bool expectedSize = written && written->width == size.width() &&
-                              written->height == size.height();
+    const bool expectedSize =
+        written && written->width == size.width() && written->height == size.height();
     if (!written || written->kind != MediaKind::Video || !expectedSize ||
         std::abs(written->durationUs - expectedUs) > toleranceUs) {
         QFile::remove(partPath);
         const QStorageInfo storage(QFileInfo(finalPath).absolutePath());
         const bool diskFull = storage.isValid() && storage.bytesAvailable() >= 0 &&
                               storage.bytesAvailable() < kMinimumFreeBytes;
-        const QString detail =
-            written ? QStringLiteral("expected %1x%2 at %3 us, got %4x%5 at %6 us")
-                          .arg(size.width())
-                          .arg(size.height())
-                          .arg(expectedUs)
-                          .arg(written->width)
-                          .arg(written->height)
-                          .arg(written->durationUs)
-                    : written.error().toString();
+        const QString detail = written
+                                   ? QStringLiteral("expected %1x%2 at %3 us, got %4x%5 at %6 us")
+                                         .arg(size.width())
+                                         .arg(size.height())
+                                         .arg(expectedUs)
+                                         .arg(written->width)
+                                         .arg(written->height)
+                                         .arg(written->durationUs)
+                                   : written.error().toString();
         qCWarning(lcRender) << "Render verification failed:" << detail;
         return makeError(
             ErrorCode::Io,

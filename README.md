@@ -16,10 +16,11 @@ account, no cloud processing, no telemetry and no advertising.
 
 ![The FrameTrellis workspace with media bin, program monitor, clip inspector and a three-track timeline](docs/images/workspace.png)
 
-> **Status: 1.2.2, stable release.** Windows installer and portable ZIP
-> packages are published on the [releases page](https://github.com/sanskarIN/frametrellis/releases).
-> On Linux, build from source. FrameTrellis is a young project: keep backups of
-> important projects and report problems.
+> **Latest stable release: 1.2.1.** Version 1.2.2 is in development on
+> [PR #11](https://github.com/sanskarIN/frametrellis/pull/11) and is **not published**.
+> Download released Windows installers and portable ZIPs from the
+> [releases page](https://github.com/sanskarIN/frametrellis/releases).
+> On Linux, build from source. Keep backups of important projects.
 
 
 ## Features

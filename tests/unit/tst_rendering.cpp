@@ -167,11 +167,25 @@ private slots:
     {
         const QList<ExportPreset> presets = exportPresets();
         QVERIFY(presets.size() >= 4);
+        QStringList identifiers;
         for (const ExportPreset& preset : presets) {
+            QVERIFY2(!identifiers.contains(preset.id), qPrintable(preset.id));
+            identifiers << preset.id;
             QVERIFY(speedPresets().contains(preset.speedPreset));
             const ExportSettings s = applyPreset(preset, m_dir.filePath(QStringLiteral("p.mp4")));
+            QCOMPARE(s.avoidUpscaling, preset.avoidUpscaling);
             QVERIFY2(validateExport(s, projectWithClip()), qPrintable(preset.id));
         }
+        QVERIFY(identifiers.contains(QStringLiteral("quick")));
+        QVERIFY(identifiers.contains(QStringLiteral("quick1080p")));
+        QVERIFY(identifiers.contains(QStringLiteral("turbo")));
+        QVERIFY(identifiers.contains(QStringLiteral("draft"))); // existing preset ID retained
+        const ExportPreset quick = *std::find_if(presets.cbegin(), presets.cend(),
+                                                [](const ExportPreset& p) {
+                                                    return p.id == QLatin1String("quick");
+                                                });
+        QCOMPARE(quick.speedPreset, QStringLiteral("veryfast"));
+        QVERIFY(quick.avoidUpscaling);
         QCOMPARE(chooseVideoEncoder({QStringLiteral("mpeg4"), QStringLiteral("libx264")}),
                  QStringLiteral("libx264"));
         QCOMPARE(chooseVideoEncoder({QStringLiteral("mpeg4"), QStringLiteral("h264_mf")}),

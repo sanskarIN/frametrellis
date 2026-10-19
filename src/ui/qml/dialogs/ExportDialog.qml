@@ -35,6 +35,7 @@ FtDialog {
         const p = exporter.presets[index]
         quality.value = p.crf
         speedBox.currentIndex = Math.max(0, exporter.speedPresets.indexOf(p.speedPreset))
+        noUpscaleCheck.checked = p.avoidUpscaling === true
         audioBox.currentIndex = Math.max(0, audioBox.model.indexOf(String(p.audioBitrateKbps)))
     }
     function startExport() {

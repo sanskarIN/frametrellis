@@ -88,10 +88,13 @@ Acceptance criteria, each checked before the release:
 - ℹ️ The earlier intermittent Qt6Core.dll ARM64 incident was not reproduced or root-caused; see
   [v1.2.1 known limitations](releases/v1.2.1.md). Do not claim a confirmed crash fix.
 
-## v1.2.2 — Potential WinGet distribution ⏳
-- ⏳ Evaluate a stable Windows package identifier, installer metadata and hash-verified manifests
-- ⏳ Submit only after separately confirming the process and release readiness
-- ⏳ No WinGet changes belong to the v1.2.1 maintenance branch
+## v1.2.2 — Faster MP4 exports and distribution preparation 🚧
+- ✅ Add Quick project-size, Quick 1080p and Turbo preview H.264 profiles
+- ✅ Avoid unnecessary video upscaling and expose the setting through GUI and CLI
+- ✅ Display live average render frames/sec; expand export regression tests
+- 🚧 Finish full CI, Windows packages, release notes and verified stable publication
+- ⏳ Evaluate WinGet package identifier, installer metadata and hash-verified manifests;
+  do not claim a WinGet listing without confirmed upstream acceptance
 
 ## Next milestones
 - ⏳ A Linux package (AppImage or Flatpak), published once it has been verified

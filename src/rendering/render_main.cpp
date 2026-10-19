@@ -181,6 +181,7 @@ int main(int argc, char** argv)
     settings.audioBitrateKbps = parser.value(audioOption).toInt(&ok3);
     settings.speedPreset = parser.value(presetOption);
     settings.includeAudio = !parser.isSet(noAudioOption);
+    settings.avoidUpscaling = parser.isSet(noUpscaleOption);
     if (!ok1 || !ok2 || !ok3) {
         emitError(makeError(ErrorCode::InvalidArgument,
                             QStringLiteral("Numeric options must be whole numbers.")));

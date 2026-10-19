@@ -33,8 +33,10 @@ frames are repeated or skipped as needed, and the clip keeps its real-time durat
 | Frame rate | The project's frame rate |
 | Quality | Constant quality (CRF 0–51) with encoder speed presets from *ultrafast* to *veryslow* |
 
-Presets: *Match project*, *1080p*, *720p*, *2160p (4K)* and *Fast draft* (720p, quick, lower
-quality). Other containers and codecs (WebM/VP9, ProRes, image sequences, audio only) are
+Presets: *Match project*, *1080p*, *720p*, *2160p (4K)*, *Quick export (project size)*,
+*Quick export (up to 1080p)*, *Fast draft (up to 720p)* and *Turbo preview
+(up to 720p)*. Quick/preview presets avoid enlarging smaller project canvases by default;
+see [faster export](faster-export.md). Other containers and codecs (WebM/VP9, ProRes, image sequences, audio only) are
 planned; see the [roadmap](../roadmap.md).
 
 ## Project files

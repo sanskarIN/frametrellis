@@ -149,6 +149,18 @@ private slots:
         const QSize size = outputSize(s, odd);
         QVERIFY(size.width() % 2 == 0 && size.height() % 2 == 0);
         QCOMPARE(size.height(), 360);
+
+        // Quick presets never enlarge footage just because an HD/4K size was selected.
+        s.avoidUpscaling = true;
+        s.shortSide = 2160;
+        QCOMPARE(outputSize(s, hd), QSize(1920, 1080));
+        QCOMPARE(outputSize(s, vertical), QSize(1080, 1920));
+        s.shortSide = 720;
+        QCOMPARE(outputSize(s, odd), QSize(1280, 720)); // actual down/upscale policy is opt-in
+        s.shortSide = 360;
+        QCOMPARE(outputSize(s, odd), QSize(640, 360));
+        s.shortSide = 0;
+        QCOMPARE(outputSize(s, hd), QSize(1920, 1080));
     }
 
     void presetsAndEncoders()

@@ -137,6 +137,14 @@ Status validateExport(const ExportSettings& settings, const Project& project,
                          QStringLiteral("The output file would overwrite the project file."));
     }
 
+    // Check the requested short side before outputSize(): absurdly large values could
+    // overflow the intermediate integer dimensions while scaling an extreme aspect ratio.
+    // A negative value is invalid; zero is the documented "match project" setting.
+    if (settings.shortSide < 0 || settings.shortSide > kMaxFrameDimension) {
+        return makeError(ErrorCode::OutOfRange,
+                         QStringLiteral("The requested export size must be between 0 and %1.")
+                             .arg(kMaxFrameDimension));
+    }
     const QSize size = outputSize(settings, project.settings());
     if (size.width() < kMinFrameDimension || size.height() < kMinFrameDimension ||
         size.width() > kMaxFrameDimension || size.height() > kMaxFrameDimension) {

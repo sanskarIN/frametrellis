@@ -36,6 +36,7 @@ struct ExportPreset
     int crf = 20;
     QString speedPreset;
     int audioBitrateKbps = 192;
+    bool avoidUpscaling = false;
 };
 
 QList<ExportPreset> exportPresets();

@@ -136,6 +136,14 @@ FtDialog {
                 Accessible.name: qsTr("Encoder speed")
             }
 
+            Label { text: qsTr("Scaling"); color: Theme.textMuted }
+            FtCheckBox {
+                id: noUpscaleCheck
+                Layout.fillWidth: true
+                text: qsTr("Do not upscale smaller projects (faster)")
+                Accessible.name: qsTr("Avoid upscaling smaller projects")
+            }
+
             Label { text: qsTr("Audio"); color: Theme.textMuted }
             RowLayout {
                 FtCheckBox { id: audioCheck; checked: true; text: qsTr("Include audio (AAC)") }

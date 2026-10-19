@@ -156,7 +156,7 @@ private slots:
         QCOMPARE(outputSize(s, hd), QSize(1920, 1080));
         QCOMPARE(outputSize(s, vertical), QSize(1080, 1920));
         s.shortSide = 720;
-        QCOMPARE(outputSize(s, odd), QSize(1280, 720)); // actual down/upscale policy is opt-in
+        QCOMPARE(outputSize(s, odd), QSize(1000, 562)); // never enlarge smaller projects
         s.shortSide = 360;
         QCOMPARE(outputSize(s, odd), QSize(640, 360));
         s.shortSide = 0;

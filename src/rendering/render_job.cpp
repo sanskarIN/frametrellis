@@ -137,6 +137,9 @@ Status RenderJob::start(const Project& project, const ExportSettings& settings,
     if (!settings.includeAudio) {
         arguments << QStringLiteral("--no-audio");
     }
+    if (settings.avoidUpscaling) {
+        arguments << QStringLiteral("--no-upscale");
+    }
 
     m_process = std::make_unique<QProcess>();
     m_process->setProgram(m_helperProgram);

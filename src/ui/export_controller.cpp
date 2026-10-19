@@ -94,8 +94,7 @@ QString ExportController::progressText() const
             .arg(elapsed,
                  remaining >= 0 ? QStringLiteral(" · about %1 left").arg(formatMillis(remaining))
                                 : QString(),
-                 fps > 0.0 ? QStringLiteral(" · %1 frames/s").arg(fps, 0, 'f', 1)
-                           : QString());
+                 fps > 0.0 ? QStringLiteral(" · %1 frames/s").arg(fps, 0, 'f', 1) : QString());
     }
     case RenderJob::State::Cancelling:
         return QStringLiteral("Cancelling…");

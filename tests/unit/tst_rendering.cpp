@@ -182,10 +182,9 @@ private slots:
         QVERIFY(identifiers.contains(QStringLiteral("quick1080p")));
         QVERIFY(identifiers.contains(QStringLiteral("turbo")));
         QVERIFY(identifiers.contains(QStringLiteral("draft"))); // existing preset ID retained
-        const ExportPreset quick = *std::find_if(presets.cbegin(), presets.cend(),
-                                                [](const ExportPreset& p) {
-                                                    return p.id == QLatin1String("quick");
-                                                });
+        const ExportPreset quick =
+            *std::find_if(presets.cbegin(), presets.cend(),
+                          [](const ExportPreset& p) { return p.id == QLatin1String("quick"); });
         QCOMPARE(quick.speedPreset, QStringLiteral("veryfast"));
         QVERIFY(quick.avoidUpscaling);
         QCOMPARE(chooseVideoEncoder({QStringLiteral("mpeg4"), QStringLiteral("libx264")}),

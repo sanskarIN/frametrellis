@@ -146,6 +146,9 @@ int main(int argc, char** argv)
                                          QStringLiteral("kbps"), QStringLiteral("192"));
     const QCommandLineOption noAudioOption(QStringLiteral("no-audio"),
                                            QStringLiteral("Export without audio."));
+    const QCommandLineOption noUpscaleOption(
+        QStringLiteral("no-upscale"),
+        QStringLiteral("Keep the source resolution if already smaller than the requested size."));
     const QCommandLineOption watchStdinOption(
         QStringLiteral("watch-stdin"),
         QStringLiteral("Cancel when stdin receives \"cancel\" or is closed."));

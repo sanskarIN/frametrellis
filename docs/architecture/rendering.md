@@ -32,7 +32,8 @@ Succeeded, Failed, Cancelled ─► Starting (retry)
    resolution with offline media treated as an error.
 4. Encodes with MLT's `avformat` consumer to a hidden `.<name>.<token>.part.mp4` next to the
    destination (H.264 `yuv420p` with CRF and speed preset, AAC audio, `+faststart`).
-5. Verifies the result by probing it: it must be a video of the expected duration.
+5. Verifies the result by probing it: it must be a video with the **expected width,
+   height and duration** before the existing destination is changed.
 6. Atomically replaces the destination (`rename` / `MoveFileExW`). An existing file is never
    touched unless the export succeeded.
 

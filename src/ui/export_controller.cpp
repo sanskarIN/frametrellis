@@ -88,11 +88,14 @@ QString ExportController::progressText() const
         return QStringLiteral("Preparing…");
     case RenderJob::State::Running: {
         const qint64 remaining = m_job->remainingMilliseconds();
-        return QStringLiteral("%1% · %2 elapsed%3")
+        const double fps = m_job->framesPerSecond();
+        return QStringLiteral("%1% · %2 elapsed%3%4")
             .arg(qRound(m_job->progress() * 100))
-            .arg(elapsed, remaining >= 0
-                              ? QStringLiteral(" · about %1 left").arg(formatMillis(remaining))
-                              : QString());
+            .arg(elapsed,
+                 remaining >= 0 ? QStringLiteral(" · about %1 left").arg(formatMillis(remaining))
+                                : QString(),
+                 fps > 0.0 ? QStringLiteral(" · %1 frames/s").arg(fps, 0, 'f', 1)
+                           : QString());
     }
     case RenderJob::State::Cancelling:
         return QStringLiteral("Cancelling…");

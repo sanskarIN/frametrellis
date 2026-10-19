@@ -238,6 +238,7 @@ private slots:
     {
         RenderJob job(m_dir.filePath(QStringLiteral("no-such-helper")));
         QSignalSpy states(&job, &RenderJob::stateChanged);
+        QCOMPARE(job.framesPerSecond(), 0.0); // idle job has no throughput estimate
         Status started = job.start(projectWithClip(), settingsFor(QStringLiteral("out.mp4")));
         QVERIFY(!started);
         QCOMPARE(started.error().code, ErrorCode::NotFound);

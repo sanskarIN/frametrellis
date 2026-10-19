@@ -105,7 +105,8 @@ ctest --preset linux
 4. **Adjust** the selected clip's volume, fades and picture in the inspector.
 5. **Export** with *File → Export…* (Ctrl+E). You can keep editing while it renders.
 
-The [user guide](docs/user-guide/README.md) explains every feature, and
+The [faster export guide](docs/user-guide/faster-export.md) explains the new Quick
+and Turbo presets and how to measure improvements. The [user guide](docs/user-guide/README.md) explains every feature, and
 [keyboard shortcuts](docs/user-guide/keyboard-shortcuts.md) are listed in the app under *Help*.
 
 ## Current limitations

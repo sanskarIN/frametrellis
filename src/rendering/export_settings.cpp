@@ -26,8 +26,8 @@ QList<ExportPreset> exportPresets()
          QStringLiteral("H.264/AAC MP4 scaled so the shorter side is 2160 pixels."), 2160, 20,
          QStringLiteral("medium"), 256},
         {QStringLiteral("quick"), QStringLiteral("Quick export (project size)"),
-         QStringLiteral("Faster H.264 encoding at original resolution; file sizes may vary."),
-         0, 22, QStringLiteral("veryfast"), 192, true},
+         QStringLiteral("Faster H.264 encoding at original resolution; file sizes may vary."), 0,
+         22, QStringLiteral("veryfast"), 192, true},
         {QStringLiteral("quick1080p"), QStringLiteral("Quick export (up to 1080p)"),
          QStringLiteral("Fast encoding up to 1080p; never enlarge smaller projects."), 1080, 22,
          QStringLiteral("veryfast"), 192, true},
@@ -35,8 +35,8 @@ QList<ExportPreset> exportPresets()
          QStringLiteral("Fast, lower-quality review export without unnecessary upscaling."), 720,
          28, QStringLiteral("veryfast"), 128, true},
         {QStringLiteral("turbo"), QStringLiteral("Turbo preview (up to 720p)"),
-         QStringLiteral("Superfast review encoding; compression efficiency may decrease."),
-         720, 26, QStringLiteral("superfast"), 128, true},
+         QStringLiteral("Superfast review encoding; compression efficiency may decrease."), 720, 26,
+         QStringLiteral("superfast"), 128, true},
     };
 }
 

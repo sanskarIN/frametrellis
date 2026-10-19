@@ -47,7 +47,8 @@ What works today (each item is implemented and covered by automated tests):
 - [x] Transitions between touching clips: a dissolve for the picture and a crossfade for the sound
 - [x] Brightness, contrast and saturation per clip (when the FFmpeg `eq` filter is available)
 - [x] Unlimited-style undo/redo (500 steps) for every edit, with slider drags merged into one step
-- [x] Export to MP4 (H.264 + AAC) with presets, quality and speed settings, in a separate process
+- [x] Export to MP4 (H.264 + AAC) with Quick and Turbo profiles, no-upscale controls,
+      real-time render frames/s, quality and encoder-speed settings, in a separate process
       with progress, cancellation and verification of the result
 - [x] Autosave every minute and crash recovery
 - [x] Recent projects, dark and light themes, keyboard shortcuts, first-run guide

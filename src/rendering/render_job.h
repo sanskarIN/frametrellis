@@ -50,6 +50,8 @@ public:
     [[nodiscard]] const QString& errorMessage() const { return m_errorMessage; }
     [[nodiscard]] const QString& errorDetail() const { return m_errorDetail; }
     [[nodiscard]] qint64 elapsedMilliseconds() const;
+    /// Average completed frames/second since the export started (zero until measurable).
+    [[nodiscard]] double framesPerSecond() const;
     /// Estimated remaining time, or -1 while unknown.
     [[nodiscard]] qint64 remainingMilliseconds() const;
 

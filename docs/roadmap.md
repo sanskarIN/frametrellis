@@ -92,7 +92,9 @@ Acceptance criteria, each checked before the release:
 - ✅ Add Quick project-size, Quick 1080p and Turbo preview H.264 profiles
 - ✅ Avoid unnecessary video upscaling and expose the setting through GUI and CLI
 - ✅ Display live average render frames/sec; expand export regression tests
-- ✅ Prepare regression tests, versioned release notes and verified release workflow
+- ✅ Reject invalid scale requests and verify rendered MP4 dimensions before output replacement
+- 🚧 Maintain regression coverage and complete new branch-head checks
+- ⏳ Release only after the maintainer explicitly approves publication
 - ⏳ WinGet submission remains a separately verified distribution step
 - ⏳ Evaluate WinGet package identifier, installer metadata and hash-verified manifests;
   do not claim a WinGet listing without confirmed upstream acceptance

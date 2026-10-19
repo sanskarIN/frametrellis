@@ -88,7 +88,7 @@ Acceptance criteria, each checked before the release:
 - ℹ️ The earlier intermittent Qt6Core.dll ARM64 incident was not reproduced or root-caused; see
   [v1.2.1 known limitations](releases/v1.2.1.md). Do not claim a confirmed crash fix.
 
-## v1.2.2 — Faster MP4 exports and distribution preparation ✅
+## v1.2.2 — Faster MP4 exports and distribution preparation 🚧
 - ✅ Add Quick project-size, Quick 1080p and Turbo preview H.264 profiles
 - ✅ Avoid unnecessary video upscaling and expose the setting through GUI and CLI
 - ✅ Display live average render frames/sec; expand export regression tests

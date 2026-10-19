@@ -39,8 +39,10 @@ and available encoders; no fixed speed gain is guaranteed.
 
 MLT parallel frame rendering is *not* enabled: tested versions previously
 produced invalid audio. Video encoder internal threading remains enabled.
-The helper still validates its output, cleans up after cancellation, and
-replaces a destination only after a verified successful render.
+The helper verifies both final frame dimensions and duration, cleans up after
+cancellation, and replaces a destination only after a verified successful render.
+Resolution requests must be 0 (native) or between 1 and 8192 pixels on the
+shorter side. Oversized or negative requests are rejected before scaling.
 
 Quick export is not stream copy or GPU acceleration. Output is still
 MP4/H.264 with AAC (or no audio).

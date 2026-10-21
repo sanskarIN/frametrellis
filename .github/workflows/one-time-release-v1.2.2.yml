@@ -23,7 +23,7 @@ jobs:
       - name: Validate source version and approved release notes
         run: |
           set -euo pipefail
-          grep -Pzq 'project\\(FrameTrellis\\s+VERSION\\s+1\\.2\\.2\\s' CMakeLists.txt
+          grep -Pzq 'project\(FrameTrellis\s+VERSION\s+1\.2\.2\s' CMakeLists.txt
           test -s docs/releases/v1.2.2.md
           if grep -qiE '^<!-- *draft' docs/releases/v1.2.2.md; then
             echo "::error::v1.2.2 notes are still marked draft"

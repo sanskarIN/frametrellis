@@ -16,8 +16,8 @@ account, no cloud processing, no telemetry and no advertising.
 
 ![The FrameTrellis workspace with media bin, program monitor, clip inspector and a three-track timeline](docs/images/workspace.png)
 
-> **Latest stable release: 1.2.1.** Version 1.2.2 is in development on
-> [PR #11](https://github.com/sanskarIN/frametrellis/pull/11) and is **not published**.
+> **Latest stable release: 1.2.2.** Faster MP4 export includes Quick and Turbo H.264
+> profiles, optional no-upscale output and live render-speed feedback.
 > Download released Windows installers and portable ZIPs from the
 > [releases page](https://github.com/sanskarIN/frametrellis/releases).
 > On Linux, build from source. Keep backups of important projects.

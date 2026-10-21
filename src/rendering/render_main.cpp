@@ -146,6 +146,9 @@ int main(int argc, char** argv)
                                          QStringLiteral("kbps"), QStringLiteral("192"));
     const QCommandLineOption noAudioOption(QStringLiteral("no-audio"),
                                            QStringLiteral("Export without audio."));
+    const QCommandLineOption noUpscaleOption(
+        QStringLiteral("no-upscale"),
+        QStringLiteral("Keep the source resolution if already smaller than the requested size."));
     const QCommandLineOption watchStdinOption(
         QStringLiteral("watch-stdin"),
         QStringLiteral("Cancel when stdin receives \"cancel\" or is closed."));
@@ -155,7 +158,8 @@ int main(int argc, char** argv)
                        "export it, and report each step. Exits with 0 when everything works."),
         QStringLiteral("directory"));
     parser.addOptions({projectOption, outputOption, shortSideOption, crfOption, presetOption,
-                       audioOption, noAudioOption, watchStdinOption, selfTestOption});
+                       audioOption, noAudioOption, noUpscaleOption, watchStdinOption,
+                       selfTestOption});
     parser.process(app);
 
     if (parser.isSet(selfTestOption)) {
@@ -177,6 +181,7 @@ int main(int argc, char** argv)
     settings.audioBitrateKbps = parser.value(audioOption).toInt(&ok3);
     settings.speedPreset = parser.value(presetOption);
     settings.includeAudio = !parser.isSet(noAudioOption);
+    settings.avoidUpscaling = parser.isSet(noUpscaleOption);
     if (!ok1 || !ok2 || !ok3) {
         emitError(makeError(ErrorCode::InvalidArgument,
                             QStringLiteral("Numeric options must be whole numbers.")));

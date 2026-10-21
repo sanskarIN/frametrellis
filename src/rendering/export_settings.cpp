@@ -25,9 +25,18 @@ QList<ExportPreset> exportPresets()
         {QStringLiteral("2160p"), QStringLiteral("2160p (4K)"),
          QStringLiteral("H.264/AAC MP4 scaled so the shorter side is 2160 pixels."), 2160, 20,
          QStringLiteral("medium"), 256},
-        {QStringLiteral("draft"), QStringLiteral("Fast draft"),
-         QStringLiteral("Quick, lower-quality 720p export for review."), 720, 28,
-         QStringLiteral("veryfast"), 128},
+        {QStringLiteral("quick"), QStringLiteral("Quick export (project size)"),
+         QStringLiteral("Faster H.264 encoding at original resolution; file sizes may vary."), 0,
+         22, QStringLiteral("veryfast"), 192, true},
+        {QStringLiteral("quick1080p"), QStringLiteral("Quick export (up to 1080p)"),
+         QStringLiteral("Fast encoding up to 1080p; never enlarge smaller projects."), 1080, 22,
+         QStringLiteral("veryfast"), 192, true},
+        {QStringLiteral("draft"), QStringLiteral("Fast draft (up to 720p)"),
+         QStringLiteral("Fast, lower-quality review export without unnecessary upscaling."), 720,
+         28, QStringLiteral("veryfast"), 128, true},
+        {QStringLiteral("turbo"), QStringLiteral("Turbo preview (up to 720p)"),
+         QStringLiteral("Superfast review encoding; compression efficiency may decrease."), 720, 26,
+         QStringLiteral("superfast"), 128, true},
     };
 }
 
@@ -36,6 +45,7 @@ ExportSettings applyPreset(const ExportPreset& preset, const QString& outputPath
     ExportSettings s;
     s.outputPath = outputPath;
     s.shortSide = preset.shortSide;
+    s.avoidUpscaling = preset.avoidUpscaling;
     s.crf = preset.crf;
     s.speedPreset = preset.speedPreset;
     s.audioBitrateKbps = preset.audioBitrateKbps;
@@ -55,6 +65,9 @@ QSize outputSize(const ExportSettings& settings, const ProjectSettings& project)
         return {project.width, project.height};
     }
     const int shortSide = std::min(project.width, project.height);
+    if (settings.avoidUpscaling && settings.shortSide >= shortSide) {
+        return {project.width, project.height};
+    }
     const double scale = static_cast<double>(settings.shortSide) / shortSide;
     auto even = [](double v) { return std::max(2, static_cast<int>(std::lround(v / 2.0)) * 2); };
     return {even(project.width * scale), even(project.height * scale)};
@@ -124,6 +137,14 @@ Status validateExport(const ExportSettings& settings, const Project& project,
                          QStringLiteral("The output file would overwrite the project file."));
     }
 
+    // Check the requested short side before outputSize(): absurdly large values could
+    // overflow the intermediate integer dimensions while scaling an extreme aspect ratio.
+    // A negative value is invalid; zero is the documented "match project" setting.
+    if (settings.shortSide < 0 || settings.shortSide > kMaxFrameDimension) {
+        return makeError(ErrorCode::OutOfRange,
+                         QStringLiteral("The requested export size must be between 0 and %1.")
+                             .arg(kMaxFrameDimension));
+    }
     const QSize size = outputSize(settings, project.settings());
     if (size.width() < kMinFrameDimension || size.height() < kMinFrameDimension ||
         size.width() > kMaxFrameDimension || size.height() > kMaxFrameDimension) {

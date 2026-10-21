@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
-# Publishes the packages of a version (tag v1.2.3) to its GitHub release.
+# Publishes the packages of a version (for example tag v1.2.2) to its GitHub release.
 #
 # It runs when a version tag is pushed and when a release is published in the GitHub web
 # interface (which can also create the tag). The Windows packages are built and verified on

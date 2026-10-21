@@ -171,6 +171,50 @@ private slots:
         QVERIFY(!info->hasAudio);
     }
 
+    void quickExportAvoidsUnnecessaryUpscale()
+    {
+        // 160x90 fixture stays native size with a quick 1080p request. The audio
+        // must remain valid; faster encoder presets must never re-enable MLT's
+        // known-broken parallel audio path.
+        ExportSettings settings;
+        settings.outputPath = m_dir.filePath(QStringLiteral("quick-no-upscale.mp4"));
+        settings.shortSide = 1080;
+        settings.avoidUpscaling = true;
+        settings.speedPreset = QStringLiteral("veryfast");
+        settings.includeAudio = true;
+        const std::atomic<bool> cancelled{false};
+        const Status result = RenderRunner(project(25), settings).run(cancelled);
+        QVERIFY2(result, qPrintable(result ? QString() : result.error().toString()));
+        const Result<MediaInfo> video = media::probeMedia(settings.outputPath);
+        QVERIFY(video);
+        QCOMPARE(video->width, 160);
+        QCOMPARE(video->height, 90);
+        QVERIFY(video->hasAudio);
+        QCOMPARE(video->audioCodec, QStringLiteral("aac"));
+        QVERIFY(partFiles().isEmpty());
+    }
+
+    void helperQuickExportHonoursNoUpscale()
+    {
+        // Cover the QProcess -> CLI -> RenderRunner propagation, not just its
+        // direct in-process API.
+        RenderJob job(QStringLiteral(FT_RENDER_HELPER));
+        QSignalSpy finished(&job, &RenderJob::finished);
+        ExportSettings settings;
+        settings.outputPath = m_dir.filePath(QStringLiteral("helper-quick.mp4"));
+        settings.shortSide = 1080;
+        settings.avoidUpscaling = true;
+        settings.speedPreset = QStringLiteral("veryfast");
+        QVERIFY(job.start(project(25), settings));
+        QVERIFY(finished.wait(60'000));
+        QCOMPARE(job.state(), RenderJob::State::Succeeded);
+        const Result<MediaInfo> video = media::probeMedia(settings.outputPath);
+        QVERIFY(video);
+        QCOMPARE(video->width, 160);
+        QCOMPARE(video->height, 90);
+        QVERIFY(video->hasAudio);
+    }
+
     void cancellationLeavesNothingBehind()
     {
         const QString output = m_dir.filePath(QStringLiteral("cancelled.mp4"));
@@ -204,6 +248,30 @@ private slots:
         QVERIFY(!result);
         QCOMPARE(result.error().code, ErrorCode::Cancelled);
         QVERIFY(!QFile::exists(output));
+        QVERIFY(partFiles().isEmpty());
+    }
+
+    void invalidExportSizePreservesExistingFile()
+    {
+        const QString output = m_dir.filePath(QStringLiteral("bad-size-existing.mp4"));
+        {
+            QFile existing(output);
+            QVERIFY(existing.open(QIODevice::WriteOnly));
+            QCOMPARE(existing.write("previous successful output"), qint64{26});
+        }
+
+        ExportSettings settings;
+        settings.outputPath = output;
+        settings.shortSide = 1000000;
+        settings.avoidUpscaling = true;
+        std::atomic<bool> cancel{false};
+        const Status result = RenderRunner(project(25), settings).run(cancel);
+        QVERIFY(!result);
+        QCOMPARE(result.error().code, ErrorCode::OutOfRange);
+
+        QFile preserved(output);
+        QVERIFY(preserved.open(QIODevice::ReadOnly));
+        QCOMPARE(preserved.readAll(), QByteArray("previous successful output"));
         QVERIFY(partFiles().isEmpty());
     }
 

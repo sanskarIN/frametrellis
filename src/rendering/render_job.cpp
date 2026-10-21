@@ -137,6 +137,9 @@ Status RenderJob::start(const Project& project, const ExportSettings& settings,
     if (!settings.includeAudio) {
         arguments << QStringLiteral("--no-audio");
     }
+    if (settings.avoidUpscaling) {
+        arguments << QStringLiteral("--no-upscale");
+    }
 
     m_process = std::make_unique<QProcess>();
     m_process->setProgram(m_helperProgram);
@@ -195,6 +198,15 @@ qint64 RenderJob::elapsedMilliseconds() const
         return m_finalElapsed;
     }
     return m_elapsed.isValid() ? m_elapsed.elapsed() : 0;
+}
+
+double RenderJob::framesPerSecond() const
+{
+    const qint64 ms = elapsedMilliseconds();
+    if (ms < 1000 || m_framesDone <= 0 || m_state != State::Running) {
+        return 0.0;
+    }
+    return static_cast<double>(m_framesDone) * 1000.0 / static_cast<double>(ms);
 }
 
 qint64 RenderJob::remainingMilliseconds() const

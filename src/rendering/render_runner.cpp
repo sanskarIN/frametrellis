@@ -278,22 +278,31 @@ Status RenderRunner::run(const std::atomic<bool>& cancelRequested, const Started
             : Result<MediaInfo>(makeError(ErrorCode::Io, QStringLiteral("no output")));
     const auto expectedUs = projectSettings.frameRate.framesToMicroseconds(total).value_or(0);
     const auto toleranceUs = projectSettings.frameRate.framesToMicroseconds(3).value_or(0) + 50'000;
-    if (!written || written->kind != MediaKind::Video ||
+    // Verify the size as well as the duration. Fast/no-upscale presets must never
+    // publish a video with dimensions different from those shown in the dialog.
+    const bool expectedSize =
+        written && written->width == size.width() && written->height == size.height();
+    if (!written || written->kind != MediaKind::Video || !expectedSize ||
         std::abs(written->durationUs - expectedUs) > toleranceUs) {
         QFile::remove(partPath);
         const QStorageInfo storage(QFileInfo(finalPath).absolutePath());
         const bool diskFull = storage.isValid() && storage.bytesAvailable() >= 0 &&
                               storage.bytesAvailable() < kMinimumFreeBytes;
-        const QString detail = written ? QStringLiteral("expected %1 us, got %2 us")
-                                             .arg(expectedUs)
-                                             .arg(written->durationUs)
-                                       : written.error().toString();
+        const QString detail = written
+                                   ? QStringLiteral("expected %1x%2 at %3 us, got %4x%5 at %6 us")
+                                         .arg(size.width())
+                                         .arg(size.height())
+                                         .arg(expectedUs)
+                                         .arg(written->width)
+                                         .arg(written->height)
+                                         .arg(written->durationUs)
+                                   : written.error().toString();
         qCWarning(lcRender) << "Render verification failed:" << detail;
         return makeError(
             ErrorCode::Io,
             diskFull ? QStringLiteral("Rendering failed: the disk is full.")
                      : QStringLiteral(
-                           "Rendering failed: the encoder stopped before the end of the sequence."),
+                           "Rendering failed: the output dimensions or duration were incorrect."),
             detail);
     }
     if (progress) {

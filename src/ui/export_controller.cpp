@@ -88,11 +88,13 @@ QString ExportController::progressText() const
         return QStringLiteral("Preparing…");
     case RenderJob::State::Running: {
         const qint64 remaining = m_job->remainingMilliseconds();
-        return QStringLiteral("%1% · %2 elapsed%3")
+        const double fps = m_job->framesPerSecond();
+        return QStringLiteral("%1% · %2 elapsed%3%4")
             .arg(qRound(m_job->progress() * 100))
-            .arg(elapsed, remaining >= 0
-                              ? QStringLiteral(" · about %1 left").arg(formatMillis(remaining))
-                              : QString());
+            .arg(elapsed,
+                 remaining >= 0 ? QStringLiteral(" · about %1 left").arg(formatMillis(remaining))
+                                : QString(),
+                 fps > 0.0 ? QStringLiteral(" · %1 frames/s").arg(fps, 0, 'f', 1) : QString());
     }
     case RenderJob::State::Cancelling:
         return QStringLiteral("Cancelling…");
@@ -138,7 +140,8 @@ QVariantList ExportController::presets() const
                                 {QStringLiteral("shortSide"), preset.shortSide},
                                 {QStringLiteral("crf"), preset.crf},
                                 {QStringLiteral("speedPreset"), preset.speedPreset},
-                                {QStringLiteral("audioBitrateKbps"), preset.audioBitrateKbps}});
+                                {QStringLiteral("audioBitrateKbps"), preset.audioBitrateKbps},
+                                {QStringLiteral("avoidUpscaling"), preset.avoidUpscaling}});
     }
     return list;
 }
@@ -171,6 +174,9 @@ rendering::ExportSettings ExportController::toSettings(const QVariantMap& map) c
     if (map.contains(QStringLiteral("includeAudio"))) {
         s.includeAudio = map.value(QStringLiteral("includeAudio")).toBool();
     }
+    if (map.contains(QStringLiteral("avoidUpscaling"))) {
+        s.avoidUpscaling = map.value(QStringLiteral("avoidUpscaling")).toBool();
+    }
     return s;
 }
 
@@ -185,12 +191,13 @@ QString ExportController::describeOutput(const QVariantMap& settings) const
 {
     const rendering::ExportSettings s = toSettings(settings);
     const QSize size = rendering::outputSize(s, m_project->project().settings());
-    return QStringLiteral("%1×%2 · %3 · H.264 + %4")
+    return QStringLiteral("%1×%2 · %3 · H.264 + %4%5")
         .arg(size.width())
         .arg(size.height())
         .arg(m_project->project().settings().frameRate.displayName(),
              s.includeAudio ? QStringLiteral("AAC %1 kbit/s").arg(s.audioBitrateKbps)
-                            : QStringLiteral("no audio"));
+                            : QStringLiteral("no audio"),
+             s.avoidUpscaling ? QStringLiteral(" · no upscaling") : QString());
 }
 
 bool ExportController::start(const QVariantMap& settings)

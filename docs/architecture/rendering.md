@@ -27,10 +27,13 @@ Succeeded, Failed, Cancelled ─► Starting (retry)
 1. Validates the settings again (empty timeline, offline media, output path rules).
 2. Picks the first available encoder from `libx264`, `libopenh264`, `h264_mf`,
    `h264_videotoolbox`, `mpeg4`.
-3. Builds the MLT graph at the export resolution with offline media treated as an error.
+3. Computes the output canvas, respecting an optional no-upscale policy so a quick 1080p
+   preset does not enlarge a smaller project, then builds the MLT graph at that
+   resolution with offline media treated as an error.
 4. Encodes with MLT's `avformat` consumer to a hidden `.<name>.<token>.part.mp4` next to the
    destination (H.264 `yuv420p` with CRF and speed preset, AAC audio, `+faststart`).
-5. Verifies the result by probing it: it must be a video of the expected duration.
+5. Verifies the result by probing it: it must be a video with the **expected width,
+   height and duration** before the existing destination is changed.
 6. Atomically replaces the destination (`rename` / `MoveFileExW`). An existing file is never
    touched unless the export succeeded.
 
@@ -58,7 +61,8 @@ Exit codes: 0 success, 1 failure, 2 bad arguments, 3 cancelled.
 * MLT's parallel frame rendering in the avformat consumer (`real_time < 0`) produced corrupt
   (NaN) audio with MLT 7.22 on Linux and MLT 7.40 on Windows, which made the AAC encoder fail.
   FrameTrellis therefore renders frames sequentially (`real_time = 0`); the video encoder still
-  uses several threads.
+  uses several threads. The v1.2.2 quick presets use FFmpeg/libx264's faster
+  encoder modes, not parallel frame rendering.
 * MSYS2's MLT lists the libraries of its "plus" module (FFTW, libebur128) as optional. Without
   them the module does not load and the `affine` transition is missing, so the Windows build
   installs and bundles them. MLT's `composite` transition is not used as a fallback because it

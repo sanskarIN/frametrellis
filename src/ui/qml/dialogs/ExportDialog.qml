@@ -26,6 +26,7 @@ FtDialog {
             outputPath: outputPath,
             crf: Math.round(quality.value),
             speedPreset: speedBox.currentText,
+            avoidUpscaling: noUpscaleCheck.checked,
             audioBitrateKbps: parseInt(audioBox.currentText),
             includeAudio: audioCheck.checked
         }
@@ -34,6 +35,7 @@ FtDialog {
         const p = exporter.presets[index]
         quality.value = p.crf
         speedBox.currentIndex = Math.max(0, exporter.speedPresets.indexOf(p.speedPreset))
+        noUpscaleCheck.checked = p.avoidUpscaling === true
         audioBox.currentIndex = Math.max(0, audioBox.model.indexOf(String(p.audioBitrateKbps)))
     }
     function startExport() {
@@ -132,6 +134,14 @@ FtDialog {
                 model: dialog.exporter.speedPresets
                 currentIndex: 5
                 Accessible.name: qsTr("Encoder speed")
+            }
+
+            Label { text: qsTr("Scaling"); color: Theme.textMuted }
+            FtCheckBox {
+                id: noUpscaleCheck
+                Layout.fillWidth: true
+                text: qsTr("Do not upscale smaller projects (faster)")
+                Accessible.name: qsTr("Avoid upscaling smaller projects")
             }
 
             Label { text: qsTr("Audio"); color: Theme.textMuted }

@@ -11,6 +11,9 @@
 #include <QTemporaryDir>
 #include <QTest>
 
+#include <algorithm>
+#include <limits>
+
 using namespace ft;
 using namespace ft::rendering;
 
@@ -149,17 +152,62 @@ private slots:
         const QSize size = outputSize(s, odd);
         QVERIFY(size.width() % 2 == 0 && size.height() % 2 == 0);
         QCOMPARE(size.height(), 360);
+
+        // Quick presets never enlarge footage just because an HD/4K size was selected.
+        s.avoidUpscaling = true;
+        s.shortSide = 2160;
+        QCOMPARE(outputSize(s, hd), QSize(1920, 1080));
+        QCOMPARE(outputSize(s, vertical), QSize(1080, 1920));
+        s.shortSide = 720;
+        QCOMPARE(outputSize(s, odd), QSize(1000, 562)); // never enlarge smaller projects
+        s.shortSide = 360;
+        QCOMPARE(outputSize(s, odd), QSize(640, 360));
+        s.shortSide = 0;
+        QCOMPARE(outputSize(s, hd), QSize(1920, 1080));
+    }
+
+    void rejectsBadRequestedExportDimensions()
+    {
+        const Project p = projectWithClip();
+        ExportSettings s = settingsFor(QStringLiteral("invalid-short-side.mp4"));
+        for (const int invalid : {-1, 8193, std::numeric_limits<int>::max()}) {
+            s.shortSide = invalid;
+            s.avoidUpscaling = true; // invalid input cannot hide behind this shortcut
+            const Status status = validateExport(s, p);
+            QVERIFY(!status);
+            QCOMPARE(status.error().code, ErrorCode::OutOfRange);
+        }
+
+        // Zero retains the project canvas. An allowed high target with no-upscale
+        // leaves a smaller project untouched without unsafe dimension calculations.
+        s.shortSide = 0;
+        QVERIFY(validateExport(s, p));
+        s.shortSide = kMaxFrameDimension;
+        QVERIFY(validateExport(s, p));
     }
 
     void presetsAndEncoders()
     {
         const QList<ExportPreset> presets = exportPresets();
         QVERIFY(presets.size() >= 4);
+        QStringList identifiers;
         for (const ExportPreset& preset : presets) {
+            QVERIFY2(!identifiers.contains(preset.id), qPrintable(preset.id));
+            identifiers << preset.id;
             QVERIFY(speedPresets().contains(preset.speedPreset));
             const ExportSettings s = applyPreset(preset, m_dir.filePath(QStringLiteral("p.mp4")));
+            QCOMPARE(s.avoidUpscaling, preset.avoidUpscaling);
             QVERIFY2(validateExport(s, projectWithClip()), qPrintable(preset.id));
         }
+        QVERIFY(identifiers.contains(QStringLiteral("quick")));
+        QVERIFY(identifiers.contains(QStringLiteral("quick1080p")));
+        QVERIFY(identifiers.contains(QStringLiteral("turbo")));
+        QVERIFY(identifiers.contains(QStringLiteral("draft"))); // existing preset ID retained
+        const ExportPreset quick =
+            *std::find_if(presets.cbegin(), presets.cend(),
+                          [](const ExportPreset& p) { return p.id == QLatin1String("quick"); });
+        QCOMPARE(quick.speedPreset, QStringLiteral("veryfast"));
+        QVERIFY(quick.avoidUpscaling);
         QCOMPARE(chooseVideoEncoder({QStringLiteral("mpeg4"), QStringLiteral("libx264")}),
                  QStringLiteral("libx264"));
         QCOMPARE(chooseVideoEncoder({QStringLiteral("mpeg4"), QStringLiteral("h264_mf")}),
@@ -210,6 +258,7 @@ private slots:
     {
         RenderJob job(m_dir.filePath(QStringLiteral("no-such-helper")));
         QSignalSpy states(&job, &RenderJob::stateChanged);
+        QCOMPARE(job.framesPerSecond(), 0.0); // idle job has no throughput estimate
         Status started = job.start(projectWithClip(), settingsFor(QStringLiteral("out.mp4")));
         QVERIFY(!started);
         QCOMPARE(started.error().code, ErrorCode::NotFound);

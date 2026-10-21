@@ -16,10 +16,11 @@ account, no cloud processing, no telemetry and no advertising.
 
 ![The FrameTrellis workspace with media bin, program monitor, clip inspector and a three-track timeline](docs/images/workspace.png)
 
-> **Status: 1.2.1, stable maintenance release.** Windows installer and portable ZIP
-> packages are published on the [releases page](https://github.com/sanskarIN/frametrellis/releases).
-> On Linux, build from source. FrameTrellis is a young project: keep backups of
-> important projects and report problems.
+> **Latest stable release: 1.2.2.** Faster MP4 export includes Quick and Turbo H.264
+> profiles, optional no-upscale output and live render-speed feedback.
+> Download released Windows installers and portable ZIPs from the
+> [releases page](https://github.com/sanskarIN/frametrellis/releases).
+> On Linux, build from source. Keep backups of important projects.
 
 
 ## Features
@@ -47,7 +48,8 @@ What works today (each item is implemented and covered by automated tests):
 - [x] Transitions between touching clips: a dissolve for the picture and a crossfade for the sound
 - [x] Brightness, contrast and saturation per clip (when the FFmpeg `eq` filter is available)
 - [x] Unlimited-style undo/redo (500 steps) for every edit, with slider drags merged into one step
-- [x] Export to MP4 (H.264 + AAC) with presets, quality and speed settings, in a separate process
+- [x] Export to MP4 (H.264 + AAC) with Quick and Turbo profiles, no-upscale controls,
+      real-time render frames/s, quality and encoder-speed settings, in a separate process
       with progress, cancellation and verification of the result
 - [x] Autosave every minute and crash recovery
 - [x] Recent projects, dark and light themes, keyboard shortcuts, first-run guide
@@ -104,7 +106,8 @@ ctest --preset linux
 4. **Adjust** the selected clip's volume, fades and picture in the inspector.
 5. **Export** with *File → Export…* (Ctrl+E). You can keep editing while it renders.
 
-The [user guide](docs/user-guide/README.md) explains every feature, and
+The [faster export guide](docs/user-guide/faster-export.md) explains the new Quick
+and Turbo presets and how to measure improvements. The [user guide](docs/user-guide/README.md) explains every feature, and
 [keyboard shortcuts](docs/user-guide/keyboard-shortcuts.md) are listed in the app under *Help*.
 
 ## Current limitations

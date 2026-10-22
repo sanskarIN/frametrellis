@@ -5,6 +5,7 @@
 #include "project/project.h"
 
 #include <QAbstractListModel>
+#include <QSortFilterProxyModel>
 #include <QQmlEngine>
 
 namespace ft::ui {
@@ -56,6 +57,38 @@ private:
     };
     std::vector<Row> m_rows;
     int m_revision = 0;
+};
+
+/// Keeps the media bin responsive by filtering model rows before QML creates tiles.
+/// Filtering does not change or reorder the project's actual media collection.
+class MediaBinFilterModel : public QSortFilterProxyModel
+{
+    Q_OBJECT
+    QML_ELEMENT
+    Q_PROPERTY(QString searchText READ searchText WRITE setSearchText NOTIFY searchTextChanged)
+    Q_PROPERTY(QString category READ category WRITE setCategory NOTIFY categoryChanged)
+    Q_PROPERTY(int count READ count NOTIFY countChanged)
+
+public:
+    explicit MediaBinFilterModel(QObject* parent = nullptr);
+
+    [[nodiscard]] QString searchText() const;
+    void setSearchText(const QString& text);
+    [[nodiscard]] QString category() const;
+    void setCategory(const QString& category);
+    [[nodiscard]] int count() const;
+
+signals:
+    void searchTextChanged();
+    void categoryChanged();
+    void countChanged();
+
+protected:
+    [[nodiscard]] bool filterAcceptsRow(int sourceRow, const QModelIndex& sourceParent) const override;
+
+private:
+    QString m_searchText;
+    QString m_category = QStringLiteral("all");
 };
 
 QString formatDuration(std::int64_t microseconds);

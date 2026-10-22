@@ -183,12 +183,11 @@ QString MediaBinFilterModel::category() const
 void MediaBinFilterModel::setCategory(const QString& category)
 {
     const QString normalized = category.toLower();
-    const QString next = (normalized == QLatin1String("video") ||
-                          normalized == QLatin1String("audio") ||
-                          normalized == QLatin1String("image") ||
-                          normalized == QLatin1String("offline"))
-                             ? normalized
-                             : QStringLiteral("all");
+    const QString next =
+        (normalized == QLatin1String("video") || normalized == QLatin1String("audio") ||
+         normalized == QLatin1String("image") || normalized == QLatin1String("offline"))
+            ? normalized
+            : QStringLiteral("all");
     if (m_category == next) {
         return;
     }

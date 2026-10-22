@@ -24,6 +24,10 @@ This document defines repeatable acceptance checks for FrameTrellis MP4 export. 
 5. Record OS, compiler, Qt, MLT, FFmpeg versions, preset, fixture details and command output.
 6. File reproducible issues for failures. Do not treat this matrix as proof of automated coverage until corresponding tests exist.
 
+## Implemented regression case (v1.3 development)
+
+`tests/integration/tst_render.cpp::unicodeExportPathProducesPlayableMedia` now exercises an MP4 export to a Unicode-named directory and filename, probes the video and audio streams, and verifies temporary-part cleanup. The case must still pass on CI before it can be considered verified; this does not cover all internationalized filesystem configurations.
+
 ## Future automation priorities
 
 - Add generated-media integration tests for Unicode paths and destination replacement.

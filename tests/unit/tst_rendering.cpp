@@ -212,16 +212,18 @@ private slots:
             QCOMPARE(it->crf, 18);
             QVERIFY(it->avoidUpscaling);
             QCOMPARE(it->speedPreset, QStringLiteral("medium"));
-            const ExportSettings s = applyPreset(*it, m_dir.filePath(QStringLiteral("creator.mp4")));
+            const ExportSettings s =
+                applyPreset(*it, m_dir.filePath(QStringLiteral("creator.mp4")));
             QCOMPARE(outputSize(s, ProjectSettings{}), QSize(1920, 1080));
             QVERIFY(validateExport(s, projectWithClip()));
         }
-        const auto creatorHd = std::find_if(
-            presets.cbegin(), presets.cend(),
-            [](const ExportPreset& p) { return p.id == QLatin1String("youtube1080p"); });
-        const auto creator4k = std::find_if(
-            presets.cbegin(), presets.cend(),
-            [](const ExportPreset& p) { return p.id == QLatin1String("youtube4k"); });
+        const auto creatorHd =
+            std::find_if(presets.cbegin(), presets.cend(), [](const ExportPreset& p) {
+                return p.id == QLatin1String("youtube1080p");
+            });
+        const auto creator4k =
+            std::find_if(presets.cbegin(), presets.cend(),
+                         [](const ExportPreset& p) { return p.id == QLatin1String("youtube4k"); });
         QCOMPARE(creatorHd->shortSide, 1080);
         QCOMPARE(creatorHd->audioBitrateKbps, 192);
         QCOMPARE(creator4k->shortSide, 2160);

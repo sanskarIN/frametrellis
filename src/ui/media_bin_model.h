@@ -5,8 +5,8 @@
 #include "project/project.h"
 
 #include <QAbstractListModel>
-#include <QSortFilterProxyModel>
 #include <QQmlEngine>
+#include <QSortFilterProxyModel>
 
 namespace ft::ui {
 
@@ -84,7 +84,8 @@ signals:
     void countChanged();
 
 protected:
-    [[nodiscard]] bool filterAcceptsRow(int sourceRow, const QModelIndex& sourceParent) const override;
+    [[nodiscard]] bool filterAcceptsRow(int sourceRow,
+                                        const QModelIndex& sourceParent) const override;
 
 private:
     QString m_searchText;

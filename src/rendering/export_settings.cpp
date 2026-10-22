@@ -38,11 +38,11 @@ QList<ExportPreset> exportPresets()
          QStringLiteral("Superfast review encoding; compression efficiency may decrease."), 720, 26,
          QStringLiteral("superfast"), 128, true},
         {QStringLiteral("youtube1080p"), QStringLiteral("Creator upload (up to 1080p)"),
-         QStringLiteral("High-quality H.264/AAC upload at up to 1080p, without upscaling."),
-         1080, 18, QStringLiteral("medium"), 192, true},
+         QStringLiteral("High-quality H.264/AAC upload at up to 1080p, without upscaling."), 1080,
+         18, QStringLiteral("medium"), 192, true},
         {QStringLiteral("youtube4k"), QStringLiteral("Creator upload (up to 4K)"),
-         QStringLiteral("High-quality H.264/AAC upload at up to 4K, without upscaling."),
-         2160, 18, QStringLiteral("medium"), 256, true},
+         QStringLiteral("High-quality H.264/AAC upload at up to 4K, without upscaling."), 2160, 18,
+         QStringLiteral("medium"), 256, true},
     };
 }
 

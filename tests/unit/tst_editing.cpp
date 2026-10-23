@@ -672,10 +672,11 @@ private slots:
     {
         Fixture f;
         const Timeline before = f.doc.project().timeline();
+        const QString undoBefore = f.doc.undoText();
         QVERIFY(!f.doc.execute(
             edits::duplicateTrack(QStringLiteral("absent"), QStringLiteral("V3"))));
         QCOMPARE(f.doc.project().timeline(), before);
-        QVERIFY(!f.doc.canUndo());
+        QCOMPARE(f.doc.undoText(), undoBefore);
     }
 
     void splitRequiresPlayheadInsideClip()

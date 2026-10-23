@@ -134,7 +134,7 @@ ApplicationWindow {
             MenuSeparator {}
             Action { text: qsTr("&Save"); shortcut: StandardKey.Save; onTriggered: window.save(false) }
             Action { text: qsTr("Save &As…"); shortcut: "Ctrl+Shift+S"; onTriggered: { saveDialog.runAfterSave = false; saveDialog.open() } }
-            Action { text: qsTr("Rename &Project…"); onTriggered: renameProjectDialog.open() }
+            Action { text: qsTr("Rename &Project…"); onTriggered: window.showRenameProject() }
             MenuSeparator {}
             Action { text: qsTr("&Import Media…"); shortcut: "Ctrl+I"; onTriggered: importDialog.open() }
             Action { text: qsTr("Create &Title…"); onTriggered: titleDialog.open() }

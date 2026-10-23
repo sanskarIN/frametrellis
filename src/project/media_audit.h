@@ -14,7 +14,6 @@ QJsonObject buildReport(const Project& project);
 
 /// Atomically save a UTF-8 JSON report. Never overwrite the project or any
 /// media source, including symlink and normalized-path aliases.
-Status saveReport(const Project& project, const QString& path,
-                  const QString& projectFilePath = {});
+Status saveReport(const Project& project, const QString& path, const QString& projectFilePath = {});
 
 } // namespace ft::media_audit

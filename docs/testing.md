@@ -108,8 +108,9 @@ PowerShell 7 but does not require compiled editor binaries.
 For manual diagnosis on a Windows test machine with the release files available:
 
 ```powershell
-./packaging/windows/verify.ps1 -Zip dist/FrameTrellis-1.2.1-windows-x64.zip `
-    -Installer dist/FrameTrellis-1.2.0-windows-x64-setup.exe `
+$version = "1.2.2" # replace with the actual version you are testing
+./packaging/windows/verify.ps1 -Zip "dist/FrameTrellis-$version-windows-x64.zip" `
+    -Installer "dist/FrameTrellis-$version-windows-x64-setup.exe" `
     -WorkDir "$env:TEMP/frametrellis-verify" -PortableGuiRuns 2
 ```
 

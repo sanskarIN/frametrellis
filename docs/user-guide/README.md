@@ -146,6 +146,23 @@ Space plays and pauses; Left/Right step one frame; Shift+Left/Right move one sec
 to the previous/next edit point; Home/End go to the start/end. Clicking or dragging on the ruler
 moves the playhead. If no audio device is available, the preview plays silently.
 
+## Media audit reports (planned v1.4 feature)
+
+In development builds that include the v1.4 media-audit feature, choose
+**File → Export Media Audit (JSON)…** to save a read-only report of the media
+bin. It records the current file availability, size and modification-time
+changes, clip-use counts and a versioned schema (`schemaVersion: 1`).
+
+The report never decodes, relocates, replaces or edits source files; it also
+does not change project undo/dirty state. A file with the same byte count may
+still be flagged as *changed* when its saved modification time differs. The
+report does not calculate cryptographic checksums and is not a media-authenticity
+guarantee. **Full local source-file paths are included** and may be sensitive:
+inspect or redact the JSON before sharing it publicly.
+
+This is a **proposed v1.4 feature**, not available in the current v1.2.2
+stable download.
+
 ## Exporting
 
 *File → Export…* (Ctrl+E):

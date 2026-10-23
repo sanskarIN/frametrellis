@@ -372,6 +372,15 @@ ApplicationWindow {
         }
     }
     FileDialog {
+        id: mediaAuditDialog
+        title: qsTr("Export media audit as JSON")
+        fileMode: FileDialog.SaveFile
+        defaultSuffix: "json"
+        nameFilters: [qsTr("JSON reports (*.json)")]
+        currentFolder: window.app.fileUrl(window.app.project.projectFolder())
+        onAccepted: window.app.media.exportMediaAudit(window.app.localPath(selectedFile))
+    }
+    FileDialog {
         id: importDialog
         title: qsTr("Import media")
         fileMode: FileDialog.OpenFiles

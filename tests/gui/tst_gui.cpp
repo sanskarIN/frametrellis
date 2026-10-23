@@ -217,6 +217,11 @@ private slots:
         QVERIFY(m_app->media()->importFolder(root));
         QTest::qWait(250);
         QCOMPARE(m_app->media()->model()->rowCount(), before + 1);
+        const MediaAsset* added = m_app->project()->project().assetByPath(still);
+        QVERIFY(added);
+        const Id addedId = added->id;
+        m_app->media()->remove(addedId);
+        QCOMPARE(m_app->media()->model()->rowCount(), before);
     }
 
     void audioClipsShowTheirWaveform()

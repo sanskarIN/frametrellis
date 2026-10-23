@@ -99,6 +99,21 @@ Acceptance criteria, each checked before the release:
 - ⏳ Evaluate WinGet package identifier, installer metadata and hash-verified manifests;
   do not claim a WinGet listing without confirmed upstream acceptance
 
+## v1.3.0 — safer editing and navigation 🚧 (NOT RELEASED)
+
+Work has started on reliability fixes and editing workflows. The release is **not**
+tagged or published; the items below are candidates until their PRs are merged,
+tested together, and explicitly approved for publication.
+
+- 🚧 Project/media safety and timestamp-based changed-media detection
+- 🚧 Timeline and timecode boundary validation, renderer robustness
+- 🚧 Media-bin search, precise timecode seeking, preview PNG snapshots
+- 🚧 Undoable whole-track operations and more efficient clip selection
+- 🚧 Integrated Linux/Windows, sanitizer, GUI, package and documentation verification
+
+The [v1.3.0 milestone plan](releases/v1.3.0-plan.md) records candidate PRs,
+integration order, release acceptance criteria and explicit no-release rules.
+
 ## Next milestones
 - ⏳ A Linux package (AppImage or Flatpak), published once it has been verified
 - ⏳ A macOS build in CI, then a `.dmg` package once it has been verified

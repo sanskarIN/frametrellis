@@ -1,5 +1,8 @@
 # Release notes
 
+The [v1.3.0 development plan](v1.3.0-plan.md) is a proposed milestone;
+**it is not a published release note**. The most recent stable release remains v1.2.2.
+
 Release notes for each tagged version live in this folder (`vX.Y.Z.md`) and are used as the
 GitHub release description. Unreleased changes are collected in [unreleased.md](unreleased.md).
 

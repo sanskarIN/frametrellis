@@ -134,9 +134,9 @@ QList<Id> ProjectDocument::refreshMediaStatus()
             // persisted probe timestamp at second precision: Qt::ISODate serialization
             // intentionally does not preserve sub-second file times.
             const bool sizeChanged = asset.info.fileSize > 0 && info.size() != asset.info.fileSize;
-            const bool timeChanged = asset.info.lastModified.isValid() &&
-                                     info.lastModified().toSecsSinceEpoch() !=
-                                         asset.info.lastModified.toSecsSinceEpoch();
+            const bool timeChanged =
+                asset.info.lastModified.isValid() && info.lastModified().toSecsSinceEpoch() !=
+                                                         asset.info.lastModified.toSecsSinceEpoch();
             if (sizeChanged || timeChanged) {
                 status = MediaStatus::Changed;
             }

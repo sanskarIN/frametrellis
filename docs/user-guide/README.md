@@ -85,6 +85,10 @@ the project (removing never deletes the file; media in use must be removed from 
 * **Tracks:** add tracks with *+ Video* / *+ Audio*; each track can be hidden (video), muted or
   locked. Double-click a track name to rename it; right-click it to remove the track.
 
+Use **Edit → Select Clips at Playhead** (Ctrl+Alt+S) to select clips from all tracks
+that cover the displayed frame. It works with locked tracks for inspection and keeps your
+existing selection if no clips meet the playhead. Selecting clips does not alter your project.
+
 Every change can be undone (Ctrl+Z) and redone (Ctrl+Shift+Z).
 
 Clips on audio tracks show the waveform of their sound, scaled by the clip's volume. The first

@@ -84,6 +84,21 @@ std::unique_ptr<EditCommand> setTrackLocked(const Id& trackId, bool locked)
                    });
 }
 
+std::unique_ptr<EditCommand> setAllTracksLocked(bool locked)
+{
+    return command(locked ? QStringLiteral("Lock All Tracks")
+                          : QStringLiteral("Unlock All Tracks"),
+                   [locked](Timeline& timeline, const SourceLookup&) -> Status {
+                       for (const Track& track : timeline.tracks()) {
+                           if (const Status changed = timeline.setTrackLocked(track.id, locked);
+                               !changed) {
+                               return changed;
+                           }
+                       }
+                       return {};
+                   });
+}
+
 std::unique_ptr<EditCommand> addClip(const Id& trackId, const Clip& clip)
 {
     return command(QStringLiteral("Add Clip"),

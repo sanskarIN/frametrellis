@@ -151,7 +151,8 @@ moves the playhead. If no audio device is available, the preview plays silently.
 In development builds that include the v1.4 media-audit feature, choose
 **File → Export Media Audit (JSON)…** to save a read-only report of the media
 bin. It records the current file availability, size and modification-time
-changes, clip-use counts and a versioned schema (`schemaVersion: 1`).
+changes, clip-use counts and a [versioned schema](../architecture/media-audit-json.md)
+(`schemaVersion: 1`).
 
 The report never decodes, relocates, replaces or edits source files; it also
 does not change project undo/dirty state. A file with the same byte count may

@@ -167,6 +167,9 @@ ApplicationWindow {
             Action { text: qsTr("Select &All Clips"); shortcut: StandardKey.SelectAll; enabled: window.editKeys; onTriggered: window.app.timeline.selectAll() }
             Action { text: qsTr("Clear Selection"); onTriggered: window.app.timeline.clearSelection() }
             MenuSeparator {}
+            Action { text: qsTr("Lock All Tracks"); enabled: window.editKeys; onTriggered: window.app.timeline.setAllTracksLocked(true) }
+            Action { text: qsTr("Unlock All Tracks"); enabled: window.editKeys; onTriggered: window.app.timeline.setAllTracksLocked(false) }
+            MenuSeparator {}
             Action { text: qsTr("Check for Missing Media"); onTriggered: window.app.media.rescan() }
         }
         Menu {

@@ -134,6 +134,11 @@ ApplicationWindow {
             Action { text: qsTr("Save &As…"); shortcut: "Ctrl+Shift+S"; onTriggered: { saveDialog.runAfterSave = false; saveDialog.open() } }
             MenuSeparator {}
             Action { text: qsTr("&Import Media…"); shortcut: "Ctrl+I"; onTriggered: importDialog.open() }
+            Action {
+                text: qsTr("Import Media &Folder…")
+                enabled: !window.app.media.importing
+                onTriggered: importFolderDialog.open()
+            }
             Action { text: qsTr("Create &Title…"); onTriggered: titleDialog.open() }
             Action { text: qsTr("&Export…"); shortcut: "Ctrl+E"; enabled: !window.app.timeline.empty || window.app.exporter.busy; onTriggered: exportDialog.open() }
             MenuSeparator {}

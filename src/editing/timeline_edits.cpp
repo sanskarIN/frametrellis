@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Sanskar and FrameTrellis contributors
 #include "editing/timeline_edits.h"
 
+#include <QHash>
 #include <QSet>
 
 #include <algorithm>

@@ -4,6 +4,7 @@
 
 #include <QFileInfo>
 #include <QLocale>
+#include <QtGlobal>
 
 namespace ft::ui {
 
@@ -170,8 +171,15 @@ void MediaBinFilterModel::setSearchText(const QString& text)
     if (m_searchText == normalized) {
         return;
     }
+#if QT_VERSION >= QT_VERSION_CHECK(6, 10, 0)
+    beginFilterChange();
+#endif
     m_searchText = normalized;
+#if QT_VERSION >= QT_VERSION_CHECK(6, 10, 0)
+    endFilterChange(QSortFilterProxyModel::Direction::Rows);
+#else
     invalidateFilter();
+#endif
     emit searchTextChanged();
 }
 
@@ -191,8 +199,15 @@ void MediaBinFilterModel::setCategory(const QString& category)
     if (m_category == next) {
         return;
     }
+#if QT_VERSION >= QT_VERSION_CHECK(6, 10, 0)
+    beginFilterChange();
+#endif
     m_category = next;
+#if QT_VERSION >= QT_VERSION_CHECK(6, 10, 0)
+    endFilterChange(QSortFilterProxyModel::Direction::Rows);
+#else
     invalidateFilter();
+#endif
     emit categoryChanged();
 }
 

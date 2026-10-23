@@ -103,6 +103,11 @@ bool MediaController::importFolder(const QString& urlOrPath)
         paths.append(path);
     }
     importFiles(paths); // Reuses duplicate detection and background media probing.
+    if (scan->truncated) {
+        emit statusMessage(
+            QStringLiteral("Folder scan limit reached: only %1 candidates were processed.")
+                .arg(scan->files.size()));
+    }
     return true;
 }
 

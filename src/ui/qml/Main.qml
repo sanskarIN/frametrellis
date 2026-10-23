@@ -195,6 +195,7 @@ ApplicationWindow {
             Action { text: qsTr("Go to End"); shortcut: "End"; enabled: window.editKeys; onTriggered: window.app.playback.goToEnd() }
             MenuSeparator {}
             Action { text: qsTr("Mute Preview"); checkable: true; checked: window.app.playback.muted; enabled: window.app.playback.audioAvailable; onTriggered: window.app.playback.muted = checked }
+            Action { text: qsTr("Toggle Preview Mute"); shortcut: "M"; enabled: window.editKeys && window.app.playback.audioAvailable; onTriggered: window.app.playback.muted = !window.app.playback.muted }
         }
         Menu {
             title: qsTr("&Help")

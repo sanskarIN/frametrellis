@@ -372,6 +372,15 @@ ApplicationWindow {
         }
     }
     FileDialog {
+        id: clipListDialog
+        title: qsTr("Export timeline clip list")
+        fileMode: FileDialog.SaveFile
+        defaultSuffix: "csv"
+        nameFilters: [qsTr("CSV clip lists (*.csv)")]
+        currentFolder: window.app.fileUrl(window.app.project.projectFolder())
+        onAccepted: window.app.project.exportClipListCsv(window.app.localPath(selectedFile))
+    }
+    FileDialog {
         id: importDialog
         title: qsTr("Import media")
         fileMode: FileDialog.OpenFiles

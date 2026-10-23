@@ -610,8 +610,8 @@ bool TimelineController::selectAllMediaOccurrences()
     m_model.updateSelection(m_selection);
     emit selectionChanged();
     emit selectedClipChanged();
-    emit statusMessage(QStringLiteral("Selected %1 occurrence(s) of this media.")
-                           .arg(m_selection.size()));
+    emit statusMessage(
+        QStringLiteral("Selected %1 occurrence(s) of this media.").arg(m_selection.size()));
     return true;
 }
 

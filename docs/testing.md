@@ -74,7 +74,7 @@ confirm that unrelated clip attributes are preserved and that a failed edit make
 no partial changes. A real QML GUI test drives Ctrl+D and the clip attribute
 clipboard shortcuts and inspects the resulting timeline and undo state.
 
-## Windows portable GUI stability checks (v1.2.1 work in progress)
+## Windows portable GUI stability checks (v1.2.1 and later)
 
 The Windows package workflow builds a portable ZIP and an installer, then opens the editor
 with a generated test project and captures a screenshot on clean Windows 2022, 2025 and

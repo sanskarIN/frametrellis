@@ -17,7 +17,7 @@ ApplicationWindow {
     // Single-key editing shortcuts are disabled while a dialog is open, so that keys such as
     // Space, Delete or the arrows act on the dialog instead of the timeline.
     readonly property bool dialogOpen: newDialog.visible || titleDialog.visible || exportDialog.visible || aboutDialog.visible
-                                       || shortcutsDialog.visible || welcome.visible || messageBox.visible
+                                       || shortcutsDialog.visible || renameProjectDialog.visible || welcome.visible || messageBox.visible
                                        || unsavedDialog.visible || exportRunningDialog.visible || recoveryDialog.visible
     readonly property bool editKeys: !dialogOpen
 
@@ -50,6 +50,8 @@ ApplicationWindow {
     palette.link: Theme.accent
 
     Binding { target: Theme; property: "mode"; value: window.app.theme }
+
+    function showRenameProject() { renameProjectDialog.open() }
 
     // ---------- Unsaved-changes guard ----------
     function guarded(action, verb) {
@@ -132,6 +134,7 @@ ApplicationWindow {
             MenuSeparator {}
             Action { text: qsTr("&Save"); shortcut: StandardKey.Save; onTriggered: window.save(false) }
             Action { text: qsTr("Save &As…"); shortcut: "Ctrl+Shift+S"; onTriggered: { saveDialog.runAfterSave = false; saveDialog.open() } }
+            Action { text: qsTr("Rename &Project…"); onTriggered: window.showRenameProject() }
             MenuSeparator {}
             Action { text: qsTr("&Import Media…"); shortcut: "Ctrl+I"; onTriggered: importDialog.open() }
             Action { text: qsTr("Create &Title…"); onTriggered: titleDialog.open() }
@@ -382,6 +385,7 @@ ApplicationWindow {
     }
 
     NewProjectDialog { id: newDialog; app: window.app }
+    RenameProjectDialog { id: renameProjectDialog; objectName: "renameProjectDialog"; app: window.app }
     TitleDialog { id: titleDialog; objectName: "titleDialog"; app: window.app }
     ExportDialog { id: exportDialog; objectName: "exportDialog"; app: window.app }
     AboutDialog { id: aboutDialog; objectName: "aboutDialog"; app: window.app }

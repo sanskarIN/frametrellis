@@ -30,6 +30,7 @@ qt_add_qml_module(ft_ui
         qml/dialogs/FtDialog.qml
         qml/dialogs/MessageBox.qml
         qml/dialogs/NewProjectDialog.qml
+        qml/dialogs/RenameProjectDialog.qml
         qml/dialogs/ShortcutsDialog.qml
         qml/dialogs/TitleDialog.qml
         qml/dialogs/WelcomeOverlay.qml

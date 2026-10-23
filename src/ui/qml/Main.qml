@@ -135,6 +135,7 @@ ApplicationWindow {
             MenuSeparator {}
             Action { text: qsTr("&Import Media…"); shortcut: "Ctrl+I"; onTriggered: importDialog.open() }
             Action { text: qsTr("Create &Title…"); onTriggered: titleDialog.open() }
+            Action { text: qsTr("Save Preview &Frame as PNG…"); enabled: window.app.playback.hasFrame; onTriggered: previewFrameDialog.open() }
             Action { text: qsTr("&Export…"); shortcut: "Ctrl+E"; enabled: !window.app.timeline.empty || window.app.exporter.busy; onTriggered: exportDialog.open() }
             MenuSeparator {}
             Action { text: qsTr("&Quit"); shortcut: StandardKey.Quit; onTriggered: window.close() }
@@ -364,6 +365,18 @@ ApplicationWindow {
         onAccepted: {
             if (window.app.project.saveAs(window.app.localPath(selectedFile)) && runAfterSave)
                 window.runPending()
+        }
+    }
+    FileDialog {
+        id: previewFrameDialog
+        title: qsTr("Save current preview frame as PNG")
+        fileMode: FileDialog.SaveFile
+        defaultSuffix: "png"
+        nameFilters: [qsTr("PNG images (*.png)")]
+        currentFolder: window.app.fileUrl(window.app.project.projectFolder())
+        onAccepted: {
+            if (window.app.playback.savePreviewFrame(window.app.localPath(selectedFile)))
+                window.app.showStatus(qsTr("Saved current preview frame as PNG."))
         }
     }
     FileDialog {

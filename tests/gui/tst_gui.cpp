@@ -200,6 +200,29 @@ private slots:
         screenshot(QStringLiteral("03-timeline"));
     }
 
+    void previewFrameSnapshotIsSafe()
+    {
+        QTRY_VERIFY(m_app->playback()->hasFrame());
+        const QString output = m_dir.filePath(QStringLiteral("preview-snapshot.png"));
+        QVERIFY(m_app->playback()->savePreviewFrame(output));
+        const QImage snapshot(output);
+        QVERIFY(!snapshot.isNull());
+        QVERIFY(snapshot.width() > 0);
+        QVERIFY(snapshot.height() > 0);
+
+        // The imported still image must never be replaced by an exported preview.
+        const QString still = m_media.constLast();
+        QFile source(still);
+        QVERIFY(source.open(QIODevice::ReadOnly));
+        const QByteArray original = source.readAll();
+        source.close();
+        QVERIFY(!m_app->playback()->savePreviewFrame(still));
+        QVERIFY(source.open(QIODevice::ReadOnly));
+        QCOMPARE(source.readAll(), original);
+        QVERIFY(
+            !m_app->playback()->savePreviewFrame(m_dir.filePath(QStringLiteral("not-a-png.jpg"))));
+    }
+
     void audioClipsShowTheirWaveform()
     {
         const auto& tracks = m_app->project()->project().timeline().tracks();

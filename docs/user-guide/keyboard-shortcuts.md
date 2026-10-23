@@ -1,5 +1,9 @@
 # Keyboard shortcuts
 
+These are the default shortcuts in the currently documented **v1.2.2** editor.
+Some edit keys are disabled while a dialog is open or a text field has focus.
+Features proposed in open PRs are not listed until they reach a published release.
+
 | Shortcut | Action |
 |---|---|
 | Space | Play / pause |
@@ -30,4 +34,6 @@
 | Ctrl+E | Export |
 | F1 | Show keyboard shortcuts |
 
-Single-key shortcuts are disabled while a dialog is open. On macOS, Ctrl is Cmd.
+Single-key editing shortcuts are disabled while a dialog is open. Windows and Linux
+are the documented targets; macOS has no officially supported package, so do not
+assume its modifier equivalents have been verified.

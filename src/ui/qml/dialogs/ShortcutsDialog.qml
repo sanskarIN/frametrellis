@@ -18,6 +18,7 @@ FtDialog {
         ["Home / End", qsTr("Go to start / end")],
         ["S", qsTr("Split at playhead")],
         ["Ctrl+D", qsTr("Duplicate selected clips (preserve spacing)")],
+        ["Ctrl+Shift+B", qsTr("Copy selected clip media name")],
         ["Ctrl+Alt+C", qsTr("Copy volume, fades and picture attributes")],
         ["Ctrl+Alt+V", qsTr("Paste attributes to selected clips")],
         ["Ctrl+Alt+M", qsTr("Mute selected clips")],

@@ -10,6 +10,7 @@
 #include "ui/app_controller.h"
 #include "ui/title_image.h"
 
+#include <QClipboard>
 #include <QDir>
 #include <QGuiApplication>
 #include <QQmlApplicationEngine>
@@ -466,6 +467,15 @@ private slots:
         QCOMPARE(m_app->project()->project().timeline(), saved);
         QTest::qWait(300);
         QCOMPARE(m_app->media()->model()->rowCount(), static_cast<int>(m_media.size()));
+    }
+
+    void copySavedProjectFilePath()
+    {
+        QVERIFY(m_app->project()->hasFilePath());
+        const QString expected = m_app->project()->filePath();
+        QGuiApplication::clipboard()->clear();
+        QTest::keyClick(m_window, Qt::Key_P, Qt::ControlModifier | Qt::ShiftModifier);
+        QCOMPARE(QGuiApplication::clipboard()->text(), expected);
     }
 
     void duplicateClipUsingKeyboard()

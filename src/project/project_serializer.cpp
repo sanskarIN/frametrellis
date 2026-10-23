@@ -522,6 +522,16 @@ Result<Project> fromBytes(const QByteArray& data, const QString& projectDir)
 Status saveToFile(const Project& project, const QString& filePath)
 {
     const QFileInfo info(filePath);
+    // Never overwrite a media source with a project document, even when the chosen
+    // target reaches it through a symbolic link or a different spelling of its path.
+    const QString targetKey = canonicalMediaKey(info.absoluteFilePath());
+    for (const MediaAsset& asset : project.media()) {
+        if (canonicalMediaKey(asset.filePath) == targetKey) {
+            return makeError(ErrorCode::Conflict,
+                             QStringLiteral("The project file would overwrite source media."),
+                             asset.filePath);
+        }
+    }
     const QString directory = info.absolutePath();
     QSaveFile file(info.absoluteFilePath());
     if (!file.open(QIODevice::WriteOnly)) {

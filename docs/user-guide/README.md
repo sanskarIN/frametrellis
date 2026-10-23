@@ -40,6 +40,8 @@ themes and between compact, normal and tall tracks.
   can only be changed while the timeline is empty; the export resolution can be chosen later.
 * **Save** (Ctrl+S) writes a `.ftproj` file. Saving is atomic: if it fails (for example, the disk
   is full), the previous file is kept.
+* **Rename project** (*File → Rename Project…*) changes its project name without renaming the
+  `.ftproj` file on disk. This action is undoable with Ctrl+Z and becomes part of the next save.
 * **Open** (Ctrl+O) and *File → Open Recent* reopen projects. FrameTrellis asks before discarding
   unsaved changes.
 

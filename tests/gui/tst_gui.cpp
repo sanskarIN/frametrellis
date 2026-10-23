@@ -212,6 +212,7 @@ private slots:
             }
         }
         QVERIFY(!expected.isEmpty());
+        const Timeline unchanged = m_app->project()->project().timeline();
         m_app->timeline()->clearSelection();
         QTest::keyClick(m_window, Qt::Key_S, Qt::ControlModifier | Qt::AltModifier);
         const QStringList selected = m_app->timeline()->selection();
@@ -219,14 +220,8 @@ private slots:
         for (const QString& id : expected) {
             QVERIFY(selected.contains(id));
         }
-        // Navigation and selection must not change project data.
-        QCOMPARE(m_app->project()->project().timeline().clipCount(),
-                 static_cast<int>(m_app->project()->project().timeline().clipsUsingAsset(
-                     m_app->project()->project().media().front().id).size()) +
-                     static_cast<int>(m_app->project()->project().timeline().clipsUsingAsset(
-                         m_app->project()->project().media()[1].id).size()) +
-                     static_cast<int>(m_app->project()->project().timeline().clipsUsingAsset(
-                         m_app->project()->project().media()[2].id).size()));
+        // Selecting clips must not change project data.
+        QCOMPARE(m_app->project()->project().timeline(), unchanged);
         m_app->timeline()->clearSelection();
     }
 

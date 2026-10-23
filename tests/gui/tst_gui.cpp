@@ -205,11 +205,10 @@ private slots:
         const Timeline before = m_app->project()->project().timeline();
         const Track& video = before.tracks().front();
         QVERIFY(!video.clips.empty());
-        const auto audio = std::find_if(before.tracks().begin(), before.tracks().end(),
-                                        [](const Track& track) {
-                                            return track.kind == TrackKind::Audio &&
-                                                   !track.clips.empty();
-                                        });
+        const auto audio =
+            std::find_if(before.tracks().begin(), before.tracks().end(), [](const Track& track) {
+                return track.kind == TrackKind::Audio && !track.clips.empty();
+            });
         QVERIFY(audio != before.tracks().end());
 
         QVERIFY(!m_app->timeline()->selectTrackClips(QStringLiteral("missing-track")));

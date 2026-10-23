@@ -182,6 +182,27 @@ void MediaController::remove(const QString& assetId)
     }
 }
 
+bool MediaController::removeUnused()
+{
+    int unused = 0;
+    for (const MediaAsset& asset : m_project->project().media()) {
+        if (!m_project->project().timeline().usesAsset(asset.id)) {
+            ++unused;
+        }
+    }
+    if (unused == 0) {
+        emit statusMessage(QStringLiteral("All imported media is used on the timeline."));
+        return false;
+    }
+    if (!m_project->execute(std::make_unique<RemoveUnusedMediaCommand>())) {
+        return false;
+    }
+    emit statusMessage(
+        QStringLiteral("Removed %1 unused media reference(s). Original files were not deleted.")
+            .arg(unused));
+    return true;
+}
+
 bool MediaController::relink(const QString& assetId, const QString& urlOrPath)
 {
     const MediaAsset* current = m_project->project().asset(assetId);

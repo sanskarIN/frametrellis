@@ -140,7 +140,8 @@ bool Timeline::isRangeFree(const Id& trackId, FrameCount start, FrameCount durat
                            const Id& ignoreClipId) const
 {
     const Track* t = track(trackId);
-    if (!t || duration <= 0) {
+    if (!t || start < 0 || duration <= 0 || start > kMaxTimelineFrames ||
+        duration > kMaxTimelineFrames - start) {
         return false;
     }
     const FrameCount end = start + duration;

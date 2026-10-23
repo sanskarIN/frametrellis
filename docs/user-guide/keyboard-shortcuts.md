@@ -1,5 +1,9 @@
 # Keyboard shortcuts
 
+These are the default shortcuts in the currently documented **v1.2.2** editor.
+Some edit keys are disabled while a dialog is open or a text field has focus.
+Features proposed in open PRs are not listed until they reach a published release.
+
 | Shortcut | Action |
 |---|---|
 | Space | Play / pause |

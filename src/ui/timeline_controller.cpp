@@ -608,8 +608,8 @@ bool TimelineController::selectClipsAtPlayhead()
     m_model.updateSelection(m_selection);
     emit selectionChanged();
     emit selectedClipChanged();
-    emit statusMessage(QStringLiteral("Selected %1 clip(s) at the playhead.")
-                           .arg(m_selection.size()));
+    emit statusMessage(
+        QStringLiteral("Selected %1 clip(s) at the playhead.").arg(m_selection.size()));
     return true;
 }
 

@@ -5,6 +5,8 @@
 #include <QHash>
 #include <QTest>
 
+#include <limits>
+
 using namespace ft;
 
 namespace {
@@ -82,6 +84,21 @@ class TimelineTest : public QObject
     Q_OBJECT
 
 private slots:
+    void clipEndpointsRejectOverflowBeforeCalculatingEnd()
+    {
+        Timeline t = makeTimeline();
+        Clip c = makeClip(QStringLiteral("extreme-clip"), kStillAsset,
+                          std::numeric_limits<FrameCount>::max(), 0, 10);
+        QVERIFY(!t.insertClip(QStringLiteral("v1"), c, testSources()));
+        c.start = 0;
+        c.sourceIn = std::numeric_limits<FrameCount>::max();
+        QVERIFY(!t.insertClip(QStringLiteral("v1"), c, testSources()));
+        c.sourceIn = 0;
+        c.duration = kMaxTimelineFrames + 1;
+        QVERIFY(!t.insertClip(QStringLiteral("v1"), c, testSources()));
+        QCOMPARE(t.clipCount(), 0);
+    }
+
     void insertKeepsClipsSorted()
     {
         Timeline t = makeTimeline();

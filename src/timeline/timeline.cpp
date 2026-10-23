@@ -354,7 +354,8 @@ Status Timeline::checkClipShape(const Clip& c)
             ErrorCode::OutOfRange,
             QStringLiteral("Clips cannot start before the beginning of the timeline."));
     }
-    if (c.end() > kMaxTimelineFrames || c.sourceOut() > kMaxTimelineFrames) {
+    if (c.start > kMaxTimelineFrames || c.duration > kMaxTimelineFrames - c.start ||
+        c.sourceIn > kMaxTimelineFrames || c.duration > kMaxTimelineFrames - c.sourceIn) {
         return makeError(ErrorCode::OutOfRange,
                          QStringLiteral("The clip exceeds the maximum timeline length."));
     }

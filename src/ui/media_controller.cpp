@@ -224,6 +224,20 @@ void MediaController::revealInFolder(const QString& assetId) const
     }
 }
 
+bool MediaController::exportMediaAudit(const QString& urlOrPath)
+{
+    const QString path = ProjectController::localPath(urlOrPath);
+    const Status saved =
+        media_audit::saveReport(m_project->project(), path, m_project->filePath());
+    if (!saved) {
+        emit importProblems(QStringLiteral("Could not export the media audit"),
+                            saved.error().message);
+        return false;
+    }
+    emit statusMessage(QStringLiteral("Saved read-only media audit JSON report."));
+    return true;
+}
+
 void MediaController::rescan()
 {
     const QList<Id> missing = m_project->document()->refreshMediaStatus();

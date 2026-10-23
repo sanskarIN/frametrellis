@@ -204,15 +204,15 @@ private slots:
     {
         const QString root = m_dir.filePath(QStringLiteral("import-folder"));
         QVERIFY(QDir().mkpath(root + QStringLiteral("/nested")));
-        const QString still = makeStill(root + QStringLiteral("/nested"),
-                                        QStringLiteral("extra-still.png"),
-                                        QColor(QStringLiteral("#446688")), QSize(32, 18));
+        const QString still =
+            makeStill(root + QStringLiteral("/nested"), QStringLiteral("extra-still.png"),
+                      QColor(QStringLiteral("#446688")), QSize(32, 18));
         QVERIFY(!still.isEmpty());
 
         const int before = m_app->media()->model()->rowCount();
         QVERIFY(m_app->media()->importFolder(root));
-        QVERIFY(QTest::qWaitFor(
-            [&] { return m_app->media()->model()->rowCount() == before + 1; }, 15000));
+        QVERIFY(QTest::qWaitFor([&] { return m_app->media()->model()->rowCount() == before + 1; },
+                                15000));
         QVERIFY(m_app->project()->project().assetByPath(still));
         QVERIFY(m_app->media()->importFolder(root));
         QTest::qWait(250);

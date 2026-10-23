@@ -193,6 +193,15 @@ ApplicationWindow {
             Action { text: qsTr("Next Edit Point"); shortcut: "Down"; enabled: window.editKeys; onTriggered: window.app.timeline.nextEditPoint() }
             Action { text: qsTr("Go to Start"); shortcut: "Home"; enabled: window.editKeys; onTriggered: window.app.playback.goToStart() }
             Action { text: qsTr("Go to End"); shortcut: "End"; enabled: window.editKeys; onTriggered: window.app.playback.goToEnd() }
+            Action {
+                text: qsTr("Copy Sequence Duration")
+                shortcut: "Ctrl+Shift+Y"
+                enabled: window.editKeys && !window.app.timeline.empty
+                onTriggered: {
+                    window.app.copyText(window.app.playback.durationTimecode)
+                    window.app.showStatus(qsTr("Copied sequence duration."))
+                }
+            }
             MenuSeparator {}
             Action { text: qsTr("Mute Preview"); checkable: true; checked: window.app.playback.muted; enabled: window.app.playback.audioAvailable; onTriggered: window.app.playback.muted = checked }
         }

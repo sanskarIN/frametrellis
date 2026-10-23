@@ -371,6 +371,12 @@ ApplicationWindow {
                 window.runPending()
         }
     }
+    FolderDialog {
+        id: importFolderDialog
+        title: qsTr("Import media from folder (including subfolders)")
+        currentFolder: window.app.fileUrl(window.app.project.projectFolder())
+        onAccepted: window.app.media.importFolder(window.app.localPath(selectedFolder))
+    }
     FileDialog {
         id: importDialog
         title: qsTr("Import media")

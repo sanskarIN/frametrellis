@@ -32,8 +32,7 @@ QJsonObject buildReport(const Project& project)
             exists && asset.info.fileSize > 0 && file.size() != asset.info.fileSize;
         const bool timeChanged =
             exists && asset.info.lastModified.isValid() &&
-            file.lastModified().toSecsSinceEpoch() !=
-                asset.info.lastModified.toSecsSinceEpoch();
+            file.lastModified().toSecsSinceEpoch() != asset.info.lastModified.toSecsSinceEpoch();
         const bool changed = sizeChanged || timeChanged;
         const QString status = !exists   ? QStringLiteral("missing")
                                : changed ? QStringLiteral("changed")

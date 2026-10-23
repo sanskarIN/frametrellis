@@ -74,9 +74,8 @@ private slots:
             QVERIFY(output.open(QIODevice::WriteOnly));
             QCOMPARE(output.write("unchanged", 9), qint64{9});
         }
-        std::vector<MediaAsset> extra{
-            videoAsset(QStringLiteral("unused-a"), pathA),
-            videoAsset(QStringLiteral("unused-b"), pathB)};
+        std::vector<MediaAsset> extra{videoAsset(QStringLiteral("unused-a"), pathA),
+                                      videoAsset(QStringLiteral("unused-b"), pathB)};
         QVERIFY(f.doc.execute(std::make_unique<AddMediaCommand>(extra)));
         const Project before = f.doc.project();
 

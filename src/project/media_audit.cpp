@@ -31,12 +31,11 @@ QJsonObject buildReport(const Project& project)
         const bool changed =
             exists &&
             ((asset.info.fileSize > 0 && file.size() != asset.info.fileSize) ||
-             (asset.info.lastModified.isValid() &&
-              file.lastModified().toSecsSinceEpoch() !=
-                  asset.info.lastModified.toSecsSinceEpoch()));
-        const QString status =
-            !exists ? QStringLiteral("missing")
-                    : changed ? QStringLiteral("changed") : QStringLiteral("online");
+             (asset.info.lastModified.isValid() && file.lastModified().toSecsSinceEpoch() !=
+                                                       asset.info.lastModified.toSecsSinceEpoch()));
+        const QString status = !exists   ? QStringLiteral("missing")
+                               : changed ? QStringLiteral("changed")
+                                         : QStringLiteral("online");
         if (!exists) {
             ++missingCount;
         } else if (changed) {
@@ -84,8 +83,7 @@ QJsonObject buildReport(const Project& project)
     return report;
 }
 
-Status saveReport(const Project& project, const QString& path,
-                  const QString& projectFilePath)
+Status saveReport(const Project& project, const QString& path, const QString& projectFilePath)
 {
     if (path.trimmed().isEmpty() ||
         QFileInfo(path).suffix().compare(QLatin1String("json"), Qt::CaseInsensitive) != 0) {
@@ -94,8 +92,7 @@ Status saveReport(const Project& project, const QString& path,
     }
 
     const QString destination = canonicalMediaKey(path);
-    if ((!projectFilePath.isEmpty() &&
-         destination == canonicalMediaKey(projectFilePath)) ||
+    if ((!projectFilePath.isEmpty() && destination == canonicalMediaKey(projectFilePath)) ||
         project.assetByPath(path)) {
         return makeError(
             ErrorCode::Conflict,

@@ -9,6 +9,7 @@ uploaded. This guide covers everything the current version can do.
 - [Importing media](#importing-media)
 - [Editing on the timeline](#editing-on-the-timeline)
 - [Batch editing and clip attributes](batch-editing.md)
+- [Step-by-step editing recipes](editing-recipes.md)
 - [Title overlays](#title-overlays)
 - [Transitions](#transitions)
 - [Adjusting clips](#adjusting-clips)

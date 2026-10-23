@@ -62,6 +62,12 @@ for the full list.
 Right-click a tile to add it to the timeline, show it in its folder, relink it or remove it from
 the project (removing never deletes the file; media in use must be removed from the timeline first).
 
+For a cleaner media bin, **File → Remove Unused Media from Project** removes
+imported media references that are not used by any timeline clip. Original
+files remain unchanged on disk, and **Ctrl+Z** restores the removed references
+in their original order. Media in use is always preserved. This is a
+**proposed v1.4 feature**, not included in the v1.2.2 stable download.
+
 ## Editing on the timeline
 
 * **Add clips:** drag a tile onto a track (a ghost shows where it lands and turns red where it

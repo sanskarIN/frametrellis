@@ -380,8 +380,7 @@ private slots:
         const Status invalid = project.replaceAsset(replacement);
         QVERIFY(!invalid);
         QCOMPARE(invalid.error().code, ErrorCode::InvalidArgument);
-        QCOMPARE(project.asset(QStringLiteral("m3"))->filePath,
-                 QStringLiteral("/media/logo.png"));
+        QCOMPARE(project.asset(QStringLiteral("m3"))->filePath, QStringLiteral("/media/logo.png"));
         QVERIFY(project.validate());
     }
 

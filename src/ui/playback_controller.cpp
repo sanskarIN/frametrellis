@@ -158,8 +158,8 @@ bool PlaybackController::savePreviewFrame(const QString& targetPath)
     }
     QSaveFile file(output.absoluteFilePath());
     if (!file.open(QIODevice::WriteOnly)) {
-        emit errorOccurred(QStringLiteral("Could not open the snapshot destination: %1")
-                               .arg(file.errorString()));
+        emit errorOccurred(
+            QStringLiteral("Could not open the snapshot destination: %1").arg(file.errorString()));
         return false;
     }
     if (!m_frame.save(&file, "PNG") || !file.commit()) {

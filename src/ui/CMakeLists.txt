@@ -33,6 +33,7 @@ qt_add_qml_module(ft_ui
         qml/dialogs/ShortcutsDialog.qml
         qml/dialogs/TitleDialog.qml
         qml/dialogs/WelcomeOverlay.qml
+        qml/dialogs/WhatsNewDialog.qml
         qml/panels/ClipItem.qml
         qml/panels/InspectorPanel.qml
         qml/panels/MediaBinPanel.qml

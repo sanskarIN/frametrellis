@@ -55,38 +55,37 @@ std::unique_ptr<EditCommand> moveTrack(const Id& trackId, int newIndex)
 }
 
 std::unique_ptr<EditCommand> duplicateTrack(const Id& sourceTrackId, const QString& newName,
-                                             const Id& newTrackId)
+                                            const Id& newTrackId)
 {
     const Id targetId = newTrackId.isEmpty() ? createId() : newTrackId;
-    return command(QStringLiteral("Duplicate Track"),
-                   [sourceTrackId, newName, targetId](Timeline& t,
-                                                       const SourceLookup& sources) -> Status {
-                       const Track* source = t.track(sourceTrackId);
-                       if (!source) {
-                           return makeError(ErrorCode::NotFound,
-                                            QStringLiteral("The source track was not found."));
-                       }
-                       const int insertionIndex = t.trackIndex(sourceTrackId) + 1;
-                       Track copy = *source;
-                       copy.id = targetId;
-                       copy.name = newName;
-                       QHash<Id, Id> ids;
-                       for (Clip& clip : copy.clips) {
-                           const Id newId = createId();
-                           ids.insert(clip.id, newId);
-                           clip.id = newId;
-                       }
-                       for (Transition& transition : copy.transitions) {
-                           transition.id = createId();
-                           transition.fromClip = ids.value(transition.fromClip);
-                           transition.toClip = ids.value(transition.toClip);
-                       }
-                       if (const Status inserted = t.insertTrack(std::move(copy), insertionIndex);
-                           !inserted) {
-                           return inserted;
-                       }
-                       return t.validate(sources);
-                   });
+    return command(
+        QStringLiteral("Duplicate Track"),
+        [sourceTrackId, newName, targetId](Timeline& t, const SourceLookup& sources) -> Status {
+            const Track* source = t.track(sourceTrackId);
+            if (!source) {
+                return makeError(ErrorCode::NotFound,
+                                 QStringLiteral("The source track was not found."));
+            }
+            const int insertionIndex = t.trackIndex(sourceTrackId) + 1;
+            Track copy = *source;
+            copy.id = targetId;
+            copy.name = newName;
+            QHash<Id, Id> ids;
+            for (Clip& clip : copy.clips) {
+                const Id newId = createId();
+                ids.insert(clip.id, newId);
+                clip.id = newId;
+            }
+            for (Transition& transition : copy.transitions) {
+                transition.id = createId();
+                transition.fromClip = ids.value(transition.fromClip);
+                transition.toClip = ids.value(transition.toClip);
+            }
+            if (const Status inserted = t.insertTrack(std::move(copy), insertionIndex); !inserted) {
+                return inserted;
+            }
+            return t.validate(sources);
+        });
 }
 
 std::unique_ptr<EditCommand> renameTrack(const Id& trackId, const QString& name)

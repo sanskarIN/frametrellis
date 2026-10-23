@@ -12,8 +12,8 @@
 
 #include <QDir>
 #include <QFile>
-#include <QJsonDocument>
 #include <QJsonArray>
+#include <QJsonDocument>
 #include <QJsonObject>
 #include <QGuiApplication>
 #include <QQmlApplicationEngine>

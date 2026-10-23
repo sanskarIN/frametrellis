@@ -16,7 +16,7 @@ std::unique_ptr<EditCommand> moveTrack(const Id& trackId, int newIndex);
 /// Duplicate a whole track with independent clip/transition ids. One undoable edit,
 /// preserving placements, adjustments, transitions, visibility, mute and lock state.
 std::unique_ptr<EditCommand> duplicateTrack(const Id& sourceTrackId, const QString& newName,
-                                             const Id& newTrackId = {});
+                                            const Id& newTrackId = {});
 std::unique_ptr<EditCommand> renameTrack(const Id& trackId, const QString& name);
 std::unique_ptr<EditCommand> setTrackMuted(const Id& trackId, bool muted);
 std::unique_ptr<EditCommand> setTrackHidden(const Id& trackId, bool hidden);

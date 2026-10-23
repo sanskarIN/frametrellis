@@ -10,6 +10,7 @@
 #include "ui/app_controller.h"
 #include "ui/title_image.h"
 
+#include <QClipboard>
 #include <QDir>
 #include <QGuiApplication>
 #include <QQmlApplicationEngine>
@@ -198,6 +199,19 @@ private slots:
         m_app->playback()->seek(40);
         QTest::qWait(500);
         screenshot(QStringLiteral("03-timeline"));
+    }
+
+    void copySelectedMediaNameToClipboard()
+    {
+        const Id clipId = track(0).clips.front().id;
+        m_app->timeline()->select(clipId, false);
+        const QString expected =
+            m_app->timeline()->selectedClip().value(QStringLiteral("name")).toString();
+        QVERIFY(!expected.isEmpty());
+        QGuiApplication::clipboard()->clear();
+        QTest::keyClick(m_window, Qt::Key_B, Qt::ControlModifier | Qt::ShiftModifier);
+        QCOMPARE(QGuiApplication::clipboard()->text(), expected);
+        m_app->timeline()->clearSelection();
     }
 
     void audioClipsShowTheirWaveform()

@@ -166,6 +166,15 @@ ApplicationWindow {
             MenuSeparator {}
             Action { text: qsTr("Select &All Clips"); shortcut: StandardKey.SelectAll; enabled: window.editKeys; onTriggered: window.app.timeline.selectAll() }
             Action { text: qsTr("Clear Selection"); onTriggered: window.app.timeline.clearSelection() }
+            Action {
+                text: qsTr("Copy Selected Source Path")
+                shortcut: "Ctrl+Alt+Shift+F"
+                enabled: window.editKeys && window.app.timeline.selectedClip.count === 1
+                onTriggered: {
+                    window.app.copyText(window.app.timeline.selectedClip.filePath)
+                    window.app.showStatus(qsTr("Copied source media path."))
+                }
+            }
             MenuSeparator {}
             Action { text: qsTr("Check for Missing Media"); onTriggered: window.app.media.rescan() }
         }

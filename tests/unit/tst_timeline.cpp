@@ -82,6 +82,20 @@ class TimelineTest : public QObject
     Q_OBJECT
 
 private slots:
+    void insertingTrackCannotReuseExistingClipId()
+    {
+        Timeline t = timelineWithCut();
+        Track duplicate;
+        duplicate.id = QStringLiteral("a");
+        duplicate.name = QStringLiteral("Overlay");
+        duplicate.kind = TrackKind::Video;
+        QVERIFY(!t.insertTrack(duplicate));
+        QCOMPARE(t.trackCount(), 3);
+        duplicate.id = QStringLiteral("overlay-new");
+        QVERIFY(t.insertTrack(duplicate));
+        QCOMPARE(t.trackCount(), 4);
+    }
+
     void insertKeepsClipsSorted()
     {
         Timeline t = makeTimeline();

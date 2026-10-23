@@ -160,6 +160,22 @@ private slots:
         screenshot(QStringLiteral("02-empty-workspace"));
     }
 
+    void whatsNewDialogOpensAndCloses()
+    {
+        QObject* dialog = m_window->findChild<QObject*>(QStringLiteral("whatsNewDialog"));
+        QVERIFY(dialog);
+        QVERIFY(!dialog->property("visible").toBool());
+
+        // Same entry point as the Help menu, not just a direct Popup.open() call.
+        QVERIFY(QMetaObject::invokeMethod(m_window, "showWhatsNew"));
+        QVERIFY(QTest::qWaitFor([&] { return dialog->property("visible").toBool(); }, 2000));
+        QCOMPARE(dialog->property("title").toString(), QStringLiteral("What's New"));
+        QVERIFY(!dialog->property("shownVersion").toString().isEmpty());
+
+        QTest::keyClick(m_window, Qt::Key_Escape);
+        QVERIFY(QTest::qWaitFor([&] { return !dialog->property("visible").toBool(); }, 2000));
+    }
+
     void importShowsMediaInTheBin()
     {
         QSignalSpy imported(m_app->media(), &ui::MediaController::imported);

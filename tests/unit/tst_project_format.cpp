@@ -376,8 +376,11 @@ private slots:
     {
         Project project = Project::createNew(QStringLiteral("Mixed names"), ProjectSettings{});
         QCOMPARE(project.nextTrackName(TrackKind::Video), QStringLiteral("V3"));
-        const Id id = project.timeline().tracks().front().id;
-        QVERIFY(project.timeline().renameTrack(id, QStringLiteral("v3")));
+        Track extra;
+        extra.id = QStringLiteral("extra-video");
+        extra.kind = TrackKind::Video;
+        extra.name = QStringLiteral("v3");
+        QVERIFY(project.timeline().insertTrack(extra));
         QCOMPARE(project.nextTrackName(TrackKind::Video), QStringLiteral("V4"));
         QCOMPARE(project.nextTrackName(TrackKind::Audio), QStringLiteral("A3"));
     }

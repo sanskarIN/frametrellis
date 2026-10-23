@@ -94,6 +94,10 @@ Rectangle {
     Menu {
         id: menu
         MenuItem { text: qsTr("Rename…"); onTriggered: { editor.text = header.name; editor.visible = true; editor.forceActiveFocus(); editor.selectAll() } }
+        MenuItem {
+            text: qsTr("Duplicate track")
+            onTriggered: header.app.timeline.duplicateTrack(header.trackId)
+        }
         MenuItem { text: qsTr("Remove track"); enabled: !header.locked; onTriggered: header.app.timeline.removeTrack(header.trackId) }
     }
 }

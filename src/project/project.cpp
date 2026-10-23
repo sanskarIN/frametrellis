@@ -164,6 +164,10 @@ Status Project::validate() const
     if (!isValidId(m_id)) {
         return makeError(ErrorCode::InvalidDocument, QStringLiteral("The project id is invalid."));
     }
+    if (m_name.trimmed().isEmpty() || m_name.size() > 120) {
+        return makeError(ErrorCode::InvalidDocument,
+                         QStringLiteral("The project name must contain 1 to 120 characters."));
+    }
     if (const Status settingsValid = m_settings.validate(); !settingsValid) {
         return makeError(ErrorCode::InvalidDocument, settingsValid.error().message);
     }

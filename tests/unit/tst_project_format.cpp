@@ -372,6 +372,18 @@ private slots:
         QCOMPARE(*tiny.lengthInFrames(*FrameRate::create(25, 1)), FrameCount{1});
     }
 
+    void projectValidationRejectsInvalidNames()
+    {
+        Project project = makeProject(QStringLiteral("/media"));
+        const QString name = project.name();
+        project.setName(QStringLiteral("  "));
+        QVERIFY(!project.validate());
+        project.setName(QString(121, QLatin1Char('x')));
+        QVERIFY(!project.validate());
+        project.setName(name);
+        QVERIFY(project.validate());
+    }
+
     void projectMediaRules()
     {
         Project p = makeProject(QStringLiteral("/media"));

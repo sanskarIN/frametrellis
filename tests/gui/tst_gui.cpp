@@ -11,6 +11,7 @@
 #include "ui/title_image.h"
 
 #include <QDir>
+#include <QFile>
 #include <QGuiApplication>
 #include <QQmlApplicationEngine>
 #include <QQuickItem>
@@ -452,6 +453,30 @@ private slots:
         QTest::qWait(200);
         screenshot(QStringLiteral("06-export-finished"));
         QMetaObject::invokeMethod(dialog, "close");
+    }
+
+    void exportsTimelineClipListWithoutEditingProject()
+    {
+        const Timeline before = m_app->project()->project().timeline();
+        QVERIFY(before.clipCount() > 0);
+        const bool modified = m_app->project()->isModified();
+        const QString undoLabel = m_app->project()->undoText();
+        const QString report = m_dir.filePath(QStringLiteral("timeline-clip-list.csv"));
+        QVERIFY(m_app->project()->exportClipListCsv(report));
+        QFile csv(report);
+        QVERIFY(csv.open(QIODevice::ReadOnly));
+        const QByteArray bytes = csv.readAll();
+        QVERIFY(bytes.startsWith("\xEF\xBB\xBF"));
+        QVERIFY(bytes.contains("source_name,source_path"));
+        QVERIFY(bytes.contains("start_timecode,end_timecode_exclusive"));
+        QVERIFY(bytes.count('\n') > 1);
+        QVERIFY(bytes.contains(m_media.front().toUtf8()));
+
+        QVERIFY(!m_app->project()->exportClipListCsv(
+            m_dir.filePath(QStringLiteral("not-a-csv.mp4"))));
+        QCOMPARE(m_app->project()->project().timeline(), before);
+        QCOMPARE(m_app->project()->isModified(), modified);
+        QCOMPARE(m_app->project()->undoText(), undoLabel);
     }
 
     void saveAndReopenRoundTrip()

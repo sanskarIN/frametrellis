@@ -200,6 +200,30 @@ private slots:
         screenshot(QStringLiteral("03-timeline"));
     }
 
+    void canImportFolderRecursively()
+    {
+        const QString root = m_dir.filePath(QStringLiteral("import-folder"));
+        QVERIFY(QDir().mkpath(root + QStringLiteral("/nested")));
+        const QString still =
+            makeStill(root + QStringLiteral("/nested"), QStringLiteral("extra-still.png"),
+                      QColor(QStringLiteral("#446688")), QSize(32, 18));
+        QVERIFY(!still.isEmpty());
+
+        const int before = m_app->media()->model()->rowCount();
+        QVERIFY(m_app->media()->importFolder(root));
+        QVERIFY(QTest::qWaitFor([&] { return m_app->media()->model()->rowCount() == before + 1; },
+                                15000));
+        QVERIFY(m_app->project()->project().assetByPath(still));
+        QVERIFY(m_app->media()->importFolder(root));
+        QTest::qWait(250);
+        QCOMPARE(m_app->media()->model()->rowCount(), before + 1);
+        const MediaAsset* added = m_app->project()->project().assetByPath(still);
+        QVERIFY(added);
+        const Id addedId = added->id;
+        m_app->media()->remove(addedId);
+        QCOMPARE(m_app->media()->model()->rowCount(), before);
+    }
+
     void audioClipsShowTheirWaveform()
     {
         const auto& tracks = m_app->project()->project().timeline().tracks();

@@ -4,6 +4,7 @@
 
 #include "core/ids.h"
 #include "core/logging.h"
+#include "media/folder_import.h"
 #include "media/media_probe.h"
 #include "ui/project_controller.h"
 #include "ui/title_image.h"
@@ -82,6 +83,34 @@ void MediaController::importFiles(const QVariantList& urls)
         emit statusMessage(QStringLiteral("Importing %1 file(s)…").arg(fresh.size()));
         m_importer.import(fresh);
     }
+}
+
+bool MediaController::importFolder(const QString& urlOrPath)
+{
+    const QString directory = ProjectController::localPath(urlOrPath);
+    const Result<media::FolderImportScan> scan = media::discoverImportableFiles(directory);
+    if (!scan) {
+        emit importProblems(QStringLiteral("Could not import the folder"), scan.error().message);
+        return false;
+    }
+    if (scan->files.isEmpty()) {
+        emit statusMessage(
+            scan->truncated
+                ? QStringLiteral("Scan limit reached before any supported media was found.")
+                : QStringLiteral("No supported media files found in this folder."));
+        return true;
+    }
+    QVariantList paths;
+    for (const QString& path : scan->files) {
+        paths.append(path);
+    }
+    importFiles(paths); // Reuses duplicate detection and background media probing.
+    if (scan->truncated) {
+        emit statusMessage(
+            QStringLiteral("Folder scan limit reached: only %1 candidates were processed.")
+                .arg(scan->files.size()));
+    }
+    return true;
 }
 
 void MediaController::onImported(const std::vector<MediaAsset>& assets,

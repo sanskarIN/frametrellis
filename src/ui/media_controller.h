@@ -38,6 +38,8 @@ public:
 
     /// Accepts file URLs or local paths. Folders are not expanded.
     Q_INVOKABLE void importFiles(const QVariantList& urls);
+    /// Recursively import up to 500 supported files from a selected folder.
+    Q_INVOKABLE bool importFolder(const QString& urlOrPath);
     /// Save a transparent PNG alongside the project and import it into the media bin.
     /// Returns the new asset id, or an empty string on failure.
     Q_INVOKABLE QString createTitle(const QString& text, int fontPixels, const QString& color);

@@ -24,6 +24,21 @@ PNG stills. Because the colours and tones are known, tests assert on real pixel 
 audio levels (for example, that the clip trimmed to the "green second" really shows green, or
 that a muted clip is silent).
 
+## Concurrent MLT profile initialization
+
+The `tst_engine_threads` integration test opens media on multiple threads
+while video profiles are being prepared. MLT 7.22 may update process-global
+profile normalization settings during `Mlt::Profile` construction; concurrent
+initialization was observed to trigger an AddressSanitizer heap-use-after-free.
+The engine's `createProfile()` factory now serializes construction and
+initial configuration, while normal work on independently owned profiles
+continues on the worker threads.
+
+An additional stress test constructs many profiles in parallel under the
+existing sanitizers. This guards the known profile-construction path but
+does not establish that all third-party MLT services are thread-safe; any
+new direct `Mlt::Profile` constructions from workers should be reviewed.
+
 ## Headless runs
 
 All tests run without a display: CTest sets `QT_QPA_PLATFORM=offscreen`, the GUI test also uses

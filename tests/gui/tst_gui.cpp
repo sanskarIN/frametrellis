@@ -200,6 +200,22 @@ private slots:
         screenshot(QStringLiteral("03-timeline"));
     }
 
+    void controlZeroFitsTimeline()
+    {
+        QQuickItem* lanes = findItem(m_window->contentItem(), QStringLiteral("timelineLanes"));
+        QVERIFY(lanes);
+        QVERIFY(lanes->width() > 100);
+        QVERIFY(m_app->timeline()->duration() > 0);
+
+        m_app->timeline()->zoomToFit(lanes->width());
+        const double fitted = m_app->timeline()->pixelsPerFrame();
+        m_app->timeline()->zoomIn();
+        QVERIFY(!qFuzzyCompare(m_app->timeline()->pixelsPerFrame(), fitted));
+
+        QTest::keyClick(m_window, Qt::Key_0, Qt::ControlModifier);
+        QTRY_VERIFY(qFuzzyCompare(m_app->timeline()->pixelsPerFrame(), fitted));
+    }
+
     void audioClipsShowTheirWaveform()
     {
         const auto& tracks = m_app->project()->project().timeline().tracks();

@@ -235,8 +235,7 @@ private slots:
     void protocolRejectsOversizedEvents()
     {
         const QByteArray normal = protocol::encode(
-            {{QStringLiteral("event"), QStringLiteral("progress")},
-             {QStringLiteral("frame"), 12}});
+            {{QStringLiteral("event"), QStringLiteral("progress")}, {QStringLiteral("frame"), 12}});
         QVERIFY(normal.size() < protocol::kMaxEventBytes);
         QVERIFY(protocol::decode(normal));
 

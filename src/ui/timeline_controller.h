@@ -122,6 +122,8 @@ public:
     Q_INVOKABLE bool addTrack(const QString& kind);
     Q_INVOKABLE bool removeTrack(const QString& trackId);
     Q_INVOKABLE bool setTrackFlag(const QString& trackId, const QString& flag, bool value);
+    /// Protect or unprotect all tracks in a single undo step.
+    Q_INVOKABLE bool setAllTracksLocked(bool locked);
     Q_INVOKABLE bool renameTrack(const QString& trackId, const QString& name);
 
     // Navigation and zoom

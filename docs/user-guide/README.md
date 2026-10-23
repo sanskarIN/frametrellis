@@ -84,6 +84,9 @@ the project (removing never deletes the file; media in use must be removed from 
 * **Zoom** with + and −, Ctrl+mouse wheel, the zoom slider, or *Fit* to see the whole sequence.
 * **Tracks:** add tracks with *+ Video* / *+ Audio*; each track can be hidden (video), muted or
   locked. Double-click a track name to rename it; right-click it to remove the track.
+  To protect the complete sequence from accidental clip edits, choose **Edit → Lock All Tracks**.
+  **Edit → Unlock All Tracks** restores editability to every track; both commands are
+  separately undoable and retain track visibility and mute settings.
 
 Every change can be undone (Ctrl+Z) and redone (Ctrl+Shift+Z).
 

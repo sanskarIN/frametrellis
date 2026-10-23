@@ -601,6 +601,37 @@ private slots:
         QVERIFY(changed.takeFirst().at(0).value<ChangeSet>().trackStructure);
     }
 
+    void batchTrackLockingIsAtomicAndUndoable()
+    {
+        Fixture f;
+        QVERIFY(f.doc.execute(
+            edits::addClip(f.v1, clipOf(QStringLiteral("m1"), 0, 80, QStringLiteral("clip")))));
+        QVERIFY(f.doc.execute(edits::setTrackLocked(f.v2, true)));
+        QVERIFY(f.doc.execute(edits::setTrackMuted(f.a1, true)));
+        const Timeline original = f.doc.project().timeline();
+
+        QVERIFY(f.doc.execute(edits::setAllTracksLocked(true)));
+        for (const Track& track : f.doc.project().timeline().tracks()) {
+            QVERIFY(track.locked);
+        }
+        QVERIFY(!f.doc.execute(edits::removeClips({QStringLiteral("clip")})));
+        const Timeline allLocked = f.doc.project().timeline();
+
+        QVERIFY(f.doc.undo());
+        QCOMPARE(f.doc.project().timeline(), original);
+        QVERIFY(f.doc.redo());
+        QCOMPARE(f.doc.project().timeline(), allLocked);
+        QVERIFY(f.doc.execute(edits::setAllTracksLocked(false)));
+        for (const Track& track : f.doc.project().timeline().tracks()) {
+            QVERIFY(!track.locked);
+        }
+        QVERIFY(f.doc.project().timeline().track(f.a1)->muted);
+        QVERIFY(f.doc.undo());
+        QCOMPARE(f.doc.project().timeline(), allLocked);
+        QVERIFY(f.doc.undo());
+        QCOMPARE(f.doc.project().timeline(), original);
+    }
+
     void trackCommands()
     {
         Fixture f;

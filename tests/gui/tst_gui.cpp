@@ -200,6 +200,36 @@ private slots:
         screenshot(QStringLiteral("03-timeline"));
     }
 
+    void selectAllClipsAtPlayheadFromKeyboard()
+    {
+        m_app->playback()->goToStart();
+        QStringList expected;
+        for (const Track& track : m_app->project()->project().timeline().tracks()) {
+            for (const Clip& clip : track.clips) {
+                if (clip.contains(0)) {
+                    expected.append(clip.id);
+                }
+            }
+        }
+        QVERIFY(!expected.isEmpty());
+        m_app->timeline()->clearSelection();
+        QTest::keyClick(m_window, Qt::Key_S, Qt::ControlModifier | Qt::AltModifier);
+        const QStringList selected = m_app->timeline()->selection();
+        QCOMPARE(selected.size(), expected.size());
+        for (const QString& id : expected) {
+            QVERIFY(selected.contains(id));
+        }
+        // Navigation and selection must not change project data.
+        QCOMPARE(m_app->project()->project().timeline().clipCount(),
+                 static_cast<int>(m_app->project()->project().timeline().clipsUsingAsset(
+                     m_app->project()->project().media().front().id).size()) +
+                     static_cast<int>(m_app->project()->project().timeline().clipsUsingAsset(
+                         m_app->project()->project().media()[1].id).size()) +
+                     static_cast<int>(m_app->project()->project().timeline().clipsUsingAsset(
+                         m_app->project()->project().media()[2].id).size()));
+        m_app->timeline()->clearSelection();
+    }
+
     void audioClipsShowTheirWaveform()
     {
         const auto& tracks = m_app->project()->project().timeline().tracks();

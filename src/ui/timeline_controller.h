@@ -121,6 +121,9 @@ public:
     // Tracks
     Q_INVOKABLE bool addTrack(const QString& kind);
     Q_INVOKABLE bool removeTrack(const QString& trackId);
+    /// Reorder adjacent tracks of the same kind without altering clip placement.
+    Q_INVOKABLE bool canMoveTrack(const QString& trackId, int direction) const;
+    Q_INVOKABLE bool moveTrack(const QString& trackId, int direction);
     Q_INVOKABLE bool setTrackFlag(const QString& trackId, const QString& flag, bool value);
     Q_INVOKABLE bool renameTrack(const QString& trackId, const QString& name);
 

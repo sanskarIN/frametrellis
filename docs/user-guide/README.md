@@ -83,7 +83,10 @@ the project (removing never deletes the file; media in use must be removed from 
 * **Snapping** (N) aligns clip edges with other clips and the playhead.
 * **Zoom** with + and −, Ctrl+mouse wheel, the zoom slider, or *Fit* to see the whole sequence.
 * **Tracks:** add tracks with *+ Video* / *+ Audio*; each track can be hidden (video), muted or
-  locked. Double-click a track name to rename it; right-click it to remove the track.
+  locked. Double-click a track name to rename it. Right-click a track header to
+  **Move track up** or **Move track down** within the same media type, or to remove it.
+  Moving video tracks changes layer order; moving audio tracks changes their order in the mixer.
+  Reordering preserves the clips and can be undone with Ctrl+Z.
 
 Every change can be undone (Ctrl+Z) and redone (Ctrl+Shift+Z).
 

@@ -51,6 +51,8 @@ ApplicationWindow {
 
     Binding { target: Theme; property: "mode"; value: window.app.theme }
 
+    function showRenameProject() { renameProjectDialog.open() }
+
     // ---------- Unsaved-changes guard ----------
     function guarded(action, verb) {
         if (!app.project.modified) {

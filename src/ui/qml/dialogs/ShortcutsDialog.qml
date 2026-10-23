@@ -16,6 +16,7 @@ FtDialog {
         ["Shift+Left / Shift+Right", qsTr("Back / forward one second")],
         ["Up / Down", qsTr("Previous / next edit point")],
         ["Home / End", qsTr("Go to start / end")],
+        ["Ctrl+Shift+C", qsTr("Copy playhead timecode")],
         ["S", qsTr("Split at playhead")],
         ["Ctrl+D", qsTr("Duplicate selected clips (preserve spacing)")],
         ["Ctrl+Alt+C", qsTr("Copy volume, fades and picture attributes")],

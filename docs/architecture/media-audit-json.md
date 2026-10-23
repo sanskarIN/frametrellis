@@ -69,6 +69,13 @@ media-bin order; use `assetId`, not an array index, as an identity key.
 - `kind`: `video`, `audio` or `image` as recorded during import.
 - `storedBytes` and `currentBytes`: decimal **strings**, not floating-point
   JSON numbers, to preserve 64-bit sizes. `currentBytes` is omitted if missing.
+- `storedModifiedUtc` and `currentModifiedUtc`: UTC timestamps from the
+  saved media probe and live file system; the live field is absent for
+  missing sources and the stored field is absent if unknown.
+- `changeReasons`: array of `"size"` and/or `"modified"` when a live
+  source differs from its recorded size or timestamp; an empty array means
+  no such discrepancy was detected. A missing file reports `status: "missing"`
+  and has no file-size/timestamp difference to compare.
 - `sourcePath`: locally stored absolute source path. **Treat this field as
   sensitive** and redact it before publishing reports externally.
 

@@ -138,7 +138,8 @@ See [docs/testing.md](docs/testing.md).
 
 - [Architecture](docs/architecture/overview.md) · [Project file format](docs/architecture/project-format.md)
 - [Building](docs/development/building.md) · [Contributing](CONTRIBUTING.md) · [Testing](docs/testing.md)
-- [User guide](docs/user-guide/README.md) · [Roadmap](docs/roadmap.md) · [Release notes](docs/releases/)
+- [User guide](docs/user-guide/README.md) · [Editing recipes](docs/user-guide/editing-recipes.md) · [Troubleshooting](docs/user-guide/troubleshooting.md)
+- [Roadmap](docs/roadmap.md) · [Release notes](docs/releases/)
 - [Licensing](docs/LICENSING.md) · [Third-party notices](THIRD_PARTY_NOTICES.md) · [Security](SECURITY.md)
 
 ## Contributing

@@ -82,6 +82,21 @@ class TimelineTest : public QObject
     Q_OBJECT
 
 private slots:
+    void insertTrackValidatesName()
+    {
+        Timeline t = makeTimeline();
+        Track invalid;
+        invalid.id = QStringLiteral("extra");
+        invalid.kind = TrackKind::Video;
+        invalid.name = QStringLiteral("  ");
+        QVERIFY(!t.insertTrack(invalid));
+        invalid.name = QString(65, QLatin1Char('x'));
+        QVERIFY(!t.insertTrack(invalid));
+        invalid.name = QStringLiteral("Overlay");
+        QVERIFY(t.insertTrack(invalid));
+        QCOMPARE(t.trackCount(), 4);
+    }
+
     void insertKeepsClipsSorted()
     {
         Timeline t = makeTimeline();

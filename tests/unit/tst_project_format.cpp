@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // SPDX-FileCopyrightText: 2026 Sanskar and FrameTrellis contributors
+#include "project/media_audit.h"
 #include "project/project_serializer.h"
 
 #include <QDir>
@@ -423,6 +424,129 @@ private slots:
         changed.width = 1920;
         changed.height = 1080;
         QVERIFY(p.setSettings(changed));
+    }
+
+    void mediaAuditReportsCurrentStatusAndUsageWithoutChangingProject()
+    {
+        QTemporaryDir dir;
+        QVERIFY(dir.isValid());
+        Project project = makeProject(dir.path());
+
+        QFile video(dir.filePath(QStringLiteral("clip.mp4")));
+        QVERIFY(video.open(QIODevice::WriteOnly));
+        QCOMPARE(video.write("ABCD", 4), qint64{4});
+        video.close();
+
+        MediaAsset current = *project.asset(QStringLiteral("m1"));
+        current.name = QStringLiteral("फ़ुटेज video");
+        current.info.fileSize = 4;
+        current.info.lastModified = QFileInfo(video.fileName()).lastModified();
+        QVERIFY(project.replaceAsset(current));
+
+        QFile image(dir.filePath(QStringLiteral("logo.png")));
+        QVERIFY(image.open(QIODevice::WriteOnly));
+        QCOMPARE(image.write("different", 9), qint64{9});
+        image.close();
+        QVERIFY(project.addAsset(makeAsset(QStringLiteral("unused"),
+                                           dir.filePath(QStringLiteral("missing-unused.mp4")),
+                                           MediaKind::Video, 1)));
+
+        const Project before = project;
+        const QJsonObject report = media_audit::buildReport(project);
+        QCOMPARE(report.value(QLatin1String("schemaVersion")).toInt(), 1);
+        QCOMPARE(report.value(QLatin1String("projectName")).toString(), project.name());
+        const QJsonObject summary = report.value(QLatin1String("summary")).toObject();
+        QCOMPARE(summary.value(QLatin1String("total")).toInt(), 4);
+        QCOMPARE(summary.value(QLatin1String("online")).toInt(), 1);
+        QCOMPARE(summary.value(QLatin1String("missing")).toInt(), 2);
+        QCOMPARE(summary.value(QLatin1String("changed")).toInt(), 1);
+        QCOMPARE(summary.value(QLatin1String("unused")).toInt(), 1);
+        QCOMPARE(summary.value(QLatin1String("clipUses")).toInt(), 4);
+
+        const QJsonArray assets = report.value(QLatin1String("assets")).toArray();
+        QCOMPARE(assets.size(), 4);
+        QCOMPARE(assets.at(0).toObject().value(QLatin1String("status")).toString(),
+                 QStringLiteral("online"));
+        QCOMPARE(assets.at(0).toObject().value(QLatin1String("clipUses")).toInt(), 2);
+        QCOMPARE(assets.at(1).toObject().value(QLatin1String("status")).toString(),
+                 QStringLiteral("missing"));
+        QCOMPARE(assets.at(2).toObject().value(QLatin1String("status")).toString(),
+                 QStringLiteral("changed"));
+        const QJsonArray reasons =
+            assets.at(2).toObject().value(QLatin1String("changeReasons")).toArray();
+        QVERIFY(reasons.contains(QStringLiteral("size")));
+        QVERIFY(reasons.contains(QStringLiteral("modified")));
+        QVERIFY(assets.at(2).toObject().contains(QStringLiteral("currentModifiedUtc")));
+        QVERIFY(!assets.at(1).toObject().contains(QStringLiteral("currentModifiedUtc")));
+        QCOMPARE(assets.at(3).toObject().value(QLatin1String("clipUses")).toInt(), 0);
+
+        const QString dest = dir.filePath(QStringLiteral("फ़ुटेज-audit.json"));
+        QVERIFY(media_audit::saveReport(project, dest));
+        QFile exported(dest);
+        QVERIFY(exported.open(QIODevice::ReadOnly));
+        const QJsonDocument decoded = QJsonDocument::fromJson(exported.readAll());
+        QVERIFY(decoded.isObject());
+        QCOMPARE(decoded.object().value(QLatin1String("summary")).toObject(), summary);
+        QCOMPARE(decoded.object().value(QLatin1String("assets")).toArray(), assets);
+        QCOMPARE(project, before);
+    }
+
+    void mediaAuditCannotReplaceSourceOrProjectFile()
+    {
+        QTemporaryDir dir;
+        QVERIFY(dir.isValid());
+        Project project = makeProject(dir.path());
+        const QString mediaPath = dir.filePath(QStringLiteral("source.json"));
+        QFile source(mediaPath);
+        QVERIFY(source.open(QIODevice::WriteOnly));
+        const QByteArray original = QByteArrayLiteral("original media bytes");
+        QCOMPARE(source.write(original), static_cast<qint64>(original.size()));
+        source.close();
+        QVERIFY(project.addAsset(
+            makeAsset(QStringLiteral("json-source"), mediaPath, MediaKind::Image, 0)));
+
+        const Status refusedSource = media_audit::saveReport(project, mediaPath);
+        QVERIFY(!refusedSource);
+        QCOMPARE(refusedSource.error().code, ErrorCode::Conflict);
+        QVERIFY(source.open(QIODevice::ReadOnly));
+        QCOMPARE(source.readAll(), original);
+        source.close();
+
+        const QString projectPath = dir.filePath(QStringLiteral("project.json"));
+        QFile existing(projectPath);
+        QVERIFY(existing.open(QIODevice::WriteOnly));
+        QCOMPARE(existing.write(original), static_cast<qint64>(original.size()));
+        existing.close();
+        const Status refusedProject = media_audit::saveReport(project, projectPath, projectPath);
+        QVERIFY(!refusedProject);
+        QCOMPARE(refusedProject.error().code, ErrorCode::Conflict);
+        QVERIFY(existing.open(QIODevice::ReadOnly));
+        QCOMPARE(existing.readAll(), original);
+        QVERIFY(!media_audit::saveReport(project, dir.filePath(QStringLiteral("no.json.txt"))));
+
+#ifndef Q_OS_WIN
+        // POSIX symbolic-link destinations must not bypass source-file protection.
+        const QString alias = dir.filePath(QStringLiteral("source-alias.json"));
+        QVERIFY(QFile::link(mediaPath, alias));
+        const Status refusedAlias = media_audit::saveReport(project, alias);
+        QVERIFY(!refusedAlias);
+        QCOMPARE(refusedAlias.error().code, ErrorCode::Conflict);
+        QVERIFY(source.open(QIODevice::ReadOnly));
+        QCOMPARE(source.readAll(), original);
+#endif
+    }
+
+    void mediaAuditEmptyProjectHasValidSchema()
+    {
+        Project empty = Project::createNew(QStringLiteral("Empty audit"), ProjectSettings{});
+        const QJsonObject report = media_audit::buildReport(empty);
+        QCOMPARE(report.value(QLatin1String("schemaVersion")).toInt(), 1);
+        QCOMPARE(report.value(QLatin1String("assets")).toArray().size(), 0);
+        const QJsonObject totals = report.value(QLatin1String("summary")).toObject();
+        QCOMPARE(totals.value(QLatin1String("total")).toInt(), 0);
+        QCOMPARE(totals.value(QLatin1String("missing")).toInt(), 0);
+        QCOMPARE(totals.value(QLatin1String("changed")).toInt(), 0);
+        QCOMPARE(totals.value(QLatin1String("clipUses")).toInt(), 0);
     }
 
     void presetsAreValid()

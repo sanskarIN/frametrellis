@@ -5,6 +5,7 @@
 #include "core/ids.h"
 #include "core/logging.h"
 #include "media/media_probe.h"
+#include "project/media_audit.h"
 #include "ui/project_controller.h"
 #include "ui/title_image.h"
 
@@ -221,6 +222,19 @@ void MediaController::revealInFolder(const QString& assetId) const
     if (const MediaAsset* asset = m_project->project().asset(assetId)) {
         QDesktopServices::openUrl(QUrl::fromLocalFile(QFileInfo(asset->filePath).absolutePath()));
     }
+}
+
+bool MediaController::exportMediaAudit(const QString& urlOrPath)
+{
+    const QString path = ProjectController::localPath(urlOrPath);
+    const Status saved = media_audit::saveReport(m_project->project(), path, m_project->filePath());
+    if (!saved) {
+        emit importProblems(QStringLiteral("Could not export the media audit"),
+                            saved.error().message);
+        return false;
+    }
+    emit statusMessage(QStringLiteral("Saved read-only media audit JSON report."));
+    return true;
 }
 
 void MediaController::rescan()

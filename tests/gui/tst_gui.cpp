@@ -10,6 +10,7 @@
 #include "ui/app_controller.h"
 #include "ui/title_image.h"
 
+#include <QClipboard>
 #include <QDir>
 #include <QGuiApplication>
 #include <QQmlApplicationEngine>
@@ -198,6 +199,16 @@ private slots:
         m_app->playback()->seek(40);
         QTest::qWait(500);
         screenshot(QStringLiteral("03-timeline"));
+    }
+
+    void jumpToSelectedClipStart()
+    {
+        const Clip& clip = track(0).clips.front();
+        m_app->timeline()->select(clip.id, false);
+        m_app->playback()->goToEnd();
+        QTest::keyClick(m_window, Qt::Key_Home, Qt::ControlModifier | Qt::AltModifier);
+        QCOMPARE(static_cast<FrameCount>(m_app->playback()->position()), clip.start);
+        m_app->timeline()->clearSelection();
     }
 
     void audioClipsShowTheirWaveform()

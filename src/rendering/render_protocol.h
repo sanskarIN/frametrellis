@@ -20,6 +20,8 @@
 namespace ft::rendering::protocol {
 
 inline constexpr char kPrefix[] = "@ft ";
+// Upper bound for a single protocol line, including its prefix and line ending.
+inline constexpr qsizetype kMaxEventBytes = qsizetype{64} * 1024;
 
 QByteArray encode(const QJsonObject& event);
 std::optional<QJsonObject> decode(const QByteArray& line);

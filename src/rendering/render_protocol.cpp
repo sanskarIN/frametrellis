@@ -13,6 +13,10 @@ QByteArray encode(const QJsonObject& event)
 
 std::optional<QJsonObject> decode(const QByteArray& line)
 {
+    // Reject oversized payloads before allocating or parsing a large JSON document.
+    if (line.size() > kMaxEventBytes) {
+        return std::nullopt;
+    }
     const QByteArray trimmed = line.trimmed();
     if (!trimmed.startsWith(kPrefix)) {
         return std::nullopt;

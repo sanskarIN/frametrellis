@@ -82,6 +82,9 @@ the project (removing never deletes the file; media in use must be removed from 
   delete) removes one clip and moves the following clips on that track left to close the gap.
 * **Snapping** (N) aligns clip edges with other clips and the playhead.
 * **Zoom** with + and −, Ctrl+mouse wheel, the zoom slider, or *Fit* to see the whole sequence.
+* **Duplicate a track:** right-click its header and choose *Duplicate track* to make an independent
+  copy directly below it, retaining clip timing, source trims, adjustments, transitions and
+  track mute/visibility/lock state. Undo (Ctrl+Z) restores the original timeline.
 * **Tracks:** add tracks with *+ Video* / *+ Audio*; each track can be hidden (video), muted or
   locked. Double-click a track name to rename it; right-click it to remove the track.
 

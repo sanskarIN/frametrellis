@@ -21,6 +21,7 @@
 | Ctrl+A | Select all clips |
 | N | Toggle snapping |
 | + / − | Zoom timeline in / out |
+| Ctrl+0 | Fit entire sequence to visible timeline width |
 | Ctrl+mouse wheel | Zoom around the pointer |
 | Shift+mouse wheel | Scroll the timeline horizontally |
 | Ctrl+Z / Ctrl+Shift+Z | Undo / redo |

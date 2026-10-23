@@ -17,6 +17,7 @@ uploaded. This guide covers everything the current version can do.
 - [Faster export profiles](faster-export.md)
 - [Missing media and recovery](#missing-media-and-recovery)
 - [Troubleshooting](#troubleshooting)
+- [What's new](#whats-new)
 - [Keyboard shortcuts](keyboard-shortcuts.md)
 - [Supported formats](formats.md)
 
@@ -173,6 +174,14 @@ must be the same kind of media and at least as long as the clips need.
 
 FrameTrellis saves a backup of unsaved work every minute. If it closes unexpectedly, it offers to
 recover that work the next time it starts.
+
+## What's new
+
+From version 1.2.3, choose **Help → What's New** to review a short summary of
+recent improvements without an internet connection. The dialog also links to
+[full release notes](../releases/README.md), including compatibility
+information and limitations. The feature does not require an account or contact
+a server; the release-notes link opens only when you select it.
 
 ## Troubleshooting
 

@@ -60,6 +60,58 @@ class EditingTest : public QObject
     Q_OBJECT
 
 private slots:
+    void removeUnusedMediaPreservesTimelineFilesAndUndoOrder()
+    {
+        Fixture f;
+        QVERIFY(f.doc.execute(
+            edits::addClip(f.v1, clipOf(QStringLiteral("m1"), 0, 80, QStringLiteral("used")))));
+        QTemporaryDir dir;
+        QVERIFY(dir.isValid());
+        const QString pathA = dir.filePath(QStringLiteral("unused-a.mp4"));
+        const QString pathB = dir.filePath(QStringLiteral("unused-b.mp4"));
+        for (const QString& path : {pathA, pathB}) {
+            QFile output(path);
+            QVERIFY(output.open(QIODevice::WriteOnly));
+            QCOMPARE(output.write("unchanged", 9), qint64{9});
+        }
+        std::vector<MediaAsset> extra{
+            videoAsset(QStringLiteral("unused-a"), pathA),
+            videoAsset(QStringLiteral("unused-b"), pathB)};
+        QVERIFY(f.doc.execute(std::make_unique<AddMediaCommand>(extra)));
+        const Project before = f.doc.project();
+
+        QVERIFY(f.doc.execute(std::make_unique<RemoveUnusedMediaCommand>()));
+        QCOMPARE(f.doc.project().media().size(), size_t{1});
+        QCOMPARE(f.doc.project().media().front().id, QStringLiteral("m1"));
+        QCOMPARE(f.doc.project().timeline(), before.timeline());
+        for (const QString& path : {pathA, pathB}) {
+            QFile file(path);
+            QVERIFY(file.open(QIODevice::ReadOnly));
+            QCOMPARE(file.readAll(), QByteArrayLiteral("unchanged"));
+        }
+        const Project cleaned = f.doc.project();
+        QCOMPARE(f.doc.undoText(), QStringLiteral("Remove Unused Media"));
+
+        QVERIFY(f.doc.undo());
+        QCOMPARE(f.doc.project(), before);
+        QVERIFY(f.doc.redo());
+        QCOMPARE(f.doc.project(), cleaned);
+        QVERIFY(f.doc.undo());
+        QCOMPARE(f.doc.project(), before);
+    }
+
+    void removeUnusedMediaRefusesNoOp()
+    {
+        Fixture f;
+        QVERIFY(f.doc.execute(
+            edits::addClip(f.v1, clipOf(QStringLiteral("m1"), 0, 40, QStringLiteral("used")))));
+        const Project before = f.doc.project();
+        const QString priorUndo = f.doc.undoText();
+        QVERIFY(!f.doc.execute(std::make_unique<RemoveUnusedMediaCommand>()));
+        QCOMPARE(f.doc.project(), before);
+        QCOMPARE(f.doc.undoText(), priorUndo);
+    }
+
     void undoRedoRestoresExactStates()
     {
         Fixture f;

@@ -91,6 +91,9 @@ Clips on audio tracks show the waveform of their sound, scaled by the clip's vol
 time a file is used, FrameTrellis reads its sound in the background (a few seconds for a long
 file) and keeps the result in its cache, so the waveform appears instantly afterwards.
 
+You can copy the playhead's exact SMPTE timecode with **Playback → Copy Playhead
+Timecode** (Ctrl+Shift+C). Paste it into a shot list, bug report or editing notes.
+
 ## Title overlays
 
 Choose **File → Create Title…** after saving your project. Enter the text, choose a font size and

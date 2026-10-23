@@ -5,6 +5,8 @@
 #include <QHash>
 #include <QTest>
 
+#include <limits>
+
 using namespace ft;
 
 namespace {
@@ -82,6 +84,19 @@ class TimelineTest : public QObject
     Q_OBJECT
 
 private slots:
+    void fadeValidationRejectsHugeValuesSafely()
+    {
+        Timeline t = makeTimeline();
+        Clip c = makeClip(QStringLiteral("huge-fade"), kStillAsset, 0, 0, 20);
+        c.properties.fadeIn = std::numeric_limits<FrameCount>::max();
+        c.properties.fadeOut = std::numeric_limits<FrameCount>::max();
+        QVERIFY(!t.insertClip(QStringLiteral("v1"), c, testSources()));
+        QCOMPARE(t.clipCount(), 0);
+        c.properties.fadeIn = 5;
+        c.properties.fadeOut = 15;
+        QVERIFY(t.insertClip(QStringLiteral("v1"), c, testSources()));
+    }
+
     void insertKeepsClipsSorted()
     {
         Timeline t = makeTimeline();

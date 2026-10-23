@@ -200,6 +200,15 @@ private slots:
         screenshot(QStringLiteral("03-timeline"));
     }
 
+    void fiveSecondTransportSkips()
+    {
+        m_app->playback()->goToStart();
+        QTest::keyClick(m_window, Qt::Key_Right, Qt::ControlModifier);
+        QCOMPARE(static_cast<FrameCount>(m_app->playback()->position()), FrameCount{150});
+        QTest::keyClick(m_window, Qt::Key_Left, Qt::ControlModifier);
+        QCOMPARE(static_cast<FrameCount>(m_app->playback()->position()), FrameCount{0});
+    }
+
     void audioClipsShowTheirWaveform()
     {
         const auto& tracks = m_app->project()->project().timeline().tracks();

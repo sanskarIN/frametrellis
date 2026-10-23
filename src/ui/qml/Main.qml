@@ -17,7 +17,7 @@ ApplicationWindow {
     // Single-key editing shortcuts are disabled while a dialog is open, so that keys such as
     // Space, Delete or the arrows act on the dialog instead of the timeline.
     readonly property bool dialogOpen: newDialog.visible || titleDialog.visible || exportDialog.visible || aboutDialog.visible
-                                       || shortcutsDialog.visible || welcome.visible || messageBox.visible
+                                       || shortcutsDialog.visible || whatsNewDialog.visible || welcome.visible || messageBox.visible
                                        || unsavedDialog.visible || exportRunningDialog.visible || recoveryDialog.visible
     readonly property bool editKeys: !dialogOpen
 
@@ -103,6 +103,9 @@ ApplicationWindow {
         target: window.app
         function onErrorOccurred(title, message) { messageBox.show(title, message) }
     }
+
+    // Opened by Help → What's New, and exercised by the GUI regression test.
+    function showWhatsNew() { whatsNewDialog.open() }
 
     // ---------- Menus ----------
     menuBar: MenuBar {
@@ -200,6 +203,7 @@ ApplicationWindow {
             title: qsTr("&Help")
             Action { text: qsTr("&Keyboard Shortcuts"); shortcut: "F1"; onTriggered: shortcutsDialog.open() }
             Action { text: qsTr("&Getting Started"); onTriggered: welcome.open() }
+            Action { text: qsTr("What's &New"); onTriggered: window.showWhatsNew() }
             Action { text: qsTr("&Documentation"); onTriggered: window.app.openUrl("https://sanskarin.github.io/frametrellis/docs/") }
             Action { text: qsTr("&Report an Issue"); onTriggered: window.app.openUrl("https://github.com/sanskarIN/frametrellis/issues") }
             MenuSeparator {}
@@ -386,6 +390,7 @@ ApplicationWindow {
     ExportDialog { id: exportDialog; objectName: "exportDialog"; app: window.app }
     AboutDialog { id: aboutDialog; objectName: "aboutDialog"; app: window.app }
     ShortcutsDialog { id: shortcutsDialog }
+    WhatsNewDialog { id: whatsNewDialog; objectName: "whatsNewDialog"; app: window.app }
     WelcomeOverlay { id: welcome; objectName: "welcome"; app: window.app; onImportRequested: importDialog.open() }
     MessageBox { id: messageBox }
 

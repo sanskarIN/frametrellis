@@ -136,6 +136,11 @@ ApplicationWindow {
             Action { text: qsTr("&Import Media…"); shortcut: "Ctrl+I"; onTriggered: importDialog.open() }
             Action { text: qsTr("Create &Title…"); onTriggered: titleDialog.open() }
             Action { text: qsTr("&Export…"); shortcut: "Ctrl+E"; enabled: !window.app.timeline.empty || window.app.exporter.busy; onTriggered: exportDialog.open() }
+            Action {
+                text: qsTr("Export Clip List (CSV)…")
+                enabled: !window.app.timeline.empty
+                onTriggered: clipListDialog.open()
+            }
             MenuSeparator {}
             Action { text: qsTr("&Quit"); shortcut: StandardKey.Quit; onTriggered: window.close() }
         }

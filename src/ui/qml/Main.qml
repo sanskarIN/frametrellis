@@ -193,6 +193,7 @@ ApplicationWindow {
             Action { text: qsTr("Next Edit Point"); shortcut: "Down"; enabled: window.editKeys; onTriggered: window.app.timeline.nextEditPoint() }
             Action { text: qsTr("Go to Start"); shortcut: "Home"; enabled: window.editKeys; onTriggered: window.app.playback.goToStart() }
             Action { text: qsTr("Go to End"); shortcut: "End"; enabled: window.editKeys; onTriggered: window.app.playback.goToEnd() }
+            Action { text: qsTr("Go to Sequence Midpoint"); shortcut: "Ctrl+Shift+M"; enabled: window.editKeys && !window.app.timeline.empty; onTriggered: window.app.playback.seek(Math.floor((window.app.timeline.duration - 1) / 2)) }
             MenuSeparator {}
             Action { text: qsTr("Mute Preview"); checkable: true; checked: window.app.playback.muted; enabled: window.app.playback.audioAvailable; onTriggered: window.app.playback.muted = checked }
         }

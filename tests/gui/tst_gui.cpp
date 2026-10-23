@@ -200,6 +200,22 @@ private slots:
         screenshot(QStringLiteral("03-timeline"));
     }
 
+    void renameProjectKeepsMetadataUndoable()
+    {
+        const QString original = m_app->project()->name();
+        QVERIFY(!m_app->project()->renameProject(QStringLiteral("   ")));
+        QCOMPARE(m_app->project()->name(), original);
+        QVERIFY(m_app->project()->renameProject(QStringLiteral("  Edited Sequence  ")));
+        QCOMPARE(m_app->project()->name(), QStringLiteral("Edited Sequence"));
+        QVERIFY(m_app->project()->canUndo());
+        m_app->project()->undo();
+        QCOMPARE(m_app->project()->name(), original);
+        m_app->project()->redo();
+        QCOMPARE(m_app->project()->name(), QStringLiteral("Edited Sequence"));
+        m_app->project()->undo();
+        QCOMPARE(m_app->project()->name(), original);
+    }
+
     void audioClipsShowTheirWaveform()
     {
         const auto& tracks = m_app->project()->project().timeline().tracks();

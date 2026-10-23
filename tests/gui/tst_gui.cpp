@@ -200,6 +200,35 @@ private slots:
         screenshot(QStringLiteral("03-timeline"));
     }
 
+    void selectAllClipsOnTrackWithoutEditingSequence()
+    {
+        const Timeline before = m_app->project()->project().timeline();
+        const Track& video = before.tracks().front();
+        QVERIFY(!video.clips.empty());
+        const auto audio =
+            std::find_if(before.tracks().begin(), before.tracks().end(), [](const Track& track) {
+                return track.kind == TrackKind::Audio && !track.clips.empty();
+            });
+        QVERIFY(audio != before.tracks().end());
+
+        QVERIFY(!m_app->timeline()->selectTrackClips(QStringLiteral("missing-track")));
+        QVERIFY(m_app->timeline()->selectTrackClips(video.id));
+        const QStringList videoSelection = m_app->timeline()->selection();
+        QCOMPARE(videoSelection.size(), static_cast<qsizetype>(video.clips.size()));
+        for (const Clip& clip : video.clips) {
+            QVERIFY(videoSelection.contains(clip.id));
+        }
+
+        QVERIFY(m_app->timeline()->selectTrackClips(audio->id));
+        const QStringList audioSelection = m_app->timeline()->selection();
+        QCOMPARE(audioSelection.size(), static_cast<qsizetype>(audio->clips.size()));
+        for (const Clip& clip : audio->clips) {
+            QVERIFY(audioSelection.contains(clip.id));
+        }
+        QCOMPARE(m_app->project()->project().timeline(), before);
+        m_app->timeline()->clearSelection();
+    }
+
     void audioClipsShowTheirWaveform()
     {
         const auto& tracks = m_app->project()->project().timeline().tracks();

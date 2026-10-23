@@ -83,7 +83,9 @@ the project (removing never deletes the file; media in use must be removed from 
 * **Snapping** (N) aligns clip edges with other clips and the playhead.
 * **Zoom** with + and −, Ctrl+mouse wheel, the zoom slider, or *Fit* to see the whole sequence.
 * **Tracks:** add tracks with *+ Video* / *+ Audio*; each track can be hidden (video), muted or
-  locked. Double-click a track name to rename it; right-click it to remove the track.
+  locked. Double-click a track name to rename it. Right-click it to **Select all
+  clips on track** for batch changes, or to remove the track. Track selection includes
+  clips on locked tracks for inspection, but protected clips still cannot be edited.
 
 Every change can be undone (Ctrl+Z) and redone (Ctrl+Shift+Z).
 

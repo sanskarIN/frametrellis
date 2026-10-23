@@ -588,6 +588,27 @@ void TimelineController::selectAll()
     emit selectedClipChanged();
 }
 
+bool TimelineController::selectTrackClips(const QString& trackId)
+{
+    const Track* track = project().timeline().track(trackId);
+    if (!track || track->clips.empty()) {
+        emit statusMessage(QStringLiteral("This track has no clips to select."));
+        return false;
+    }
+    QSet<Id> selected;
+    for (const Clip& clip : track->clips) {
+        selected.insert(clip.id);
+    }
+    setTransitionSelection({});
+    m_selection = std::move(selected);
+    m_model.updateSelection(m_selection);
+    emit selectionChanged();
+    emit selectedClipChanged();
+    emit statusMessage(
+        QStringLiteral("Selected %1 clips on track %2.").arg(m_selection.size()).arg(track->name));
+    return true;
+}
+
 bool TimelineController::setClipProperty(const QString& clipId, const QString& name,
                                          const QVariant& value)
 {

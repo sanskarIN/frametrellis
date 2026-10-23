@@ -604,9 +604,8 @@ bool TimelineController::selectTrackClips(const QString& trackId)
     m_model.updateSelection(m_selection);
     emit selectionChanged();
     emit selectedClipChanged();
-    emit statusMessage(QStringLiteral("Selected %1 clips on track %2.")
-                           .arg(m_selection.size())
-                           .arg(track->name));
+    emit statusMessage(
+        QStringLiteral("Selected %1 clips on track %2.").arg(m_selection.size()).arg(track->name));
     return true;
 }
 

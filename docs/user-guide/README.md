@@ -51,7 +51,9 @@ If you move the project folder together with the media, FrameTrellis finds them 
 Use *File → Import Media…* (Ctrl+I), the import button on the media panel, or drop files from your
 file manager onto the media panel or the timeline. Files are checked in the background: those
 FFmpeg cannot decode are reported and not added. Importing a file that is already in the project
-is ignored.
+is ignored. Media identities are checked by canonical path, so a second name or relative-path
+alias to the same file cannot create a duplicate entry. Relinking a media tile to a file already
+used by another tile is rejected.
 
 Supported: most video formats FFmpeg decodes (MP4, MOV, MKV, WebM, AVI, MTS, …), audio (WAV, MP3,
 AAC/M4A, FLAC, Ogg, Opus, …) and still images (PNG, JPEG, BMP, GIF, TIFF, WebP and others your Qt

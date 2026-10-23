@@ -815,6 +815,10 @@ Status Timeline::validate(const SourceLookup& sources) const
     }
     QSet<Id> ids;
     for (const Track& t : m_tracks) {
+        if (t.name.trimmed().isEmpty() || t.name.size() > 64) {
+            return makeError(ErrorCode::InvalidDocument,
+                             QStringLiteral("A track has an invalid name."));
+        }
         if (!isValidId(t.id) || ids.contains(t.id)) {
             return makeError(ErrorCode::InvalidDocument,
                              QStringLiteral("A track has a missing or duplicate id."));

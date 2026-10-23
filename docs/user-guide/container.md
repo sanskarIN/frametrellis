@@ -38,6 +38,23 @@ or below it. The options are the export settings of the editor:
 The output is H.264 video with AAC audio, the same as an export from the editor, and it is
 checked before it is kept. If rendering fails or is cancelled, no partial file is left behind.
 
+## Listing available presets (development builds)
+
+Builds containing the next render CLI update can list the graphical editor's export
+profiles without a project file, an output path or an active media engine:
+
+```sh
+frametrellis-render --list-presets
+```
+
+This command prints a JSON object with a `presets` array containing each profile's
+`id`, display `name`, `description`, `shortSide`, `crf`, `speedPreset`,
+`audioBitrateKbps`, and `avoidUpscaling`. Automation can inspect this metadata
+to choose quality and speed parameters. The `--list-presets` command **does not
+start a render** or select a preset for a later command; supply export options
+explicitly when rendering. This option is not present in the published 1.2.2
+container image.
+
 ## Checking the image
 
 ```sh

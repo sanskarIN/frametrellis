@@ -82,6 +82,21 @@ class TimelineTest : public QObject
     Q_OBJECT
 
 private slots:
+    void restoredTracksNeedValidNames()
+    {
+        Timeline t = makeTimeline();
+        std::vector<Track> tracks = t.tracks();
+        tracks.front().name.clear();
+        t.restoreTracks(tracks);
+        QVERIFY(!t.validate(testSources()));
+        tracks.front().name = QString(65, QLatin1Char('a'));
+        t.restoreTracks(tracks);
+        QVERIFY(!t.validate(testSources()));
+        tracks.front().name = QStringLiteral("V1");
+        t.restoreTracks(tracks);
+        QVERIFY(t.validate(testSources()));
+    }
+
     void insertKeepsClipsSorted()
     {
         Timeline t = makeTimeline();

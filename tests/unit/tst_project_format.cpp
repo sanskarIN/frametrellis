@@ -372,6 +372,19 @@ private slots:
         QCOMPARE(*tiny.lengthInFrames(*FrameRate::create(25, 1)), FrameCount{1});
     }
 
+    void mediaReplacementCannotClearPath()
+    {
+        Project project = makeProject(QStringLiteral("/media"));
+        MediaAsset replacement = *project.asset(QStringLiteral("m3"));
+        replacement.filePath = QStringLiteral("  ");
+        const Status invalid = project.replaceAsset(replacement);
+        QVERIFY(!invalid);
+        QCOMPARE(invalid.error().code, ErrorCode::InvalidArgument);
+        QCOMPARE(project.asset(QStringLiteral("m3"))->filePath,
+                 QStringLiteral("/media/logo.png"));
+        QVERIFY(project.validate());
+    }
+
     void projectMediaRules()
     {
         Project p = makeProject(QStringLiteral("/media"));

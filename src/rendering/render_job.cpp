@@ -122,6 +122,7 @@ Status RenderJob::start(const Project& project, const ExportSettings& settings,
     m_errorMessage.clear();
     m_errorDetail.clear();
     m_buffer.clear();
+    m_discardingOversizedLine = false;
     m_sawFinished = false;
     m_finalElapsed = -1;
     m_elapsed.start();
@@ -224,14 +225,20 @@ void RenderJob::onReadyRead()
     m_buffer += m_process->readAllStandardOutput();
     qsizetype newline = -1;
     while ((newline = m_buffer.indexOf('\n')) >= 0) {
-        const QByteArray line = m_buffer.left(newline);
-        m_buffer.remove(0, newline + 1);
-        if (const auto event = protocol::decode(line)) {
-            handleEvent(*event);
+        // Skip the rest of a line whose earlier fragments exceeded the limit.
+        if (!m_discardingOversizedLine && newline <= protocol::kMaxEventBytes) {
+            if (const auto event = protocol::decode(m_buffer.left(newline))) {
+                handleEvent(*event);
+            }
         }
+        m_buffer.remove(0, newline + 1);
+        m_discardingOversizedLine = false;
     }
-    if (m_buffer.size() > qsizetype{1024} * 1024) {
-        m_buffer.clear(); // never let unexpected output grow without bound
+    if (m_buffer.size() > protocol::kMaxEventBytes) {
+        // A helper or native library may print arbitrary output without a newline.
+        // Drop it in bounded space, then ignore fragments until its next newline.
+        m_buffer.clear();
+        m_discardingOversizedLine = true;
     }
 }
 

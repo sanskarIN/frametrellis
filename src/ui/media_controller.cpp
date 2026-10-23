@@ -94,7 +94,10 @@ bool MediaController::importFolder(const QString& urlOrPath)
         return false;
     }
     if (scan->files.isEmpty()) {
-        emit statusMessage(QStringLiteral("No supported media files found in this folder."));
+        emit statusMessage(
+            scan->truncated
+                ? QStringLiteral("Scan limit reached before any supported media was found.")
+                : QStringLiteral("No supported media files found in this folder."));
         return true;
     }
     QVariantList paths;

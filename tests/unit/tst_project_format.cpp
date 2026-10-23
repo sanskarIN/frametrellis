@@ -517,6 +517,30 @@ private slots:
         QVERIFY(existing.open(QIODevice::ReadOnly));
         QCOMPARE(existing.readAll(), original);
         QVERIFY(!media_audit::saveReport(project, dir.filePath(QStringLiteral("no.json.txt"))));
+
+#ifndef Q_OS_WIN
+        // POSIX symbolic-link destinations must not bypass source-file protection.
+        const QString alias = dir.filePath(QStringLiteral("source-alias.json"));
+        QVERIFY(QFile::link(mediaPath, alias));
+        const Status refusedAlias = media_audit::saveReport(project, alias);
+        QVERIFY(!refusedAlias);
+        QCOMPARE(refusedAlias.error().code, ErrorCode::Conflict);
+        QVERIFY(source.open(QIODevice::ReadOnly));
+        QCOMPARE(source.readAll(), original);
+#endif
+    }
+
+    void mediaAuditEmptyProjectHasValidSchema()
+    {
+        Project empty = Project::createNew(QStringLiteral("Empty audit"), ProjectSettings{});
+        const QJsonObject report = media_audit::buildReport(empty);
+        QCOMPARE(report.value(QLatin1String("schemaVersion")).toInt(), 1);
+        QCOMPARE(report.value(QLatin1String("assets")).toArray().size(), 0);
+        const QJsonObject totals = report.value(QLatin1String("summary")).toObject();
+        QCOMPARE(totals.value(QLatin1String("total")).toInt(), 0);
+        QCOMPARE(totals.value(QLatin1String("missing")).toInt(), 0);
+        QCOMPARE(totals.value(QLatin1String("changed")).toInt(), 0);
+        QCOMPARE(totals.value(QLatin1String("clipUses")).toInt(), 0);
     }
 
     void presetsAreValid()

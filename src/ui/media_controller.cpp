@@ -98,11 +98,6 @@ bool MediaController::importFolder(const QString& urlOrPath)
         emit statusMessage(QStringLiteral("No supported media files found in this folder."));
         return true;
     }
-    if (scan->truncated) {
-        emit statusMessage(
-            QStringLiteral("Folder is large: importing only the first %1 discovered files.")
-                .arg(scan->files.size()));
-    }
     QVariantList paths;
     for (const QString& path : scan->files) {
         paths.append(path);

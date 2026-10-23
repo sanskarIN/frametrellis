@@ -189,6 +189,8 @@ ApplicationWindow {
             Action { text: qsTr("Next Frame"); shortcut: "Right"; enabled: window.editKeys; onTriggered: window.app.playback.step(1) }
             Action { text: qsTr("Back One Second"); shortcut: "Shift+Left"; enabled: window.editKeys; onTriggered: window.app.playback.step(-Math.round(window.app.timeline.frameRate)) }
             Action { text: qsTr("Forward One Second"); shortcut: "Shift+Right"; enabled: window.editKeys; onTriggered: window.app.playback.step(Math.round(window.app.timeline.frameRate)) }
+            Action { text: qsTr("Back Five Seconds"); shortcut: "Ctrl+Left"; enabled: window.editKeys; onTriggered: window.app.playback.step(-Math.round(5 * window.app.timeline.frameRate)) }
+            Action { text: qsTr("Forward Five Seconds"); shortcut: "Ctrl+Right"; enabled: window.editKeys; onTriggered: window.app.playback.step(Math.round(5 * window.app.timeline.frameRate)) }
             Action { text: qsTr("Previous Edit Point"); shortcut: "Up"; enabled: window.editKeys; onTriggered: window.app.timeline.previousEditPoint() }
             Action { text: qsTr("Next Edit Point"); shortcut: "Down"; enabled: window.editKeys; onTriggered: window.app.timeline.nextEditPoint() }
             Action { text: qsTr("Go to Start"); shortcut: "Home"; enabled: window.editKeys; onTriggered: window.app.playback.goToStart() }

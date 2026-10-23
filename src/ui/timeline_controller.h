@@ -121,6 +121,8 @@ public:
     // Tracks
     Q_INVOKABLE bool addTrack(const QString& kind);
     Q_INVOKABLE bool removeTrack(const QString& trackId);
+    /// Copy a track immediately after its source, retaining edits and transitions.
+    Q_INVOKABLE bool duplicateTrack(const QString& trackId);
     Q_INVOKABLE bool setTrackFlag(const QString& trackId, const QString& flag, bool value);
     Q_INVOKABLE bool renameTrack(const QString& trackId, const QString& name);
 

@@ -394,7 +394,8 @@ void Timeline::insertSorted(Track& t, Clip c)
 
 Status Timeline::insertTrack(Track t, int index)
 {
-    if (!isValidId(t.id) || trackIndex(t.id) >= 0) {
+    if (!isValidId(t.id) || trackIndex(t.id) >= 0 || findClip(t.id) ||
+        transition(t.id)) {
         return makeError(ErrorCode::InvalidArgument,
                          QStringLiteral("The track id is invalid or already used."));
     }

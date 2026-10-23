@@ -402,6 +402,10 @@ Status Timeline::insertTrack(Track t, int index)
         return makeError(ErrorCode::OutOfRange,
                          QStringLiteral("A timeline can have at most %1 tracks.").arg(kMaxTracks));
     }
+    if (t.name.trimmed().isEmpty() || t.name.size() > 64) {
+        return makeError(ErrorCode::InvalidArgument,
+                         QStringLiteral("Track names must contain 1 to 64 characters."));
+    }
     FrameCount previousEnd = 0;
     for (const Clip& c : t.clips) {
         if (const Status shape = checkClipShape(c); !shape) {

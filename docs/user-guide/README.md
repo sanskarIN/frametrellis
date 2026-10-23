@@ -147,6 +147,13 @@ moves the playhead. If no audio device is available, the preview plays silently.
 
 ## Exporting
 
+For review notes, choose **File → Export Clip List (CSV)…** to save the current
+timeline as a UTF-8 table of track names, referenced media names and paths,
+integer frame ranges and SMPTE start/end labels. This is a **read-only report**:
+it does not render a video, modify any timeline edits or mark the project saved.
+Because the CSV includes local source-file paths, review it before sharing.
+The report refuses to overwrite a source-media file or your project.
+
 *File → Export…* (Ctrl+E):
 
 1. Choose a preset (*Match project*, *1080p*, *720p*, *2160p*, *Fast draft*).

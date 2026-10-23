@@ -369,8 +369,8 @@ private slots:
 
         // Alternate path spellings must not bypass the same-media check.
         QVERIFY(QDir().mkpath(dir.filePath(QStringLiteral("nested"))));
-        const Status aliased = project_format::saveToFile(
-            project, dir.filePath(QStringLiteral("nested/../clip.mp4")));
+        const Status aliased =
+            project_format::saveToFile(project, dir.filePath(QStringLiteral("nested/../clip.mp4")));
         QVERIFY(!aliased);
         QCOMPARE(aliased.error().code, ErrorCode::Conflict);
 

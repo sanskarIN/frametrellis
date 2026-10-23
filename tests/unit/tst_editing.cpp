@@ -624,6 +624,60 @@ private slots:
         QVERIFY(f.doc.project().timeline().track(f.v1)->hidden);
     }
 
+    void duplicatingTrackPreservesClipsTransitionsAndUndo()
+    {
+        Fixture f;
+        Clip first = clipOf(QStringLiteral("m1"), 0, 60, QStringLiteral("left"));
+        first.sourceIn = 40;
+        first.properties.gain = 0.65;
+        Clip second = clipOf(QStringLiteral("m1"), 60, 60, QStringLiteral("right"));
+        second.sourceIn = 80;
+        QVERIFY(f.doc.execute(edits::addClip(f.v1, first)));
+        QVERIFY(f.doc.execute(edits::addClip(f.v1, second)));
+        QVERIFY(f.doc.execute(edits::addTransition(first.id, 10, QStringLiteral("dissolve"))));
+        QVERIFY(f.doc.execute(edits::setTrackMuted(f.v1, true)));
+        QVERIFY(f.doc.execute(edits::setTrackLocked(f.v1, true)));
+        const Timeline original = f.doc.project().timeline();
+        const Id copyId = QStringLiteral("duplicate-track");
+        QVERIFY(f.doc.execute(edits::duplicateTrack(f.v1, QStringLiteral("V3"), copyId)));
+        const Timeline& timeline = f.doc.project().timeline();
+        QCOMPARE(timeline.trackIndex(copyId), timeline.trackIndex(f.v1) + 1);
+        const Track* source = timeline.track(f.v1);
+        const Track* copy = timeline.track(copyId);
+        QVERIFY(source);
+        QVERIFY(copy);
+        QCOMPARE(copy->name, QStringLiteral("V3"));
+        QCOMPARE(copy->locked, source->locked);
+        QCOMPARE(copy->muted, source->muted);
+        QCOMPARE(copy->clips.size(), size_t{2});
+        QCOMPARE(copy->transitions.size(), size_t{1});
+        for (size_t i = 0; i < copy->clips.size(); ++i) {
+            QVERIFY(copy->clips[i].id != source->clips[i].id);
+            QCOMPARE(copy->clips[i].assetId, source->clips[i].assetId);
+            QCOMPARE(copy->clips[i].start, source->clips[i].start);
+            QCOMPARE(copy->clips[i].properties, source->clips[i].properties);
+        }
+        QVERIFY(copy->transitions.front().id != source->transitions.front().id);
+        QCOMPARE(copy->transitions.front().fromClip, copy->clips.front().id);
+        QCOMPARE(copy->transitions.front().toClip, copy->clips.back().id);
+        QVERIFY(timeline.validate(f.doc.project().sourceLookup()));
+        const Timeline copied = timeline;
+        QVERIFY(f.doc.undo());
+        QCOMPARE(f.doc.project().timeline(), original);
+        QVERIFY(f.doc.redo());
+        QCOMPARE(f.doc.project().timeline(), copied);
+    }
+
+    void duplicatingMissingTrackDoesNotCreateUndoStep()
+    {
+        Fixture f;
+        const Timeline before = f.doc.project().timeline();
+        QVERIFY(!f.doc.execute(
+            edits::duplicateTrack(QStringLiteral("absent"), QStringLiteral("V3"))));
+        QCOMPARE(f.doc.project().timeline(), before);
+        QVERIFY(!f.doc.canUndo());
+    }
+
     void splitRequiresPlayheadInsideClip()
     {
         Fixture f;

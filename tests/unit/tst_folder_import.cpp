@@ -42,8 +42,7 @@ private slots:
         QVERIFY(QFileInfo::exists(video));
         QVERIFY(QFileInfo::exists(image));
 
-        const Result<media::FolderImportScan> found =
-            media::discoverImportableFiles(temp.path());
+        const Result<media::FolderImportScan> found = media::discoverImportableFiles(temp.path());
         QVERIFY(found);
         QCOMPARE(found->files.size(), 2);
         QCOMPARE(found->files.first(), video);
@@ -90,8 +89,7 @@ private slots:
         const QString link = root.filePath(QStringLiteral("alias.mp4"));
         writeFile(original);
         QVERIFY(QFile::link(original, link));
-        const Result<media::FolderImportScan> found =
-            media::discoverImportableFiles(temp.path());
+        const Result<media::FolderImportScan> found = media::discoverImportableFiles(temp.path());
         QVERIFY(found);
         QCOMPARE(found->files, QStringList{original});
 #endif

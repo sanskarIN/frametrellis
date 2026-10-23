@@ -99,6 +99,13 @@ Acceptance criteria, each checked before the release:
 - ⏳ Evaluate WinGet package identifier, installer metadata and hash-verified manifests;
   do not claim a WinGet listing without confirmed upstream acceptance
 
+## v1.2.3 — Update discovery and release communication 🚧
+- 🚧 Add an offline **Help → What's New** dialog for recent verified improvements
+- 🚧 Add a website **What's new** section linked to release notes
+- 🚧 Cover open/dismiss behavior with GUI tests
+- ⏳ Finalize release-specific highlights only after outstanding feature PRs are merged and validated
+- ⏳ Verify packages and publish only with maintainer approval
+
 ## Next milestones
 - ⏳ A Linux package (AppImage or Flatpak), published once it has been verified
 - ⏳ A macOS build in CI, then a `.dmg` package once it has been verified

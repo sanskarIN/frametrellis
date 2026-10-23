@@ -17,7 +17,7 @@ ApplicationWindow {
     // Single-key editing shortcuts are disabled while a dialog is open, so that keys such as
     // Space, Delete or the arrows act on the dialog instead of the timeline.
     readonly property bool dialogOpen: newDialog.visible || titleDialog.visible || exportDialog.visible || aboutDialog.visible
-                                       || shortcutsDialog.visible || welcome.visible || messageBox.visible
+                                       || shortcutsDialog.visible || goToTimecodeDialog.visible || welcome.visible || messageBox.visible
                                        || unsavedDialog.visible || exportRunningDialog.visible || recoveryDialog.visible
     readonly property bool editKeys: !dialogOpen
 
@@ -191,6 +191,7 @@ ApplicationWindow {
             Action { text: qsTr("Forward One Second"); shortcut: "Shift+Right"; enabled: window.editKeys; onTriggered: window.app.playback.step(Math.round(window.app.timeline.frameRate)) }
             Action { text: qsTr("Previous Edit Point"); shortcut: "Up"; enabled: window.editKeys; onTriggered: window.app.timeline.previousEditPoint() }
             Action { text: qsTr("Next Edit Point"); shortcut: "Down"; enabled: window.editKeys; onTriggered: window.app.timeline.nextEditPoint() }
+            Action { text: qsTr("&Go to Timecode…"); shortcut: "Ctrl+G"; enabled: window.editKeys && !window.app.timeline.empty; onTriggered: goToTimecodeDialog.open() }
             Action { text: qsTr("Go to Start"); shortcut: "Home"; enabled: window.editKeys; onTriggered: window.app.playback.goToStart() }
             Action { text: qsTr("Go to End"); shortcut: "End"; enabled: window.editKeys; onTriggered: window.app.playback.goToEnd() }
             MenuSeparator {}
@@ -386,6 +387,7 @@ ApplicationWindow {
     ExportDialog { id: exportDialog; objectName: "exportDialog"; app: window.app }
     AboutDialog { id: aboutDialog; objectName: "aboutDialog"; app: window.app }
     ShortcutsDialog { id: shortcutsDialog }
+    GoToTimecodeDialog { id: goToTimecodeDialog; objectName: "goToTimecodeDialog"; app: window.app }
     WelcomeOverlay { id: welcome; objectName: "welcome"; app: window.app; onImportRequested: importDialog.open() }
     MessageBox { id: messageBox }
 

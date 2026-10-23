@@ -19,6 +19,7 @@
 | Delete | Delete selected clips or the selected transition |
 | Shift+Delete | Ripple delete |
 | Ctrl+A | Select all clips |
+| Ctrl+Alt+S | Select all clips overlapping the playhead |
 | N | Toggle snapping |
 | + / − | Zoom timeline in / out |
 | Ctrl+mouse wheel | Zoom around the pointer |

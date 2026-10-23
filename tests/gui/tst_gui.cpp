@@ -10,6 +10,7 @@
 #include "ui/app_controller.h"
 #include "ui/title_image.h"
 
+#include <QClipboard>
 #include <QDir>
 #include <QGuiApplication>
 #include <QQmlApplicationEngine>
@@ -198,6 +199,15 @@ private slots:
         m_app->playback()->seek(40);
         QTest::qWait(500);
         screenshot(QStringLiteral("03-timeline"));
+    }
+
+    void canCopyPlayheadTimecode()
+    {
+        m_app->playback()->seek(45);
+        QGuiApplication::clipboard()->clear();
+        QTest::keyClick(m_window, Qt::Key_C, Qt::ControlModifier | Qt::ShiftModifier);
+        QCOMPARE(QGuiApplication::clipboard()->text(), m_app->playback()->timecode());
+        QVERIFY(!QGuiApplication::clipboard()->text().isEmpty());
     }
 
     void audioClipsShowTheirWaveform()

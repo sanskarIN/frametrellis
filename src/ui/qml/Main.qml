@@ -191,6 +191,15 @@ ApplicationWindow {
             Action { text: qsTr("Forward One Second"); shortcut: "Shift+Right"; enabled: window.editKeys; onTriggered: window.app.playback.step(Math.round(window.app.timeline.frameRate)) }
             Action { text: qsTr("Previous Edit Point"); shortcut: "Up"; enabled: window.editKeys; onTriggered: window.app.timeline.previousEditPoint() }
             Action { text: qsTr("Next Edit Point"); shortcut: "Down"; enabled: window.editKeys; onTriggered: window.app.timeline.nextEditPoint() }
+            Action {
+                text: qsTr("&Copy Playhead Timecode")
+                shortcut: "Ctrl+Shift+C"
+                enabled: window.editKeys
+                onTriggered: {
+                    window.app.copyText(window.app.playback.timecode)
+                    window.app.showStatus(qsTr("Copied playhead timecode."))
+                }
+            }
             Action { text: qsTr("Go to Start"); shortcut: "Home"; enabled: window.editKeys; onTriggered: window.app.playback.goToStart() }
             Action { text: qsTr("Go to End"); shortcut: "End"; enabled: window.editKeys; onTriggered: window.app.playback.goToEnd() }
             MenuSeparator {}

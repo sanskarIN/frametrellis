@@ -45,6 +45,10 @@ PanelFrame {
         timeline.pixelsPerFrame = ppf * factor
         lanes.contentX = Math.max(0, frame * timeline.pixelsPerFrame - anchorX)
     }
+    function fitTimeline() {
+        timeline.zoomToFit(lanes.width)
+        lanes.contentX = 0
+    }
 
     tools: [
         IconButton { iconName: "track-video"; text: qsTr("+ Video"); tip: qsTr("Add a video track"); onClicked: panel.timeline.addTrack("video") },
@@ -68,7 +72,7 @@ PanelFrame {
             Accessible.name: qsTr("Timeline zoom")
         },
         IconButton { iconName: "zoom-in"; tip: qsTr("Zoom in (+)"); onClicked: panel.zoomAround(1.4, lanes.width / 2) },
-        IconButton { iconName: "zoom-fit"; tip: qsTr("Fit the whole sequence"); onClicked: { panel.timeline.zoomToFit(lanes.width); lanes.contentX = 0 } }
+        IconButton { iconName: "zoom-fit"; tip: qsTr("Fit the whole sequence (Ctrl+0)"); onClicked: panel.fitTimeline() }
     ]
 
     Item {

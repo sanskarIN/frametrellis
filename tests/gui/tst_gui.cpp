@@ -200,6 +200,28 @@ private slots:
         screenshot(QStringLiteral("03-timeline"));
     }
 
+    void goToTimecodeSeeksOnlyForValidPositions()
+    {
+        const double before = m_app->playback()->position();
+        QVERIFY(!m_app->playback()->seekToTimecode(QStringLiteral("invalid")));
+        QCOMPARE(m_app->playback()->position(), before);
+        QVERIFY(!m_app->playback()->seekToTimecode(QStringLiteral("99:00:00:00")));
+        QCOMPARE(m_app->playback()->position(), before);
+
+        QTest::keyClick(m_window, Qt::Key_G, Qt::ControlModifier);
+        QObject* dialog = m_window->findChild<QObject*>(QStringLiteral("goToTimecodeDialog"));
+        QVERIFY(dialog);
+        QTRY_VERIFY(dialog->property("visible").toBool());
+
+        QQuickItem* field =
+            findItem(m_window->contentItem(), QStringLiteral("goToTimecodeField"));
+        QVERIFY(field);
+        field->setProperty("text", QStringLiteral("00:00:01:00"));
+        QVERIFY(QMetaObject::invokeMethod(dialog, "trySeek"));
+        QTRY_VERIFY(!dialog->property("visible").toBool());
+        QCOMPARE(static_cast<FrameCount>(m_app->playback()->position()), FrameCount{30});
+    }
+
     void audioClipsShowTheirWaveform()
     {
         const auto& tracks = m_app->project()->project().timeline().tracks();

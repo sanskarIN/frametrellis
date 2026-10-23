@@ -114,6 +114,10 @@ Status Project::replaceAsset(const MediaAsset& updated)
     if (index < 0) {
         return makeError(ErrorCode::NotFound, QStringLiteral("The media was not found."));
     }
+    if (updated.filePath.trimmed().isEmpty()) {
+        return makeError(ErrorCode::InvalidArgument,
+                         QStringLiteral("Replacement media must have a file path."));
+    }
     m_media[static_cast<size_t>(index)] = updated;
     return {};
 }

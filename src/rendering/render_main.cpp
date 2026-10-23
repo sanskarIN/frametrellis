@@ -174,16 +174,15 @@ int main(int argc, char** argv)
         // initialisation required. Keep the output valid JSON for shell tools.
         QJsonArray profiles;
         for (const ExportPreset& preset : exportPresets()) {
-            profiles.append(QJsonObject{
-                {QStringLiteral("id"), preset.id},
-                {QStringLiteral("name"), preset.name},
-                {QStringLiteral("description"), preset.description},
-                {QStringLiteral("shortSide"), preset.shortSide},
-                {QStringLiteral("crf"), preset.crf},
-                {QStringLiteral("speedPreset"), preset.speedPreset},
-                {QStringLiteral("audioBitrateKbps"), preset.audioBitrateKbps},
-                {QStringLiteral("avoidUpscaling"), preset.avoidUpscaling}
-            });
+            profiles.append(
+                QJsonObject{{QStringLiteral("id"), preset.id},
+                            {QStringLiteral("name"), preset.name},
+                            {QStringLiteral("description"), preset.description},
+                            {QStringLiteral("shortSide"), preset.shortSide},
+                            {QStringLiteral("crf"), preset.crf},
+                            {QStringLiteral("speedPreset"), preset.speedPreset},
+                            {QStringLiteral("audioBitrateKbps"), preset.audioBitrateKbps},
+                            {QStringLiteral("avoidUpscaling"), preset.avoidUpscaling}});
         }
         const QByteArray json = QJsonDocument(
             QJsonObject{{QStringLiteral("presets"), profiles}}).toJson(QJsonDocument::Indented);

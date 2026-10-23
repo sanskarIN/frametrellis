@@ -165,6 +165,7 @@ ApplicationWindow {
             Action { text: qsTr("Ripple De&lete"); shortcut: "Shift+Delete"; enabled: window.editKeys; onTriggered: window.app.timeline.deleteSelection(true) }
             MenuSeparator {}
             Action { text: qsTr("Select &All Clips"); shortcut: StandardKey.SelectAll; enabled: window.editKeys; onTriggered: window.app.timeline.selectAll() }
+            Action { text: qsTr("Select Clips at Playhead"); shortcut: "Ctrl+Alt+S"; enabled: window.editKeys && !window.app.timeline.empty; onTriggered: window.app.timeline.selectClipsAtPlayhead() }
             Action { text: qsTr("Clear Selection"); onTriggered: window.app.timeline.clearSelection() }
             MenuSeparator {}
             Action { text: qsTr("Check for Missing Media"); onTriggered: window.app.media.rescan() }

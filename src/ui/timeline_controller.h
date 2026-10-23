@@ -102,6 +102,8 @@ public:
     Q_INVOKABLE void select(const QString& clipId, bool toggle);
     Q_INVOKABLE void clearSelection();
     Q_INVOKABLE void selectAll();
+    /// Select all clips spanning the current playhead, retaining old selection if none match.
+    Q_INVOKABLE bool selectClipsAtPlayhead();
     /// Sets one clip property ("gain", "muted", "fadeIn", "fadeOut", "brightness", "contrast",
     /// "saturation" or "opacity"). Repeated changes merge into one undo step until endEdit().
     Q_INVOKABLE bool setClipProperty(const QString& clipId, const QString& name,

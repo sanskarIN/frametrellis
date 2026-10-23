@@ -472,6 +472,12 @@ private slots:
                  QStringLiteral("missing"));
         QCOMPARE(assets.at(2).toObject().value(QLatin1String("status")).toString(),
                  QStringLiteral("changed"));
+        const QJsonArray reasons =
+            assets.at(2).toObject().value(QLatin1String("changeReasons")).toArray();
+        QVERIFY(reasons.contains(QStringLiteral("size")));
+        QVERIFY(reasons.contains(QStringLiteral("modified")));
+        QVERIFY(assets.at(2).toObject().contains(QStringLiteral("currentModifiedUtc")));
+        QVERIFY(!assets.at(1).toObject().contains(QStringLiteral("currentModifiedUtc")));
         QCOMPARE(assets.at(3).toObject().value(QLatin1String("clipUses")).toInt(), 0);
 
         const QString dest = dir.filePath(QStringLiteral("फ़ुटेज-audit.json"));

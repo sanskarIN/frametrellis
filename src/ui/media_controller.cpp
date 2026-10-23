@@ -4,6 +4,7 @@
 
 #include "core/ids.h"
 #include "core/logging.h"
+#include "media/folder_import.h"
 #include "media/media_probe.h"
 #include "ui/project_controller.h"
 #include "ui/title_image.h"

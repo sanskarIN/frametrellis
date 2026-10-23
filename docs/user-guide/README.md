@@ -18,6 +18,7 @@ uploaded. This guide covers everything the current version can do.
 - [Faster export profiles](faster-export.md)
 - [Missing media and recovery](#missing-media-and-recovery)
 - [Troubleshooting](#troubleshooting)
+- [Troubleshooting and recovery](troubleshooting.md)
 - [Keyboard shortcuts](keyboard-shortcuts.md)
 - [Supported formats](formats.md)
 

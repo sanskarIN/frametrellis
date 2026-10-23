@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // SPDX-FileCopyrightText: 2026 Sanskar and FrameTrellis contributors
-#include "project/project_serializer.h"
 #include "project/media_audit.h"
+#include "project/project_serializer.h"
 
 #include <QDir>
 #include <QFile>
@@ -448,8 +448,8 @@ private slots:
         QCOMPARE(image.write("different", 9), qint64{9});
         image.close();
         QVERIFY(project.addAsset(makeAsset(QStringLiteral("unused"),
-                                            dir.filePath(QStringLiteral("missing-unused.mp4")),
-                                            MediaKind::Video, 1)));
+                                           dir.filePath(QStringLiteral("missing-unused.mp4")),
+                                           MediaKind::Video, 1)));
 
         const Project before = project;
         const QJsonObject report = media_audit::buildReport(project);
@@ -496,8 +496,8 @@ private slots:
         const QByteArray original = QByteArrayLiteral("original media bytes");
         QCOMPARE(source.write(original), static_cast<qint64>(original.size()));
         source.close();
-        QVERIFY(project.addAsset(makeAsset(QStringLiteral("json-source"), mediaPath,
-                                            MediaKind::Image, 0)));
+        QVERIFY(project.addAsset(
+            makeAsset(QStringLiteral("json-source"), mediaPath, MediaKind::Image, 0)));
 
         const Status refusedSource = media_audit::saveReport(project, mediaPath);
         QVERIFY(!refusedSource);
@@ -511,8 +511,7 @@ private slots:
         QVERIFY(existing.open(QIODevice::WriteOnly));
         QCOMPARE(existing.write(original), static_cast<qint64>(original.size()));
         existing.close();
-        const Status refusedProject =
-            media_audit::saveReport(project, projectPath, projectPath);
+        const Status refusedProject = media_audit::saveReport(project, projectPath, projectPath);
         QVERIFY(!refusedProject);
         QCOMPARE(refusedProject.error().code, ErrorCode::Conflict);
         QVERIFY(existing.open(QIODevice::ReadOnly));

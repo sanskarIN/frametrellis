@@ -85,7 +85,7 @@ access violation in `Qt6Core.dll` on Windows 11 ARM64. The installed version, re
 and other hosts passed; rerunning the failed ARM64 job passed. The root cause remains
 unknown and must not be reported as resolved merely because a rerun succeeded.
 
-In the v1.2.1 development branch, the ARM64 smoke test executes the portable GUI twice
+Starting with v1.2.1, the ARM64 smoke test executes the portable GUI twice
 as independent tests. Both must pass, with separately named screenshots and Qt stdout/
 stderr logs in the `verification-windows-11-arm` Actions artifact. A crash prints the
 relevant Windows Application Error event and saves a copy of the application's own log.

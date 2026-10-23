@@ -37,16 +37,16 @@ Result<FolderImportScan> discoverImportableFiles(const QString& directory, int m
     constexpr int kMaxVisitedFiles = 10'000;
     int visited = 0;
     QDirIterator iterator(root.absoluteFilePath(),
-                          QDir::Files | QDir::NoDotAndDotDot | QDir::Readable,
+                          QDir::AllDirs | QDir::Files | QDir::NoDotAndDotDot | QDir::Readable,
                           QDirIterator::Subdirectories);
     while (iterator.hasNext()) {
         const QFileInfo info(iterator.next());
+        if (!info.isFile() || info.isSymLink()) {
+            continue;
+        }
         if (++visited > kMaxVisitedFiles) {
             scan.truncated = true;
             break;
-        }
-        if (!info.isFile() || info.isSymLink()) {
-            continue;
         }
         if (!supported.contains(info.suffix().toCaseFolded())) {
             ++scan.skippedUnsupported;

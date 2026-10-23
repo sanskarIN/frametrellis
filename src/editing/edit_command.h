@@ -92,6 +92,24 @@ private:
     int m_index = -1;
 };
 
+/// Removes all media unused by timeline clips in one reversible operation.
+/// Only project references change; source files on disk are never touched.
+class RemoveUnusedMediaCommand final : public EditCommand
+{
+public:
+    [[nodiscard]] QString text() const override { return QStringLiteral("Remove Unused Media"); }
+    Result<ChangeSet> redo(Project& project) override;
+    ChangeSet undo(Project& project) override;
+
+private:
+    struct RemovedAsset
+    {
+        int index;
+        MediaAsset asset;
+    };
+    std::vector<RemovedAsset> m_removed;
+};
+
 /// Replaces an asset's file path and metadata, e.g. when relinking missing media.
 class UpdateMediaCommand final : public EditCommand
 {

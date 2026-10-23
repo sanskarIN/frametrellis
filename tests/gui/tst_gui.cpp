@@ -200,6 +200,19 @@ private slots:
         screenshot(QStringLiteral("03-timeline"));
     }
 
+    void previewMuteShortcutRespectsDeviceAvailability()
+    {
+        m_app->playback()->setMuted(false);
+        QTest::keyClick(m_window, Qt::Key_M);
+        if (m_app->playback()->audioAvailable()) {
+            QVERIFY(m_app->playback()->muted());
+            QTest::keyClick(m_window, Qt::Key_M);
+            QVERIFY(!m_app->playback()->muted());
+        } else {
+            QVERIFY(!m_app->playback()->muted());
+        }
+    }
+
     void audioClipsShowTheirWaveform()
     {
         const auto& tracks = m_app->project()->project().timeline().tracks();

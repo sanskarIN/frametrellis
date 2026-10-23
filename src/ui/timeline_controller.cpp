@@ -588,6 +588,31 @@ void TimelineController::selectAll()
     emit selectedClipChanged();
 }
 
+bool TimelineController::selectClipsAtPlayhead()
+{
+    const FrameCount frame = m_playback->positionFrames();
+    QSet<Id> matching;
+    for (const Track& track : project().timeline().tracks()) {
+        for (const Clip& clip : track.clips) {
+            if (clip.contains(frame)) {
+                matching.insert(clip.id);
+            }
+        }
+    }
+    if (matching.isEmpty()) {
+        emit statusMessage(QStringLiteral("No clips are under the playhead."));
+        return false;
+    }
+    setTransitionSelection({});
+    m_selection = std::move(matching);
+    m_model.updateSelection(m_selection);
+    emit selectionChanged();
+    emit selectedClipChanged();
+    emit statusMessage(QStringLiteral("Selected %1 clip(s) at the playhead.")
+                           .arg(m_selection.size()));
+    return true;
+}
+
 bool TimelineController::setClipProperty(const QString& clipId, const QString& name,
                                          const QVariant& value)
 {

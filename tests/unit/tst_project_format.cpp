@@ -350,6 +350,40 @@ private slots:
         QVERIFY(project_format::loadFromFile(file));
     }
 
+    void saveCannotOverwriteReferencedMedia()
+    {
+        QTemporaryDir dir;
+        QVERIFY(dir.isValid());
+        const QString mediaPath = dir.filePath(QStringLiteral("clip.mp4"));
+        const QByteArray original = QByteArrayLiteral("original source media bytes");
+        {
+            QFile source(mediaPath);
+            QVERIFY(source.open(QIODevice::WriteOnly));
+            QCOMPARE(source.write(original), static_cast<qint64>(original.size()));
+        }
+
+        const Project project = makeProject(dir.path());
+        const Status refused = project_format::saveToFile(project, mediaPath);
+        QVERIFY(!refused);
+        QCOMPARE(refused.error().code, ErrorCode::Conflict);
+
+        // Alternate path spellings must not bypass the same-media check.
+        QVERIFY(QDir().mkpath(dir.filePath(QStringLiteral("nested"))));
+        const Status aliased = project_format::saveToFile(
+            project, dir.filePath(QStringLiteral("nested/../clip.mp4")));
+        QVERIFY(!aliased);
+        QCOMPARE(aliased.error().code, ErrorCode::Conflict);
+
+        QFile unchanged(mediaPath);
+        QVERIFY(unchanged.open(QIODevice::ReadOnly));
+        QCOMPARE(unchanged.readAll(), original);
+
+        // Legitimate project saves still work and remain readable.
+        const QString projectPath = dir.filePath(QStringLiteral("edit.ftproj"));
+        QVERIFY(project_format::saveToFile(project, projectPath));
+        QVERIFY(project_format::loadFromFile(projectPath));
+    }
+
     void rejectsOversizedDocuments()
     {
         QByteArray huge(int(project_format::kMaxDocumentBytes) + 16, ' ');

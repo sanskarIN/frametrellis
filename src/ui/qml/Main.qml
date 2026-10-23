@@ -193,6 +193,15 @@ ApplicationWindow {
             Action { text: qsTr("Next Edit Point"); shortcut: "Down"; enabled: window.editKeys; onTriggered: window.app.timeline.nextEditPoint() }
             Action { text: qsTr("Go to Start"); shortcut: "Home"; enabled: window.editKeys; onTriggered: window.app.playback.goToStart() }
             Action { text: qsTr("Go to End"); shortcut: "End"; enabled: window.editKeys; onTriggered: window.app.playback.goToEnd() }
+            Action {
+                text: qsTr("Go to Selected Clip Last Frame")
+                shortcut: "Ctrl+Alt+End"
+                enabled: window.editKeys && window.app.timeline.selectedClip.count === 1
+                onTriggered: {
+                    const clip = window.app.timeline.selectedClip
+                    window.app.playback.seek(clip.start + clip.duration - 1)
+                }
+            }
             MenuSeparator {}
             Action { text: qsTr("Mute Preview"); checkable: true; checked: window.app.playback.muted; enabled: window.app.playback.audioAvailable; onTriggered: window.app.playback.muted = checked }
         }

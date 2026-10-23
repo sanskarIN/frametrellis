@@ -14,6 +14,7 @@ FtDialog {
         ["Space", qsTr("Play / pause")],
         ["Left / Right", qsTr("Previous / next frame")],
         ["Shift+Left / Shift+Right", qsTr("Back / forward one second")],
+        ["Ctrl+Left / Ctrl+Right", qsTr("Back / forward five seconds")],
         ["Up / Down", qsTr("Previous / next edit point")],
         ["Home / End", qsTr("Go to start / end")],
         ["S", qsTr("Split at playhead")],

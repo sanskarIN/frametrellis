@@ -85,6 +85,10 @@ the project (removing never deletes the file; media in use must be removed from 
 * **Tracks:** add tracks with *+ Video* / *+ Audio*; each track can be hidden (video), muted or
   locked. Double-click a track name to rename it; right-click it to remove the track.
 
+Select a clip and press **Ctrl+Alt+R** (*Edit → Select All Occurrences of Media*) to
+highlight every clip using the same source file, across all tracks. You can then apply
+supported multi-clip editing commands to those instances together.
+
 Every change can be undone (Ctrl+Z) and redone (Ctrl+Shift+Z).
 
 Clips on audio tracks show the waveform of their sound, scaled by the clip's volume. The first

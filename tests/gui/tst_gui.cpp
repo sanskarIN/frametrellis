@@ -200,6 +200,26 @@ private slots:
         screenshot(QStringLiteral("03-timeline"));
     }
 
+    void selectsAllOccurrencesOfOneMediaAsset()
+    {
+        const Id clipId = track(0).clips.front().id;
+        const Id assetId = track(0).clips.front().assetId;
+        const Timeline before = m_app->project()->project().timeline();
+        QVERIFY(m_app->timeline()->appendAsset(assetId));
+        const auto matches = m_app->project()->project().timeline().clipsUsingAsset(assetId);
+        QVERIFY(matches.size() >= size_t{2});
+        m_app->timeline()->select(clipId, false);
+        QTest::keyClick(m_window, Qt::Key_R, Qt::ControlModifier | Qt::AltModifier);
+        const QStringList selected = m_app->timeline()->selection();
+        QCOMPARE(selected.size(), static_cast<qsizetype>(matches.size()));
+        for (const Id& id : matches) {
+            QVERIFY(selected.contains(id));
+        }
+        m_app->project()->undo();
+        QCOMPARE(m_app->project()->project().timeline(), before);
+        m_app->timeline()->clearSelection();
+    }
+
     void audioClipsShowTheirWaveform()
     {
         const auto& tracks = m_app->project()->project().timeline().tracks();

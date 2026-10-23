@@ -71,6 +71,8 @@ public:
     Q_INVOKABLE bool openProject(const QString& pathOrUrl);
     Q_INVOKABLE bool save();
     Q_INVOKABLE bool saveAs(const QString& pathOrUrl);
+    /// Rename project metadata without changing its .ftproj filename; undoable.
+    Q_INVOKABLE bool renameProject(const QString& newName);
     Q_INVOKABLE void undo();
     Q_INVOKABLE void redo();
     Q_INVOKABLE void clearRecentProjects();

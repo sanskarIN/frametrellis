@@ -26,6 +26,7 @@ FtDialog {
         ["Delete", qsTr("Delete selected clips or transition")],
         ["Shift+Delete", qsTr("Ripple delete")],
         ["Ctrl+A", qsTr("Select all clips")],
+        ["Ctrl+Alt+R", qsTr("Select all uses of selected media")],
         ["N", qsTr("Toggle snapping")],
         ["+ / −", qsTr("Zoom timeline in / out")],
         ["Ctrl+Z / Ctrl+Shift+Z", qsTr("Undo / redo")],

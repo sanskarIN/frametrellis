@@ -205,7 +205,15 @@ private slots:
         const QString original = m_app->project()->name();
         QVERIFY(!m_app->project()->renameProject(QStringLiteral("   ")));
         QCOMPARE(m_app->project()->name(), original);
-        QVERIFY(m_app->project()->renameProject(QStringLiteral("  Edited Sequence  ")));
+        QVERIFY(QMetaObject::invokeMethod(m_window, "showRenameProject"));
+        QObject* dialog = m_window->findChild<QObject*>(QStringLiteral("renameProjectDialog"));
+        QVERIFY(dialog);
+        QTRY_VERIFY(dialog->property("visible").toBool());
+        QQuickItem* field = findItem(m_window->contentItem(), QStringLiteral("renameProjectField"));
+        QVERIFY(field);
+        field->setProperty("text", QStringLiteral("  Edited Sequence  "));
+        QVERIFY(QMetaObject::invokeMethod(dialog, "applyRename"));
+        QTRY_VERIFY(!dialog->property("visible").toBool());
         QCOMPARE(m_app->project()->name(), QStringLiteral("Edited Sequence"));
         QVERIFY(m_app->project()->canUndo());
         m_app->project()->undo();

@@ -358,9 +358,9 @@ private slots:
         QVERIFY(project.validate());
 
         // Valid new assets are still accepted.
-        QVERIFY(project.addAsset(
-            makeAsset(QStringLiteral("fresh-id"), QStringLiteral("/media/new.mp4"),
-                      MediaKind::Video, 1'000'000)));
+        QVERIFY(
+            project.addAsset(makeAsset(QStringLiteral("fresh-id"), QStringLiteral("/media/new.mp4"),
+                                       MediaKind::Video, 1'000'000)));
         QVERIFY(project.validate());
     }
 

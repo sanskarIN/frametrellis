@@ -12,6 +12,10 @@
 
 #include <QDir>
 #include <QFile>
+#include <QJsonArray>
+#include <QJsonDocument>
+#include <QJsonObject>
+#include <QProcess>
 #include <QSignalSpy>
 #include <QTemporaryDir>
 #include <QTest>
@@ -81,6 +85,39 @@ private slots:
         m_tone = makeTone(m_dir.path(), QStringLiteral("tone.wav"), 2.0, 880.0);
         QVERIFY(!m_video.isEmpty() && !m_tone.isEmpty());
         QVERIFY(!availableVideoEncoders().isEmpty());
+    }
+
+    void helperListsExportPresetsAsJson()
+    {
+        // The command must work without --project, --output or an active render.
+        QProcess helper;
+        helper.start(QStringLiteral(FT_RENDER_HELPER), {QStringLiteral("--list-presets")});
+        QVERIFY(helper.waitForFinished(10'000));
+        QCOMPARE(helper.exitStatus(), QProcess::NormalExit);
+        QCOMPARE(helper.exitCode(), 0);
+        const QByteArray output = helper.readAllStandardOutput();
+        QJsonParseError parseError;
+        const QJsonDocument parsed = QJsonDocument::fromJson(output, &parseError);
+        QCOMPARE(parseError.error, QJsonParseError::NoError);
+        QVERIFY(parsed.isObject());
+        const QJsonArray profiles = parsed.object().value(QStringLiteral("presets")).toArray();
+        QVERIFY(profiles.size() >= 4);
+        QStringList identifiers;
+        for (const QJsonValue& entry : profiles) {
+            QVERIFY(entry.isObject());
+            const QJsonObject profile = entry.toObject();
+            const QString id = profile.value(QStringLiteral("id")).toString();
+            QVERIFY(!id.isEmpty());
+            QVERIFY(!identifiers.contains(id));
+            identifiers << id;
+            QVERIFY(profile.value(QStringLiteral("name")).isString());
+            QVERIFY(profile.value(QStringLiteral("shortSide")).isDouble());
+            QVERIFY(profile.value(QStringLiteral("speedPreset")).isString());
+            QVERIFY(profile.value(QStringLiteral("avoidUpscaling")).isBool());
+        }
+        QVERIFY(identifiers.contains(QStringLiteral("quick")));
+        QVERIFY(identifiers.contains(QStringLiteral("quick1080p")));
+        QVERIFY(identifiers.contains(QStringLiteral("turbo")));
     }
 
     void rendersTheTimeline()

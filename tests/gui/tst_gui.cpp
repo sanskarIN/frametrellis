@@ -40,6 +40,8 @@ private:
     std::unique_ptr<ui::AppController> m_app;
     std::unique_ptr<QQmlApplicationEngine> m_engine;
     QQuickWindow* m_window = nullptr;
+    // Remains alive as long as the warning signal connection does.
+    QList<QQmlError> m_qmlWarnings;
 
     void screenshot(const QString& name)
     {
@@ -133,9 +135,9 @@ private slots:
                                    m_app->createThumbnailProvider());
         m_engine->addImageProvider(QStringLiteral("ft-waveform"), m_app->createWaveformProvider());
         m_engine->setInitialProperties({{QStringLiteral("app"), QVariant::fromValue(m_app.get())}});
-        QList<QQmlError> errors;
+        m_qmlWarnings.clear();
         connect(m_engine.get(), &QQmlEngine::warnings, this,
-                [&errors](const QList<QQmlError>& w) { errors << w; });
+                [this](const QList<QQmlError>& w) { m_qmlWarnings << w; });
         m_engine->loadFromModule("FrameTrellis", "Main");
         QVERIFY(!m_engine->rootObjects().isEmpty());
         m_window = qobject_cast<QQuickWindow*>(m_engine->rootObjects().first());
@@ -143,10 +145,10 @@ private slots:
         m_window->resize(1600, 960);
         QVERIFY(QTest::qWaitForWindowExposed(m_window));
         QTest::qWait(200);
-        for (const QQmlError& e : std::as_const(errors)) {
+        for (const QQmlError& e : std::as_const(m_qmlWarnings)) {
             qWarning() << e.toString();
         }
-        QVERIFY2(errors.isEmpty(), "QML produced warnings while loading");
+        QVERIFY2(m_qmlWarnings.isEmpty(), "QML produced warnings while loading");
     }
 
     void firstRunGuideIsShownAndDismissable()

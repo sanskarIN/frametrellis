@@ -85,6 +85,32 @@ void MediaController::importFiles(const QVariantList& urls)
     }
 }
 
+bool MediaController::importFolder(const QString& urlOrPath)
+{
+    const QString directory = ProjectController::localPath(urlOrPath);
+    const Result<media::FolderImportScan> scan = media::discoverImportableFiles(directory);
+    if (!scan) {
+        emit importProblems(QStringLiteral("Could not import the folder"),
+                            scan.error().message);
+        return false;
+    }
+    if (scan->files.isEmpty()) {
+        emit statusMessage(QStringLiteral("No supported media files found in this folder."));
+        return true;
+    }
+    if (scan->truncated) {
+        emit statusMessage(
+            QStringLiteral("Folder is large: importing only the first %1 discovered files.")
+                .arg(scan->files.size()));
+    }
+    QVariantList paths;
+    for (const QString& path : scan->files) {
+        paths.append(path);
+    }
+    importFiles(paths); // Reuses duplicate detection and background media probing.
+    return true;
+}
+
 void MediaController::onImported(const std::vector<MediaAsset>& assets,
                                  const QList<media::MediaImporter::Failure>& failures)
 {

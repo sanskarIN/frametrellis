@@ -232,6 +232,24 @@ private slots:
         QVERIFY(!protocol::decode("@ft {not json"));
     }
 
+    void protocolRejectsOversizedEvents()
+    {
+        const QByteArray normal = protocol::encode(
+            {{QStringLiteral("event"), QStringLiteral("progress")},
+             {QStringLiteral("frame"), 12}});
+        QVERIFY(normal.size() < protocol::kMaxEventBytes);
+        QVERIFY(protocol::decode(normal));
+
+        const QJsonObject oversized{
+            {QStringLiteral("event"), QStringLiteral("error")},
+            {QStringLiteral("detail"), QString(protocol::kMaxEventBytes, QLatin1Char('x'))}};
+        const QByteArray longLine = protocol::encode(oversized);
+        QVERIFY(longLine.size() > protocol::kMaxEventBytes);
+        QVERIFY(!protocol::decode(longLine));
+        QVERIFY(!protocol::decode(longLine.chopped(1)));
+        QVERIFY(protocol::decode(normal)); // a rejected event does not poison later events
+    }
+
     void stateMachine()
     {
         using S = RenderJob::State;

@@ -132,6 +132,15 @@ ApplicationWindow {
             MenuSeparator {}
             Action { text: qsTr("&Save"); shortcut: StandardKey.Save; onTriggered: window.save(false) }
             Action { text: qsTr("Save &As…"); shortcut: "Ctrl+Shift+S"; onTriggered: { saveDialog.runAfterSave = false; saveDialog.open() } }
+            Action {
+                text: qsTr("Copy Project File Path")
+                shortcut: "Ctrl+Shift+P"
+                enabled: window.editKeys && window.app.project.hasFilePath
+                onTriggered: {
+                    window.app.copyText(window.app.project.filePath)
+                    window.app.showStatus(qsTr("Copied project file path."))
+                }
+            }
             MenuSeparator {}
             Action { text: qsTr("&Import Media…"); shortcut: "Ctrl+I"; onTriggered: importDialog.open() }
             Action { text: qsTr("Create &Title…"); onTriggered: titleDialog.open() }

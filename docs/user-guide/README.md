@@ -39,7 +39,8 @@ themes and between compact, normal and tall tracks.
 * **New project** (Ctrl+N): choose a name and a format (resolution and frame rate). The frame rate
   can only be changed while the timeline is empty; the export resolution can be chosen later.
 * **Save** (Ctrl+S) writes a `.ftproj` file. Saving is atomic: if it fails (for example, the disk
-  is full), the previous file is kept.
+  is full), the previous file is kept. FrameTrellis also refuses to save a project over
+  a referenced source media file, including through an alternate path or symlink.
 * **Open** (Ctrl+O) and *File → Open Recent* reopen projects. FrameTrellis asks before discarding
   unsaved changes.
 

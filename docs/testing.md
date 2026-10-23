@@ -130,7 +130,7 @@ For user-facing features, confirm that the stable user guide matches
 controllers. Explain unreleased features in their PR descriptions, not as
 shipped functionality in the v1.2.2 guide. For multi-PR integration and
 head-SHA checks see
-[feature PR review](development/feature-pr-review.md).
+[contributor validation checklist](development/contribution-checklist.md).
 
 ## What is not covered automatically
 

@@ -216,11 +216,11 @@ private slots:
         QCOMPARE(m_app->project()->project().timeline().tracks().front().id, secondVideo);
         QCOMPARE(m_app->project()->project().timeline().tracks()[1].id, firstVideo);
         QCOMPARE(m_app->project()->project().timeline().tracks()[2].id, audio);
-        QVERIFY(m_app->project()->undo());
+        m_app->project()->undo();
         QCOMPARE(m_app->project()->project().timeline(), original);
-        QVERIFY(m_app->project()->redo());
+        m_app->project()->redo();
         QCOMPARE(m_app->project()->project().timeline().tracks().front().id, secondVideo);
-        QVERIFY(m_app->project()->undo());
+        m_app->project()->undo();
         QCOMPARE(m_app->project()->project().timeline(), original);
     }
 

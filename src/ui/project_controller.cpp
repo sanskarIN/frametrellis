@@ -230,10 +230,11 @@ bool ProjectController::exportClipListCsv(const QString& pathOrUrl)
         return false;
     }
     // BOM helps spreadsheet applications recognise UTF-8 filenames and clip names.
-    if (file.write("\xEF\xBB\xBF", 3) != 3 ||
-        file.write("track,track_type,clip_id,source_name,source_path,"
-                   "start_frame,end_frame_exclusive,duration_frames,source_in_frame,"
-                   "source_out_frame_exclusive,start_timecode,end_timecode_exclusive\r\n") < 0) {
+    const QByteArray header =
+        "track,track_type,clip_id,source_name,source_path,"
+        "start_frame,end_frame_exclusive,duration_frames,source_in_frame,"
+        "source_out_frame_exclusive,start_timecode,end_timecode_exclusive\r\n";
+    if (file.write("\xEF\xBB\xBF", 3) != 3 || file.write(header) != header.size()) {
         file.cancelWriting();
         emit errorOccurred(QStringLiteral("Could not export the clip list"),
                            QStringLiteral("Could not write the report header."));

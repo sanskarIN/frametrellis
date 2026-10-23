@@ -82,6 +82,19 @@ class TimelineTest : public QObject
     Q_OBJECT
 
 private slots:
+    void freeRangeRejectsInvalidBounds()
+    {
+        const Timeline t = makeTimeline();
+        const Id track = QStringLiteral("v1");
+        QVERIFY(t.isRangeFree(track, 0, 10));
+        QVERIFY(!t.isRangeFree(track, -1, 10));
+        QVERIFY(!t.isRangeFree(track, 0, 0));
+        QVERIFY(!t.isRangeFree(track, kMaxTimelineFrames, 1));
+        QVERIFY(!t.isRangeFree(track, kMaxTimelineFrames - 2, 3));
+        QVERIFY(t.isRangeFree(track, kMaxTimelineFrames - 2, 2));
+        QVERIFY(!t.isRangeFree(QStringLiteral("missing"), 0, 1));
+    }
+
     void insertKeepsClipsSorted()
     {
         Timeline t = makeTimeline();

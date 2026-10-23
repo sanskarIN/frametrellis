@@ -145,6 +145,14 @@ Space plays and pauses; Left/Right step one frame; Shift+Left/Right move one sec
 to the previous/next edit point; Home/End go to the start/end. Clicking or dragging on the ruler
 moves the playhead. If no audio device is available, the preview plays silently.
 
+## Saving a preview still
+
+Use **File → Save Preview Frame as PNG…** while the preview shows a frame to save
+a snapshot of the current image. This saves the *preview's current resolution*,
+which may be smaller than the project or final video resolution. For a full-quality
+frame, export the video instead. FrameTrellis uses an atomic write and refuses to
+replace any referenced source-media file.
+
 ## Exporting
 
 *File → Export…* (Ctrl+E):

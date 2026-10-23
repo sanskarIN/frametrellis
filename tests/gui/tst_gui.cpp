@@ -200,6 +200,17 @@ private slots:
         screenshot(QStringLiteral("03-timeline"));
     }
 
+    void jumpToSelectedClipLastFrame()
+    {
+        const Clip& clip = track(0).clips.front();
+        m_app->timeline()->select(clip.id, false);
+        m_app->playback()->goToStart();
+        QTest::keyClick(m_window, Qt::Key_End, Qt::ControlModifier | Qt::AltModifier);
+        QCOMPARE(static_cast<FrameCount>(m_app->playback()->position()),
+                 clip.start + clip.duration - 1);
+        m_app->timeline()->clearSelection();
+    }
+
     void audioClipsShowTheirWaveform()
     {
         const auto& tracks = m_app->project()->project().timeline().tracks();

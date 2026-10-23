@@ -213,8 +213,7 @@ private slots:
         QVERIFY(dialog);
         QTRY_VERIFY(dialog->property("visible").toBool());
 
-        QQuickItem* field =
-            findItem(m_window->contentItem(), QStringLiteral("goToTimecodeField"));
+        QQuickItem* field = findItem(m_window->contentItem(), QStringLiteral("goToTimecodeField"));
         QVERIFY(field);
         field->setProperty("text", QStringLiteral("00:00:01:00"));
         QVERIFY(QMetaObject::invokeMethod(dialog, "trySeek"));

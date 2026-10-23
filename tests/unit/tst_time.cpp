@@ -172,6 +172,32 @@ private slots:
         }
     }
 
+    void extremeFrameCountsAreSafe()
+    {
+        const FrameRate pal = *FrameRate::create(25, 1);
+        const FrameRate ntsc = *FrameRate::create(30000, 1001);
+        const FrameCount minimum = std::numeric_limits<FrameCount>::min();
+        const FrameCount maximum = std::numeric_limits<FrameCount>::max();
+
+        // Neither abs(INT64_MIN) nor drop-frame label insertion may overflow.
+        const QString minPal = timecode::format(minimum, pal);
+        QVERIFY(minPal.startsWith(QLatin1Char('-')));
+        QVERIFY(minPal.contains(QLatin1Char(':')));
+        const QString maxPal = timecode::format(maximum, pal);
+        QVERIFY(!maxPal.startsWith(QLatin1Char('-')));
+        const QString minNtsc = timecode::format(minimum, ntsc);
+        QVERIFY(minNtsc.startsWith(QLatin1Char('-')));
+        QVERIFY(minNtsc.contains(QLatin1Char(';')));
+        const QString maxNtsc = timecode::format(maximum, ntsc);
+        QVERIFY(maxNtsc.contains(QLatin1Char(';')));
+        QVERIFY(!maxNtsc.startsWith(QLatin1Char('-')));
+
+        // Clock units overflow for such extreme inputs; show an explicit unavailable marker.
+        QCOMPARE(timecode::formatClock(minimum, pal), QStringLiteral("--"));
+        QCOMPARE(timecode::formatClock(maximum, pal), QStringLiteral("--"));
+        QCOMPARE(timecode::formatClock(-42, pal), QStringLiteral("-0:01.680"));
+    }
+
     void clockFormat()
     {
         const FrameRate pal = *FrameRate::create(25, 1);

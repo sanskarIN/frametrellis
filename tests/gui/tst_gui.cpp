@@ -200,6 +200,16 @@ private slots:
         screenshot(QStringLiteral("03-timeline"));
     }
 
+    void escapeClearsTimelineSelection()
+    {
+        const Id clipId = track(0).clips.front().id;
+        m_app->timeline()->select(clipId, false);
+        QCOMPARE(m_app->timeline()->selection().size(), 1);
+        QTest::keyClick(m_window, Qt::Key_Escape);
+        QVERIFY(m_app->timeline()->selection().isEmpty());
+        QVERIFY(m_app->project()->project().timeline().clip(clipId));
+    }
+
     void audioClipsShowTheirWaveform()
     {
         const auto& tracks = m_app->project()->project().timeline().tracks();

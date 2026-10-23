@@ -117,6 +117,21 @@ $version = "1.2.2" # replace with the actual version you are testing
 Keep the run's full log and screenshots when investigating a failure. A passing
 emulated runner does not replace testing on physical ARM64 machines.
 
+## Validating user documentation
+
+The **Website** pull-request workflow is path-filtered and runs on `docs/**`,
+`web/**` and selected top-level Markdown/build files. It builds the website,
+renders the documentation and checks internal links, including download links.
+A passing Website job is a documentation check, **not** proof that a pending
+Linux or Windows C++ test has passed.
+
+For user-facing features, confirm that the stable user guide matches
+`src/ui/qml/Main.qml`, the in-app `ShortcutsDialog.qml` and the relevant
+controllers. Explain unreleased features in their PR descriptions, not as
+shipped functionality in the v1.2.2 guide. For multi-PR integration and
+head-SHA checks see
+[feature PR review](development/feature-pr-review.md).
+
 ## What is not covered automatically
 
 * Real audio output devices (tests use SDL's dummy driver).

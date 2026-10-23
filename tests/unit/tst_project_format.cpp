@@ -372,6 +372,18 @@ private slots:
         QCOMPARE(*tiny.lengthInFrames(*FrameRate::create(25, 1)), FrameCount{1});
     }
 
+    void mediaInsertRejectsWhitespacePaths()
+    {
+        Project project = makeProject(QStringLiteral("/media"));
+        MediaAsset bad =
+            makeAsset(QStringLiteral("blank-path"), QStringLiteral("   "), MediaKind::Video, 1);
+        const Status invalid = project.addAsset(bad);
+        QVERIFY(!invalid);
+        QCOMPARE(invalid.error().code, ErrorCode::InvalidArgument);
+        QVERIFY(!project.asset(bad.id));
+        QVERIFY(project.validate());
+    }
+
     void projectMediaRules()
     {
         Project p = makeProject(QStringLiteral("/media"));

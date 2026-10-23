@@ -28,11 +28,13 @@ QJsonObject buildReport(const Project& project)
     for (const MediaAsset& asset : project.media()) {
         const QFileInfo file(asset.filePath);
         const bool exists = file.exists() && file.isFile();
-        const bool changed =
-            exists &&
-            ((asset.info.fileSize > 0 && file.size() != asset.info.fileSize) ||
-             (asset.info.lastModified.isValid() && file.lastModified().toSecsSinceEpoch() !=
-                                                       asset.info.lastModified.toSecsSinceEpoch()));
+        const bool sizeChanged =
+            exists && asset.info.fileSize > 0 && file.size() != asset.info.fileSize;
+        const bool timeChanged =
+            exists && asset.info.lastModified.isValid() &&
+            file.lastModified().toSecsSinceEpoch() !=
+                asset.info.lastModified.toSecsSinceEpoch();
+        const bool changed = sizeChanged || timeChanged;
         const QString status = !exists   ? QStringLiteral("missing")
                                : changed ? QStringLiteral("changed")
                                          : QStringLiteral("online");
@@ -58,9 +60,23 @@ QJsonObject buildReport(const Project& project)
         entry.insert(QStringLiteral("status"), status);
         entry.insert(QStringLiteral("clipUses"), clipUses);
         entry.insert(QStringLiteral("storedBytes"), QString::number(asset.info.fileSize));
+        if (asset.info.lastModified.isValid()) {
+            entry.insert(QStringLiteral("storedModifiedUtc"),
+                         asset.info.lastModified.toUTC().toString(Qt::ISODate));
+        }
         if (exists) {
             entry.insert(QStringLiteral("currentBytes"), QString::number(file.size()));
+            entry.insert(QStringLiteral("currentModifiedUtc"),
+                         file.lastModified().toUTC().toString(Qt::ISODate));
         }
+        QJsonArray changeReasons;
+        if (sizeChanged) {
+            changeReasons.append(QStringLiteral("size"));
+        }
+        if (timeChanged) {
+            changeReasons.append(QStringLiteral("modified"));
+        }
+        entry.insert(QStringLiteral("changeReasons"), changeReasons);
         assets.append(entry);
     }
 

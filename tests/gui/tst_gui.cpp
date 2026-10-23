@@ -200,6 +200,30 @@ private slots:
         screenshot(QStringLiteral("03-timeline"));
     }
 
+    void reorderTracksFromHeaderController()
+    {
+        const Timeline original = m_app->project()->project().timeline();
+        QVERIFY(original.trackCount() >= 3);
+        const Id firstVideo = original.tracks().front().id;
+        const Id secondVideo = original.tracks()[1].id;
+        const Id audio = original.tracks()[2].id;
+
+        QVERIFY(!m_app->timeline()->canMoveTrack(firstVideo, -1));
+        QVERIFY(m_app->timeline()->canMoveTrack(firstVideo, 1));
+        QVERIFY(!m_app->timeline()->canMoveTrack(secondVideo, 1)); // audio boundary
+        QVERIFY(!m_app->timeline()->moveTrack(firstVideo, -1));
+        QVERIFY(m_app->timeline()->moveTrack(firstVideo, 1));
+        QCOMPARE(m_app->project()->project().timeline().tracks().front().id, secondVideo);
+        QCOMPARE(m_app->project()->project().timeline().tracks()[1].id, firstVideo);
+        QCOMPARE(m_app->project()->project().timeline().tracks()[2].id, audio);
+        QVERIFY(m_app->project()->undo());
+        QCOMPARE(m_app->project()->project().timeline(), original);
+        QVERIFY(m_app->project()->redo());
+        QCOMPARE(m_app->project()->project().timeline().tracks().front().id, secondVideo);
+        QVERIFY(m_app->project()->undo());
+        QCOMPARE(m_app->project()->project().timeline(), original);
+    }
+
     void audioClipsShowTheirWaveform()
     {
         const auto& tracks = m_app->project()->project().timeline().tracks();

@@ -90,8 +90,7 @@ bool MediaController::importFolder(const QString& urlOrPath)
     const QString directory = ProjectController::localPath(urlOrPath);
     const Result<media::FolderImportScan> scan = media::discoverImportableFiles(directory);
     if (!scan) {
-        emit importProblems(QStringLiteral("Could not import the folder"),
-                            scan.error().message);
+        emit importProblems(QStringLiteral("Could not import the folder"), scan.error().message);
         return false;
     }
     if (scan->files.isEmpty()) {

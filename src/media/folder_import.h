@@ -20,7 +20,6 @@ struct FolderImportScan
 /// or decode any media. Directory symlinks are not followed, and symlinked
 /// files are ignored to prevent surprise imports from external directories.
 /// The scan caps both candidate media and total visited files.
-Result<FolderImportScan> discoverImportableFiles(const QString& directory,
-                                                int maxFiles = 500);
+Result<FolderImportScan> discoverImportableFiles(const QString& directory, int maxFiles = 500);
 
 } // namespace ft::media

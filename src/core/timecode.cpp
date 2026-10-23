@@ -68,10 +68,11 @@ QString format(FrameCount frames, const FrameRate& rate, Style style)
         const DropFrameParams p = dropFrameParams(rate);
         const auto tens = value / static_cast<std::uint64_t>(p.framesPerTenMinutes);
         const auto rem = value % static_cast<std::uint64_t>(p.framesPerTenMinutes);
-        const auto drop = static_cast<std::uint64_t>(p.dropPerMinute);
-        value += drop * 9u * tens;
-        if (rem > drop) {
-            value += drop * ((rem - drop) / static_cast<std::uint64_t>(p.framesPerMinute));
+        const auto skippedPerMinute = static_cast<std::uint64_t>(p.dropPerMinute);
+        value += skippedPerMinute * 9u * tens;
+        if (rem > skippedPerMinute) {
+            value += skippedPerMinute *
+                     ((rem - skippedPerMinute) / static_cast<std::uint64_t>(p.framesPerMinute));
         }
     }
 

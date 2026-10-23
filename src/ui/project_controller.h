@@ -71,6 +71,8 @@ public:
     Q_INVOKABLE bool openProject(const QString& pathOrUrl);
     Q_INVOKABLE bool save();
     Q_INVOKABLE bool saveAs(const QString& pathOrUrl);
+    /// Atomically export the current sequence's clip list as a read-only UTF-8 CSV report.
+    Q_INVOKABLE bool exportClipListCsv(const QString& pathOrUrl);
     Q_INVOKABLE void undo();
     Q_INVOKABLE void redo();
     Q_INVOKABLE void clearRecentProjects();

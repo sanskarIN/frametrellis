@@ -136,6 +136,11 @@ ApplicationWindow {
             Action { text: qsTr("&Import Media…"); shortcut: "Ctrl+I"; onTriggered: importDialog.open() }
             Action { text: qsTr("Create &Title…"); onTriggered: titleDialog.open() }
             Action { text: qsTr("&Export…"); shortcut: "Ctrl+E"; enabled: !window.app.timeline.empty || window.app.exporter.busy; onTriggered: exportDialog.open() }
+            Action {
+                text: qsTr("Export Clip List (CSV)…")
+                enabled: !window.app.timeline.empty
+                onTriggered: clipListDialog.open()
+            }
             MenuSeparator {}
             Action { text: qsTr("&Quit"); shortcut: StandardKey.Quit; onTriggered: window.close() }
         }
@@ -365,6 +370,15 @@ ApplicationWindow {
             if (window.app.project.saveAs(window.app.localPath(selectedFile)) && runAfterSave)
                 window.runPending()
         }
+    }
+    FileDialog {
+        id: clipListDialog
+        title: qsTr("Export timeline clip list")
+        fileMode: FileDialog.SaveFile
+        defaultSuffix: "csv"
+        nameFilters: [qsTr("CSV clip lists (*.csv)")]
+        currentFolder: window.app.fileUrl(window.app.project.projectFolder())
+        onAccepted: window.app.project.exportClipListCsv(window.app.localPath(selectedFile))
     }
     FileDialog {
         id: importDialog

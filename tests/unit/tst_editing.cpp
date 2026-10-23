@@ -5,6 +5,7 @@
 #include "project/project_serializer.h"
 
 #include <QFile>
+#include <QFileInfo>
 #include <QSignalSpy>
 #include <QTemporaryDir>
 #include <QTest>
@@ -705,6 +706,40 @@ private slots:
             QVERIFY(history.undo(project));
         }
         QCOMPARE(project.timeline().trackCount(), 6);
+    }
+
+    void mediaRescanNoticesChangedTimestampWithSameSize()
+    {
+        QTemporaryDir dir;
+        QVERIFY(dir.isValid());
+        const QString path = dir.filePath(QStringLiteral("source.mp4"));
+        {
+            QFile source(path);
+            QVERIFY(source.open(QIODevice::WriteOnly));
+            QCOMPARE(source.write("AAAA", 4), qint64{4});
+        }
+
+        const QFileInfo before(path);
+        MediaAsset asset = videoAsset(QStringLiteral("observed"), path);
+        asset.info.fileSize = before.size();
+        asset.info.lastModified = before.lastModified();
+        Project project = Project::createNew(QStringLiteral("Changed source"), ProjectSettings{});
+        QVERIFY(project.addAsset(asset));
+        ProjectDocument doc(std::move(project));
+
+        QCOMPARE(doc.refreshMediaStatus().size(), 0);
+        QCOMPARE(doc.project().asset(asset.id)->status, MediaStatus::Online);
+
+        QFile edited(path);
+        QVERIFY(edited.open(QIODevice::ReadWrite));
+        QVERIFY(edited.setFileTime(before.lastModified().addSecs(120),
+                                   QFileDevice::FileModificationTime));
+        edited.close();
+        QCOMPARE(QFileInfo(path).size(), before.size()); // no file size change
+
+        QCOMPARE(doc.refreshMediaStatus().size(), 0); // not missing, just changed
+        QCOMPARE(doc.project().asset(asset.id)->status, MediaStatus::Changed);
+        QVERIFY(!doc.isModified()); // runtime status must not dirty a project
     }
 
     void loadedDocumentReportsMissingMedia()

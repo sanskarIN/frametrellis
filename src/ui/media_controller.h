@@ -42,6 +42,8 @@ public:
     /// Returns the new asset id, or an empty string on failure.
     Q_INVOKABLE QString createTitle(const QString& text, int fontPixels, const QString& color);
     Q_INVOKABLE void remove(const QString& assetId);
+    /// Remove unreferenced media from the bin without deleting files on disk.
+    Q_INVOKABLE bool removeUnused();
     Q_INVOKABLE bool relink(const QString& assetId, const QString& urlOrPath);
     Q_INVOKABLE void rescan();
     /// Opens the folder that contains the asset's file in the system file manager.

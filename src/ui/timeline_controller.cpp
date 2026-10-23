@@ -588,6 +588,33 @@ void TimelineController::selectAll()
     emit selectedClipChanged();
 }
 
+bool TimelineController::selectAllMediaOccurrences()
+{
+    if (m_selection.size() != 1) {
+        emit statusMessage(QStringLiteral("Select one clip to find its other occurrences."));
+        return false;
+    }
+    const Clip* source = project().timeline().clip(*m_selection.cbegin());
+    if (!source) {
+        return false;
+    }
+    const std::vector<Id> ids = project().timeline().clipsUsingAsset(source->assetId);
+    if (ids.empty()) {
+        return false;
+    }
+    setTransitionSelection({});
+    m_selection.clear();
+    for (const Id& id : ids) {
+        m_selection.insert(id);
+    }
+    m_model.updateSelection(m_selection);
+    emit selectionChanged();
+    emit selectedClipChanged();
+    emit statusMessage(QStringLiteral("Selected %1 occurrence(s) of this media.")
+                           .arg(m_selection.size()));
+    return true;
+}
+
 bool TimelineController::setClipProperty(const QString& clipId, const QString& name,
                                          const QVariant& value)
 {

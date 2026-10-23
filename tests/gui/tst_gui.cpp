@@ -200,6 +200,17 @@ private slots:
         screenshot(QStringLiteral("03-timeline"));
     }
 
+    void tenSecondTransportSkips()
+    {
+        m_app->playback()->goToStart();
+        QTest::keyClick(m_window, Qt::Key_Right, Qt::ControlModifier | Qt::ShiftModifier);
+        const FrameCount end = m_app->project()->project().timeline().duration();
+        QCOMPARE(static_cast<FrameCount>(m_app->playback()->position()),
+                 std::min<FrameCount>(300, end - 1));
+        QTest::keyClick(m_window, Qt::Key_Left, Qt::ControlModifier | Qt::ShiftModifier);
+        QCOMPARE(static_cast<FrameCount>(m_app->playback()->position()), FrameCount{0});
+    }
+
     void audioClipsShowTheirWaveform()
     {
         const auto& tracks = m_app->project()->project().timeline().tracks();

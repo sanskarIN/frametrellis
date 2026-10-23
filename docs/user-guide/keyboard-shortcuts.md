@@ -5,6 +5,7 @@
 | Space | Play / pause |
 | Left / Right | Previous / next frame |
 | Shift+Left / Shift+Right | Back / forward one second |
+| Ctrl+Shift+Left / Ctrl+Shift+Right | Back / forward ten seconds |
 | Up / Down | Previous / next edit point |
 | Home / End | Go to start / end |
 | S | Split at playhead |

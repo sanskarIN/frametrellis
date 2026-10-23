@@ -206,8 +206,7 @@ private slots:
         QVERIFY(duration > 1);
         m_app->playback()->goToStart();
         QTest::keyClick(m_window, Qt::Key_M, Qt::ControlModifier | Qt::ShiftModifier);
-        QCOMPARE(static_cast<FrameCount>(m_app->playback()->position()),
-                 (duration - 1) / 2);
+        QCOMPARE(static_cast<FrameCount>(m_app->playback()->position()), (duration - 1) / 2);
     }
 
     void audioClipsShowTheirWaveform()

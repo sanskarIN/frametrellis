@@ -26,8 +26,7 @@ Status checkProperties(const ClipProperties& p, FrameCount duration)
     if (!inRange(p.gain, 0.0, kMaxClipGain)) {
         return makeError(ErrorCode::OutOfRange, QStringLiteral("Clip volume is out of range."));
     }
-    if (p.fadeIn < 0 || p.fadeOut < 0 || p.fadeIn > duration ||
-        p.fadeOut > duration - p.fadeIn) {
+    if (p.fadeIn < 0 || p.fadeOut < 0 || p.fadeIn > duration || p.fadeOut > duration - p.fadeIn) {
         return makeError(ErrorCode::OutOfRange,
                          QStringLiteral("Fades must fit within the clip duration."));
     }

@@ -7,7 +7,7 @@ in the current stable build.
 
 ## Where to make changes
 
-- Edit the relevant Markdown file under [docs](../README.md), or the root-level contributor
+- Edit the relevant Markdown file under [user guides](../user-guide/README.md), or the root-level contributor
   and project guides, **not** the generated `web/_site` HTML files.
 - The site generator is [`web/build.mjs`](../../web/build.mjs). It lists published guides in
   `DOC_GROUPS`; add a source/slug/label/summary entry there when publishing another guide.

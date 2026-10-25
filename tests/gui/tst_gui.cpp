@@ -22,10 +22,10 @@
 #include <QTemporaryDir>
 #include <QTest>
 #include <QThreadPool>
+#include <QtQml/qqmlextensionplugin.h>
 
 #include <cmath>
 #include <limits>
-#include <QtQml/qqmlextensionplugin.h>
 
 Q_IMPORT_QML_PLUGIN(FrameTrellisPlugin)
 
@@ -206,8 +206,7 @@ private slots:
     void selectionZoomFramesChosenClipsWithoutEditing()
     {
         auto* timeline = m_app->timeline();
-        QQuickItem* lanes = findItem(m_window->contentItem(),
-                                     QStringLiteral("timelineLanes"));
+        QQuickItem* lanes = findItem(m_window->contentItem(), QStringLiteral("timelineLanes"));
         QVERIFY(lanes);
         QVERIFY(lanes->width() > 0);
         timeline->clearSelection();
@@ -254,6 +253,22 @@ private slots:
         const double unchangedZoom = timeline->pixelsPerFrame();
         QTest::keyClick(m_window, Qt::Key_0, Qt::ControlModifier | Qt::ShiftModifier);
         QCOMPARE(timeline->pixelsPerFrame(), unchangedZoom); // disabled with no selection
+
+        // Navigating to the playhead changes only the viewport, not the seek position.
+        timeline->setPixelsPerFrame(timeline->maxPixelsPerFrame());
+        m_app->playback()->seek(100);
+        const double playheadFrame = m_app->playback()->position();
+        lanes->setProperty("contentX", 0);
+        QTest::keyClick(m_window, Qt::Key_L, Qt::ControlModifier | Qt::ShiftModifier);
+        const double expectedScroll =
+            std::max(0.0, std::min(lanes->property("contentWidth").toDouble() - lanes->width(),
+                                   playheadFrame * timeline->pixelsPerFrame() - lanes->width() * 0.5));
+        QVERIFY(QTest::qWaitFor(
+            [&] { return std::abs(lanes->property("contentX").toDouble() - expectedScroll) < 2.0; },
+            2000));
+        QCOMPARE(m_app->playback()->position(), playheadFrame);
+        QCOMPARE(m_app->project()->project().timeline(), before);
+        QCOMPARE(m_app->project()->undoText(), undoBefore);
 
         timeline->zoomToFit(1200);
         lanes->setProperty("contentX", 0);

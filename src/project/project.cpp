@@ -78,7 +78,7 @@ Status Project::addAsset(MediaAsset newAsset, int index)
         return makeError(ErrorCode::InvalidArgument,
                          QStringLiteral("The media id is invalid or already used."));
     }
-    if (newAsset.filePath.isEmpty()) {
+    if (newAsset.filePath.trimmed().isEmpty()) {
         return makeError(ErrorCode::InvalidArgument, QStringLiteral("The media has no file path."));
     }
     if (static_cast<int>(m_media.size()) >= kMaxMediaAssets) {

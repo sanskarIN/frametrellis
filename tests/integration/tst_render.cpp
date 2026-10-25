@@ -119,6 +119,29 @@ private slots:
         QVERIFY(partFiles().isEmpty());
     }
 
+    void unicodeExportPathProducesPlayableMedia()
+    {
+        const QString folder = m_dir.filePath(QStringLiteral("चैनल-媒体"));
+        QVERIFY(QDir().mkpath(folder));
+        ExportSettings settings;
+        settings.outputPath = QDir(folder).filePath(QStringLiteral("वीडियो-测试.mp4"));
+        settings.speedPreset = QStringLiteral("ultrafast");
+
+        const std::atomic<bool> cancelled{false};
+        const Status status = RenderRunner(project(25), settings).run(cancelled);
+        QVERIFY2(status, qPrintable(status ? QString() : status.error().toString()));
+        QVERIFY(QFile::exists(settings.outputPath));
+
+        const Result<MediaInfo> info = media::probeMedia(settings.outputPath);
+        QVERIFY(info);
+        QCOMPARE(info->width, 160);
+        QCOMPARE(info->height, 90);
+        QVERIFY(info->hasAudio);
+        QVERIFY(QDir(folder)
+                    .entryList({QStringLiteral("*.part.mp4")}, QDir::Files | QDir::Hidden)
+                    .isEmpty());
+    }
+
     void exportPreservesTransparentTitleOverlay()
     {
         // An image overlay must survive encoding: opaque title pixels appear on top of the

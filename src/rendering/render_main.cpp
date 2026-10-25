@@ -127,6 +127,9 @@ int main(int argc, char** argv)
                                            QStringLiteral("file"));
     const QCommandLineOption outputOption(
         QStringLiteral("output"), QStringLiteral("Output .mp4 file."), QStringLiteral("file"));
+    const QCommandLineOption inspectProjectOption(
+        QStringLiteral("inspect-project"),
+        QStringLiteral("Print a JSON project summary and media availability without rendering."));
     const QCommandLineOption shortSideOption(
         QStringLiteral("short-side"),
         QStringLiteral("Scale so the shorter side has this many pixels (0 = project size)."),
@@ -155,11 +158,42 @@ int main(int argc, char** argv)
         QStringLiteral("directory"));
     parser.addOptions({projectOption, outputOption, shortSideOption, crfOption, presetOption,
                        audioOption, noAudioOption, noUpscaleOption, watchStdinOption,
-                       selfTestOption});
+                       selfTestOption, inspectProjectOption});
     parser.process(app);
 
     if (parser.isSet(selfTestOption)) {
         return runSelfTestCommand(QFileInfo(parser.value(selfTestOption)).absoluteFilePath());
+    }
+
+    if (parser.isSet(inspectProjectOption)) {
+        if (!parser.isSet(projectOption) || parser.isSet(outputOption)) {
+            emitError(makeError(
+                ErrorCode::InvalidArgument,
+                QStringLiteral("--inspect-project requires --project and cannot use --output.")));
+            return protocol::BadArguments;
+        }
+        const Result<Project> inspected = project_format::loadFromFile(parser.value(projectOption));
+        if (!inspected) {
+            emitError(inspected.error());
+            return protocol::Failure;
+        }
+        int missingMedia = 0;
+        for (const MediaAsset& asset : inspected->media()) {
+            if (!QFileInfo::exists(asset.filePath)) {
+                ++missingMedia;
+            }
+        }
+        // Metadata only: no MLT runtime, media decoding, destination files or project edits.
+        // Local source paths are deliberately excluded from the machine-readable summary.
+        emitEvent({{QStringLiteral("event"), QStringLiteral("project_inspection")},
+                   {QStringLiteral("name"), inspected->name()},
+                   {QStringLiteral("trackCount"), inspected->timeline().trackCount()},
+                   {QStringLiteral("clipCount"), inspected->timeline().clipCount()},
+                   {QStringLiteral("mediaCount"), static_cast<int>(inspected->media().size())},
+                   {QStringLiteral("missingMediaCount"), missingMedia},
+                   {QStringLiteral("durationFrames"),
+                    static_cast<double>(inspected->timeline().duration())}});
+        return protocol::Success;
     }
 
     if (!parser.isSet(projectOption) || !parser.isSet(outputOption)) {

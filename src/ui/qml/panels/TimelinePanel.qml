@@ -45,6 +45,21 @@ PanelFrame {
         timeline.pixelsPerFrame = ppf * factor
         lanes.contentX = Math.max(0, frame * timeline.pixelsPerFrame - anchorX)
     }
+    function zoomToSelection() {
+        const range = timeline.selectedFrameRange()
+        if (range.start === undefined || range.end === undefined || lanes.width <= 0)
+            return
+
+        // Fit the whole selected span, not just the playhead or the first selected clip.
+        // A small margin keeps edge handles visible at the sides of the viewport.
+        const span = Math.max(1, range.end - range.start)
+        const margin = Math.min(64, Math.max(24, lanes.width * 0.06))
+        timeline.pixelsPerFrame = Math.max(1, lanes.width - 2 * margin) / span
+
+        const centerX = (range.start + range.end) * 0.5 * panel.ppf
+        lanes.contentX = Math.max(0, Math.min(lanes.contentWidth - lanes.width,
+                                             centerX - lanes.width * 0.5))
+    }
 
     tools: [
         IconButton { iconName: "track-video"; text: qsTr("+ Video"); tip: qsTr("Add a video track"); onClicked: panel.timeline.addTrack("video") },
@@ -68,7 +83,8 @@ PanelFrame {
             Accessible.name: qsTr("Timeline zoom")
         },
         IconButton { iconName: "zoom-in"; tip: qsTr("Zoom in (+)"); onClicked: panel.zoomAround(1.4, lanes.width / 2) },
-        IconButton { iconName: "zoom-fit"; tip: qsTr("Fit the whole sequence"); onClicked: { panel.timeline.zoomToFit(lanes.width); lanes.contentX = 0 } }
+        IconButton { iconName: "zoom-fit"; tip: qsTr("Fit the whole sequence"); onClicked: { panel.timeline.zoomToFit(lanes.width); lanes.contentX = 0 } },
+        IconButton { iconName: "zoom-in"; tip: qsTr("Fit selected clips (Ctrl+Shift+0)"); enabled: panel.timeline.selection.length > 0; onClicked: panel.zoomToSelection() }
     ]
 
     Item {

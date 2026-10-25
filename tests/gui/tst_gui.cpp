@@ -22,6 +22,9 @@
 #include <QTemporaryDir>
 #include <QTest>
 #include <QThreadPool>
+
+#include <cmath>
+#include <limits>
 #include <QtQml/qqmlextensionplugin.h>
 
 Q_IMPORT_QML_PLUGIN(FrameTrellisPlugin)
@@ -198,6 +201,62 @@ private slots:
         m_app->playback()->seek(40);
         QTest::qWait(500);
         screenshot(QStringLiteral("03-timeline"));
+    }
+
+    void selectionZoomFramesChosenClipsWithoutEditing()
+    {
+        auto* timeline = m_app->timeline();
+        QQuickItem* lanes = findItem(m_window->contentItem(),
+                                     QStringLiteral("timelineLanes"));
+        QVERIFY(lanes);
+        QVERIFY(lanes->width() > 0);
+        timeline->clearSelection();
+        QVERIFY(timeline->selectedFrameRange().isEmpty());
+
+        const auto& clips = track(0).clips;
+        QVERIFY(clips.size() >= 2);
+        const Clip first = clips.front();
+        const Clip last = clips.back();
+        timeline->select(first.id, false);
+        timeline->select(last.id, true);
+        const QVariantMap bounds = timeline->selectedFrameRange();
+        QVERIFY(!bounds.isEmpty());
+        QCOMPARE(bounds.value(QStringLiteral("start")).toDouble(),
+                 static_cast<double>(std::min(first.start, last.start)));
+        QCOMPARE(bounds.value(QStringLiteral("end")).toDouble(),
+                 static_cast<double>(std::max(first.end(), last.end())));
+
+        const Timeline before = m_app->project()->project().timeline();
+        const QString undoBefore = m_app->project()->undoText();
+        timeline->setPixelsPerFrame(timeline->minPixelsPerFrame());
+        const double minimum = timeline->pixelsPerFrame();
+        timeline->setPixelsPerFrame(std::numeric_limits<double>::quiet_NaN());
+        QCOMPARE(timeline->pixelsPerFrame(), minimum);
+        timeline->setPixelsPerFrame(std::numeric_limits<double>::infinity());
+        QCOMPARE(timeline->pixelsPerFrame(), minimum);
+
+        m_window->requestActivate();
+        QTest::keyClick(m_window, Qt::Key_0, Qt::ControlModifier | Qt::ShiftModifier);
+        QVERIFY(QTest::qWaitFor([&] { return timeline->pixelsPerFrame() > minimum; }, 2000));
+
+        const double ppf = timeline->pixelsPerFrame();
+        const double scroll = lanes->property("contentX").toDouble();
+        const double left = bounds.value(QStringLiteral("start")).toDouble() * ppf - scroll;
+        const double right = bounds.value(QStringLiteral("end")).toDouble() * ppf - scroll;
+        QVERIFY2(left >= -2.0, qPrintable(QStringLiteral("selection starts at %1 px").arg(left)));
+        QVERIFY2(right <= lanes->width() + 2.0,
+                 qPrintable(QStringLiteral("selection ends at %1 px").arg(right)));
+        QCOMPARE(m_app->project()->project().timeline(), before);
+        QCOMPARE(m_app->project()->undoText(), undoBefore);
+
+        timeline->clearSelection();
+        QVERIFY(timeline->selectedFrameRange().isEmpty());
+        const double unchangedZoom = timeline->pixelsPerFrame();
+        QTest::keyClick(m_window, Qt::Key_0, Qt::ControlModifier | Qt::ShiftModifier);
+        QCOMPARE(timeline->pixelsPerFrame(), unchangedZoom); // disabled with no selection
+
+        timeline->zoomToFit(1200);
+        lanes->setProperty("contentX", 0);
     }
 
     void audioClipsShowTheirWaveform()

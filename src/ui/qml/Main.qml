@@ -174,6 +174,7 @@ ApplicationWindow {
             Action { text: qsTr("Zoom &In"); shortcut: "+"; enabled: window.editKeys; onTriggered: window.app.timeline.zoomIn() }
             Action { text: qsTr("Zoom &Out"); shortcut: "-"; enabled: window.editKeys; onTriggered: window.app.timeline.zoomOut() }
             Action { text: qsTr("Zoom to &Selection"); shortcut: "Ctrl+Shift+0"; enabled: window.editKeys && window.app.timeline.selection.length > 0; onTriggered: timelinePanel.zoomToSelection() }
+            Action { text: qsTr("Center on &Playhead"); shortcut: "Ctrl+Shift+L"; enabled: window.editKeys && !window.app.timeline.empty; onTriggered: timelinePanel.centerOnPlayhead() }
             Action { text: qsTr("&Snapping"); shortcut: "N"; enabled: window.editKeys; checkable: true; checked: window.app.timeline.snapping; onTriggered: window.app.timeline.snapping = checked }
             MenuSeparator {}
             Action { text: qsTr("Compact Tracks"); checkable: true; checked: timelinePanel.trackHeight === 44; onTriggered: timelinePanel.trackHeight = 44 }

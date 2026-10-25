@@ -9,6 +9,7 @@ uploaded. This guide covers everything the current version can do.
 - [Importing media](#importing-media)
 - [Editing on the timeline](#editing-on-the-timeline)
 - [Batch editing and clip attributes](batch-editing.md)
+- [Step-by-step editing recipes](editing-recipes.md)
 - [Title overlays](#title-overlays)
 - [Transitions](#transitions)
 - [Adjusting clips](#adjusting-clips)
@@ -17,6 +18,7 @@ uploaded. This guide covers everything the current version can do.
 - [Faster export profiles](faster-export.md)
 - [Missing media and recovery](#missing-media-and-recovery)
 - [Troubleshooting](#troubleshooting)
+- [Troubleshooting and recovery](troubleshooting.md)
 - [Keyboard shortcuts](keyboard-shortcuts.md)
 - [Supported formats](formats.md)
 
@@ -76,9 +78,11 @@ the project (removing never deletes the file; media in use must be removed from 
   source media.
 * **Split:** move the playhead and press **S**. With clips selected, only those are split;
   otherwise every unlocked clip under the playhead is split.
-* **Duplicate:** select one clip and press **Ctrl+D** (or use the timeline copy button). The copy
-  retains its source trim and adjustments, and is appended to the end of the same track without
-  moving other clips. Transitions are not copied; undo removes the duplicate in one step.
+* **Duplicate:** select clips and press **Ctrl+D** (or use the timeline copy button). One clip
+  is appended to the end of its original track. When two or more clips are selected, duplicates
+  are appended after the entire timeline with their relative audio/video spacing preserved.
+  Source trims and adjustments are retained, but transitions are not copied. The entire
+  duplication can be undone in one step.
 * **Delete:** **Delete** removes the selected clips and leaves a gap; **Shift+Delete** (ripple
   delete) removes one clip and moves the following clips on that track left to close the gap.
 * **Snapping** (N) aligns clip edges with other clips and the playhead.

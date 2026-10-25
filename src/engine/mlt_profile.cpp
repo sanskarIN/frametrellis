@@ -6,8 +6,8 @@
 
 #include <algorithm>
 #include <cmath>
-#include <numeric>
 #include <mutex>
+#include <numeric>
 
 namespace ft::engine {
 

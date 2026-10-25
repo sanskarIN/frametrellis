@@ -9,6 +9,7 @@
 #include "ui/playback_controller.h"
 #include "ui/project_controller.h"
 
+#include <algorithm>
 #include <cmath>
 
 namespace ft::ui {
@@ -87,6 +88,10 @@ void TimelineController::setTransitionSelection(const Id& transitionId)
 
 void TimelineController::setPixelsPerFrame(double value)
 {
+    // QML and plugin callers can supply NaN/Inf; do not poison the zoom state.
+    if (!std::isfinite(value)) {
+        return;
+    }
     value = std::clamp(value, minPixelsPerFrame(), maxPixelsPerFrame());
     if (!qFuzzyCompare(value, m_pixelsPerFrame)) {
         m_pixelsPerFrame = value;
@@ -586,6 +591,25 @@ void TimelineController::selectAll()
     m_model.updateSelection(m_selection);
     emit selectionChanged();
     emit selectedClipChanged();
+}
+
+QVariantMap TimelineController::selectedFrameRange() const
+{
+    FrameCount first = kMaxTimelineFrames;
+    FrameCount last = 0;
+    for (const Id& id : m_selection) {
+        const Clip* clip = project().timeline().clip(id);
+        if (!clip) {
+            continue;
+        }
+        first = std::min(first, clip->start);
+        last = std::max(last, clip->end());
+    }
+    if (last <= first) {
+        return {};
+    }
+    return {{QStringLiteral("start"), static_cast<double>(first)},
+            {QStringLiteral("end"), static_cast<double>(last)}};
 }
 
 bool TimelineController::setClipProperty(const QString& clipId, const QString& name,

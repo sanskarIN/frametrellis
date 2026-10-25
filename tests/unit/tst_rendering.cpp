@@ -249,6 +249,30 @@ private slots:
         QVERIFY(protocol::decode(normal)); // a rejected event does not poison later events
     }
 
+    void cancelCommandsRequireCompleteLines()
+    {
+        protocol::CancelCommandReader commands;
+        QVERIFY(!commands.ingest("uncancelled\ncancelled\n"));
+        QVERIFY(!commands.ingest("please cancel\n"));
+        QVERIFY(!commands.ingest("canc"));
+        QVERIFY(commands.ingest("el\n"));
+
+        protocol::CancelCommandReader windows;
+        QVERIFY(!windows.ingest("status\r\ncan"));
+        QVERIFY(windows.ingest("cel\r\n"));
+
+        protocol::CancelCommandReader oversized;
+        QVERIFY(!oversized.ingest(std::string(200'000, 'x')));
+        QVERIFY(!oversized.ingest("cancel\n")); // still part of the discarded long line
+        QVERIFY(!oversized.ingest("\n")); // newline resets the discard state
+        QVERIFY(oversized.ingest("cancel\n"));
+
+        protocol::CancelCommandReader missingTerminator;
+        QVERIFY(!missingTerminator.ingest("cancel")); // wait for LF or pipe close
+        QVERIFY(!missingTerminator.ingest("led\n"));
+        QVERIFY(missingTerminator.ingest("cancel\n"));
+    }
+
     void stateMachine()
     {
         using S = RenderJob::State;

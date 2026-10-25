@@ -15,6 +15,7 @@
 #include <QCommandLineParser>
 #include <QCoreApplication>
 #include <QFileInfo>
+#include <QSet>
 
 #include <atomic>
 #include <csignal>
@@ -177,10 +178,34 @@ int main(int argc, char** argv)
             emitError(inspected.error());
             return protocol::Failure;
         }
+        int videoTracks = 0;
+        int audioTracks = 0;
+        QSet<Id> referencedIds;
+        for (const Track& track : inspected->timeline().tracks()) {
+            if (track.kind == TrackKind::Video) {
+                ++videoTracks;
+            } else {
+                ++audioTracks;
+            }
+            for (const Clip& clip : track.clips) {
+                referencedIds.insert(clip.assetId);
+            }
+        }
         int missingMedia = 0;
+        int missingUsedMedia = 0;
+        int unusedMedia = 0;
         for (const MediaAsset& asset : inspected->media()) {
-            if (!QFileInfo::exists(asset.filePath)) {
+            const QFileInfo file(asset.filePath);
+            const bool missing = !file.exists() || !file.isFile();
+            const bool used = referencedIds.contains(asset.id);
+            if (missing) {
                 ++missingMedia;
+                if (used) {
+                    ++missingUsedMedia;
+                }
+            }
+            if (!used) {
+                ++unusedMedia;
             }
         }
         // Metadata only: no MLT runtime, media decoding, destination files or project edits.
@@ -188,9 +213,15 @@ int main(int argc, char** argv)
         emitEvent({{QStringLiteral("event"), QStringLiteral("project_inspection")},
                    {QStringLiteral("name"), inspected->name()},
                    {QStringLiteral("trackCount"), inspected->timeline().trackCount()},
+                   {QStringLiteral("videoTrackCount"), videoTracks},
+                   {QStringLiteral("audioTrackCount"), audioTracks},
                    {QStringLiteral("clipCount"), inspected->timeline().clipCount()},
                    {QStringLiteral("mediaCount"), static_cast<int>(inspected->media().size())},
+                   {QStringLiteral("usedMediaCount"),
+                    static_cast<int>(referencedIds.size())},
+                   {QStringLiteral("unusedMediaCount"), unusedMedia},
                    {QStringLiteral("missingMediaCount"), missingMedia},
+                   {QStringLiteral("missingUsedMediaCount"), missingUsedMedia},
                    {QStringLiteral("durationFrames"),
                     static_cast<double>(inspected->timeline().duration())}});
         return protocol::Success;

@@ -45,6 +45,10 @@ PanelFrame {
         timeline.pixelsPerFrame = ppf * factor
         lanes.contentX = Math.max(0, frame * timeline.pixelsPerFrame - anchorX)
     }
+    function centerOnPlayhead() {
+        const target = panel.app.playback.position * panel.ppf - lanes.width * 0.5
+        lanes.contentX = Math.max(0, Math.min(lanes.contentWidth - lanes.width, target))
+    }
     function zoomToSelection() {
         const range = timeline.selectedFrameRange()
         if (range.start === undefined || range.end === undefined || lanes.width <= 0)

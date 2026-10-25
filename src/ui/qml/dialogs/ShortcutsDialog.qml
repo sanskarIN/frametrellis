@@ -29,6 +29,7 @@ FtDialog {
         ["N", qsTr("Toggle snapping")],
         ["+ / −", qsTr("Zoom timeline in / out")],
         ["Ctrl+Shift+0", qsTr("Fit all selected clips in the timeline")],
+        ["Ctrl+Shift+L", qsTr("Center timeline viewport on the playhead")],
         ["Ctrl+Z / Ctrl+Shift+Z", qsTr("Undo / redo")],
         ["Ctrl+I", qsTr("Import media")],
         ["Ctrl+E", qsTr("Export")],

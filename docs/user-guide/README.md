@@ -174,6 +174,12 @@ If a media file was moved or deleted, its tile shows *Offline* and its clips sho
 placeholder. Right-click the tile and choose *Relink missing file…* to locate it. The replacement
 must be the same kind of media and at least as long as the clips need.
 
+When you choose **Edit → Check for Missing Media**, FrameTrellis also checks whether a media
+file's size or recorded modification time changed since import. A changed source is flagged
+in the media bin for review even if its file size is unchanged. This check does not edit
+source files or mark the project as modified; changes made within one second may not be
+detectable from filesystem timestamps alone.
+
 FrameTrellis saves a backup of unsaved work every minute. If it closes unexpectedly, it offers to
 recover that work the next time it starts.
 

@@ -339,6 +339,84 @@ private slots:
         QVERIFY(partFiles().isEmpty());
     }
 
+    void helperInspectsProjectWithoutProducingAnExport()
+    {
+        const QString source = m_dir.filePath(QStringLiteral("inspect-source.ftproj"));
+        Project p = project(25);
+        QVERIFY(project_format::saveToFile(p, source));
+        QFile existing(source);
+        QVERIFY(existing.open(QIODevice::ReadOnly));
+        const QByteArray original = existing.readAll();
+        existing.close();
+
+        QProcess helper;
+        helper.start(QStringLiteral(FT_RENDER_HELPER),
+                     {QStringLiteral("--inspect-project"), QStringLiteral("--project"), source});
+        QVERIFY2(helper.waitForStarted(10'000), qPrintable(helper.errorString()));
+        QVERIFY2(helper.waitForFinished(15'000), qPrintable(helper.errorString()));
+        QCOMPARE(helper.exitStatus(), QProcess::NormalExit);
+        QCOMPARE(helper.exitCode(), int(protocol::Success));
+        const auto report = protocol::decode(helper.readAllStandardOutput().trimmed());
+        QVERIFY(report);
+        QCOMPARE(report->value(QStringLiteral("event")).toString(),
+                 QStringLiteral("project_inspection"));
+        QCOMPARE(report->value(QStringLiteral("name")).toString(), QStringLiteral("Render"));
+        QCOMPARE(report->value(QStringLiteral("trackCount")).toInt(), 4);
+        QCOMPARE(report->value(QStringLiteral("clipCount")).toInt(), 2);
+        QCOMPARE(report->value(QStringLiteral("mediaCount")).toInt(), 2);
+        QCOMPARE(report->value(QStringLiteral("missingMediaCount")).toInt(), 0);
+        QCOMPARE(report->value(QStringLiteral("durationFrames")).toInt(), 40);
+        QVERIFY(!report->contains(QStringLiteral("filePath")));
+
+        QFile preserved(source);
+        QVERIFY(preserved.open(QIODevice::ReadOnly));
+        QCOMPARE(preserved.readAll(), original);
+        QVERIFY(partFiles().isEmpty());
+
+        // Unavailable source files are reported without making a structurally valid
+        // project unreadable or causing the inspector to fail.
+        MediaAsset offline = p.media().front();
+        offline.filePath = m_dir.filePath(QStringLiteral("not-present.mp4"));
+        QVERIFY(p.replaceAsset(offline));
+        const QString offlinePath = m_dir.filePath(QStringLiteral("inspect-offline.ftproj"));
+        QVERIFY(project_format::saveToFile(p, offlinePath));
+        QProcess second;
+        second.start(QStringLiteral(FT_RENDER_HELPER),
+                     {QStringLiteral("--inspect-project"), QStringLiteral("--project"),
+                      offlinePath});
+        QVERIFY2(second.waitForStarted(10'000), qPrintable(second.errorString()));
+        QVERIFY2(second.waitForFinished(15'000), qPrintable(second.errorString()));
+        QCOMPARE(second.exitCode(), int(protocol::Success));
+        const auto unavailable = protocol::decode(second.readAllStandardOutput().trimmed());
+        QVERIFY(unavailable);
+        QCOMPARE(unavailable->value(QStringLiteral("missingMediaCount")).toInt(), 1);
+    }
+
+    void helperInspectionRejectsInvalidArgumentAndMissingProject()
+    {
+        QProcess invalidArguments;
+        invalidArguments.start(
+            QStringLiteral(FT_RENDER_HELPER),
+            {QStringLiteral("--inspect-project"), QStringLiteral("--project"),
+             m_dir.filePath(QStringLiteral("missing.ftproj")), QStringLiteral("--output"),
+             m_dir.filePath(QStringLiteral("should-not-exist.mp4"))});
+        QVERIFY(invalidArguments.waitForStarted(10'000));
+        QVERIFY(invalidArguments.waitForFinished(15'000));
+        QCOMPARE(invalidArguments.exitCode(), int(protocol::BadArguments));
+
+        QProcess missingProject;
+        missingProject.start(QStringLiteral(FT_RENDER_HELPER),
+                             {QStringLiteral("--inspect-project"), QStringLiteral("--project"),
+                              m_dir.filePath(QStringLiteral("missing.ftproj"))});
+        QVERIFY(missingProject.waitForStarted(10'000));
+        QVERIFY(missingProject.waitForFinished(15'000));
+        QCOMPARE(missingProject.exitCode(), int(protocol::Failure));
+        const auto error = protocol::decode(missingProject.readAllStandardOutput().trimmed());
+        QVERIFY(error);
+        QCOMPARE(error->value(QStringLiteral("event")).toString(), QStringLiteral("error"));
+        QVERIFY(!QFile::exists(m_dir.filePath(QStringLiteral("should-not-exist.mp4"))));
+    }
+
     void helperProcessEndToEnd()
     {
         RenderJob job(QStringLiteral(FT_RENDER_HELPER));

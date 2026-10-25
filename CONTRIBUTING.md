@@ -32,6 +32,10 @@ ctest --preset linux-debug
 4. Add or update tests. Bug fixes should come with a test that fails without the fix. Do not
    commit media files; generate fixtures in tests (see `tests/support/media_fixtures.h`).
 5. Update documentation (user guide, roadmap, release notes in `docs/releases/unreleased.md`).
+   Distinguish implemented, merged and actually released capabilities; do not describe an open
+   feature PR as already available in the stable download. See the
+   [feature PR review guide](docs/development/feature-pr-review.md) for validation and
+   multi-branch integration.
 6. Make sure these pass locally:
 
    ```sh

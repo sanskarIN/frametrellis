@@ -137,7 +137,7 @@ See [docs/testing.md](docs/testing.md).
 ## Documentation
 
 - [Architecture](docs/architecture/overview.md) · [Project file format](docs/architecture/project-format.md)
-- [Building](docs/development/building.md) · [Contributing](CONTRIBUTING.md) · [Testing](docs/testing.md)
+- [Building](docs/development/building.md) · [Contributing](CONTRIBUTING.md) · [PR validation](docs/development/feature-pr-review.md) · [Testing](docs/testing.md)
 - [User guide](docs/user-guide/README.md) · [Roadmap](docs/roadmap.md) · [Release notes](docs/releases/)
 - [Licensing](docs/LICENSING.md) · [Third-party notices](THIRD_PARTY_NOTICES.md) · [Security](SECURITY.md)
 

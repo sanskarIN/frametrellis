@@ -361,9 +361,14 @@ private slots:
                  QStringLiteral("project_inspection"));
         QCOMPARE(report->value(QStringLiteral("name")).toString(), QStringLiteral("Render"));
         QCOMPARE(report->value(QStringLiteral("trackCount")).toInt(), 4);
+        QCOMPARE(report->value(QStringLiteral("videoTrackCount")).toInt(), 2);
+        QCOMPARE(report->value(QStringLiteral("audioTrackCount")).toInt(), 2);
         QCOMPARE(report->value(QStringLiteral("clipCount")).toInt(), 2);
         QCOMPARE(report->value(QStringLiteral("mediaCount")).toInt(), 2);
+        QCOMPARE(report->value(QStringLiteral("usedMediaCount")).toInt(), 2);
+        QCOMPARE(report->value(QStringLiteral("unusedMediaCount")).toInt(), 0);
         QCOMPARE(report->value(QStringLiteral("missingMediaCount")).toInt(), 0);
+        QCOMPARE(report->value(QStringLiteral("missingUsedMediaCount")).toInt(), 0);
         QCOMPARE(report->value(QStringLiteral("durationFrames")).toInt(), 40);
         QVERIFY(!report->contains(QStringLiteral("filePath")));
 
@@ -377,6 +382,11 @@ private slots:
         MediaAsset offline = p.media().front();
         offline.filePath = m_dir.filePath(QStringLiteral("not-present.mp4"));
         QVERIFY(p.replaceAsset(offline));
+        MediaAsset unused = offline;
+        unused.id = createId();
+        unused.name = QStringLiteral("Unused missing file");
+        unused.filePath = m_dir.filePath(QStringLiteral("unused-not-present.mp4"));
+        QVERIFY(p.addAsset(unused));
         const QString offlinePath = m_dir.filePath(QStringLiteral("inspect-offline.ftproj"));
         QVERIFY(project_format::saveToFile(p, offlinePath));
         QProcess second;
@@ -387,7 +397,11 @@ private slots:
         QCOMPARE(second.exitCode(), int(protocol::Success));
         const auto unavailable = protocol::decode(second.readAllStandardOutput().trimmed());
         QVERIFY(unavailable);
-        QCOMPARE(unavailable->value(QStringLiteral("missingMediaCount")).toInt(), 1);
+        QCOMPARE(unavailable->value(QStringLiteral("mediaCount")).toInt(), 3);
+        QCOMPARE(unavailable->value(QStringLiteral("usedMediaCount")).toInt(), 2);
+        QCOMPARE(unavailable->value(QStringLiteral("unusedMediaCount")).toInt(), 1);
+        QCOMPARE(unavailable->value(QStringLiteral("missingMediaCount")).toInt(), 2);
+        QCOMPARE(unavailable->value(QStringLiteral("missingUsedMediaCount")).toInt(), 1);
     }
 
     void helperInspectionRejectsInvalidArgumentAndMissingProject()

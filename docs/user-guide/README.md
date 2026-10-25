@@ -83,6 +83,11 @@ the project (removing never deletes the file; media in use must be removed from 
   delete) removes one clip and moves the following clips on that track left to close the gap.
 * **Snapping** (N) aligns clip edges with other clips and the playhead.
 * **Zoom** with + and −, Ctrl+mouse wheel, the zoom slider, or *Fit* to see the whole sequence.
+* **Zoom to selected clips (development builds only):** select one or several clips and choose
+  *View → Zoom to Selection* (Ctrl+Shift+0), or use the timeline toolbar button. The viewport
+  frames the earliest selected start and latest selected end with a little space for trim handles.
+  This changes only the view, not timing, playback position, undo history or project contents.
+  It is planned for a future release and is **not included in stable v1.2.2**.
 * **Tracks:** add tracks with *+ Video* / *+ Audio*; each track can be hidden (video), muted or
   locked. Double-click a track name to rename it; right-click it to remove the track.
 

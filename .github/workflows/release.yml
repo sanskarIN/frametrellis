@@ -75,8 +75,13 @@ jobs:
             echo "::error::Release notes docs/releases/v${version%%-*}.md are missing"
             exit 1
           fi
-          if grep -qiE '^<!-- *draft' "docs/releases/v${version%%-*}.md"; then
-            echo "::error::Release notes docs/releases/v${version%%-*}.md are still marked as a draft"
+          # Refuse publication when a notes file is explicitly labelled DRAFT or
+          # NOT RELEASED, including Markdown headings (not just HTML comments).
+          # Check only the preamble so a historical link to draft notes in the body
+          # does not accidentally block a legitimate release.
+          notes="docs/releases/v${version%%-*}.md"
+          if head -n 20 "$notes" | grep -qiE '(^<!--[[:space:]]*draft|^#[[:space:]].*(draft|not released)|^>.*(not published|not released))'; then
+            echo "::error::Release notes $notes have a DRAFT / NOT RELEASED preamble"
             exit 1
           fi
           echo "tag=$tag" >> "$GITHUB_OUTPUT"

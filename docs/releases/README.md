@@ -6,6 +6,10 @@ GitHub release description. Unreleased changes are collected in [unreleased.md](
 | Version | Notes |
 |---|---|
 | 1.2.2 | [v1.2.2.md](v1.2.2.md) — faster MP4 export presets and verified resolution safety |
+
+**Upcoming (not released):** [v1.3.0 draft notes](v1.3.0.md) and
+[v1.3.0 release candidate acceptance plan](v1.3.0-plan.md).
+This entry is intentionally **outside** the published-version table.
 | 1.2.1 | [v1.2.1.md](v1.2.1.md) — startup diagnostics and Windows package verification |
 | 1.2.0 | [v1.2.0.md](v1.2.0.md) — multi-clip editing, clip attributes clipboard and batch adjustments |
 | 1.1.1 | [v1.1.1.md](v1.1.1.md) — title creation guard and export regression tests |

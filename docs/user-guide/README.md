@@ -64,6 +64,12 @@ for the full list.
 Right-click a tile to add it to the timeline, show it in its folder, relink it or remove it from
 the project (removing never deletes the file; media in use must be removed from the timeline first).
 
+Use the **Search media** field at the top of the media bin to find files by name or path,
+without changing the project. The adjacent filter shows all assets, just videos, audio,
+still images or offline files. Search is case-insensitive, combines with the chosen kind,
+and updates the visible tiles immediately. Select **All** and clear the search box to see
+every imported file again. Filtering never removes files from the project.
+
 ## Editing on the timeline
 
 * **Add clips:** drag a tile onto a track (a ghost shows where it lands and turns red where it

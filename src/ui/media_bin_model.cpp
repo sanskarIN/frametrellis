@@ -4,6 +4,7 @@
 
 #include <QFileInfo>
 #include <QLocale>
+#include <QtGlobal>
 
 namespace ft::ui {
 
@@ -148,6 +149,101 @@ QVariantMap MediaBinModel::get(int row) const
         map.insert(QString::fromLatin1(it.value()), data(index(row), it.key()));
     }
     return map;
+}
+
+MediaBinFilterModel::MediaBinFilterModel(QObject* parent)
+    : QSortFilterProxyModel(parent)
+{
+    setDynamicSortFilter(true);
+    connect(this, &QAbstractItemModel::rowsInserted, this, &MediaBinFilterModel::countChanged);
+    connect(this, &QAbstractItemModel::rowsRemoved, this, &MediaBinFilterModel::countChanged);
+    connect(this, &QAbstractItemModel::modelReset, this, &MediaBinFilterModel::countChanged);
+}
+
+QString MediaBinFilterModel::searchText() const
+{
+    return m_searchText;
+}
+
+void MediaBinFilterModel::setSearchText(const QString& text)
+{
+    const QString normalized = text.trimmed();
+    if (m_searchText == normalized) {
+        return;
+    }
+#if QT_VERSION >= QT_VERSION_CHECK(6, 10, 0)
+    beginFilterChange();
+#endif
+    m_searchText = normalized;
+#if QT_VERSION >= QT_VERSION_CHECK(6, 10, 0)
+    endFilterChange(QSortFilterProxyModel::Direction::Rows);
+#else
+    invalidateFilter();
+#endif
+    emit searchTextChanged();
+}
+
+QString MediaBinFilterModel::category() const
+{
+    return m_category;
+}
+
+void MediaBinFilterModel::setCategory(const QString& category)
+{
+    const QString normalized = category.toLower();
+    const QString next =
+        (normalized == QLatin1String("video") || normalized == QLatin1String("audio") ||
+         normalized == QLatin1String("image") || normalized == QLatin1String("offline"))
+            ? normalized
+            : QStringLiteral("all");
+    if (m_category == next) {
+        return;
+    }
+#if QT_VERSION >= QT_VERSION_CHECK(6, 10, 0)
+    beginFilterChange();
+#endif
+    m_category = next;
+#if QT_VERSION >= QT_VERSION_CHECK(6, 10, 0)
+    endFilterChange(QSortFilterProxyModel::Direction::Rows);
+#else
+    invalidateFilter();
+#endif
+    emit categoryChanged();
+}
+
+int MediaBinFilterModel::count() const
+{
+    return rowCount();
+}
+
+bool MediaBinFilterModel::filterAcceptsRow(int sourceRow, const QModelIndex& sourceParent) const
+{
+    const QAbstractItemModel* model = sourceModel();
+    if (!model) {
+        return false;
+    }
+    const QModelIndex sourceIndex = model->index(sourceRow, 0, sourceParent);
+    if (!sourceIndex.isValid()) {
+        return false;
+    }
+    if (m_category == QLatin1String("offline")) {
+        if (model->data(sourceIndex, MediaBinModel::StatusRole).toString() !=
+            QLatin1String("missing")) {
+            return false;
+        }
+    } else if (m_category != QLatin1String("all") &&
+               model->data(sourceIndex, MediaBinModel::KindRole).toString() != m_category) {
+        return false;
+    }
+    if (m_searchText.isEmpty()) {
+        return true;
+    }
+    return model->data(sourceIndex, MediaBinModel::NameRole)
+               .toString()
+               .contains(m_searchText, Qt::CaseInsensitive) ||
+           model->data(sourceIndex, MediaBinModel::FilePathRole)
+               .toString()
+               .contains(m_searchText, Qt::CaseInsensitive);
 }
 
 } // namespace ft::ui

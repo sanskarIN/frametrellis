@@ -325,9 +325,8 @@ private slots:
 
         QProcess helper;
         helper.start(QStringLiteral(FT_RENDER_HELPER),
-                     {QStringLiteral("--project"), projectFile,
-                      QStringLiteral("--output"), projectFile,
-                      QStringLiteral("--preset"), QStringLiteral("ultrafast")});
+                     {QStringLiteral("--project"), projectFile, QStringLiteral("--output"),
+                      projectFile, QStringLiteral("--preset"), QStringLiteral("ultrafast")});
         QVERIFY2(helper.waitForStarted(10'000), qPrintable(helper.errorString()));
         QVERIFY2(helper.waitForFinished(30'000), qPrintable(helper.errorString()));
         QCOMPARE(helper.exitStatus(), QProcess::NormalExit);
@@ -381,9 +380,8 @@ private slots:
         const QString offlinePath = m_dir.filePath(QStringLiteral("inspect-offline.ftproj"));
         QVERIFY(project_format::saveToFile(p, offlinePath));
         QProcess second;
-        second.start(QStringLiteral(FT_RENDER_HELPER),
-                     {QStringLiteral("--inspect-project"), QStringLiteral("--project"),
-                      offlinePath});
+        second.start(QStringLiteral(FT_RENDER_HELPER), {QStringLiteral("--inspect-project"),
+                                                        QStringLiteral("--project"), offlinePath});
         QVERIFY2(second.waitForStarted(10'000), qPrintable(second.errorString()));
         QVERIFY2(second.waitForFinished(15'000), qPrintable(second.errorString()));
         QCOMPARE(second.exitCode(), int(protocol::Success));
@@ -395,11 +393,11 @@ private slots:
     void helperInspectionRejectsInvalidArgumentAndMissingProject()
     {
         QProcess invalidArguments;
-        invalidArguments.start(
-            QStringLiteral(FT_RENDER_HELPER),
-            {QStringLiteral("--inspect-project"), QStringLiteral("--project"),
-             m_dir.filePath(QStringLiteral("missing.ftproj")), QStringLiteral("--output"),
-             m_dir.filePath(QStringLiteral("should-not-exist.mp4"))});
+        invalidArguments.start(QStringLiteral(FT_RENDER_HELPER),
+                               {QStringLiteral("--inspect-project"), QStringLiteral("--project"),
+                                m_dir.filePath(QStringLiteral("missing.ftproj")),
+                                QStringLiteral("--output"),
+                                m_dir.filePath(QStringLiteral("should-not-exist.mp4"))});
         QVERIFY(invalidArguments.waitForStarted(10'000));
         QVERIFY(invalidArguments.waitForFinished(15'000));
         QCOMPARE(invalidArguments.exitCode(), int(protocol::BadArguments));

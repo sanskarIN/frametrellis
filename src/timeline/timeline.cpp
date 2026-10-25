@@ -403,15 +403,17 @@ Status Timeline::insertTrack(Track t, int index)
                          QStringLiteral("A timeline can have at most %1 tracks.").arg(kMaxTracks));
     }
     FrameCount previousEnd = 0;
+    QSet<Id> newClipIds;
     for (const Clip& c : t.clips) {
         if (const Status shape = checkClipShape(c); !shape) {
             return shape;
         }
-        if (c.start < previousEnd || findClip(c.id)) {
+        if (c.start < previousEnd || findClip(c.id) || newClipIds.contains(c.id)) {
             return makeError(ErrorCode::InvalidArgument,
                              QStringLiteral("The track's clips are inconsistent."));
         }
         previousEnd = c.end();
+        newClipIds.insert(c.id);
     }
     if (index < 0 || index > trackCount()) {
         index = trackCount();

@@ -82,6 +82,23 @@ class TimelineTest : public QObject
     Q_OBJECT
 
 private slots:
+    void insertTrackRejectsDuplicateIdsWithinNewTrack()
+    {
+        Timeline t = makeTimeline();
+        Track extra;
+        extra.id = QStringLiteral("extra");
+        extra.name = QStringLiteral("Overlay");
+        extra.kind = TrackKind::Video;
+        extra.clips.push_back(makeClip(QStringLiteral("duplicate"), kStillAsset, 0, 0, 10));
+        extra.clips.push_back(makeClip(QStringLiteral("duplicate"), kStillAsset, 20, 0, 10));
+        const Status invalid = t.insertTrack(extra);
+        QVERIFY(!invalid);
+        QCOMPARE(t.trackCount(), 3);
+        extra.clips.back().id = QStringLiteral("unique");
+        QVERIFY(t.insertTrack(extra));
+        QCOMPARE(t.trackCount(), 4);
+    }
+
     void insertKeepsClipsSorted()
     {
         Timeline t = makeTimeline();

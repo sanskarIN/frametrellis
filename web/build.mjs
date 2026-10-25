@@ -220,6 +220,7 @@ function layout({ relPath, title, description, body, nav, absolute = false, wide
 <meta name="twitter:card" content="summary_large_image">
 <link rel="stylesheet" href="${root}assets/site.css">
 <script src="${root}assets/site.js"></script>
+${nav === 'docs' ? `<script type="module" src="${root}assets/docs.mjs"></script>` : ''}
 </head>
 <body>
 <a class="skip" href="#main">Skip to content</a>
@@ -452,11 +453,17 @@ function buildDocs() {
                 const base = fs.statSync(full).isDirectory() ? REPO_TREE : REPO_BLOB;
                 return base + repoPath + hash;
             };
-            const { html, title } = renderMarkdown(markdown, resolveLink);
+            const { html, title, headings } = renderMarkdown(markdown, resolveLink);
             const pageTitle = title ?? item.label;
+            const sections = headings.filter((heading) => heading.level === 2 || heading.level === 3);
+            const toc = sections.length > 0
+                ? `<nav class="doc-toc" aria-label="On this page"><details><summary>On this page</summary><ul>${sections.map((heading) =>
+                    `<li class="toc-level-${heading.level}"><a href="#${escapeHtml(heading.id)}">${escapeHtml(heading.text)}</a></li>`).join('')}</ul></details></nav>`
+                : '';
             const body = `<div class="wrap doc">
 ${docNav(item.slug, item.out)}
 <article class="prose">
+${toc}
 ${html}
 <p class="edit-link">This page is generated from <a href="${REPO_BLOB}${item.src}" rel="noopener">${escapeHtml(item.src)}</a> in the repository. Found a mistake? <a href="${REPO_URL}/issues" rel="noopener">Open an issue</a>.</p>
 </article>

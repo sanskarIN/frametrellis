@@ -38,8 +38,7 @@ bool CancelCommandReader::ingest(std::string_view bytes)
 {
     for (const char character : bytes) {
         if (character == '\n') {
-            const bool cancelled =
-                !m_discarding && (m_line == "cancel" || m_line == "cancel\r");
+            const bool cancelled = !m_discarding && (m_line == "cancel" || m_line == "cancel\r");
             m_line.clear();
             m_discarding = false;
             if (cancelled) {

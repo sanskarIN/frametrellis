@@ -1,0 +1,86 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
+# One-time v1.3.0 dispatcher. Remove after the final tagged release is verified.
+# It does not publish by itself: the permanent release.yml workflow rebuilds,
+# re-verifies and publishes artifacts only after all stages pass.
+name: One-time v1.3.0 release trigger
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/one-time-release-v1.3.0.yml"
+
+permissions:
+  contents: write
+  actions: write
+
+jobs:
+  dispatch:
+    name: Verify integrated commit, tag and start release pipeline
+    if: github.repository == 'sanskarIN/frametrellis'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v6
+      - name: Validate requested version and final release notes
+        run: |
+          set -euo pipefail
+          grep -Pzq 'project\(FrameTrellis\s+VERSION\s+1\.3\.0\s' CMakeLists.txt
+          test -s docs/releases/v1.3.0.md
+          if head -n 20 docs/releases/v1.3.0.md | grep -qiE '(^<!--[[:space:]]*draft|^#[[:space:]].*(draft|not released)|^>.*(not published|not released))'; then
+            echo "::error::v1.3.0 release notes remain a draft"
+            exit 1
+          fi
+      - name: Await CI and verified Windows packages on the exact commit
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          for attempt in $(seq 1 75); do
+            current="$(gh api "repos/$GITHUB_REPOSITORY/branches/main" --jq '.commit.sha')"
+            if [ "$current" != "$GITHUB_SHA" ]; then
+              echo "::error::main changed before the v1.3.0 release gates passed"
+              exit 1
+            fi
+            runs="$(gh api "repos/$GITHUB_REPOSITORY/actions/runs?head_sha=$GITHUB_SHA&per_page=100")"
+            all_green=true
+            for workflow in "CI" "Windows packages"; do
+              verdict="$(jq -r --arg workflow "$workflow" '[.workflow_runs[] | select(.event == "push" and .name == $workflow)] | sort_by(.run_number) | last | if . == null then "waiting" elif .status != "completed" then "waiting" else .conclusion end' <<< "$runs")"
+              echo "$workflow: $verdict on commit $GITHUB_SHA"
+              case "$verdict" in
+                success) ;;
+                waiting) all_green=false ;;
+                *) echo "::error::$workflow did not pass: $verdict"; exit 1 ;;
+              esac
+            done
+            if [ "$all_green" = true ]; then
+              echo "Integrated CI and Windows package verification both passed."
+              exit 0
+            fi
+            sleep 20
+          done
+          echo "::error::Timed out waiting for integrated release checks"
+          exit 1
+      - name: Tag exactly the verified main commit and dispatch publication
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          current="$(gh api "repos/$GITHUB_REPOSITORY/branches/main" --jq '.commit.sha')"
+          if [ "$current" != "$GITHUB_SHA" ]; then
+            echo "::error::main changed before tag creation"
+            exit 1
+          fi
+          if gh api "repos/$GITHUB_REPOSITORY/git/ref/tags/v1.3.0" >/dev/null 2>&1; then
+            tagged="$(gh api "repos/$GITHUB_REPOSITORY/git/ref/tags/v1.3.0" --jq '.object.sha')"
+            if [ "$tagged" != "$GITHUB_SHA" ]; then
+              echo "::error::v1.3.0 already refers to another commit"
+              exit 1
+            fi
+          else
+            gh api --method POST "repos/$GITHUB_REPOSITORY/git/refs" \
+              -f ref='refs/tags/v1.3.0' -f sha="$GITHUB_SHA"
+          fi
+          # GITHUB_TOKEN push events do not trigger follow-up workflows.
+          gh workflow run release.yml --ref main -f publish=true
+          echo "Release pipeline dispatched; publication requires all package gates."

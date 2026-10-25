@@ -48,6 +48,7 @@ jobs:
         name: Compare the tag with the project version
         env:
           PUBLISH: ${{ inputs.publish }}
+          GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
           # project() spans several lines; -z makes grep treat the file as one record.
@@ -70,6 +71,15 @@ jobs:
           if [ "${version%%-*}" != "$project" ]; then
             echo "::error::Tag $tag does not match the project version $project in CMakeLists.txt"
             exit 1
+          fi
+          # A manual publish must run at the exact commit tagged for release.
+          # A rehearsal does not require a tag and never publishes.
+          if [ "$GITHUB_EVENT_NAME" = workflow_dispatch ] && [ "$PUBLISH" = true ]; then
+            tagged="$(gh api "repos/$GITHUB_REPOSITORY/git/ref/tags/$tag" --jq '.object.sha' 2>/dev/null || true)"
+            if [ -z "$tagged" ] || [ "$tagged" != "$GITHUB_SHA" ]; then
+              echo "::error::Published tag $tag must already point to this exact workflow commit"
+              exit 1
+            fi
           fi
           if [ ! -f "docs/releases/v${version%%-*}.md" ]; then
             echo "::error::Release notes docs/releases/v${version%%-*}.md are missing"

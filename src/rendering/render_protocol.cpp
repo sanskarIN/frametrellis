@@ -34,4 +34,28 @@ std::optional<QJsonObject> decode(const QByteArray& line)
     return object;
 }
 
+bool CancelCommandReader::ingest(std::string_view bytes)
+{
+    for (const char character : bytes) {
+        if (character == '\n') {
+            const bool cancelled =
+                !m_discarding && (m_line == "cancel" || m_line == "cancel\r");
+            m_line.clear();
+            m_discarding = false;
+            if (cancelled) {
+                return true;
+            }
+        } else if (!m_discarding) {
+            // A command can contain at most 16 bytes; never buffer untrusted stdin indefinitely.
+            if (m_line.size() < 16) {
+                m_line.push_back(character);
+            } else {
+                m_line.clear();
+                m_discarding = true;
+            }
+        }
+    }
+    return false;
+}
+
 } // namespace ft::rendering::protocol

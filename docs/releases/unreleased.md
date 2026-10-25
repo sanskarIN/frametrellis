@@ -8,6 +8,8 @@ for a future release. For the latest fast-export work, see the
 
 - Add **View → Zoom to Selection** (Ctrl+Shift+0) and a selection-aware timeline button
   that frames all selected clips without moving media or changing the project.
+- Add **View → Center on Playhead** (Ctrl+Shift+L) to recenter the timeline without
+  changing the current playback frame.
 - Reject invalid, non-finite timeline zoom values instead of allowing NaN/Inf to damage the view.
 - Add a real QML GUI regression test for selection bounds, viewport placement, keyboard
   shortcuts and unchanged project/undo state.

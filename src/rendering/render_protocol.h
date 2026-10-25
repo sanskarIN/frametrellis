@@ -6,6 +6,8 @@
 #include <QJsonObject>
 
 #include <optional>
+#include <string>
+#include <string_view>
 
 /// The render helper reports progress as JSON objects on stdout, one per line, each prefixed with
 /// "@ft " so that unrelated output from libraries can never be mistaken for an event.
@@ -25,6 +27,18 @@ inline constexpr qsizetype kMaxEventBytes = qsizetype{64} * 1024;
 
 QByteArray encode(const QJsonObject& event);
 std::optional<QJsonObject> decode(const QByteArray& line);
+
+/// Incrementally parses the helper's stdin command channel. Only a complete "cancel" line
+/// (LF or CRLF) is accepted. Other input and arbitrarily long lines are safely discarded.
+class CancelCommandReader
+{
+public:
+    [[nodiscard]] bool ingest(std::string_view bytes);
+
+private:
+    std::string m_line;
+    bool m_discarding = false;
+};
 
 enum ExitCode { Success = 0, Failure = 1, BadArguments = 2, Cancelled = 3 };
 

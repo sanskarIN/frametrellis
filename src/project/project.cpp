@@ -81,6 +81,10 @@ Status Project::addAsset(MediaAsset newAsset, int index)
     if (newAsset.filePath.isEmpty()) {
         return makeError(ErrorCode::InvalidArgument, QStringLiteral("The media has no file path."));
     }
+    if (assetByPath(newAsset.filePath)) {
+        return makeError(ErrorCode::Conflict,
+                         QStringLiteral("This file is already present in the media bin."));
+    }
     if (static_cast<int>(m_media.size()) >= kMaxMediaAssets) {
         return makeError(ErrorCode::OutOfRange,
                          QStringLiteral("The project has too many media files."));
@@ -113,6 +117,16 @@ Status Project::replaceAsset(const MediaAsset& updated)
     const int index = assetIndex(updated.id);
     if (index < 0) {
         return makeError(ErrorCode::NotFound, QStringLiteral("The media was not found."));
+    }
+    if (updated.filePath.isEmpty()) {
+        return makeError(ErrorCode::InvalidArgument, QStringLiteral("The media has no file path."));
+    }
+    const QString key = canonicalMediaKey(updated.filePath);
+    for (const MediaAsset& asset : m_media) {
+        if (asset.id != updated.id && canonicalMediaKey(asset.filePath) == key) {
+            return makeError(ErrorCode::Conflict,
+                             QStringLiteral("Another media entry already uses that file."));
+        }
     }
     m_media[static_cast<size_t>(index)] = updated;
     return {};
@@ -168,13 +182,20 @@ Status Project::validate() const
         return makeError(ErrorCode::InvalidDocument, settingsValid.error().message);
     }
     QSet<Id> ids;
+    QSet<QString> paths;
     for (const MediaAsset& a : m_media) {
         if (!isValidId(a.id) || ids.contains(a.id) || a.filePath.isEmpty()) {
             return makeError(
                 ErrorCode::InvalidDocument,
                 QStringLiteral("A media entry has a missing or duplicate id or path."));
         }
+        const QString key = canonicalMediaKey(a.filePath);
+        if (paths.contains(key)) {
+            return makeError(ErrorCode::InvalidDocument,
+                             QStringLiteral("Multiple media entries point to the same file."));
+        }
         ids.insert(a.id);
+        paths.insert(key);
     }
     return m_timeline.validate(sourceLookup());
 }

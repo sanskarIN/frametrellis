@@ -46,10 +46,28 @@ Development builds after v1.2.2 also support a **read-only**, headless inspectio
 frametrellis-render --inspect-project --project /work/my-project.ftproj
 ```
 
-It emits one `@ft {…}` JSON protocol line named `project_inspection` with the
-project name, track/clip/media counts, missing-media count and timeline duration in frames. It
-does **not** start MLT, render video, write project files or include source file paths in the
-report. A structurally valid project returns exit code 0 **even if some media is missing**;
+It emits one `@ft {…}` JSON protocol line named `project_inspection`. For example:
+
+```text
+@ft {"event":"project_inspection","name":"My Edit","trackCount":4,"videoTrackCount":2,"audioTrackCount":2,"clipCount":3,"mediaCount":4,"usedMediaCount":3,"unusedMediaCount":1,"missingMediaCount":1,"missingUsedMediaCount":0,"durationFrames":300}
+```
+
+The event's counts have precise meanings:
+
+| Field | Meaning |
+|---|---|
+| `trackCount`, `videoTrackCount`, `audioTrackCount` | Total tracks and counts by track kind |
+| `clipCount` | Total timeline clips across all tracks |
+| `mediaCount` | Total media-bin entries |
+| `usedMediaCount` | Distinct media entries referenced by at least one clip |
+| `unusedMediaCount` | Media entries not referenced by any clip |
+| `missingMediaCount` | Entries whose files are absent or are not regular files |
+| `missingUsedMediaCount` | Missing entries currently referenced by timeline clips |
+| `durationFrames` | Sequence length at the project's frame rate, in frames |
+
+A missing *unused* file increases `missingMediaCount` but not `missingUsedMediaCount`.
+The command inspects file metadata only. It does **not** start MLT, decode footage, render
+video, write project files or include source-file paths in the successful summary. A structurally valid project returns exit code 0 **even if some media is missing**;
 use `missingMediaCount` to determine whether relinking may be needed. A malformed or missing
 project returns a nonzero exit status and a structured `error` event. Do not combine
 `--inspect-project` with `--output`.

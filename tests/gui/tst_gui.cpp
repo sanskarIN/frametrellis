@@ -260,9 +260,9 @@ private slots:
         const double playheadFrame = m_app->playback()->position();
         lanes->setProperty("contentX", 0);
         QTest::keyClick(m_window, Qt::Key_L, Qt::ControlModifier | Qt::ShiftModifier);
-        const double expectedScroll =
-            std::max(0.0, std::min(lanes->property("contentWidth").toDouble() - lanes->width(),
-                                   playheadFrame * timeline->pixelsPerFrame() - lanes->width() * 0.5));
+        const double expectedScroll = std::max(
+            0.0, std::min(lanes->property("contentWidth").toDouble() - lanes->width(),
+                          playheadFrame * timeline->pixelsPerFrame() - lanes->width() * 0.5));
         QVERIFY(QTest::qWaitFor(
             [&] { return std::abs(lanes->property("contentX").toDouble() - expectedScroll) < 2.0; },
             2000));

@@ -10,8 +10,8 @@ to users. An open PR is not a shipped feature.
   including canonical/path aliases (PRs #23, #24).
 - Detect same-size external changes to media sources and retain Unicode
   export-path regression coverage (PRs #25, #17).
-- Validate extreme timecode values and fade totals without signed overflow
-  (PRs #22, #30).
+- Validate extreme timecode values, fade totals, clip/source endpoints
+  and free-range queries without signed overflow (PRs #22, #30, #71).
 - Bound render-helper protocol messages, handle cancellation as an exact
   line command, and prevent exporting over the currently opened project
   document (PRs #19, #68).
@@ -34,7 +34,6 @@ to users. An open PR is not a shipped feature.
 
 ## Still under review — not integrated
 
-- Timeline endpoint/free-range checks (PR #71, combining conflicting #31/#32).
 - Zoom to Selection and Center on Playhead (PR #70) and additional
   timeline, media, preview and export feature PRs.
 

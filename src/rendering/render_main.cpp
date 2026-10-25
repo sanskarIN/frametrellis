@@ -19,7 +19,7 @@
 #include <atomic>
 #include <csignal>
 #include <cstdio>
-#include <string>
+#include <string_view>
 #include <thread>
 
 #ifdef Q_OS_WIN
@@ -82,7 +82,7 @@ void watchStdin()
     // the render. Raw OS reads are used instead of std::cin: a thread blocked inside stdio holds
     // the stream lock, which would deadlock the flush that runs when the process exits.
     std::thread([] {
-        std::string pending;
+        protocol::CancelCommandReader commands;
         char buffer[256];
         while (true) {
 #ifdef Q_OS_WIN
@@ -101,12 +101,8 @@ void watchStdin()
                 break;
             }
 #endif
-            pending.append(buffer, static_cast<size_t>(count));
-            if (pending.find("cancel") != std::string::npos) {
+            if (commands.ingest(std::string_view(buffer, static_cast<size_t>(count)))) {
                 break;
-            }
-            if (pending.size() > 4096) {
-                pending.erase(0, pending.size() - 16);
             }
         }
         g_cancel = true;
@@ -207,7 +203,8 @@ int main(int argc, char** argv)
 
     Status result;
     {
-        RenderRunner runner(std::move(project).value(), settings);
+        RenderRunner runner(std::move(project).value(), settings,
+                            QFileInfo(projectPath).absoluteFilePath());
         result = runner.run(
             g_cancel,
             [](const QString& encoder, FrameCount total) {

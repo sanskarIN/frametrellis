@@ -22,6 +22,7 @@
 | N | Toggle snapping |
 | + / − | Zoom timeline in / out |
 | Ctrl+Shift+0 | Zoom the timeline to all selected clips (development builds; not v1.2.2) |
+| Ctrl+Shift+L | Center the timeline viewport on the current playhead (development builds; not v1.2.2) |
 | Ctrl+mouse wheel | Zoom around the pointer |
 | Shift+mouse wheel | Scroll the timeline horizontally |
 | Ctrl+Z / Ctrl+Shift+Z | Undo / redo |

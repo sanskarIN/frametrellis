@@ -10,8 +10,9 @@ Nothing on this page is tagged or published as a stable version yet.
 - Interpret stdin cancellation as an exact line command instead of matching the word
   `cancel` inside unrelated input; bound command buffering.
 - Add `frametrellis-render --inspect-project --project FILE` for read-only,
-  machine-readable project counts and missing-media diagnostics without starting MLT
-  or exporting video.
+  machine-readable project diagnostics: separate video/audio track counts, unique
+  referenced/unused media counts, missing media used by clips and total duration,
+  without starting MLT or exporting video.
 - Cover these behaviors with focused unit and render-helper integration tests.
 
 For fast export options already released, see the

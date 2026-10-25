@@ -264,7 +264,7 @@ private slots:
         protocol::CancelCommandReader oversized;
         QVERIFY(!oversized.ingest(std::string(200'000, 'x')));
         QVERIFY(!oversized.ingest("cancel\n")); // still part of the discarded long line
-        QVERIFY(!oversized.ingest("\n")); // newline resets the discard state
+        QVERIFY(!oversized.ingest("\n"));       // newline resets the discard state
         QVERIFY(oversized.ingest("cancel\n"));
 
         protocol::CancelCommandReader missingTerminator;

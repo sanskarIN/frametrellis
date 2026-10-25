@@ -88,6 +88,9 @@ the project (removing never deletes the file; media in use must be removed from 
   frames the earliest selected start and latest selected end with a little space for trim handles.
   This changes only the view, not timing, playback position, undo history or project contents.
   It is planned for a future release and is **not included in stable v1.2.2**.
+* **Center on Playhead (development builds only):** choose *View → Center on Playhead*
+  (Ctrl+Shift+L) to scroll the timeline horizontally to the playhead, without seeking,
+  changing playback or affecting project edits. This is also **not in stable v1.2.2**.
 * **Tracks:** add tracks with *+ Video* / *+ Audio*; each track can be hidden (video), muted or
   locked. Double-click a track name to rename it; right-click it to remove the track.
 

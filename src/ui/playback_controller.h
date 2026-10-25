@@ -52,6 +52,9 @@ public:
     Q_INVOKABLE void pause();
     Q_INVOKABLE void togglePlay();
     Q_INVOKABLE void seek(double frame);
+    /// Move to an exact SMPTE timecode within the current sequence; rejects invalid/out-of-range
+    /// input.
+    Q_INVOKABLE bool seekToTimecode(const QString& label);
     Q_INVOKABLE void step(int frames);
     Q_INVOKABLE void goToStart();
     Q_INVOKABLE void goToEnd();

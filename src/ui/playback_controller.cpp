@@ -113,6 +113,17 @@ void PlaybackController::seek(double frame)
     m_engine.seek(target);
 }
 
+bool PlaybackController::seekToTimecode(const QString& label)
+{
+    const auto frame = timecode::parse(label, m_project->project().settings().frameRate);
+    const FrameCount length = m_project->project().timeline().duration();
+    if (!frame || *frame < 0 || *frame >= length) {
+        return false;
+    }
+    seek(static_cast<double>(*frame));
+    return true;
+}
+
 void PlaybackController::step(int frames)
 {
     seek(static_cast<double>(m_position + frames));

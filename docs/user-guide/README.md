@@ -91,6 +91,8 @@ every imported file again. Filtering never removes files from the project.
   delete) removes one clip and moves the following clips on that track left to close the gap.
 * **Snapping** (N) aligns clip edges with other clips and the playhead.
 * **Zoom** with + and −, Ctrl+mouse wheel, the zoom slider, or *Fit* to see the whole sequence.
+* **Go to timecode** with Ctrl+G (Playback menu): enter a frame-accurate timecode, such as
+  `00:00:12:08`. Invalid or out-of-sequence positions are rejected without moving the playhead.
 * **Tracks:** add tracks with *+ Video* / *+ Audio*; each track can be hidden (video), muted or
   locked. Double-click a track name to rename it; right-click it to remove the track.
 

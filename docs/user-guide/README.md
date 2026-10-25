@@ -1,7 +1,8 @@
 # FrameTrellis user guide
 
 FrameTrellis is a local-first video editor: your media stays on your computer and is never
-uploaded. This guide covers everything the current version can do.
+uploaded. This guide documents the **released v1.2.2** editor; features proposed in
+unmerged pull requests are not included until they ship.
 
 - [Installing FrameTrellis](installation.md)
 - [The workspace](#the-workspace)

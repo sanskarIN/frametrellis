@@ -99,6 +99,19 @@ Acceptance criteria, each checked before the release:
 - ⏳ Evaluate WinGet package identifier, installer metadata and hash-verified manifests;
   do not claim a WinGet listing without confirmed upstream acceptance
 
+## v1.3.0 — Editing safeguards, media search and diagnostics ✅
+- ✅ Reject project saves or exports that overwrite referenced media or the opened project
+- ✅ Detect same-size external media changes and reject duplicate canonical paths
+- ✅ Make timecode, fade and clip-end validation resilient to signed overflow
+- ✅ Protect against concurrent MLT profile initialization and invalid render commands
+- ✅ Search and category-filter the media bin; navigate directly to a SMPTE timecode
+- ✅ Inspect project track/media counts with a read-only render-helper command
+- ✅ Upgrade documentation search, section navigation and code copy controls
+- ✅ Passed integrated Linux/Windows CI and automated clean-machine Windows package checks
+- ✅ Stable v1.3.0 published from the verified `e86cab7d7eef7c287716abedc6721fa1bd76e719` release commit
+- ℹ️ [Automated release verification](releases/v1.3.0-verification.md) is recorded separately
+  from the still-unrecorded manual desktop smoke-test checklist
+
 ## Next milestones
 - ⏳ A Linux package (AppImage or Flatpak), published once it has been verified
 - ⏳ A macOS build in CI, then a `.dmg` package once it has been verified

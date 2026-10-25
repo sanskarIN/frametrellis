@@ -21,6 +21,12 @@ to users. An open PR is not a shipped feature.
 - Serialize MLT profile construction to prevent a concurrency issue
   observed in sanitizer tests (PR #63).
 
+## Integrated editor workflow improvements
+
+- Search media in the bin and filter by kind (PR #16).
+- Jump to an exact SMPTE timecode with the Go to Timecode dialog and
+  Ctrl+G shortcut (PR #26).
+
 ## Integrated documentation improvements
 
 - Searchable documentation navigation, copyable code examples, section

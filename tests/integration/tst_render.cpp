@@ -7,11 +7,13 @@
 #include "media_fixtures.h"
 #include "project/project_serializer.h"
 #include "rendering/render_job.h"
+#include "rendering/render_protocol.h"
 #include "rendering/render_runner.h"
 #include "rendering/self_test.h"
 
 #include <QDir>
 #include <QFile>
+#include <QProcess>
 #include <QSignalSpy>
 #include <QTemporaryDir>
 #include <QTest>
@@ -308,6 +310,33 @@ private slots:
         QVERIFY(!result);
         QCOMPARE(result.error().code, ErrorCode::Conflict);
         QCOMPARE(QFileInfo(m_video).size(), before);
+    }
+
+    void helperCannotOverwriteProjectWithMp4Extension()
+    {
+        // The headless CLI accepts a valid project document regardless of its filename.
+        // A .mp4-named project must still be protected from export destination replacement.
+        const QString projectFile = m_dir.filePath(QStringLiteral("source-project.mp4"));
+        QVERIFY(project_format::saveToFile(project(25), projectFile));
+        QFile original(projectFile);
+        QVERIFY(original.open(QIODevice::ReadOnly));
+        const QByteArray before = original.readAll();
+        original.close();
+
+        QProcess helper;
+        helper.start(QStringLiteral(FT_RENDER_HELPER),
+                     {QStringLiteral("--project"), projectFile,
+                      QStringLiteral("--output"), projectFile,
+                      QStringLiteral("--preset"), QStringLiteral("ultrafast")});
+        QVERIFY2(helper.waitForStarted(10'000), qPrintable(helper.errorString()));
+        QVERIFY2(helper.waitForFinished(30'000), qPrintable(helper.errorString()));
+        QCOMPARE(helper.exitStatus(), QProcess::NormalExit);
+        QCOMPARE(helper.exitCode(), int(protocol::Failure));
+        QVERIFY(helper.readAllStandardOutput().contains("overwrite the project file"));
+        QFile preserved(projectFile);
+        QVERIFY(preserved.open(QIODevice::ReadOnly));
+        QCOMPARE(preserved.readAll(), before);
+        QVERIFY(partFiles().isEmpty());
     }
 
     void helperProcessEndToEnd()

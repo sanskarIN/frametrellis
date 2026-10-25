@@ -406,6 +406,19 @@ private slots:
         QCOMPARE(*tiny.lengthInFrames(*FrameRate::create(25, 1)), FrameCount{1});
     }
 
+    void automaticTrackNamesAvoidMixedCaseCollisions()
+    {
+        Project project = Project::createNew(QStringLiteral("Mixed names"), ProjectSettings{});
+        QCOMPARE(project.nextTrackName(TrackKind::Video), QStringLiteral("V3"));
+        Track extra;
+        extra.id = QStringLiteral("extra-video");
+        extra.kind = TrackKind::Video;
+        extra.name = QStringLiteral("v3");
+        QVERIFY(project.timeline().insertTrack(extra));
+        QCOMPARE(project.nextTrackName(TrackKind::Video), QStringLiteral("V4"));
+        QCOMPARE(project.nextTrackName(TrackKind::Audio), QStringLiteral("A3"));
+    }
+
     void projectMediaRules()
     {
         Project p = makeProject(QStringLiteral("/media"));

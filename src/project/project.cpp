@@ -149,11 +149,11 @@ QString Project::nextTrackName(TrackKind kind) const
     const QString prefix = kind == TrackKind::Video ? QStringLiteral("V") : QStringLiteral("A");
     QSet<QString> used;
     for (const Track& t : m_timeline.tracks()) {
-        used.insert(t.name);
+        used.insert(t.name.toCaseFolded());
     }
     for (int n = 1;; ++n) {
         const QString candidate = prefix + QString::number(n);
-        if (!used.contains(candidate)) {
+        if (!used.contains(candidate.toCaseFolded())) {
             return candidate;
         }
     }

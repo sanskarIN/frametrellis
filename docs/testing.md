@@ -131,6 +131,22 @@ For manual diagnosis on a Windows test machine with the release files available:
 Keep the run's full log and screenshots when investigating a failure. A passing
 emulated runner does not replace testing on physical ARM64 machines.
 
+## Signed frame-range boundary regressions (v1.3.0 candidate)
+
+Timeline insertion now checks both source and sequence endpoints **before** adding
+signed frame counts. A clip must have a positive duration and its source and timeline
+ranges must end at or before `kMaxTimelineFrames`. The `isRangeFree` query also
+rejects negative starts, zero durations and endpoints beyond that limit before
+calculating the exclusive end frame.
+
+`tests/unit/tst_timeline.cpp` exercises the maximum signed `FrameCount`, values just
+past the allowed limit, the exact valid endpoint and unknown tracks. These checks
+combine the overlapping changes originally proposed in
+[#31](https://github.com/sanskarIN/frametrellis/pull/31) and
+[#32](https://github.com/sanskarIN/frametrellis/pull/32); they belong together so
+that the compiler and sanitizers validate the same final timeline model. These are
+**unreleased changes** until merged and verified on the integrated branch.
+
 ## What is not covered automatically
 
 * Real audio output devices (tests use SDL's dummy driver).

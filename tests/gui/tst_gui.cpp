@@ -251,6 +251,38 @@ private slots:
         screenshot(QStringLiteral("03-timeline"));
     }
 
+    void slipSelectedClipKeepsPlacementAndIsUndoable()
+    {
+        // The imported video has no spare source at first; trim its end to make
+        // room for a real slip while preserving its position in the sequence.
+        const Clip original = track(0).clips.front();
+        const Timeline before = m_app->project()->project().timeline();
+        QVERIFY(original.duration > 20);
+        QVERIFY(m_app->timeline()->trimEnd(original.id, static_cast<double>(original.end() - 10)));
+        m_app->timeline()->select(original.id, false);
+        QQuickItem* controls =
+            findItem(m_window->contentItem(), QStringLiteral("clipSlipControls"));
+        QVERIFY(controls);
+        QVERIFY(controls->isVisible());
+        QVERIFY(m_app->timeline()->slipSelection(5));
+        const Clip* slipped = m_app->project()->project().timeline().clip(original.id);
+        QVERIFY(slipped);
+        QCOMPARE(slipped->start, original.start);
+        QCOMPARE(slipped->duration, original.duration - FrameCount{10});
+        QCOMPARE(slipped->sourceIn, original.sourceIn + FrameCount{5});
+        QCOMPARE(m_app->project()->undoText(), QStringLiteral("Slip 1 Clip(s)"));
+        m_app->project()->undo();
+        QCOMPARE(m_app->project()->project().timeline().clip(original.id)->sourceIn,
+                 original.sourceIn);
+        m_app->project()->redo();
+        QCOMPARE(m_app->project()->project().timeline().clip(original.id)->sourceIn,
+                 original.sourceIn + FrameCount{5});
+        m_app->project()->undo();
+        m_app->project()->undo();
+        QCOMPARE(m_app->project()->project().timeline(), before);
+        m_app->timeline()->clearSelection();
+    }
+
     void goToTimecodeSeeksOnlyForValidPositions()
     {
         const double before = m_app->playback()->position();

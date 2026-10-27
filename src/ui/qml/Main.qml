@@ -154,6 +154,14 @@ ApplicationWindow {
                 Action { text: qsTr("Left 10 Frames"); shortcut: "Alt+Shift+Left"; onTriggered: window.app.timeline.nudgeSelection(-10) }
                 Action { text: qsTr("Right 10 Frames"); shortcut: "Alt+Shift+Right"; onTriggered: window.app.timeline.nudgeSelection(10) }
             }
+            Menu {
+                title: qsTr("Slip Selected Clips (Source)")
+                enabled: window.editKeys && window.app.timeline.selection.length > 0
+                Action { text: qsTr("Earlier 1 Frame"); shortcut: "Ctrl+Alt+Left"; onTriggered: window.app.timeline.slipSelection(-1) }
+                Action { text: qsTr("Later 1 Frame"); shortcut: "Ctrl+Alt+Right"; onTriggered: window.app.timeline.slipSelection(1) }
+                Action { text: qsTr("Earlier 10 Frames"); shortcut: "Ctrl+Alt+Shift+Left"; onTriggered: window.app.timeline.slipSelection(-10) }
+                Action { text: qsTr("Later 10 Frames"); shortcut: "Ctrl+Alt+Shift+Right"; onTriggered: window.app.timeline.slipSelection(10) }
+            }
             Action { text: qsTr("Copy Clip &Attributes"); shortcut: "Ctrl+Alt+C"; enabled: window.editKeys && window.app.timeline.selection.length === 1; onTriggered: window.app.timeline.copySelectionAttributes() }
             Action { text: qsTr("&Paste Clip Attributes"); shortcut: "Ctrl+Alt+V"; enabled: window.editKeys && window.app.timeline.selection.length > 0 && window.app.timeline.hasCopiedClipAttributes; onTriggered: window.app.timeline.pasteSelectionAttributes() }
             MenuSeparator {}

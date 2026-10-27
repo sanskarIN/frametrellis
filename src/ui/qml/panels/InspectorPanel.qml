@@ -159,7 +159,8 @@ PanelFrame {
                             [qsTr("Start"), panel.clip.startText],
                             [qsTr("End"), panel.clip.endText],
                             [qsTr("Duration"), panel.clip.durationText],
-                            [qsTr("Source in"), panel.clip.sourceInText]
+                            [qsTr("Source in"), panel.clip.sourceInText],
+                            [qsTr("Source out"), panel.clip.sourceOutText]
                         ]
                         delegate: RowLayout {
                             required property var modelData
@@ -167,6 +168,45 @@ PanelFrame {
                             Text { text: modelData[0]; color: Theme.textFaint; font.pixelSize: Theme.fontSizeSmall; Layout.preferredWidth: 72 }
                             Text { text: modelData[1] || ""; color: Theme.text; font.pixelSize: Theme.fontSizeSmall; font.family: Theme.monoFamily }
                         }
+                    }
+                }
+            }
+
+            // ---- Source slip ----
+            ColumnLayout {
+                objectName: "clipSlipControls"
+                visible: panel.hasClip && panel.clip.kind !== "image"
+                enabled: !panel.clip.locked
+                Layout.fillWidth: true
+                spacing: Theme.spacingS
+                Rectangle { Layout.fillWidth: true; height: 1; color: Theme.border }
+                Text {
+                    text: qsTr("Slip Source")
+                    color: Theme.text
+                    font.weight: Font.DemiBold
+                    font.pixelSize: Theme.fontSize
+                }
+                Text {
+                    text: qsTr("Change which frames play without moving the clip or changing its duration.")
+                    color: Theme.textMuted
+                    font.pixelSize: Theme.fontSizeSmall
+                    wrapMode: Text.WordWrap
+                    Layout.fillWidth: true
+                }
+                RowLayout {
+                    Layout.fillWidth: true
+                    spacing: Theme.spacingS
+                    FtButton {
+                        text: qsTr("Earlier 1 frame")
+                        enabled: panel.clip.sourceIn > 0
+                        Layout.fillWidth: true
+                        onClicked: panel.app.timeline.slipSelection(-1)
+                    }
+                    FtButton {
+                        text: qsTr("Later 1 frame")
+                        enabled: panel.clip.sourceLength > panel.clip.sourceIn + panel.clip.duration
+                        Layout.fillWidth: true
+                        onClicked: panel.app.timeline.slipSelection(1)
                     }
                 }
             }

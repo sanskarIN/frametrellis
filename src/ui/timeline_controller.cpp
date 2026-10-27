@@ -175,7 +175,11 @@ QVariantMap TimelineController::selectedClip() const
         {QStringLiteral("startText"), timecode::format(clip->start, rate)},
         {QStringLiteral("endText"), timecode::format(clip->end(), rate)},
         {QStringLiteral("durationText"), timecode::formatClock(clip->duration, rate)},
+        {QStringLiteral("sourceIn"), static_cast<double>(clip->sourceIn)},
+        {QStringLiteral("sourceLength"),
+         asset ? static_cast<double>(asset->lengthInFrames(rate).value_or(-1)) : -1.0},
         {QStringLiteral("sourceInText"), timecode::format(clip->sourceIn, rate)},
+        {QStringLiteral("sourceOutText"), timecode::format(clip->sourceOut(), rate)},
         {QStringLiteral("hasAudio"), asset && asset->info.hasAudio},
         {QStringLiteral("hasVideo"),
          asset && asset->info.hasVideo && track->kind == TrackKind::Video},
@@ -453,6 +457,25 @@ bool TimelineController::nudgeSelection(int frames)
     }
     emit statusMessage(
         QStringLiteral("Moved %1 clip(s) by %2 frame(s).").arg(ids.size()).arg(frames));
+    return true;
+}
+
+bool TimelineController::slipSelection(int frames)
+{
+    if (m_selection.isEmpty()) {
+        emit statusMessage(QStringLiteral("Select one or more clips to slip."));
+        return false;
+    }
+    if (frames == 0) {
+        return false;
+    }
+    QList<Id> ids(m_selection.cbegin(), m_selection.cend());
+    std::sort(ids.begin(), ids.end());
+    if (!m_project->execute(edits::slipClips(ids, static_cast<FrameCount>(frames)))) {
+        return false;
+    }
+    emit statusMessage(
+        QStringLiteral("Slipped %1 clip(s) by %2 source frame(s).").arg(ids.size()).arg(frames));
     return true;
 }
 

@@ -260,6 +260,71 @@ private slots:
         QCOMPARE(t.clip(QStringLiteral("c1"))->duration, FrameCount{1});
     }
 
+    void slipPreservesPlacementAndDuration()
+    {
+        Timeline t = makeTimeline();
+        const SourceLookup sources = testSources();
+        QVERIFY(t.insertClip(QStringLiteral("v1"),
+                             makeClip(QStringLiteral("clip"), kVideoAsset, 100, 20, 50), sources));
+        const Timeline before = t;
+        QVERIFY(t.slipClip(QStringLiteral("clip"), 40, sources));
+        const Clip* changed = t.clip(QStringLiteral("clip"));
+        QVERIFY(changed);
+        QCOMPARE(changed->start, FrameCount{100});
+        QCOMPARE(changed->duration, FrameCount{50});
+        QCOMPARE(changed->sourceIn, FrameCount{40});
+        QCOMPARE(changed->sourceOut(), FrameCount{90});
+        QCOMPARE(t.duration(), before.duration());
+        QCOMPARE(t.track(QStringLiteral("v1"))->clips.size(), size_t{1});
+        QVERIFY(t.validate(sources));
+        // No-op slips do not perturb the timeline.
+        const Timeline after = t;
+        QVERIFY(t.slipClip(QStringLiteral("clip"), 40, sources));
+        QCOMPARE(t, after);
+    }
+
+    void slipRefusesOutOfRangeLockedAndStillClips()
+    {
+        Timeline t = makeTimeline();
+        const SourceLookup sources = testSources();
+        QVERIFY(t.insertClip(QStringLiteral("v1"),
+                             makeClip(QStringLiteral("clip"), kVideoAsset, 0, 50, 100), sources));
+        const Timeline original = t;
+        QVERIFY(!t.slipClip(QStringLiteral("clip"), -1, sources));
+        QVERIFY(!t.slipClip(QStringLiteral("clip"), 151, sources));
+        QVERIFY(!t.slipClip(QStringLiteral("missing"), 5, sources));
+        QCOMPARE(t, original);
+
+        QVERIFY(t.setTrackLocked(QStringLiteral("v1"), true));
+        const Timeline locked = t;
+        QVERIFY(!t.slipClip(QStringLiteral("clip"), 55, sources));
+        QCOMPARE(t, locked);
+        QVERIFY(t.setTrackLocked(QStringLiteral("v1"), false));
+
+        QVERIFY(t.insertClip(QStringLiteral("v2"),
+                             makeClip(QStringLiteral("still"), kStillAsset, 0, 0, 50), sources));
+        const Timeline withStill = t;
+        QVERIFY(!t.slipClip(QStringLiteral("still"), 5, sources));
+        QCOMPARE(t, withStill);
+    }
+
+    void slipProtectsTransitionHandles()
+    {
+        Timeline t = timelineWithCut();
+        const SourceLookup sources = testSources();
+        const Result<Id> added = t.addTransition(QStringLiteral("a"), 20, sources);
+        QVERIFY(added);
+        const Timeline before = t;
+        // Incoming b has a 10-frame pre-roll handle. Moving its in to frame 9
+        // would shorten the handle; the existing dissolve must not disappear.
+        QVERIFY(!t.slipClip(QStringLiteral("b"), 9, sources));
+        QCOMPARE(t, before);
+        QVERIFY(t.slipClip(QStringLiteral("b"), 20, sources));
+        QCOMPARE(t.transition(*added)->duration, FrameCount{20});
+        QCOMPARE(t.clip(QStringLiteral("b"))->start, FrameCount{100});
+        QVERIFY(t.validate(sources));
+    }
+
     void trimRespectsNeighbours()
     {
         Timeline t = makeTimeline();

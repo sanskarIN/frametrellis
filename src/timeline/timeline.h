@@ -82,6 +82,9 @@ public:
     Status trimClipStart(const Id& clipId, FrameCount newStart, const SourceLookup& sources);
     /// Moves the clip's right edge (exclusive end frame).
     Status trimClipEnd(const Id& clipId, FrameCount newEnd, const SourceLookup& sources);
+    /// Changes source in/out without moving either timeline edge or changing duration.
+    /// Rejects still images, unavailable source handles and invalidated transitions.
+    Status slipClip(const Id& clipId, FrameCount newSourceIn, const SourceLookup& sources);
     /// Splits a clip at a timeline frame strictly inside it. Returns the id of the right part.
     Result<Id> splitClip(const Id& clipId, FrameCount frame, const Id& newClipId = {});
     Status setClipProperties(const Id& clipId, const ClipProperties& properties);

@@ -301,6 +301,44 @@ std::unique_ptr<EditCommand> trimClipEnd(const Id& clipId, FrameCount newEnd)
                    });
 }
 
+std::unique_ptr<EditCommand> slipClips(const QList<Id>& clipIds, FrameCount delta)
+{
+    return command(
+        QStringLiteral("Slip %1 Clip(s)").arg(clipIds.size()),
+        [clipIds, delta](Timeline& timeline, const SourceLookup& sources) -> Status {
+            if (clipIds.isEmpty() || delta == 0 || delta < -kMaxTimelineFrames ||
+                delta > kMaxTimelineFrames) {
+                return makeError(ErrorCode::InvalidArgument,
+                                 QStringLiteral("Select clips and a valid nonzero slip amount."));
+            }
+            QSet<Id> seen;
+            for (const Id& id : clipIds) {
+                if (seen.contains(id)) {
+                    return makeError(ErrorCode::InvalidArgument,
+                                     QStringLiteral("The same clip was selected twice."));
+                }
+                seen.insert(id);
+                const Clip* clip = timeline.clip(id);
+                if (!clip) {
+                    return makeError(ErrorCode::NotFound,
+                                     QStringLiteral("A selected clip was not found."));
+                }
+                // Check signed bounds before addition, including source-out after the shift.
+                if ((delta < 0 && clip->sourceIn < -delta) ||
+                    (delta > 0 && clip->sourceOut() > kMaxTimelineFrames - delta)) {
+                    return makeError(ErrorCode::OutOfRange,
+                                     QStringLiteral("The slip exceeds the source frame limits."));
+                }
+                const FrameCount target = clip->sourceIn + delta;
+                if (const Status moved = timeline.slipClip(id, target, sources); !moved) {
+                    return moved;
+                }
+            }
+            // TimelineCommand operates on a clone and commits only if all clips succeed.
+            return {};
+        });
+}
+
 std::unique_ptr<EditCommand> splitClips(const QList<Id>& clipIds, FrameCount frame)
 {
     return command(

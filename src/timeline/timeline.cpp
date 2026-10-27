@@ -668,6 +668,53 @@ Status Timeline::trimClipEnd(const Id& clipId, FrameCount newEnd, const SourceLo
     return {};
 }
 
+Status Timeline::slipClip(const Id& clipId, FrameCount newSourceIn, const SourceLookup& sources)
+{
+    const auto location = findClip(clipId);
+    if (!location) {
+        return notFound(QStringLiteral("The clip"));
+    }
+    const Track& track = m_tracks[static_cast<size_t>(location->track)];
+    if (const Status editable = checkEditable(track); !editable) {
+        return editable;
+    }
+    const Clip& original = track.clips[static_cast<size_t>(location->clip)];
+    // A still image is not time-based media; slipping its source offset has no meaning.
+    const std::optional<SourceLimits> limits = sources ? sources(original.assetId) : std::nullopt;
+    if (!limits) {
+        return makeError(ErrorCode::NotFound,
+                         QStringLiteral("The clip's media is not part of the project."));
+    }
+    if (!limits->length) {
+        return makeError(ErrorCode::InvalidArgument,
+                         QStringLiteral("Still images cannot be slipped."));
+    }
+    Clip changed = original;
+    changed.sourceIn = newSourceIn;
+    if (const Status shape = checkClipShape(changed); !shape) {
+        return shape;
+    }
+    if (const Status source = checkSourceRange(changed, track, sources); !source) {
+        return source;
+    }
+    if (newSourceIn == original.sourceIn) {
+        return {};
+    }
+
+    // Keep every dissolve/crossfade intact: slipping media can consume a handle
+    // that an existing transition still needs. Never silently prune transitions.
+    Timeline candidate = *this;
+    candidate.m_tracks[static_cast<size_t>(location->track)]
+        .clips[static_cast<size_t>(location->clip)] = std::move(changed);
+    if (const Status valid = candidate.validate(sources); !valid) {
+        return makeError(ErrorCode::Conflict,
+                         QStringLiteral("The slip would invalidate a clip transition."),
+                         valid.error().message);
+    }
+    *this = std::move(candidate);
+    return {};
+}
+
 Result<Id> Timeline::splitClip(const Id& clipId, FrameCount frame, const Id& newClipId)
 {
     const auto location = findClip(clipId);

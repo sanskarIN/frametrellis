@@ -50,8 +50,7 @@ Status checkMarkers(const std::vector<TimelineMarker>& markers)
             return makeError(ErrorCode::OutOfRange,
                              QStringLiteral("A sequence marker is outside timeline limits."));
         }
-        if (marker.label.trimmed().isEmpty() ||
-            marker.label.size() > kMaxMarkerLabelLength) {
+        if (marker.label.trimmed().isEmpty() || marker.label.size() > kMaxMarkerLabelLength) {
             return makeError(ErrorCode::InvalidArgument,
                              QStringLiteral("Marker names must contain 1 to 120 characters."));
         }
@@ -66,8 +65,7 @@ Status Project::setMarkers(std::vector<TimelineMarker> markers)
     if (const Status checked = checkMarkers(markers); !checked) {
         return checked;
     }
-    std::sort(markers.begin(), markers.end(), [](const TimelineMarker& a,
-                                                 const TimelineMarker& b) {
+    std::sort(markers.begin(), markers.end(), [](const TimelineMarker& a, const TimelineMarker& b) {
         return a.frame == b.frame ? a.id < b.id : a.frame < b.frame;
     });
     m_markers = std::move(markers);
@@ -83,7 +81,8 @@ Status Project::setSettings(const ProjectSettings& settings)
         (m_timeline.clipCount() > 0 || !m_markers.empty())) {
         return makeError(
             ErrorCode::Conflict,
-            QStringLiteral("The frame rate can only be changed while clips and markers are absent."));
+            QStringLiteral(
+                "The frame rate can only be changed while clips and markers are absent."));
     }
     m_settings = settings;
     return {};

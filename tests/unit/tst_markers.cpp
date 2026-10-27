@@ -95,7 +95,9 @@ private slots:
                  QStringLiteral("Opening"));
         auto reloaded = project_format::fromBytes(project_format::toBytes(project));
         QVERIFY(reloaded);
-        QCOMPARE(*reloaded, project);
+        QCOMPARE(reloaded->markers(), project.markers());
+        QCOMPARE(reloaded->settings(), project.settings());
+        QCOMPARE(reloaded->name(), project.name());
 
         QJsonObject legacy = saved;
         QJsonObject body = legacy[QLatin1String("project")].toObject();

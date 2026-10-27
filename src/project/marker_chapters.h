@@ -12,4 +12,10 @@ namespace ft::chapters {
 /// A cue at frame zero is required, and each later cue must fall in a distinct second.
 [[nodiscard]] Result<QString> toText(const Project& project);
 
+/// Generate an HTML5/WebVTT chapter track from the same named markers. A real
+/// sequence duration is required: every cue starts at a marker and ends at the
+/// following marker (or the exclusive sequence end). Unlike descriptions,
+/// WebVTT preserves sub-second, frame-derived cue boundaries.
+[[nodiscard]] Result<QString> toWebVtt(const Project& project);
+
 } // namespace ft::chapters

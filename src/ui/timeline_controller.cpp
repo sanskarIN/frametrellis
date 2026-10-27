@@ -456,6 +456,25 @@ bool TimelineController::nudgeSelection(int frames)
     return true;
 }
 
+bool TimelineController::slipSelection(int frames)
+{
+    if (m_selection.isEmpty()) {
+        emit statusMessage(QStringLiteral("Select one or more clips to slip."));
+        return false;
+    }
+    if (frames == 0) {
+        return false;
+    }
+    QList<Id> ids(m_selection.cbegin(), m_selection.cend());
+    std::sort(ids.begin(), ids.end());
+    if (!m_project->execute(edits::slipClips(ids, static_cast<FrameCount>(frames)))) {
+        return false;
+    }
+    emit statusMessage(
+        QStringLiteral("Slipped %1 clip(s) by %2 source frame(s).").arg(ids.size()).arg(frames));
+    return true;
+}
+
 bool TimelineController::copySelectionAttributes()
 {
     if (m_selection.size() != 1) {

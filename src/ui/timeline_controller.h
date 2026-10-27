@@ -136,6 +136,8 @@ public:
     Q_INVOKABLE void nextMarker();
     /// Copies validated sequence markers as HH:MM:SS chapter lines for video publishing.
     Q_INVOKABLE bool copyMarkersAsChapters();
+    /// Place an HTML5/WebVTT chapter-track document on the clipboard.
+    Q_INVOKABLE bool copyMarkersAsWebVtt();
 
     // Navigation and zoom
     Q_INVOKABLE void previousEditPoint();

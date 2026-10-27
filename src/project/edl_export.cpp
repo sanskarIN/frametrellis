@@ -15,7 +15,7 @@ QString cleanComment(QString text)
 {
     // EDL comments must not be able to introduce additional records.
     for (qsizetype i = 0; i < text.size(); ++i) {
-        if (text.at(i).isNull() || text.at(i).isControl()) {
+        if (text.at(i).isNull() || !text.at(i).isPrint()) {
             text[i] = QLatin1Char(' ');
         }
     }
@@ -82,7 +82,10 @@ Result<QString> toCmx3600(const Project& project)
     QHash<Id, QString> reels;
     int number = 0;
     FrameCount cursor = 0;
-    const FrameCount maxLabel = static_cast<FrameCount>(rate.nominalFramesPerSecond()) * 3600 * 24;
+    const FrameCount nominalDay = static_cast<FrameCount>(rate.nominalFramesPerSecond()) * 3600 * 24;
+    // Drop-frame numbering skips 2 frame labels per minute except every tenth minute.
+    const FrameCount maxLabel = rate.supportsDropFrame() ? nominalDay - 2 * (1440 - 144)
+                                                         : nominalDay;
     const auto addEvent = [&](const QString& reel, FrameCount sourceIn, FrameCount sourceOut,
                               FrameCount recordIn, FrameCount recordOut) -> bool {
         if (number >= 999 || sourceOut >= maxLabel || recordOut >= maxLabel) {

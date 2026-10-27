@@ -1,41 +1,44 @@
-# Unreleased (after FrameTrellis 1.3.0)
+# FrameTrellis — Unreleased changes after 1.3.0
 
-The latest published stable release is [FrameTrellis 1.3.0](v1.3.0.md).
-The [v1.3.0 GitHub release](https://github.com/sanskarIN/frametrellis/releases/tag/v1.3.0)
-provides verified Windows installer and portable ZIP downloads.
-All changes already delivered in v1.3.0 belong in the
-[1.3.0 release notes](v1.3.0.md), not here.
+Stable release: [v1.3.0](v1.3.0.md) (last published stable).
+The versioned 1.4 changes described below are **integrated into main** but
+have not been promoted to a verified stable 1.4.0 release. The development
+build may identify as 1.4.0 before any GitHub prerelease is published.
 
-## In-progress proposals (not yet merged or released)
+## Integrated development work
 
-- Cut-only CMX3600 EDL (stacked follow-up): safe picture interchange for one visible
-  video track, including explicit black gaps, stable reel IDs, exact timecodes,
-  input validation and unit tests. Clipboard-only; proposed for v1.4.
-- Chapter handoff (stacked follow-up PR): read-only clipboard export of named review cues
-  into video-description chapter timestamps, including rational frame-rate handling.
-- Video chapter copy (stacked PR #76): description-ready timestamps and WebVTT
-  chapter tracks with frame-derived millisecond cue boundaries; both are read-only.
-- Timeline markers: named, frame-accurate review cues, undoable editing and playback
-  navigation, ruler indicators and snapping. This proposal uses project format v2 and
-  requires Linux/Windows GUI validation before merge. **Not part of v1.3.0.**
+- [PR #78](https://github.com/sanskarIN/frametrellis/pull/78):
+  media-bin delegate GridView focus/reference fix.
+- [PR #79](https://github.com/sanskarIN/frametrellis/pull/79):
+  frame-accurate source slip editing for multiple clips, source-handle and
+  transition protection, undo/redo, inspector and shortcuts.
+- [PR #75](https://github.com/sanskarIN/frametrellis/pull/75):
+  persistent timeline review markers with undo, ruler, snapping and navigation;
+  project document version **v2** (reads v1; not backward readable by 1.3).
+- [PR #76](https://github.com/sanskarIN/frametrellis/pull/76):
+  clipboard chapter timestamp and WebVTT chapter-track generation.
+- [PR #77](https://github.com/sanskarIN/frametrellis/pull/77):
+  cut-only CMX3600 picture EDL clipboard export with strict validation.
 
-No subsequent features are claimed as integrated by this file yet.
-Newly merged changes after the v1.3.0 release tag should be recorded here
-with their PRs, behavior, tests and any known limitations.
+See [1.4.0 release notes](v1.4.0.md) for release scope and compatibility
+limits and [the v1.4 smoke checklist](../development/v1.4.0-smoke-checks.md)
+for manual testing not yet claimed as completed.
 
-## In-progress development (not yet merged or released)
+## Pending release work
 
-- Clip slip editing: shift source in/out points of selected video/audio clips
-  while keeping exact timeline boundaries, duration, track and clip properties;
-  atomic selection edits, undo/redo, transition-handle validation and tests.
-  This remains a v1.4 proposal until CI and desktop review pass.
+- Reverify full Linux/Windows/ASan/format/packaging CI on **one final integrated
+  commit** before publishing a prerelease.
+- Verify tagged Windows binaries, checksums, third-party sources and SBOM.
+- Record real desktop smoke checks on Windows and review marker project saves,
+  v1-to-v2 compatibility, source slip, WebVTT and EDL import.
+- Keep GitHub prerelease classification separate from stable 1.3.0 until
+  promotion is justified. Open PRs remain proposals until merged.
 
-## Proposals not yet shipped
+## Other proposals not yet shipped
 
-- Timeline navigation enhancements and Zoom to Selection (PR #70).
-- Preview-frame PNG snapshots (PR #27).
-- Proposed bulk track operations, creator export presets, and additional
-  media organization workflows remain subject to separate PR review.
+- Zoom to Selection and timeline navigation improvements (PR #70).
+- Preview-frame PNG export (PR #27).
+- Media inventory export, recursive media import, additional organization
+  workflows and proxy playback need separate design/validation.
 
-An open pull request is **not** a released feature. See the
-[roadmap](../roadmap.md) and [v1.3.0 verification report](v1.3.0-verification.md).
+Merging a PR does not by itself create a published release.

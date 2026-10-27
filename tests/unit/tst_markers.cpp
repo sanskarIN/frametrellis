@@ -20,10 +20,10 @@ private slots:
     {
         ProjectDocument document(Project::createNew(QStringLiteral("Review"), {}));
         QSignalSpy changed(&document, &ProjectDocument::changed);
-        QVERIFY(document.execute(edits::addMarker({QStringLiteral("b"), 90,
-                                                    QStringLiteral("Second shot")})));
-        QVERIFY(document.execute(edits::addMarker({QStringLiteral("a"), 15,
-                                                    QStringLiteral("First shot")})));
+        QVERIFY(document.execute(
+            edits::addMarker({QStringLiteral("b"), 90, QStringLiteral("Second shot")})));
+        QVERIFY(document.execute(
+            edits::addMarker({QStringLiteral("a"), 15, QStringLiteral("First shot")})));
         QCOMPARE(document.project().markers().size(), size_t{2});
         QCOMPARE(document.project().markers()[0].id, QStringLiteral("a"));
         QCOMPARE(document.project().markers()[1].frame, FrameCount{90});
@@ -33,8 +33,8 @@ private slots:
 
         QVERIFY(document.execute(edits::moveMarker(QStringLiteral("b"), 5)));
         QCOMPARE(document.project().markers()[0].id, QStringLiteral("b"));
-        QVERIFY(document.execute(edits::renameMarker(QStringLiteral("b"),
-                                                      QStringLiteral("  Intro  "))));
+        QVERIFY(document.execute(
+            edits::renameMarker(QStringLiteral("b"), QStringLiteral("  Intro  "))));
         QCOMPARE(document.project().markers()[0].label, QStringLiteral("Intro"));
         QVERIFY(document.execute(edits::removeMarker(QStringLiteral("a"))));
         QCOMPARE(document.project().markers().size(), size_t{1});
@@ -57,39 +57,37 @@ private slots:
     {
         ProjectDocument document(Project::createNew(QStringLiteral("Safe"), {}));
         const Project original = document.project();
-        QVERIFY(!document.execute(edits::addMarker({QStringLiteral("bad"), -1,
-                                                     QStringLiteral("Bad frame")})));
-        QVERIFY(!document.execute(edits::addMarker({QStringLiteral("bad"), 3,
-                                                     QStringLiteral("   ")})));
+        QVERIFY(!document.execute(
+            edits::addMarker({QStringLiteral("bad"), -1, QStringLiteral("Bad frame")})));
+        QVERIFY(
+            !document.execute(edits::addMarker({QStringLiteral("bad"), 3, QStringLiteral("   ")})));
         QVERIFY(!document.execute(edits::removeMarker(QStringLiteral("missing"))));
-        QVERIFY(!document.execute(edits::renameMarker(QStringLiteral("missing"),
-                                                       QStringLiteral("x"))));
+        QVERIFY(
+            !document.execute(edits::renameMarker(QStringLiteral("missing"), QStringLiteral("x"))));
         QCOMPARE(document.project(), original);
         QVERIFY(!document.canUndo());
         QVERIFY(!document.isModified());
-        QVERIFY(document.execute(edits::addMarker({QStringLiteral("valid"), 0,
-                                                    QStringLiteral("Start")})));
+        QVERIFY(document.execute(
+            edits::addMarker({QStringLiteral("valid"), 0, QStringLiteral("Start")})));
         const Project after = document.project();
-        QVERIFY(!document.execute(edits::addMarker({QStringLiteral("valid"), 4,
-                                                     QStringLiteral("Duplicate")})));
-        QVERIFY(!document.execute(edits::moveMarker(QStringLiteral("valid"),
-                                                     kMaxTimelineFrames + 1)));
-        QVERIFY(!document.execute(edits::renameMarker(
-            QStringLiteral("valid"), QString(121, QLatin1Char('x')))));
+        QVERIFY(!document.execute(
+            edits::addMarker({QStringLiteral("valid"), 4, QStringLiteral("Duplicate")})));
+        QVERIFY(
+            !document.execute(edits::moveMarker(QStringLiteral("valid"), kMaxTimelineFrames + 1)));
+        QVERIFY(!document.execute(
+            edits::renameMarker(QStringLiteral("valid"), QString(121, QLatin1Char('x')))));
         QCOMPARE(document.project(), after);
     }
 
     void markersPersistInV2AndV1ProjectsStillLoad()
     {
         Project project = Project::createNew(QStringLiteral("Cues"), {});
-        QVERIFY(project.setMarkers({{QStringLiteral("second"), 125,
-                                     QStringLiteral("Dialogue")},
-                                    {QStringLiteral("first"), 0,
-                                     QStringLiteral("Opening")}}));
+        QVERIFY(project.setMarkers({{QStringLiteral("second"), 125, QStringLiteral("Dialogue")},
+                                    {QStringLiteral("first"), 0, QStringLiteral("Opening")}}));
         const QJsonObject saved = project_format::toJson(project);
         QCOMPARE(saved.value(QLatin1String("version")).toInt(), 2);
-        const QJsonArray markers = saved[QLatin1String("project")]
-                                       .toObject()[QLatin1String("markers")].toArray();
+        const QJsonArray markers =
+            saved[QLatin1String("project")].toObject()[QLatin1String("markers")].toArray();
         QCOMPARE(markers.size(), 2);
         QCOMPARE(markers[0].toObject()[QLatin1String("label")].toString(),
                  QStringLiteral("Opening"));
@@ -125,21 +123,15 @@ private slots:
         };
 
         QVERIFY(reject(QJsonArray{QJsonValue(QStringLiteral("invalid"))}));
-        QVERIFY(reject(QJsonArray{QJsonObject{{QStringLiteral("id"),
-                                               QStringLiteral("ok")},
+        QVERIFY(reject(QJsonArray{QJsonObject{{QStringLiteral("id"), QStringLiteral("ok")},
                                               {QStringLiteral("frame"), -1},
-                                              {QStringLiteral("label"),
-                                               QStringLiteral("Bad")}}}));
-        QVERIFY(reject(QJsonArray{QJsonObject{{QStringLiteral("id"),
-                                               QStringLiteral("ok")},
+                                              {QStringLiteral("label"), QStringLiteral("Bad")}}}));
+        QVERIFY(reject(QJsonArray{QJsonObject{{QStringLiteral("id"), QStringLiteral("ok")},
                                               {QStringLiteral("frame"), 3.5},
-                                              {QStringLiteral("label"),
-                                               QStringLiteral("Bad")}}}));
-        QVERIFY(reject(QJsonArray{QJsonObject{{QStringLiteral("id"),
-                                               QStringLiteral("ok")},
+                                              {QStringLiteral("label"), QStringLiteral("Bad")}}}));
+        QVERIFY(reject(QJsonArray{QJsonObject{{QStringLiteral("id"), QStringLiteral("ok")},
                                               {QStringLiteral("frame"), 10},
-                                              {QStringLiteral("label"),
-                                               QStringLiteral(" ")}}}));
+                                              {QStringLiteral("label"), QStringLiteral(" ")}}}));
         QJsonArray duplicates;
         duplicates.append(body[QLatin1String("markers")].toArray()[0]);
         duplicates.append(body[QLatin1String("markers")].toArray()[0]);
@@ -151,13 +143,11 @@ private slots:
         Project p = Project::createNew(QStringLiteral("Limit"), {});
         std::vector<TimelineMarker> markers;
         for (int i = 0; i <= kMaxTimelineMarkers; ++i) {
-            markers.push_back({QStringLiteral("m%1").arg(i), i,
-                               QStringLiteral("Marker")});
+            markers.push_back({QStringLiteral("m%1").arg(i), i, QStringLiteral("Marker")});
         }
         QVERIFY(!p.setMarkers(markers));
         QVERIFY(p.markers().empty());
-        QVERIFY(p.setMarkers({{QStringLiteral("one"), 0,
-                               QStringLiteral("Start")}}));
+        QVERIFY(p.setMarkers({{QStringLiteral("one"), 0, QStringLiteral("Start")}}));
         ProjectSettings settings = p.settings();
         settings.frameRate = *FrameRate::create(25, 1);
         QVERIFY(!p.setSettings(settings));

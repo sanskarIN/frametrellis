@@ -132,8 +132,7 @@ private slots:
         QVERIFY(!f.doc.execute(edits::slipClips({QStringLiteral("first")}, 0)));
         QVERIFY(!f.doc.execute(
             edits::slipClips({QStringLiteral("first"), QStringLiteral("first")}, 1)));
-        QVERIFY(!f.doc.execute(
-            edits::slipClips({QStringLiteral("missing")}, 1)));
+        QVERIFY(!f.doc.execute(edits::slipClips({QStringLiteral("missing")}, 1)));
         QVERIFY(!f.doc.execute(edits::slipClips({QStringLiteral("first")}, -71)));
         QCOMPARE(f.doc.project(), before);
         QCOMPARE(f.doc.undoText(), undoText);

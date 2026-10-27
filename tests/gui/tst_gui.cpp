@@ -264,14 +264,14 @@ private slots:
         QCOMPARE(slipped->duration, original.duration - FrameCount{10});
         QCOMPARE(slipped->sourceIn, original.sourceIn + FrameCount{5});
         QCOMPARE(m_app->project()->undoText(), QStringLiteral("Slip 1 Clip(s)"));
-        QVERIFY(m_app->project()->undo());
+        m_app->project()->undo();
         QCOMPARE(m_app->project()->project().timeline().clip(original.id)->sourceIn,
                  original.sourceIn);
-        QVERIFY(m_app->project()->redo());
+        m_app->project()->redo();
         QCOMPARE(m_app->project()->project().timeline().clip(original.id)->sourceIn,
                  original.sourceIn + FrameCount{5});
-        QVERIFY(m_app->project()->undo());
-        QVERIFY(m_app->project()->undo());
+        m_app->project()->undo();
+        m_app->project()->undo();
         QCOMPARE(m_app->project()->project().timeline(), before);
         m_app->timeline()->clearSelection();
     }

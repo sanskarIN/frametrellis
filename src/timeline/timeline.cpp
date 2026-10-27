@@ -668,8 +668,7 @@ Status Timeline::trimClipEnd(const Id& clipId, FrameCount newEnd, const SourceLo
     return {};
 }
 
-Status Timeline::slipClip(const Id& clipId, FrameCount newSourceIn,
-                          const SourceLookup& sources)
+Status Timeline::slipClip(const Id& clipId, FrameCount newSourceIn, const SourceLookup& sources)
 {
     const auto location = findClip(clipId);
     if (!location) {
@@ -681,8 +680,7 @@ Status Timeline::slipClip(const Id& clipId, FrameCount newSourceIn,
     }
     const Clip& original = track.clips[static_cast<size_t>(location->clip)];
     // A still image is not time-based media; slipping its source offset has no meaning.
-    const std::optional<SourceLimits> limits =
-        sources ? sources(original.assetId) : std::nullopt;
+    const std::optional<SourceLimits> limits = sources ? sources(original.assetId) : std::nullopt;
     if (!limits) {
         return makeError(ErrorCode::NotFound,
                          QStringLiteral("The clip's media is not part of the project."));

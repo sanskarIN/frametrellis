@@ -517,6 +517,9 @@ Result<Project> fromJson(const QJsonObject& document, const QString& projectDir)
             r.fail(QStringLiteral("markers"), checked.error().message);
         }
     }
+    if (r.failed()) {
+        return r.error();
+    }
 
     if (const Status valid = project.validate(); !valid) {
         Error error = valid.error();

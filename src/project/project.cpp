@@ -83,7 +83,7 @@ Status Project::setSettings(const ProjectSettings& settings)
         (m_timeline.clipCount() > 0 || !m_markers.empty())) {
         return makeError(
             ErrorCode::Conflict,
-            QStringLiteral("The frame rate can only be changed while the timeline is empty."));
+            QStringLiteral("The frame rate can only be changed while clips and markers are absent."));
     }
     m_settings = settings;
     return {};

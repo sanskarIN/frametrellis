@@ -29,6 +29,7 @@ qt_add_qml_module(ft_ui
         qml/dialogs/ExportDialog.qml
         qml/dialogs/FtDialog.qml
         qml/dialogs/GoToTimecodeDialog.qml
+        qml/dialogs/MarkerDialog.qml
         qml/dialogs/MessageBox.qml
         qml/dialogs/NewProjectDialog.qml
         qml/dialogs/ShortcutsDialog.qml

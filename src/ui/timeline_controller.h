@@ -8,6 +8,7 @@
 #include <QObject>
 #include <QQmlEngine>
 #include <QSet>
+#include <QVariantList>
 #include <QVariantMap>
 
 #include <optional>
@@ -30,6 +31,7 @@ class TimelineController : public QObject
     Q_PROPERTY(double maxPixelsPerFrame READ maxPixelsPerFrame CONSTANT)
     Q_PROPERTY(bool snapping READ snapping WRITE setSnapping NOTIFY snappingChanged)
     Q_PROPERTY(QStringList selection READ selection NOTIFY selectionChanged)
+    Q_PROPERTY(QVariantList markers READ markers NOTIFY markersChanged)
     Q_PROPERTY(bool hasCopiedClipAttributes READ hasCopiedClipAttributes NOTIFY
                    copiedClipAttributesChanged)
     Q_PROPERTY(QVariantMap selectedClip READ selectedClip NOTIFY selectedClipChanged)
@@ -52,6 +54,7 @@ public:
     [[nodiscard]] bool snapping() const { return m_snapping; }
     void setSnapping(bool snapping);
     [[nodiscard]] QStringList selection() const;
+    [[nodiscard]] QVariantList markers() const;
     [[nodiscard]] bool hasCopiedClipAttributes() const
     {
         return m_copiedClipAttributes.has_value();
@@ -126,6 +129,14 @@ public:
     Q_INVOKABLE bool setTrackFlag(const QString& trackId, const QString& flag, bool value);
     Q_INVOKABLE bool renameTrack(const QString& trackId, const QString& name);
 
+    // Persistent timeline review markers, independent of clip and media edits.
+    Q_INVOKABLE bool addMarker(double frame, const QString& label);
+    Q_INVOKABLE bool updateMarker(const QString& id, double frame, const QString& label);
+    Q_INVOKABLE bool removeMarker(const QString& id);
+    Q_INVOKABLE void seekToMarker(const QString& id);
+    Q_INVOKABLE void previousMarker();
+    Q_INVOKABLE void nextMarker();
+
     // Navigation and zoom
     Q_INVOKABLE void previousEditPoint();
     Q_INVOKABLE void nextEditPoint();
@@ -136,6 +147,7 @@ public:
 signals:
     void zoomChanged();
     void snappingChanged();
+    void markersChanged();
     void selectionChanged();
     void copiedClipAttributesChanged();
     void selectedClipChanged();

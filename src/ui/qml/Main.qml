@@ -17,7 +17,7 @@ ApplicationWindow {
     // Single-key editing shortcuts are disabled while a dialog is open, so that keys such as
     // Space, Delete or the arrows act on the dialog instead of the timeline.
     readonly property bool dialogOpen: newDialog.visible || titleDialog.visible || exportDialog.visible || aboutDialog.visible
-                                       || shortcutsDialog.visible || goToTimecodeDialog.visible || welcome.visible || messageBox.visible
+                                       || shortcutsDialog.visible || goToTimecodeDialog.visible || markerDialog.visible || welcome.visible || messageBox.visible
                                        || unsavedDialog.visible || exportRunningDialog.visible || recoveryDialog.visible
     readonly property bool editKeys: !dialogOpen
 
@@ -200,6 +200,10 @@ ApplicationWindow {
             Action { text: qsTr("Previous Edit Point"); shortcut: "Up"; enabled: window.editKeys; onTriggered: window.app.timeline.previousEditPoint() }
             Action { text: qsTr("Next Edit Point"); shortcut: "Down"; enabled: window.editKeys; onTriggered: window.app.timeline.nextEditPoint() }
             Action { text: qsTr("&Go to Timecode…"); shortcut: "Ctrl+G"; enabled: window.editKeys && !window.app.timeline.empty; onTriggered: goToTimecodeDialog.open() }
+            MenuSeparator {}
+            Action { text: qsTr("Add Timeline &Marker…"); shortcut: "Shift+M"; enabled: window.editKeys; onTriggered: markerDialog.openNew(window.app.playback.position) }
+            Action { text: qsTr("Previous Marker"); shortcut: "Ctrl+PgUp"; enabled: window.editKeys && window.app.timeline.markers.length > 0; onTriggered: window.app.timeline.previousMarker() }
+            Action { text: qsTr("Next Marker"); shortcut: "Ctrl+PgDown"; enabled: window.editKeys && window.app.timeline.markers.length > 0; onTriggered: window.app.timeline.nextMarker() }
             Action { text: qsTr("Go to Start"); shortcut: "Home"; enabled: window.editKeys; onTriggered: window.app.playback.goToStart() }
             Action { text: qsTr("Go to End"); shortcut: "End"; enabled: window.editKeys; onTriggered: window.app.playback.goToEnd() }
             MenuSeparator {}
@@ -299,6 +303,8 @@ ApplicationWindow {
         }
 
         TimelinePanel {
+            onMarkerAddRequested: frame => markerDialog.openNew(frame)
+            onMarkerEditRequested: (id, frame, label) => markerDialog.openExisting(id, frame, label)
             id: timelinePanel
             app: window.app
             SplitView.fillHeight: true
@@ -396,6 +402,7 @@ ApplicationWindow {
     AboutDialog { id: aboutDialog; objectName: "aboutDialog"; app: window.app }
     ShortcutsDialog { id: shortcutsDialog }
     GoToTimecodeDialog { id: goToTimecodeDialog; objectName: "goToTimecodeDialog"; app: window.app }
+    MarkerDialog { id: markerDialog; objectName: "markerDialog"; app: window.app }
     WelcomeOverlay { id: welcome; objectName: "welcome"; app: window.app; onImportRequested: importDialog.open() }
     MessageBox { id: messageBox }
 

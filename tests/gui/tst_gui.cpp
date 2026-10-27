@@ -304,6 +304,59 @@ private slots:
         QCOMPARE(static_cast<FrameCount>(m_app->playback()->position()), FrameCount{30});
     }
 
+    void markerDialogUndoRedoAndFrameNavigation()
+    {
+        const Project before = m_app->project()->project();
+        const int previousMarkerCount = static_cast<int>(before.markers().size());
+
+        // Exercise the keyboard action and the actual QML form.
+        QTest::keyClick(m_window, Qt::Key_M, Qt::ShiftModifier);
+        QObject* dialog = m_window->findChild<QObject*>(QStringLiteral("markerDialog"));
+        QVERIFY(dialog);
+        QTRY_VERIFY(dialog->property("visible").toBool());
+        QQuickItem* label = findItem(m_window->contentItem(), QStringLiteral("markerLabelField"));
+        QQuickItem* frame = findItem(m_window->contentItem(), QStringLiteral("markerFrameField"));
+        QVERIFY(label);
+        QVERIFY(frame);
+        QVERIFY(label->setProperty("text", QStringLiteral("Review the music beat")));
+        QVERIFY(frame->setProperty("text", QStringLiteral("25")));
+        QVERIFY(QMetaObject::invokeMethod(dialog, "applyChanges"));
+        QTRY_VERIFY(!dialog->property("visible").toBool());
+
+        QCOMPARE(static_cast<int>(m_app->project()->project().markers().size()),
+                 previousMarkerCount + 1);
+        const TimelineMarker created = m_app->project()->project().markers().back();
+        QCOMPARE(created.frame, FrameCount{25});
+        QCOMPARE(created.label, QStringLiteral("Review the music beat"));
+        QCOMPARE(m_app->project()->undoText(), QStringLiteral("Add Marker"));
+
+        // Navigation changes transport only: the timeline and undo history stay intact.
+        const Timeline originalTimeline = m_app->project()->project().timeline();
+        m_app->playback()->seek(5);
+        m_app->timeline()->nextMarker();
+        QCOMPARE(m_app->playback()->positionFrames(), FrameCount{25});
+        m_app->playback()->seek(80);
+        m_app->timeline()->previousMarker();
+        QCOMPARE(m_app->playback()->positionFrames(), FrameCount{25});
+        QCOMPARE(m_app->project()->project().timeline(), originalTimeline);
+        QCOMPARE(m_app->project()->undoText(), QStringLiteral("Add Marker"));
+
+        // Invalid marker commands must not mutate project state or push a new edit.
+        QVERIFY(!m_app->timeline()->updateMarker(created.id, -1, QStringLiteral("Invalid")));
+        QVERIFY(!m_app->timeline()->addMarker(-1, QStringLiteral("Invalid")));
+        QCOMPARE(m_app->project()->project().markers().back(), created);
+        QCOMPARE(m_app->project()->undoText(), QStringLiteral("Add Marker"));
+
+        m_app->project()->undo();
+        QCOMPARE(static_cast<int>(m_app->project()->project().markers().size()),
+                 previousMarkerCount);
+        m_app->project()->redo();
+        QCOMPARE(static_cast<int>(m_app->project()->project().markers().size()),
+                 previousMarkerCount + 1);
+        QVERIFY(m_app->timeline()->removeMarker(created.id));
+        QCOMPARE(m_app->project()->project().markers(), before.markers());
+    }
+
     void audioClipsShowTheirWaveform()
     {
         const auto& tracks = m_app->project()->project().timeline().tracks();

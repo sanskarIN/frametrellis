@@ -17,6 +17,8 @@ FtDialog {
         ["Up / Down", qsTr("Previous / next edit point")],
         ["Home / End", qsTr("Go to start / end")],
         ["Ctrl+G", qsTr("Go to a timecode within the sequence")],
+        ["Shift+M", qsTr("Add a timeline review marker")],
+        ["Ctrl+PgUp / PgDown", qsTr("Previous / next sequence marker")],
         ["S", qsTr("Split at playhead")],
         ["Ctrl+D", qsTr("Duplicate selected clips (preserve spacing)")],
         ["Ctrl+Alt+C", qsTr("Copy volume, fades and picture attributes")],

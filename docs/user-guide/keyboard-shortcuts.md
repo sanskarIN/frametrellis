@@ -8,6 +8,8 @@
 | Up / Down | Previous / next edit point |
 | Home / End | Go to start / end |
 | Ctrl+G | Jump to a SMPTE timecode within the sequence |
+| Shift+M | Add a named timeline marker |
+| Ctrl+PageUp / Ctrl+PageDown | Jump to previous / next timeline marker |
 | S | Split at playhead |
 | Ctrl+D | Duplicate one clip at the end of its track, or a multi-clip selection after the timeline while preserving relative spacing |
 | Alt+Left / Alt+Right | Move selected clips one frame left / right; rejects overlap or locked tracks |

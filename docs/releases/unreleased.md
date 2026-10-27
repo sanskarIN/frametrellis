@@ -8,6 +8,8 @@ All changes already delivered in v1.3.0 belong in the
 
 ## In-progress proposals (not yet merged or released)
 
+- Chapter handoff (stacked follow-up PR): read-only clipboard export of named review cues
+  into video-description chapter timestamps, including rational frame-rate handling.
 - Timeline markers: named, frame-accurate review cues, undoable editing and playback
   navigation, ruler indicators and snapping. This proposal uses project format v2 and
   requires Linux/Windows GUI validation before merge. **Not part of v1.3.0.**

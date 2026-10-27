@@ -25,10 +25,10 @@ private slots:
     void exportsTimelineCuesWithoutEditing()
     {
         Project project = Project::createNew(QStringLiteral("Chapters"), {});
-        QVERIFY(project.setMarkers({{QStringLiteral("m3"), 108000, QStringLiteral("Finale")},
-                                    {QStringLiteral("m1"), 0, QStringLiteral("Intro")},
-                                    {QStringLiteral("m2"), 1950,
-                                     QStringLiteral("  Color  grade\n  notes  ")}}));
+        QVERIFY(project.setMarkers(
+            {{QStringLiteral("m3"), 108000, QStringLiteral("Finale")},
+             {QStringLiteral("m1"), 0, QStringLiteral("Intro")},
+             {QStringLiteral("m2"), 1950, QStringLiteral("  Color  grade\n  notes  ")}}));
         const Project before = project;
         auto text = chapters::toText(project);
         QVERIFY(text);
@@ -65,10 +65,8 @@ private slots:
     void preservesUnicodeAndSequenceEndCue()
     {
         Project project = Project::createNew(QStringLiteral("Review"), {});
-        QVERIFY(project.setMarkers({{QStringLiteral("a"), 0,
-                                     QString::fromUtf8("शुरुआत")},
-                                    {QStringLiteral("b"), 1800,
-                                     QString::fromUtf8("अंत")}}));
+        QVERIFY(project.setMarkers({{QStringLiteral("a"), 0, QString::fromUtf8("शुरुआत")},
+                                    {QStringLiteral("b"), 1800, QString::fromUtf8("अंत")}}));
         const auto result = chapters::toText(project);
         QVERIFY(result);
         QCOMPARE(*result, QString::fromUtf8("00:00:00 शुरुआत\n00:01:00 अंत"));

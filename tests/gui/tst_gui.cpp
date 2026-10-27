@@ -257,7 +257,8 @@ private slots:
         QVERIFY(original.duration > 20);
         QVERIFY(m_app->timeline()->trimEnd(original.id, static_cast<double>(original.end() - 10)));
         m_app->timeline()->select(original.id, false);
-        QQuickItem* controls = findItem(m_window->contentItem(), QStringLiteral("clipSlipControls"));
+        QQuickItem* controls =
+            findItem(m_window->contentItem(), QStringLiteral("clipSlipControls"));
         QVERIFY(controls);
         QVERIFY(controls->isVisible());
         QVERIFY(m_app->timeline()->slipSelection(5));

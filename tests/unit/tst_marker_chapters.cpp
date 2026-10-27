@@ -6,6 +6,32 @@
 
 using namespace ft;
 
+namespace {
+
+Project makeTimedProject(FrameRate rate = FrameRate::integer(30))
+{
+    ProjectSettings settings;
+    settings.frameRate = rate;
+    Project project = Project::createNew(QStringLiteral("Timed chapters"), settings);
+    MediaAsset media;
+    media.id = QStringLiteral("source");
+    media.name = QStringLiteral("clip.mp4");
+    media.filePath = QStringLiteral("/tmp/marker-chapters-source.mp4");
+    media.info.kind = MediaKind::Video;
+    media.info.hasVideo = true;
+    media.info.durationUs = 20'000'000;
+    Q_ASSERT(project.addAsset(media));
+    Clip clip;
+    clip.id = QStringLiteral("clip");
+    clip.assetId = media.id;
+    clip.duration = 300;
+    Q_ASSERT(project.timeline().insertClip(project.timeline().tracks().front().id, clip,
+                                           project.sourceLookup()));
+    return project;
+}
+
+} // namespace
+
 class MarkerChaptersTest : public QObject
 {
     Q_OBJECT
@@ -60,6 +86,63 @@ private slots:
         QVERIFY(!result);
         QCOMPARE(result.error().code, ErrorCode::InvalidArgument);
         QCOMPARE(project, original);
+    }
+
+    void webVttExportsFrameAccurateCuesAndEscapesMarkup()
+    {
+        Project project = makeTimedProject();
+        QCOMPARE(project.timeline().duration(), FrameCount{300});
+        QVERIFY(project.setMarkers({
+            {QStringLiteral("intro"), 0, QStringLiteral("Opening & <notes> -->")},
+            {QStringLiteral("review"), 60, QString::fromUtf8("रंग सुधार")}}));
+        const Project unchanged = project;
+        const auto result = chapters::toWebVtt(project);
+        QVERIFY(result);
+        QCOMPARE(*result,
+                 QString::fromUtf8("WEBVTT\\n\\n"
+                                   "00:00:00.000 --> 00:00:02.000\\n"
+                                   "Opening &amp; &lt;notes&gt; →\\n\\n"
+                                   "00:00:02.000 --> 00:00:10.000\\n"
+                                   "रंग सुधार\\n"));
+        QCOMPARE(project, unchanged);
+    }
+
+    void webVttPreservesFractionalFrameRates()
+    {
+        Project project = makeTimedProject(*FrameRate::create(30000, 1001));
+        QVERIFY(project.setMarkers({
+            {QStringLiteral("begin"), 0, QStringLiteral("Opening")},
+            {QStringLiteral("next"), 30, QStringLiteral("Cut")}}));
+        auto result = chapters::toWebVtt(project);
+        QVERIFY(result);
+        QVERIFY(result->contains(QStringLiteral("00:00:00.000 --> 00:00:01.001")));
+        QVERIFY(result->contains(QStringLiteral("00:00:01.001 --> 00:00:10.010")));
+    }
+
+    void webVttRejectsEmptyOverlappingAndOutOfBoundsCues()
+    {
+        Project project = makeTimedProject();
+        QVERIFY(!chapters::toWebVtt(project));
+        QVERIFY(project.setMarkers({{QStringLiteral("late"), 3, QStringLiteral("Late")}}));
+        QVERIFY(!chapters::toWebVtt(project));
+        QVERIFY(project.setMarkers({
+            {QStringLiteral("intro"), 0, QStringLiteral("Intro")},
+            {QStringLiteral("same"), 0, QStringLiteral("Same frame")}}));
+        const Project sameFrame = project;
+        QVERIFY(!chapters::toWebVtt(project));
+        QCOMPARE(project, sameFrame);
+        QVERIFY(project.setMarkers({
+            {QStringLiteral("intro"), 0, QStringLiteral("Intro")},
+            {QStringLiteral("atEnd"), 300, QStringLiteral("At sequence end")}}));
+        QVERIFY(!chapters::toWebVtt(project));
+        QVERIFY(project.setMarkers({
+            {QStringLiteral("intro"), 0, QStringLiteral("Intro")},
+            {QStringLiteral("past"), 301, QStringLiteral("Beyond sequence")}}));
+        QVERIFY(!chapters::toWebVtt(project));
+
+        Project empty = Project::createNew(QStringLiteral("No clips"), {});
+        QVERIFY(empty.setMarkers({{QStringLiteral("intro"), 0, QStringLiteral("Intro")}}));
+        QVERIFY(!chapters::toWebVtt(empty));
     }
 
     void preservesUnicodeAndSequenceEndCue()

@@ -4,6 +4,7 @@
 
 #include "core/timecode.h"
 #include "editing/marker_edits.h"
+#include "project/marker_chapters.h"
 #include "editing/timeline_edits.h"
 #include "engine/mlt_runtime.h"
 #include "ui/media_bin_model.h"
@@ -11,6 +12,9 @@
 #include "ui/project_controller.h"
 
 #include <algorithm>
+#include <QClipboard>
+#include <QGuiApplication>
+
 #include <cmath>
 #include <iterator>
 
@@ -154,6 +158,23 @@ void TimelineController::nextMarker()
             return;
         }
     }
+}
+
+bool TimelineController::copyMarkersAsChapters()
+{
+    const auto chapters = chapters::toText(project());
+    if (!chapters) {
+        emit statusMessage(chapters.error().message);
+        return false;
+    }
+    QClipboard* clipboard = QGuiApplication::clipboard();
+    if (!clipboard) {
+        emit statusMessage(QStringLiteral("The system clipboard is unavailable."));
+        return false;
+    }
+    clipboard->setText(*chapters);
+    emit statusMessage(QStringLiteral("Copied timeline chapters to clipboard."));
+    return true;
 }
 
 void TimelineController::setPixelsPerFrame(double value)

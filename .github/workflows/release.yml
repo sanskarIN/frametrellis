@@ -24,6 +24,11 @@ on:
         type: boolean
         required: true
         default: false
+      release_tag:
+        description: "Optional tag, e.g. v1.4.0-alpha.1; leave empty for v<base version>"
+        type: string
+        required: false
+        default: ""
 
 permissions:
   contents: read
@@ -40,6 +45,7 @@ jobs:
     runs-on: ubuntu-24.04
     outputs:
       version: ${{ steps.version.outputs.version }}
+      package_version: ${{ steps.version.outputs.package_version }}
       tag: ${{ steps.version.outputs.tag }}
       build: ${{ steps.published.outputs.build }}
     steps:
@@ -48,6 +54,7 @@ jobs:
         name: Compare the tag with the project version
         env:
           PUBLISH: ${{ inputs.publish }}
+          REQUESTED_TAG: ${{ inputs.release_tag }}
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
@@ -58,7 +65,7 @@ jobs:
             exit 1
           fi
           if [ "$GITHUB_EVENT_NAME" = workflow_dispatch ]; then
-            tag="v$project"
+            tag="${REQUESTED_TAG:-v$project}"
             if [ "$PUBLISH" = true ]; then
               echo "Publishing the verified release of $tag."
             else
@@ -67,11 +74,15 @@ jobs:
           else
             tag="$GITHUB_REF_NAME"
           fi
-          version="${tag#v}"
-          if [ "${version%%-*}" != "$project" ]; then
-            echo "::error::Tag $tag does not match the project version $project in CMakeLists.txt"
+          # Validate tag syntax, version match, and the base binary-package name.
+          # A tag such as v1.4.0-beta.1 is published as that prerelease, but the
+          # CMake/Inno package filename remains FrameTrellis-1.4.0-windows-x64.
+          if ! python3 packaging/release_version.py --tag "$tag" \
+                 --project-version "$project" >> "$GITHUB_OUTPUT"; then
+            echo "::error::Invalid release tag or mismatched CMake version"
             exit 1
           fi
+          version="${tag#v}"
           # A manual publish must run at the exact commit tagged for release.
           # A rehearsal does not require a tag and never publishes.
           if [ "$GITHUB_EVENT_NAME" = workflow_dispatch ] && [ "$PUBLISH" = true ]; then
@@ -94,8 +105,7 @@ jobs:
             echo "::error::Release notes $notes have a DRAFT / NOT RELEASED preamble"
             exit 1
           fi
-          echo "tag=$tag" >> "$GITHUB_OUTPUT"
-          echo "version=$version" >> "$GITHUB_OUTPUT"
+          # tag/version/package_version already emitted by release_version.py
       - id: published
         name: Check whether the packages are already published
         env:
@@ -159,7 +169,8 @@ jobs:
       actions: write
     env:
       TAG: ${{ needs.check.outputs.tag }}
-      VERSION: ${{ needs.check.outputs.version }}
+      RELEASE_VERSION: ${{ needs.check.outputs.version }}
+      VERSION: ${{ needs.check.outputs.package_version }}
     steps:
       - uses: actions/checkout@v6
       - uses: actions/download-artifact@v7
@@ -235,7 +246,7 @@ jobs:
             if [[ "$TAG" == *-* ]]; then prerelease=(--prerelease); fi
             gh release create "$TAG" release/* \
               --verify-tag \
-              --title "FrameTrellis $VERSION" \
+              --title "FrameTrellis $RELEASE_VERSION" \
               --notes-file release-notes.md \
               "${prerelease[@]}"
           fi

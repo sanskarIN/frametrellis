@@ -89,7 +89,7 @@ Result<QString> toCmx3600(const Project& project)
         static_cast<FrameCount>(rate.nominalFramesPerSecond()) * 3600 * 24;
     // Drop-frame numbering skips 2 frame labels per minute except every tenth minute.
     const FrameCount maxLabel =
-        rate.supportsDropFrame() ? nominalDay - 2 * (1440 - 144) : nominalDay;
+        rate.supportsDropFrame() ? nominalDay - FrameCount{2} * (1440 - 144) : nominalDay;
     const auto addEvent = [&](const QString& reel, FrameCount sourceIn, FrameCount sourceOut,
                               FrameCount recordIn, FrameCount recordOut) -> bool {
         if (number >= 999 || sourceOut >= maxLabel || recordOut >= maxLabel) {

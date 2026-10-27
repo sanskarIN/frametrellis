@@ -102,6 +102,24 @@ Clips on audio tracks show the waveform of their sound, scaled by the clip's vol
 time a file is used, FrameTrellis reads its sound in the background (a few seconds for a long
 file) and keeps the result in its cache, so the waveform appears instantly afterwards.
 
+## Timeline markers (v1.4 development preview)
+
+Use **Playback → Add Timeline Marker** (`Shift+M`) or the **+ Marker** button above the
+timeline to attach a named review cue to an exact project frame. Markers are shown as diamonds
+on the time ruler and remain visible as you zoom and scroll. Click one to seek to it;
+double-click or right-click to open its editor. You can change its label or frame, or delete it.
+Each change is undoable. Use `Ctrl+PageUp` and `Ctrl+PageDown` to jump to earlier/later markers.
+
+Markers are sequence-level notes: they do not change picture, sound, clip trims or export,
+and they do **not** automatically follow clips moved by edits. The edit-point snapping
+system also snaps clips to markers when snapping is on. Cues saved beyond the current end
+of a shortened sequence remain in the project but cannot be navigated to until media again
+covers their position.
+
+**Compatibility:** Saving in this development version uses project format v2. FrameTrellis
+v1.3 and older reject these newer project files, even if they contain no markers. Keep a
+backup if you may need to return to an older editor. This feature is not in v1.3.0 stable.
+
 ## Title overlays
 
 Choose **File → Create Title…** after saving your project. Enter the text, choose a font size and

@@ -112,15 +112,18 @@ Acceptance criteria, each checked before the release:
 - ℹ️ [Automated release verification](releases/v1.3.0-verification.md) is recorded separately
   from the still-unrecorded manual desktop smoke-test checklist
 
-## v1.4.0 — Professional workflow candidates 🚧
-- 🚧 Video-description chapter handoff from review cues with exact rational frame clocks
-- 🚧 Video chapters copied from markers for descriptions and HTML5 WebVTT tracks
-- 🚧 Timeline review markers with names, frame-accurate placement, undoable commands,
-  previous/next navigation, ruler visuals, snapping and versioned project persistence
+## v1.4.0 — Professional workflow development 🚧
+- ✅ Video-description chapter timestamps and HTML5 WebVTT copied from named markers
+- ✅ Frame-accurate timeline review markers: undo, navigation, snapping, ruler diamonds
+  and v2 project-file persistence; v1 project loading retained
+- ✅ Multi-clip source slip editing with frame precision, transition protection and undo
+- ✅ Cuts-only CMX3600 EDL clipboard handoff with source/record timecodes and black gaps
+- ✅ Feature branches passed Linux/Windows/sanitizer and packaging tests
+- 🚧 Re-run combined final-commit CI and manual v1.4 smoke testing before promotion
 - 🚧 Media inventory export, recursive folder imports and removal of unused references
   (existing separate PRs; unmerged until integrated tests pass)
-- ⏳ Validate Linux, Windows and sanitizer CI and conduct manual editor smoke tests
-  before labeling this milestone a preview or stable release
+- ⏳ Validate integrated Linux, Windows, sanitizer, packaging, and manual
+  editor interchange tests before tagging a prerelease or stable release
 
 ## Next milestones
 - ⏳ A Linux package (AppImage or Flatpak), published once it has been verified

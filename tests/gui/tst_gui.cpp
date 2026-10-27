@@ -11,6 +11,7 @@
 #include "ui/media_bin_model.h"
 #include "ui/title_image.h"
 
+#include <QClipboard>
 #include <QDir>
 #include <QGuiApplication>
 #include <QQmlApplicationEngine>
@@ -267,6 +268,32 @@ private slots:
         QVERIFY(QMetaObject::invokeMethod(dialog, "trySeek"));
         QTRY_VERIFY(!dialog->property("visible").toBool());
         QCOMPARE(static_cast<FrameCount>(m_app->playback()->position()), FrameCount{30});
+    }
+
+    void copyChaptersToClipboardWithoutChangingTheEdit()
+    {
+        const Timeline originalTimeline = m_app->project()->project().timeline();
+        const auto originalMarkers = m_app->project()->project().markers();
+        QVERIFY(m_app->timeline()->addMarker(0, QStringLiteral("Opening & Review")));
+        const auto markers = m_app->project()->project().markers();
+        QCOMPARE(markers.size(), originalMarkers.size() + size_t{1});
+        const QString undoLabel = m_app->project()->undoText();
+
+        QVERIFY(m_app->timeline()->copyMarkersAsChapters());
+        QClipboard* clipboard = QGuiApplication::clipboard();
+        QVERIFY(clipboard);
+        QCOMPARE(clipboard->text(), QStringLiteral("00:00:00 Opening & Review"));
+        QVERIFY(m_app->timeline()->copyMarkersAsWebVtt());
+        const QString webVtt = clipboard->text();
+        QVERIFY(webVtt.startsWith(QStringLiteral("WEBVTT\\n\\n"
+                                                  "00:00:00.000 --> ")));
+        QVERIFY(webVtt.contains(QStringLiteral("\\nOpening &amp; Review\\n")));
+        QCOMPARE(m_app->project()->undoText(), undoLabel);
+        QCOMPARE(m_app->project()->project().timeline(), originalTimeline);
+        QCOMPARE(m_app->project()->project().markers(), markers);
+
+        QVERIFY(m_app->timeline()->removeMarker(markers.front().id));
+        QCOMPARE(m_app->project()->project().markers(), originalMarkers);
     }
 
     void audioClipsShowTheirWaveform()

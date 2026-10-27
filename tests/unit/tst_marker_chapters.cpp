@@ -102,11 +102,11 @@ private slots:
         const Project unchanged = project;
         const auto result = chapters::toWebVtt(project);
         QVERIFY(result);
-        QCOMPARE(*result, QString::fromUtf8("WEBVTT\\n\\n"
-                                            "00:00:00.000 --> 00:00:02.000\\n"
-                                            "Opening &amp; &lt;notes&gt; →\\n\\n"
-                                            "00:00:02.000 --> 00:00:10.000\\n"
-                                            "रंग सुधार\\n"));
+        QCOMPARE(*result, QString::fromUtf8("WEBVTT\n\n"
+                                            "00:00:00.000 --> 00:00:02.000\n"
+                                            "Opening &amp; &lt;notes&gt; →\n\n"
+                                            "00:00:02.000 --> 00:00:10.000\n"
+                                            "रंग सुधार\n"));
         QCOMPARE(project, unchanged);
     }
 

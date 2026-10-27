@@ -6,6 +6,12 @@ provides verified Windows installer and portable ZIP downloads.
 All changes already delivered in v1.3.0 belong in the
 [1.3.0 release notes](v1.3.0.md), not here.
 
+## In-progress proposals (not yet merged or released)
+
+- Timeline markers: named, frame-accurate review cues, undoable editing and playback
+  navigation, ruler indicators and snapping. This proposal uses project format v2 and
+  requires Linux/Windows GUI validation before merge. **Not part of v1.3.0.**
+
 No subsequent features are claimed as integrated by this file yet.
 Newly merged changes after the v1.3.0 release tag should be recorded here
 with their PRs, behavior, tests and any known limitations.

@@ -32,6 +32,10 @@ workflow success before linking any downloads.
    packages workflow are green on `main`. Optionally rehearse the release first: run the
    **Release** workflow by hand from the Actions tab with **publish=false**; it builds and
    verifies everything and keeps the release notes and checksums without publishing.
+   For a prerelease rehearsal, enter `release_tag=v1.4.0-alpha.1`; the optional
+   tag input is validated against the numeric CMake version. A prerelease
+   publication with `publish=true` requires the tag to already exist and point
+   to the exact workflow commit; a rehearsal alone creates no tag.
    A maintainer may instead choose **publish=true** to create or update the release only
    after the verified packages and source archive have been produced.
 2. Publish the release, in either of two ways:

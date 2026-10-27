@@ -75,8 +75,8 @@ private slots:
         Project project = makeProject(*FrameRate::create(30000, 1001));
         QVERIFY(project.addAsset(makeAsset(project)));
         const Id track = project.timeline().tracks().front().id;
-        QVERIFY(project.timeline().insertClip(
-            track, makeClip(QStringLiteral("a"), 1800, 1800, 30), project.sourceLookup()));
+        QVERIFY(project.timeline().insertClip(track, makeClip(QStringLiteral("a"), 1800, 1800, 30),
+                                              project.sourceLookup()));
         auto result = interchange::toCmx3600(project);
         QVERIFY(result);
         QVERIFY(result->contains(QStringLiteral("FCM: DROP FRAME")));
@@ -107,8 +107,8 @@ private slots:
         Project project = makeProject();
         QVERIFY(project.addAsset(makeAsset(project)));
         const Id track = project.timeline().tracks().front().id;
-        QVERIFY(project.timeline().insertClip(
-            track, makeClip(QStringLiteral("a"), 0, 0, 40), project.sourceLookup()));
+        QVERIFY(project.timeline().insertClip(track, makeClip(QStringLiteral("a"), 0, 0, 40),
+                                              project.sourceLookup()));
         auto properties = project.timeline().clip(QStringLiteral("a"))->properties;
         properties.video.opacity = 0.5;
         QVERIFY(project.timeline().setClipProperties(QStringLiteral("a"), properties));
@@ -128,9 +128,9 @@ private slots:
         QVERIFY(!interchange::toCmx3600(empty));
         Project tooFast = makeProject(FrameRate::integer(60));
         QVERIFY(tooFast.addAsset(makeAsset(tooFast)));
-        QVERIFY(tooFast.timeline().insertClip(
-            tooFast.timeline().tracks().front().id,
-            makeClip(QStringLiteral("fast"), 0, 0, 60), tooFast.sourceLookup()));
+        QVERIFY(tooFast.timeline().insertClip(tooFast.timeline().tracks().front().id,
+                                              makeClip(QStringLiteral("fast"), 0, 0, 60),
+                                              tooFast.sourceLookup()));
         QVERIFY(!interchange::toCmx3600(tooFast));
     }
 
@@ -141,9 +141,9 @@ private slots:
         still.info.kind = MediaKind::Image;
         still.info.frameRate = {};
         QVERIFY(project.addAsset(still));
-        QVERIFY(project.timeline().insertClip(
-            project.timeline().tracks().front().id,
-            makeClip(QStringLiteral("still"), 0, 0, 30), project.sourceLookup()));
+        QVERIFY(project.timeline().insertClip(project.timeline().tracks().front().id,
+                                              makeClip(QStringLiteral("still"), 0, 0, 30),
+                                              project.sourceLookup()));
         QVERIFY(!interchange::toCmx3600(project));
     }
 };

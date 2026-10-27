@@ -171,6 +171,43 @@ PanelFrame {
                 }
             }
 
+            // ---- Source slip ----
+            ColumnLayout {
+                objectName: "clipSlipControls"
+                visible: panel.hasClip && panel.clip.kind !== "image"
+                enabled: !panel.clip.locked
+                Layout.fillWidth: true
+                spacing: Theme.spacingS
+                Rectangle { Layout.fillWidth: true; height: 1; color: Theme.border }
+                Text {
+                    text: qsTr("Slip Source")
+                    color: Theme.text
+                    font.weight: Font.DemiBold
+                    font.pixelSize: Theme.fontSize
+                }
+                Text {
+                    text: qsTr("Change which frames play without moving the clip or changing its duration.")
+                    color: Theme.textMuted
+                    font.pixelSize: Theme.fontSizeSmall
+                    wrapMode: Text.WordWrap
+                    Layout.fillWidth: true
+                }
+                RowLayout {
+                    Layout.fillWidth: true
+                    spacing: Theme.spacingS
+                    FtButton {
+                        text: qsTr("Earlier 1 frame")
+                        Layout.fillWidth: true
+                        onClicked: panel.app.timeline.slipSelection(-1)
+                    }
+                    FtButton {
+                        text: qsTr("Later 1 frame")
+                        Layout.fillWidth: true
+                        onClicked: panel.app.timeline.slipSelection(1)
+                    }
+                }
+            }
+
             // ---- Transition after this clip ----
             ColumnLayout {
                 visible: panel.hasClip

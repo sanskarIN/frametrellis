@@ -134,6 +134,8 @@ public:
     Q_INVOKABLE void seekToMarker(const QString& id);
     Q_INVOKABLE void previousMarker();
     Q_INVOKABLE void nextMarker();
+    /// Copies validated sequence markers as HH:MM:SS chapter lines for video publishing.
+    Q_INVOKABLE bool copyMarkersAsChapters();
 
     // Navigation and zoom
     Q_INVOKABLE void previousEditPoint();

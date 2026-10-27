@@ -4,12 +4,15 @@
 
 #include "core/timecode.h"
 #include "editing/timeline_edits.h"
+#include "editing/marker_edits.h"
 #include "engine/mlt_runtime.h"
 #include "ui/media_bin_model.h"
 #include "ui/playback_controller.h"
 #include "ui/project_controller.h"
 
 #include <cmath>
+#include <algorithm>
+#include <iterator>
 
 namespace ft::ui {
 
@@ -46,6 +49,9 @@ void TimelineController::onProjectChanged(const ChangeSet& changes)
     m_model.update(project(), changes.trackStructure, changes.media || changes.settings,
                    changes.tracks, m_selection);
     emit durationChanged();
+    if (changes.markers) {
+        emit markersChanged();
+    }
     if (changes.trackStructure || !changes.tracks.isEmpty()) {
         emit canAppendTitleChanged();
     }
@@ -85,6 +91,72 @@ void TimelineController::setTransitionSelection(const Id& transitionId)
     emit selectedTransitionChanged();
 }
 
+bool TimelineController::addMarker(double frame, const QString& label)
+{
+    if (!std::isfinite(frame) || frame < 0 || frame > kMaxTimelineFrames ||
+        std::trunc(frame) != frame || frame > duration()) {
+        emit statusMessage(QStringLiteral("Place the marker at a frame within the sequence."));
+        return false;
+    }
+    return m_project->execute(edits::addMarker(
+        {createId(), static_cast<FrameCount>(frame), label.trimmed()}));
+}
+
+bool TimelineController::updateMarker(const QString& id, double frame, const QString& label)
+{
+    if (!std::isfinite(frame) || frame < 0 || frame > kMaxTimelineFrames ||
+        std::trunc(frame) != frame) {
+        emit statusMessage(QStringLiteral("The marker frame is invalid."));
+        return false;
+    }
+    return m_project->execute(
+        edits::updateMarker(id, static_cast<FrameCount>(frame), label));
+}
+
+bool TimelineController::removeMarker(const QString& id)
+{
+    return m_project->execute(edits::removeMarker(id));
+}
+
+void TimelineController::seekToMarker(const QString& id)
+{
+    for (const TimelineMarker& marker : project().markers()) {
+        if (marker.id == id) {
+            if (marker.frame > project().timeline().duration()) {
+                emit statusMessage(
+                    QStringLiteral("This marker is beyond the current sequence end."));
+                return;
+            }
+            m_playback->seek(static_cast<double>(marker.frame));
+            return;
+        }
+    }
+    emit statusMessage(QStringLiteral("The sequence marker was not found."));
+}
+
+void TimelineController::previousMarker()
+{
+    const FrameCount current = m_playback->positionFrames();
+    const auto& points = project().markers();
+    const auto it = std::lower_bound(
+        points.begin(), points.end(), current,
+        [](const TimelineMarker& marker, FrameCount frame) { return marker.frame < frame; });
+    if (it != points.begin()) {
+        m_playback->seek(static_cast<double>(std::prev(it)->frame));
+    }
+}
+
+void TimelineController::nextMarker()
+{
+    const FrameCount current = m_playback->positionFrames();
+    for (const TimelineMarker& marker : project().markers()) {
+        if (marker.frame > current && marker.frame <= project().timeline().duration()) {
+            m_playback->seek(static_cast<double>(marker.frame));
+            return;
+        }
+    }
+}
+
 void TimelineController::setPixelsPerFrame(double value)
 {
     value = std::clamp(value, minPixelsPerFrame(), maxPixelsPerFrame());
@@ -106,6 +178,20 @@ void TimelineController::setSnapping(bool snapping)
         m_snapping = snapping;
         emit snappingChanged();
     }
+}
+
+QVariantList TimelineController::markers() const
+{
+    QVariantList result;
+    for (const TimelineMarker& marker : project().markers()) {
+        result.append(QVariantMap{
+            {QStringLiteral("id"), marker.id},
+            {QStringLiteral("frame"), static_cast<double>(marker.frame)},
+            {QStringLiteral("label"), marker.label},
+            {QStringLiteral("timecode"),
+             timecode::format(marker.frame, project().settings().frameRate)}});
+    }
+    return result;
 }
 
 QStringList TimelineController::selection() const
@@ -332,6 +418,9 @@ double TimelineController::snapFrame(double frame, const QString& excludeClipId,
         return static_cast<double>(candidate);
     }
     std::vector<FrameCount> points = project().timeline().editPoints(excludeClipId);
+    for (const TimelineMarker& marker : project().markers()) {
+        points.push_back(marker.frame);
+    }
     points.push_back(m_playback->positionFrames());
     std::sort(points.begin(), points.end());
     const auto snapped =
@@ -348,6 +437,9 @@ double TimelineController::snapClipStart(double start, double duration,
         return static_cast<double>(std::max<FrameCount>(candidate, 0));
     }
     std::vector<FrameCount> points = project().timeline().editPoints(excludeClipId);
+    for (const TimelineMarker& marker : project().markers()) {
+        points.push_back(marker.frame);
+    }
     points.push_back(m_playback->positionFrames());
     std::sort(points.begin(), points.end());
     const auto tolerance = static_cast<FrameCount>(std::ceil(toleranceFrames));

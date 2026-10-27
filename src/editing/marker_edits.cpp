@@ -123,4 +123,21 @@ std::unique_ptr<EditCommand> moveMarker(Id markerId, FrameCount newFrame)
         });
 }
 
+std::unique_ptr<EditCommand> updateMarker(Id markerId, FrameCount newFrame, QString newLabel)
+{
+    return std::make_unique<MarkerEditCommand>(
+        QStringLiteral("Edit Marker"),
+        [markerId = std::move(markerId), newFrame, newLabel = std::move(newLabel)](Project& project) {
+            auto markers = project.markers();
+            const auto it = findMarker(markers, markerId);
+            if (it == markers.end()) {
+                return makeError(ErrorCode::NotFound,
+                                 QStringLiteral("The sequence marker was not found."));
+            }
+            it->frame = newFrame;
+            it->label = newLabel.trimmed();
+            return project.setMarkers(std::move(markers));
+        });
+}
+
 } // namespace ft::edits

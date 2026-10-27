@@ -14,6 +14,7 @@ uploaded. This guide covers everything the current version can do.
 - [Adjusting clips](#adjusting-clips)
 - [Playback](#playback)
 - [Exporting](#exporting)
+- [Exporting an edit decision list (development preview)](#exporting-a-picture-edit-decision-list-development-preview)
 - [Faster export profiles](faster-export.md)
 - [Missing media and recovery](#missing-media-and-recovery)
 - [Troubleshooting](#troubleshooting)
@@ -220,6 +221,32 @@ For v1.2.2 and later, **Quick export** and **Turbo preview** optimize encoder sp
 Enable **Do not upscale smaller projects** to preserve native size instead of magnifying
 small projects, and watch the measured frames/second in the export progress dialog.
 See [Faster export](faster-export.md) for presets and tradeoffs.
+
+## Exporting a picture edit decision list (development preview)
+
+**File → Copy Picture EDL (CMX3600)** generates a cut-only picture edit
+decision list and copies it to the clipboard. Paste it into a UTF-8 text file
+with the `.edl` extension. An EDL describes source-in/source-out and
+record-in/record-out SMPTE timecodes so an offline picture cut can be
+conformed in another editing tool. Black gaps are represented explicitly as
+`BL` events. Repeated uses of one source keep the same eight-character
+reel identifier, with `* FROM CLIP NAME` and `* SOURCE FILE` comments
+to help relink. Source file paths are metadata, not copies of your files.
+
+The exporter deliberately **rejects** picture cuts that would misrepresent
+the original timeline. There must be exactly one nonempty visible video
+track; dissolve transitions, still-image clips, picture adjustments, fades,
+and known source/sequence frame-rate mismatches are unsupported. Projects
+must use 24, 25, 30, 23.976 or 29.97 fps. The output is limited to 999
+events and 24-hour SMPTE timecodes. At 29.97 fps the exporter uses drop-frame
+labels. Audio tracks and audio processing are **not represented**: this is
+a *picture-only* EDL, not an audio conform, mix, or full project interchange.
+
+EDLs cannot describe many effects, reel/timecode metadata and mixed-rate
+workflows in a modern NLE. Review and verify the conformed sources in your
+target editor. The export does not save over the project, change the timeline,
+or render any media. **This is a v1.4 development feature, not part of
+FrameTrellis v1.3.0 stable.**
 
 ## Missing media and recovery
 

@@ -20,13 +20,17 @@ Project makeTimedProject(FrameRate rate = FrameRate::integer(30))
     media.info.kind = MediaKind::Video;
     media.info.hasVideo = true;
     media.info.durationUs = 20'000'000;
-    Q_ASSERT(project.addAsset(media));
+    const Status added = project.addAsset(media);
+    Q_ASSERT(added);
+    Q_UNUSED(added);
     Clip clip;
     clip.id = QStringLiteral("clip");
     clip.assetId = media.id;
     clip.duration = 300;
-    Q_ASSERT(project.timeline().insertClip(project.timeline().tracks().front().id, clip,
-                                           project.sourceLookup()));
+    const Status inserted = project.timeline().insertClip(project.timeline().tracks().front().id,
+                                                          clip, project.sourceLookup());
+    Q_ASSERT(inserted);
+    Q_UNUSED(inserted);
     return project;
 }
 

@@ -63,7 +63,7 @@ private slots:
         QVERIFY(edl.contains(QStringLiteral(
             "001  FT000001 V     C        00:00:00:10 00:00:02:10 00:00:00:00 00:00:02:00")));
         QVERIFY(edl.contains(QStringLiteral(
-            "002  BL V     C        00:00:00:00 00:00:01:00 00:00:02:00 00:00:03:00")));
+            "002  BL       V     C        00:00:00:00 00:00:01:00 00:00:02:00 00:00:03:00")));
         QVERIFY(edl.contains(QStringLiteral(
             "003  FT000001 V     C        00:00:03:10 00:00:04:10 00:00:03:00 00:00:04:00")));
         QCOMPARE(edl.count(QStringLiteral("* SOURCE FILE: /media/camera.mov")), 2);

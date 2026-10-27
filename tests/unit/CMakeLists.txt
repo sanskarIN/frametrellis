@@ -5,4 +5,5 @@ ft_add_test(tst_project_format SOURCES tst_project_format.cpp LIBS ft_project LA
 ft_add_test(tst_editing SOURCES tst_editing.cpp LIBS ft_editing LABELS unit)
 ft_add_test(tst_markers SOURCES tst_markers.cpp LIBS ft_editing LABELS unit)
 ft_add_test(tst_marker_chapters SOURCES tst_marker_chapters.cpp LIBS ft_project LABELS unit)
+ft_add_test(tst_edl_export SOURCES tst_edl_export.cpp LIBS ft_project LABELS unit)
 ft_add_test(tst_rendering SOURCES tst_rendering.cpp LIBS ft_rendering LABELS unit)

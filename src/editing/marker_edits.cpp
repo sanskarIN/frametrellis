@@ -70,7 +70,7 @@ auto findMarker(std::vector<TimelineMarker>& markers, const Id& id)
 std::unique_ptr<EditCommand> addMarker(TimelineMarker marker)
 {
     return std::make_unique<MarkerEditCommand>(QStringLiteral("Add Marker"),
-                                               [marker = std::move(marker)](Project& project) {
+                                               [marker = std::move(marker)](Project& project) -> Status {
                                                    auto markers = project.markers();
                                                    markers.push_back(marker);
                                                    return project.setMarkers(std::move(markers));
@@ -80,7 +80,7 @@ std::unique_ptr<EditCommand> addMarker(TimelineMarker marker)
 std::unique_ptr<EditCommand> removeMarker(Id markerId)
 {
     return std::make_unique<MarkerEditCommand>(
-        QStringLiteral("Remove Marker"), [markerId = std::move(markerId)](Project& project) {
+        QStringLiteral("Remove Marker"), [markerId = std::move(markerId)](Project& project) -> Status {
             auto markers = project.markers();
             const auto it = findMarker(markers, markerId);
             if (it == markers.end()) {
@@ -96,7 +96,7 @@ std::unique_ptr<EditCommand> renameMarker(Id markerId, QString newLabel)
 {
     return std::make_unique<MarkerEditCommand>(
         QStringLiteral("Rename Marker"),
-        [markerId = std::move(markerId), newLabel = std::move(newLabel)](Project& project) {
+        [markerId = std::move(markerId), newLabel = std::move(newLabel)](Project& project) -> Status {
             auto markers = project.markers();
             const auto it = findMarker(markers, markerId);
             if (it == markers.end()) {
@@ -112,7 +112,7 @@ std::unique_ptr<EditCommand> moveMarker(Id markerId, FrameCount newFrame)
 {
     return std::make_unique<MarkerEditCommand>(
         QStringLiteral("Move Marker"),
-        [markerId = std::move(markerId), newFrame](Project& project) {
+        [markerId = std::move(markerId), newFrame](Project& project) -> Status {
             auto markers = project.markers();
             const auto it = findMarker(markers, markerId);
             if (it == markers.end()) {
@@ -128,7 +128,7 @@ std::unique_ptr<EditCommand> updateMarker(Id markerId, FrameCount newFrame, QStr
 {
     return std::make_unique<MarkerEditCommand>(
         QStringLiteral("Edit Marker"), [markerId = std::move(markerId), newFrame,
-                                        newLabel = std::move(newLabel)](Project& project) {
+                                        newLabel = std::move(newLabel)](Project& project) -> Status {
             auto markers = project.markers();
             const auto it = findMarker(markers, markerId);
             if (it == markers.end()) {

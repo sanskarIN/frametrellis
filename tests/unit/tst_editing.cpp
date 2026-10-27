@@ -85,6 +85,60 @@ private slots:
         QVERIFY(!f.doc.redo());
     }
 
+    void slipMultiTrackSelectionAndUndoRedo()
+    {
+        Fixture f;
+        Clip video = clipOf(QStringLiteral("m1"), 30, 80, QStringLiteral("picture"));
+        video.sourceIn = 20;
+        Clip sound = clipOf(QStringLiteral("m1"), 50, 60, QStringLiteral("audio"));
+        sound.sourceIn = 100;
+        sound.properties.gain = 0.4;
+        QVERIFY(f.doc.execute(edits::addClip(f.v1, video)));
+        QVERIFY(f.doc.execute(edits::addClip(f.a1, sound)));
+        const Project original = f.doc.project();
+        QVERIFY(f.doc.execute(
+            edits::slipClips({QStringLiteral("picture"), QStringLiteral("audio")}, 15)));
+        const Timeline& shifted = f.doc.project().timeline();
+        QCOMPARE(shifted.clip(video.id)->sourceIn, FrameCount{35});
+        QCOMPARE(shifted.clip(sound.id)->sourceIn, FrameCount{115});
+        QCOMPARE(shifted.clip(video.id)->start, video.start);
+        QCOMPARE(shifted.clip(video.id)->duration, video.duration);
+        QCOMPARE(shifted.clip(sound.id)->start, sound.start);
+        QCOMPARE(shifted.clip(sound.id)->properties.gain, sound.properties.gain);
+        QCOMPARE(f.doc.undoText(), QStringLiteral("Slip 2 Clip(s)"));
+        const Project slipped = f.doc.project();
+        QVERIFY(f.doc.undo());
+        QCOMPARE(f.doc.project(), original);
+        QVERIFY(f.doc.redo());
+        QCOMPARE(f.doc.project(), slipped);
+    }
+
+    void slipBatchFailureIsAtomicAndDoesNotChangeUndoText()
+    {
+        Fixture f;
+        Clip first = clipOf(QStringLiteral("m1"), 0, 50, QStringLiteral("first"));
+        first.sourceIn = 70;
+        Clip second = clipOf(QStringLiteral("m1"), 150, 50, QStringLiteral("second"));
+        second.sourceIn = 550; // source ends at 600
+        QVERIFY(f.doc.execute(edits::addClip(f.v1, first)));
+        QVERIFY(f.doc.execute(edits::addClip(f.v1, second)));
+        const Project before = f.doc.project();
+        const QString undoText = f.doc.undoText();
+        QVERIFY(!f.doc.execute(
+            edits::slipClips({QStringLiteral("first"), QStringLiteral("second")}, 1)));
+        QCOMPARE(f.doc.project(), before);
+        QCOMPARE(f.doc.undoText(), undoText);
+        QVERIFY(!f.doc.execute(edits::slipClips({}, 1)));
+        QVERIFY(!f.doc.execute(edits::slipClips({QStringLiteral("first")}, 0)));
+        QVERIFY(!f.doc.execute(
+            edits::slipClips({QStringLiteral("first"), QStringLiteral("first")}, 1)));
+        QVERIFY(!f.doc.execute(
+            edits::slipClips({QStringLiteral("missing")}, 1)));
+        QVERIFY(!f.doc.execute(edits::slipClips({QStringLiteral("first")}, -71)));
+        QCOMPARE(f.doc.project(), before);
+        QCOMPARE(f.doc.undoText(), undoText);
+    }
+
     void duplicatePreservesSourceEditsAndHistory()
     {
         Fixture f;

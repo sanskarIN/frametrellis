@@ -265,8 +265,7 @@ private slots:
         Timeline t = makeTimeline();
         const SourceLookup sources = testSources();
         QVERIFY(t.insertClip(QStringLiteral("v1"),
-                             makeClip(QStringLiteral("clip"), kVideoAsset, 100, 20, 50),
-                             sources));
+                             makeClip(QStringLiteral("clip"), kVideoAsset, 100, 20, 50), sources));
         const Timeline before = t;
         QVERIFY(t.slipClip(QStringLiteral("clip"), 40, sources));
         const Clip* changed = t.clip(QStringLiteral("clip"));
@@ -289,8 +288,7 @@ private slots:
         Timeline t = makeTimeline();
         const SourceLookup sources = testSources();
         QVERIFY(t.insertClip(QStringLiteral("v1"),
-                             makeClip(QStringLiteral("clip"), kVideoAsset, 0, 50, 100),
-                             sources));
+                             makeClip(QStringLiteral("clip"), kVideoAsset, 0, 50, 100), sources));
         const Timeline original = t;
         QVERIFY(!t.slipClip(QStringLiteral("clip"), -1, sources));
         QVERIFY(!t.slipClip(QStringLiteral("clip"), 151, sources));
@@ -304,8 +302,7 @@ private slots:
         QVERIFY(t.setTrackLocked(QStringLiteral("v1"), false));
 
         QVERIFY(t.insertClip(QStringLiteral("v2"),
-                             makeClip(QStringLiteral("still"), kStillAsset, 0, 0, 50),
-                             sources));
+                             makeClip(QStringLiteral("still"), kStillAsset, 0, 0, 50), sources));
         const Timeline withStill = t;
         QVERIFY(!t.slipClip(QStringLiteral("still"), 5, sources));
         QCOMPARE(t, withStill);

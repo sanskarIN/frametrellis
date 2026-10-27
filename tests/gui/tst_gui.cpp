@@ -117,6 +117,8 @@ private slots:
             m_media = demo.split(QLatin1Char(';'), Qt::SkipEmptyParts);
         } else {
             VideoSpec spec;
+            // Match the default sequence rate for exact-timecode interchange smoke tests.
+            spec.fps = 30;
             spec.size = QSize(320, 180);
             spec.segmentColors = {
                 QColor(QStringLiteral("#1f7a8c")), QColor(QStringLiteral("#e09f3e")),

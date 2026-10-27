@@ -127,6 +127,26 @@ covers their position.
 v1.3 and older reject these newer project files, even if they contain no markers. Keep a
 backup if you may need to return to an older editor. This feature is not in v1.3.0 stable.
 
+### Export review markers as chapters
+
+In this development build, choose **Playback → Copy Markers as Video Chapters** to
+copy lines such as `00:01:05 Color grade` for a video description. The first
+chapter must start at frame zero, and no two markers may map to the same whole second.
+This action does not change the project or its edit history.
+
+Choose **Playback → Copy Markers as WebVTT Chapters** for an HTML5 chapter track.
+WebVTT chapter cues include frame-derived millisecond time boundaries, so they can
+be used as chapter metadata in compatible web video players. The project must
+contain a nonempty timeline, the first chapter must begin at frame zero, and all
+chapter starts must precede the sequence end with strictly increasing frames.
+Marker names are escaped as plain text, not interpreted as WebVTT markup.
+Paste the copied output into a UTF-8 `.vtt` text file; attach it as a
+`<track kind="chapters">` to a compatible HTML5 video player. This does not
+burn anything into the exported video or upload data to any service.
+
+Both chapter workflows are **v1.4 proposals**, not features of the v1.3.0
+stable Windows package.
+
 ## Title overlays
 
 Choose **File → Create Title…** after saving your project. Enter the text, choose a font size and

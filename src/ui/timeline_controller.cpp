@@ -4,17 +4,17 @@
 
 #include "core/timecode.h"
 #include "editing/marker_edits.h"
-#include "project/marker_chapters.h"
 #include "editing/timeline_edits.h"
 #include "engine/mlt_runtime.h"
+#include "project/marker_chapters.h"
 #include "ui/media_bin_model.h"
 #include "ui/playback_controller.h"
 #include "ui/project_controller.h"
 
-#include <algorithm>
 #include <QClipboard>
 #include <QGuiApplication>
 
+#include <algorithm>
 #include <cmath>
 #include <iterator>
 

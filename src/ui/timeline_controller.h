@@ -8,8 +8,8 @@
 #include <QObject>
 #include <QQmlEngine>
 #include <QSet>
-#include <QVariantMap>
 #include <QVariantList>
+#include <QVariantMap>
 
 #include <optional>
 

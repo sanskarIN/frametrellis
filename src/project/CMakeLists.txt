@@ -2,6 +2,7 @@
 add_library(ft_project STATIC
     media_asset.cpp media_asset.h
     marker_chapters.cpp marker_chapters.h
+    edl_export.cpp edl_export.h
     project.cpp project.h
     project_serializer.cpp project_serializer.h
     project_settings.cpp project_settings.h

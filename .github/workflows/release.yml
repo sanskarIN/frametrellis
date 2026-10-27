@@ -24,6 +24,11 @@ on:
         type: boolean
         required: true
         default: false
+      release_tag:
+        description: "Optional tag, e.g. v1.4.0-alpha.1; leave empty for v<base version>"
+        type: string
+        required: false
+        default: ""
 
 permissions:
   contents: read
@@ -49,6 +54,7 @@ jobs:
         name: Compare the tag with the project version
         env:
           PUBLISH: ${{ inputs.publish }}
+          REQUESTED_TAG: ${{ inputs.release_tag }}
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
@@ -59,7 +65,7 @@ jobs:
             exit 1
           fi
           if [ "$GITHUB_EVENT_NAME" = workflow_dispatch ]; then
-            tag="v$project"
+            tag="${REQUESTED_TAG:-v$project}"
             if [ "$PUBLISH" = true ]; then
               echo "Publishing the verified release of $tag."
             else

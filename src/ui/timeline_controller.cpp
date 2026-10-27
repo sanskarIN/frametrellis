@@ -160,6 +160,23 @@ void TimelineController::nextMarker()
     }
 }
 
+bool TimelineController::copyMarkersAsWebVtt()
+{
+    const auto text = chapters::toWebVtt(project());
+    if (!text) {
+        emit statusMessage(text.error().message);
+        return false;
+    }
+    QClipboard* clipboard = QGuiApplication::clipboard();
+    if (!clipboard) {
+        emit statusMessage(QStringLiteral("The system clipboard is unavailable."));
+        return false;
+    }
+    clipboard->setText(*text);
+    emit statusMessage(QStringLiteral("Copied WebVTT chapters to clipboard."));
+    return true;
+}
+
 bool TimelineController::copyMarkersAsChapters()
 {
     const auto chapters = chapters::toText(project());

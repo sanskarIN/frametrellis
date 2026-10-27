@@ -3,15 +3,15 @@
 #include "ui/timeline_controller.h"
 
 #include "core/timecode.h"
-#include "editing/timeline_edits.h"
 #include "editing/marker_edits.h"
+#include "editing/timeline_edits.h"
 #include "engine/mlt_runtime.h"
 #include "ui/media_bin_model.h"
 #include "ui/playback_controller.h"
 #include "ui/project_controller.h"
 
-#include <cmath>
 #include <algorithm>
+#include <cmath>
 #include <iterator>
 
 namespace ft::ui {
@@ -98,8 +98,8 @@ bool TimelineController::addMarker(double frame, const QString& label)
         emit statusMessage(QStringLiteral("Place the marker at a frame within the sequence."));
         return false;
     }
-    return m_project->execute(edits::addMarker(
-        {createId(), static_cast<FrameCount>(frame), label.trimmed()}));
+    return m_project->execute(
+        edits::addMarker({createId(), static_cast<FrameCount>(frame), label.trimmed()}));
 }
 
 bool TimelineController::updateMarker(const QString& id, double frame, const QString& label)
@@ -109,8 +109,7 @@ bool TimelineController::updateMarker(const QString& id, double frame, const QSt
         emit statusMessage(QStringLiteral("The marker frame is invalid."));
         return false;
     }
-    return m_project->execute(
-        edits::updateMarker(id, static_cast<FrameCount>(frame), label));
+    return m_project->execute(edits::updateMarker(id, static_cast<FrameCount>(frame), label));
 }
 
 bool TimelineController::removeMarker(const QString& id)
@@ -184,12 +183,12 @@ QVariantList TimelineController::markers() const
 {
     QVariantList result;
     for (const TimelineMarker& marker : project().markers()) {
-        result.append(QVariantMap{
-            {QStringLiteral("id"), marker.id},
-            {QStringLiteral("frame"), static_cast<double>(marker.frame)},
-            {QStringLiteral("label"), marker.label},
-            {QStringLiteral("timecode"),
-             timecode::format(marker.frame, project().settings().frameRate)}});
+        result.append(
+            QVariantMap{{QStringLiteral("id"), marker.id},
+                        {QStringLiteral("frame"), static_cast<double>(marker.frame)},
+                        {QStringLiteral("label"), marker.label},
+                        {QStringLiteral("timecode"),
+                         timecode::format(marker.frame, project().settings().frameRate)}});
     }
     return result;
 }

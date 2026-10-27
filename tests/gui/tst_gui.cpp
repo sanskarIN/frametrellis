@@ -338,9 +338,9 @@ private slots:
         QCOMPARE(clipboard->text(), QStringLiteral("00:00:00 Opening & Review"));
         QVERIFY(m_app->timeline()->copyMarkersAsWebVtt());
         const QString webVtt = clipboard->text();
-        QVERIFY(webVtt.startsWith(QStringLiteral("WEBVTT\\n\\n"
+        QVERIFY(webVtt.startsWith(QStringLiteral("WEBVTT\n\n"
                                                  "00:00:00.000 --> ")));
-        QVERIFY(webVtt.contains(QStringLiteral("\\nOpening &amp; Review\\n")));
+        QVERIFY(webVtt.contains(QStringLiteral("\nOpening &amp; Review\n")));
         QCOMPARE(m_app->project()->undoText(), undoLabel);
         QCOMPARE(m_app->project()->project().timeline(), originalTimeline);
         QCOMPARE(m_app->project()->project().markers(), markers);

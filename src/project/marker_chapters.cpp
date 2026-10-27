@@ -65,8 +65,9 @@ Result<QString> toWebVtt(const Project& project)
     const auto& markers = project.markers();
     const FrameCount sequenceEnd = project.timeline().duration();
     if (sequenceEnd <= 0) {
-        return makeError(ErrorCode::InvalidArgument,
-                         QStringLiteral("Add media to the sequence before exporting WebVTT chapters."));
+        return makeError(
+            ErrorCode::InvalidArgument,
+            QStringLiteral("Add media to the sequence before exporting WebVTT chapters."));
     }
     if (markers.empty() || markers.front().frame != 0) {
         return makeError(ErrorCode::InvalidArgument,
@@ -80,13 +81,15 @@ Result<QString> toWebVtt(const Project& project)
         if (start >= sequenceEnd || end <= start || end > sequenceEnd) {
             return makeError(
                 ErrorCode::InvalidArgument,
-                QStringLiteral("Each WebVTT chapter must have a distinct frame inside the sequence."));
+                QStringLiteral(
+                    "Each WebVTT chapter must have a distinct frame inside the sequence."));
         }
         const FrameCount startMs = start * rate.denominator() * 1000 / rate.numerator();
         const FrameCount endMs = end * rate.denominator() * 1000 / rate.numerator();
         if (startMs >= endMs) {
-            return makeError(ErrorCode::InvalidArgument,
-                             QStringLiteral("Chapter cue timing cannot be represented in milliseconds."));
+            return makeError(
+                ErrorCode::InvalidArgument,
+                QStringLiteral("Chapter cue timing cannot be represented in milliseconds."));
         }
         output.push_back(webVttTimestamp(start, rate) + QStringLiteral(" --> ") +
                          webVttTimestamp(end, rate));

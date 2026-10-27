@@ -159,7 +159,8 @@ PanelFrame {
                             [qsTr("Start"), panel.clip.startText],
                             [qsTr("End"), panel.clip.endText],
                             [qsTr("Duration"), panel.clip.durationText],
-                            [qsTr("Source in"), panel.clip.sourceInText]
+                            [qsTr("Source in"), panel.clip.sourceInText],
+                            [qsTr("Source out"), panel.clip.sourceOutText]
                         ]
                         delegate: RowLayout {
                             required property var modelData
@@ -197,11 +198,13 @@ PanelFrame {
                     spacing: Theme.spacingS
                     FtButton {
                         text: qsTr("Earlier 1 frame")
+                        enabled: panel.clip.sourceIn > 0
                         Layout.fillWidth: true
                         onClicked: panel.app.timeline.slipSelection(-1)
                     }
                     FtButton {
                         text: qsTr("Later 1 frame")
+                        enabled: panel.clip.sourceLength > panel.clip.sourceIn + panel.clip.duration
                         Layout.fillWidth: true
                         onClicked: panel.app.timeline.slipSelection(1)
                     }

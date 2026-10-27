@@ -110,6 +110,13 @@ on the time ruler and remain visible as you zoom and scroll. Click one to seek t
 double-click or right-click to open its editor. You can change its label or frame, or delete it.
 Each change is undoable. Use `Ctrl+PageUp` and `Ctrl+PageDown` to jump to earlier/later markers.
 
+To prepare video chapters for a description, add a first marker at frame **0**, then
+place later markers at least one whole second apart. Use **Playback → Copy Markers as Video
+Chapters** to copy lines in `HH:MM:SS Label` format. This uses the exact project frame rate
+to convert frame positions into playback clock seconds, keeps Unicode names, and refuses
+ambiguous timestamps. Paste the result into your video description, then review chapter
+requirements for your publishing service. The action does not modify the project or files.
+
 Markers are sequence-level notes: they do not change picture, sound, clip trims or export,
 and they do **not** automatically follow clips moved by edits. The edit-point snapping
 system also snaps clips to markers when snapping is on. Cues saved beyond the current end

@@ -5,6 +5,7 @@ GitHub release description. Unreleased changes are collected in [unreleased.md](
 
 | Version | Notes |
 |---|---|
+| 1.4.0 | [v1.4.0.md](v1.4.0.md) — early-access release scope (not a stable publication) |
 | 1.3.0 | [v1.3.0.md](v1.3.0.md) — source safety, searchable media bin, timecode navigation and render diagnostics (published stable) |
 | 1.2.2 | [v1.2.2.md](v1.2.2.md) — faster MP4 export presets and verified resolution safety |
 | 1.2.1 | [v1.2.1.md](v1.2.1.md) — startup diagnostics and Windows package verification |
@@ -17,6 +18,12 @@ The stable [v1.3.0 GitHub release](https://github.com/sanskarIN/frametrellis/rel
 contains verified Windows download assets. See the
 [versioned verification report](v1.3.0-verification.md) for the automated
 release gates and manual testing distinction.
+
+For versioned prereleases, CMake uses the numeric base version, such as
+`1.4.0`, while the GitHub tag is `v1.4.0-alpha.1`. The Release workflow
+uses the **full tag** for the prerelease title and link and the **base version**
+for verified Windows package filenames. Check the tag-specific release
+workflow success before linking any downloads.
 
 ## Publishing a release
 

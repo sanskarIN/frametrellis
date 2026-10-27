@@ -40,8 +40,8 @@ QString eventLine(int number, const QString& reel, FrameCount sourceIn, FrameCou
 {
     return QStringLiteral("%1  %2 V     C        %3 %4 %5 %6")
         .arg(number, 3, 10, QLatin1Char('0'))
-        .arg(reel, tc(sourceIn, rate), tc(sourceOut, rate), tc(recordIn, rate),
-             tc(recordOut, rate));
+        .arg(reel.leftJustified(8, QLatin1Char(' ')), tc(sourceIn, rate), tc(sourceOut, rate),
+             tc(recordIn, rate), tc(recordOut, rate));
 }
 
 } // namespace

@@ -112,6 +112,14 @@ Acceptance criteria, each checked before the release:
 - ℹ️ [Automated release verification](releases/v1.3.0-verification.md) is recorded separately
   from the still-unrecorded manual desktop smoke-test checklist
 
+## v1.4.0 — Professional workflow candidates 🚧
+- 🚧 Timeline review markers with names, frame-accurate placement, undoable commands,
+  previous/next navigation, ruler visuals, snapping and versioned project persistence
+- 🚧 Media inventory export, recursive folder imports and removal of unused references
+  (existing separate PRs; unmerged until integrated tests pass)
+- ⏳ Validate Linux, Windows and sanitizer CI and conduct manual editor smoke tests
+  before labeling this milestone a preview or stable release
+
 ## Next milestones
 - ⏳ A Linux package (AppImage or Flatpak), published once it has been verified
 - ⏳ A macOS build in CI, then a `.dmg` package once it has been verified

@@ -82,6 +82,16 @@ every imported file again. Filtering never removes files from the project.
   overlap another clip are refused — nothing is ever overwritten.
 * **Trim:** drag the left or right edge of a clip. You cannot trim beyond the start or end of the
   source media.
+* **Slip (v1.4 development):** select one or more video or audio clips, then open
+  *Edit → Slip Selected Clips (Source)*. Move source content one frame with
+  **Ctrl+Alt+Left / Right**, or ten frames with **Ctrl+Alt+Shift+Left / Right**.
+  The clip stays in the same timeline position and keeps the same duration,
+  fades and effects; only its source in/out points change. Every selection
+  slips atomically in one undo step. There must be available source material
+  before/after the current source trim. Still images, locked tracks and slips
+  that would remove a transition's source handles are rejected without edits.
+  Trimming the end of a clip may create room to slip it later.
+  This is not yet in the v1.3.0 stable release.
 * **Split:** move the playhead and press **S**. With clips selected, only those are split;
   otherwise every unlocked clip under the playhead is split.
 * **Duplicate:** select one clip and press **Ctrl+D** (or use the timeline copy button). The copy

@@ -6,9 +6,13 @@
 #include "editing/marker_edits.h"
 #include "editing/timeline_edits.h"
 #include "engine/mlt_runtime.h"
+#include "project/marker_chapters.h"
 #include "ui/media_bin_model.h"
 #include "ui/playback_controller.h"
 #include "ui/project_controller.h"
+
+#include <QClipboard>
+#include <QGuiApplication>
 
 #include <algorithm>
 #include <cmath>
@@ -154,6 +158,40 @@ void TimelineController::nextMarker()
             return;
         }
     }
+}
+
+bool TimelineController::copyMarkersAsWebVtt()
+{
+    const auto text = chapters::toWebVtt(project());
+    if (!text) {
+        emit statusMessage(text.error().message);
+        return false;
+    }
+    QClipboard* clipboard = QGuiApplication::clipboard();
+    if (!clipboard) {
+        emit statusMessage(QStringLiteral("The system clipboard is unavailable."));
+        return false;
+    }
+    clipboard->setText(*text);
+    emit statusMessage(QStringLiteral("Copied WebVTT chapters to clipboard."));
+    return true;
+}
+
+bool TimelineController::copyMarkersAsChapters()
+{
+    const auto chapters = chapters::toText(project());
+    if (!chapters) {
+        emit statusMessage(chapters.error().message);
+        return false;
+    }
+    QClipboard* clipboard = QGuiApplication::clipboard();
+    if (!clipboard) {
+        emit statusMessage(QStringLiteral("The system clipboard is unavailable."));
+        return false;
+    }
+    clipboard->setText(*chapters);
+    emit statusMessage(QStringLiteral("Copied timeline chapters to clipboard."));
+    return true;
 }
 
 void TimelineController::setPixelsPerFrame(double value)

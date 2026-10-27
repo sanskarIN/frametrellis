@@ -120,6 +120,13 @@ on the time ruler and remain visible as you zoom and scroll. Click one to seek t
 double-click or right-click to open its editor. You can change its label or frame, or delete it.
 Each change is undoable. Use `Ctrl+PageUp` and `Ctrl+PageDown` to jump to earlier/later markers.
 
+To prepare video chapters for a description, add a first marker at frame **0**, then
+place later markers at least one whole second apart. Use **Playback → Copy Markers as Video
+Chapters** to copy lines in `HH:MM:SS Label` format. This uses the exact project frame rate
+to convert frame positions into playback clock seconds, keeps Unicode names, and refuses
+ambiguous timestamps. Paste the result into your video description, then review chapter
+requirements for your publishing service. The action does not modify the project or files.
+
 Markers are sequence-level notes: they do not change picture, sound, clip trims or export,
 and they do **not** automatically follow clips moved by edits. The edit-point snapping
 system also snaps clips to markers when snapping is on. Cues saved beyond the current end
@@ -129,6 +136,26 @@ covers their position.
 **Compatibility:** Saving in this development version uses project format v2. FrameTrellis
 v1.3 and older reject these newer project files, even if they contain no markers. Keep a
 backup if you may need to return to an older editor. This feature is not in v1.3.0 stable.
+
+### Export review markers as chapters
+
+In this development build, choose **Playback → Copy Markers as Video Chapters** to
+copy lines such as `00:01:05 Color grade` for a video description. The first
+chapter must start at frame zero, and no two markers may map to the same whole second.
+This action does not change the project or its edit history.
+
+Choose **Playback → Copy Markers as WebVTT Chapters** for an HTML5 chapter track.
+WebVTT chapter cues include frame-derived millisecond time boundaries, so they can
+be used as chapter metadata in compatible web video players. The project must
+contain a nonempty timeline, the first chapter must begin at frame zero, and all
+chapter starts must precede the sequence end with strictly increasing frames.
+Marker names are escaped as plain text, not interpreted as WebVTT markup.
+Paste the copied output into a UTF-8 `.vtt` text file; attach it as a
+`<track kind="chapters">` to a compatible HTML5 video player. This does not
+burn anything into the exported video or upload data to any service.
+
+Both chapter workflows are **v1.4 proposals**, not features of the v1.3.0
+stable Windows package.
 
 ## Title overlays
 

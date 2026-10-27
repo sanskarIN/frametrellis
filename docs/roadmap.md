@@ -113,6 +113,8 @@ Acceptance criteria, each checked before the release:
   from the still-unrecorded manual desktop smoke-test checklist
 
 ## v1.4.0 — Professional workflow candidates 🚧
+- 🚧 Video-description chapter handoff from review cues with exact rational frame clocks
+- 🚧 Video chapters copied from markers for descriptions and HTML5 WebVTT tracks
 - 🚧 Timeline review markers with names, frame-accurate placement, undoable commands,
   previous/next navigation, ruler visuals, snapping and versioned project persistence
 - 🚧 Media inventory export, recursive folder imports and removal of unused references

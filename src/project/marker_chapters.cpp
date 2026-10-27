@@ -35,11 +35,10 @@ Result<QString> toText(const Project& project)
         const FrameCount hours = totalSeconds / 3600;
         const FrameCount minutes = (totalSeconds / 60) % 60;
         const FrameCount seconds = totalSeconds % 60;
-        const QString timestamp =
-            QStringLiteral("%1:%2:%3")
-                .arg(hours, 2, 10, QLatin1Char('0'))
-                .arg(minutes, 2, 10, QLatin1Char('0'))
-                .arg(seconds, 2, 10, QLatin1Char('0'));
+        const QString timestamp = QStringLiteral("%1:%2:%3")
+                                      .arg(hours, 2, 10, QLatin1Char('0'))
+                                      .arg(minutes, 2, 10, QLatin1Char('0'))
+                                      .arg(seconds, 2, 10, QLatin1Char('0'));
         lines.push_back(timestamp + QLatin1Char(' ') + marker.label.simplified());
     }
     return lines.join(QLatin1Char('\n'));

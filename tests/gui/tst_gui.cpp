@@ -117,6 +117,8 @@ private slots:
             m_media = demo.split(QLatin1Char(';'), Qt::SkipEmptyParts);
         } else {
             VideoSpec spec;
+            // Match the default sequence rate for exact-timecode interchange smoke tests.
+            spec.fps = 30;
             spec.size = QSize(320, 180);
             spec.segmentColors = {
                 QColor(QStringLiteral("#1f7a8c")), QColor(QStringLiteral("#e09f3e")),
@@ -431,6 +433,24 @@ private slots:
         QVERIFY(std::abs(m_app->project()->project().timeline().clip(original.id)->start -
                          original.start) <= 1);
         m_app->timeline()->setSnapping(true);
+    }
+
+    void copyPictureEdlRejectsLayersAndKeepsEditUnchanged()
+    {
+        // A still on V2 hides part of V1; a flattened-looking EDL would be misleading.
+        QVERIFY(!m_app->timeline()->copyPictureAsEdl());
+        const Id stillTrack = track(1).id;
+        QVERIFY(m_app->timeline()->setTrackFlag(stillTrack, QStringLiteral("hidden"), true));
+        const Project before = m_app->project()->project();
+        const QString undoLabel = m_app->project()->undoText();
+        QVERIFY(m_app->timeline()->copyPictureAsEdl());
+        QClipboard* clipboard = QGuiApplication::clipboard();
+        QVERIFY(clipboard);
+        QVERIFY(clipboard->text().startsWith(QStringLiteral("TITLE: ")));
+        QVERIFY(clipboard->text().contains(QStringLiteral("001  FT000001 V     C")));
+        QCOMPARE(m_app->project()->project(), before);
+        QCOMPARE(m_app->project()->undoText(), undoLabel);
+        QVERIFY(m_app->timeline()->setTrackFlag(stillTrack, QStringLiteral("hidden"), false));
     }
 
     void draggingOntoAnotherClipIsRefused()

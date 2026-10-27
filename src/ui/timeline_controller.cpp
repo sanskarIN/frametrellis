@@ -6,6 +6,7 @@
 #include "editing/marker_edits.h"
 #include "editing/timeline_edits.h"
 #include "engine/mlt_runtime.h"
+#include "project/edl_export.h"
 #include "project/marker_chapters.h"
 #include "ui/media_bin_model.h"
 #include "ui/playback_controller.h"
@@ -191,6 +192,23 @@ bool TimelineController::copyMarkersAsChapters()
     }
     clipboard->setText(*chapters);
     emit statusMessage(QStringLiteral("Copied timeline chapters to clipboard."));
+    return true;
+}
+
+bool TimelineController::copyPictureAsEdl()
+{
+    const auto result = interchange::toCmx3600(project());
+    if (!result) {
+        emit statusMessage(result.error().message);
+        return false;
+    }
+    QClipboard* clipboard = QGuiApplication::clipboard();
+    if (!clipboard) {
+        emit statusMessage(QStringLiteral("The system clipboard is unavailable."));
+        return false;
+    }
+    clipboard->setText(*result);
+    emit statusMessage(QStringLiteral("Copied picture edit decision list (CMX3600)."));
     return true;
 }
 

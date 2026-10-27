@@ -276,8 +276,13 @@ PanelFrame {
                 ToolTip.delay: 900
                 ToolTip.text: tile.tooltip
                 onPressed: mouse => {
-                    grid.currentIndex = tile.index
-                    grid.forceActiveFocus()
+                    // Delegates do not inherit a reliable lexical reference to the view.
+                    // The attached view resolves correctly even after delegate reparenting.
+                    const view = tile.GridView.view
+                    if (view) {
+                        view.currentIndex = tile.index
+                        view.forceActiveFocus()
+                    }
                     dragProxy.x = mouse.x
                     dragProxy.y = mouse.y
                 }

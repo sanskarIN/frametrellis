@@ -1,11 +1,12 @@
 # Project file format (`.ftproj`)
 
-A project is a UTF-8 JSON document. Version 1 looks like this (abridged):
+A project is a UTF-8 JSON document. The **v2 development format** adds optional
+sequence-level markers; this abridged example shows the new shape. v1 files still load.
 
 ```json
 {
   "format": "org.frametrellis.project",
-  "version": 1,
+  "version": 2,
   "generator": "FrameTrellis 1.0.0",
   "project": {
     "id": "6d0f…",
@@ -21,6 +22,9 @@ A project is a UTF-8 JSON document. Version 1 looks like this (abridged):
                   "audioChannels": 2, "audioSampleRate": 48000, "videoCodec": "h264",
                   "audioCodec": "aac", "container": "mp4", "fileSize": 123456789,
                   "lastModified": "2026-09-30T17:12:00Z" } }
+    ],
+    "markers": [
+      { "id": "mark1", "frame": 120, "label": "Check color grade" }
     ],
     "tracks": [
       { "id": "t1…", "kind": "video", "name": "V1", "muted": false, "hidden": false, "locked": false,
@@ -47,6 +51,13 @@ A project is a UTF-8 JSON document. Version 1 looks like this (abridged):
   (rounded down) before it and the rest after it. `duration ≥ 2`, and both clips need that much
   media beyond the cut. There is at most one transition per cut, and transitions at the two
   ends of a clip may not overlap.
+* `markers` is optional for legacy files. Each marker has a unique identifier, a nonblank
+  UTF-8 label (at most 120 UTF-16 code units), and an integer sequence frame in
+  `[0, 1000000000]`. No more than 1000 markers are allowed. Markers are sorted by
+  frame, then identifier, and are not attached to clips or rendered into exports.
+* Project **format v2** is written by the development version to avoid silently losing
+  markers when opened by v1 editors; the v1.3.0 editor cannot open these files.
+  Back up projects before upgrading. Loading format v1 remains supported.
 * `relativePath` is relative to the folder containing the project file. When `path` does not
   exist but the relative location does, the relative one is used (projects can be moved
   together with their media).
@@ -61,6 +72,7 @@ Loading treats the document as untrusted input:
 * identifiers must be short alphanumeric strings and unique;
 * every clip must reference an existing media entry, fit inside its source and be compatible
   with its track kind;
+* every marker has a unique id, valid bounded frame and nonblank bounded label;
 * every transition must connect two touching clips of its track and fit their media;
 * the first problem is reported with its JSON path (for example
   `$.project.tracks[0].clips[3].duration: expected an integer between 1 and 1000000000`).

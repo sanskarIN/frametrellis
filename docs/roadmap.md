@@ -99,6 +99,31 @@ Acceptance criteria, each checked before the release:
 - ⏳ Evaluate WinGet package identifier, installer metadata and hash-verified manifests;
   do not claim a WinGet listing without confirmed upstream acceptance
 
+## v1.3.0 — Editing safeguards, media search and diagnostics ✅
+- ✅ Reject project saves or exports that overwrite referenced media or the opened project
+- ✅ Detect same-size external media changes and reject duplicate canonical paths
+- ✅ Make timecode, fade and clip-end validation resilient to signed overflow
+- ✅ Protect against concurrent MLT profile initialization and invalid render commands
+- ✅ Search and category-filter the media bin; navigate directly to a SMPTE timecode
+- ✅ Inspect project track/media counts with a read-only render-helper command
+- ✅ Upgrade documentation search, section navigation and code copy controls
+- ✅ Passed integrated Linux/Windows CI and automated clean-machine Windows package checks
+- ✅ Stable v1.3.0 published from the verified `e86cab7d7eef7c287716abedc6721fa1bd76e719` release commit
+- ℹ️ [Automated release verification](releases/v1.3.0-verification.md) is recorded separately
+  from the still-unrecorded manual desktop smoke-test checklist
+
+## v1.4.0 — Professional workflow candidates 🚧
+- 🚧 Video-description chapter handoff from review cues with exact rational frame clocks
+- 🚧 Video chapters copied from markers for descriptions and HTML5 WebVTT tracks
+- 🚧 Timeline review markers with names, frame-accurate placement, undoable commands,
+  previous/next navigation, ruler visuals, snapping and versioned project persistence
+- 🚧 Media inventory export, recursive folder imports and removal of unused references
+  (existing separate PRs; unmerged until integrated tests pass)
+- 🚧 Roll edit candidate: move an adjacent video/audio cut while preserving the
+  combined duration, source handles, fades and existing transitions (review pending)
+- ⏳ Validate Linux, Windows and sanitizer CI and conduct manual editor smoke tests
+  before labeling this milestone a preview or stable release
+
 ## Next milestones
 - ⏳ A Linux package (AppImage or Flatpak), published once it has been verified
 - ⏳ A macOS build in CI, then a `.dmg` package once it has been verified

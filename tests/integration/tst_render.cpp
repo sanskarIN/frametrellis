@@ -7,11 +7,13 @@
 #include "media_fixtures.h"
 #include "project/project_serializer.h"
 #include "rendering/render_job.h"
+#include "rendering/render_protocol.h"
 #include "rendering/render_runner.h"
 #include "rendering/self_test.h"
 
 #include <QDir>
 #include <QFile>
+#include <QProcess>
 #include <QSignalSpy>
 #include <QTemporaryDir>
 #include <QTest>
@@ -115,6 +117,29 @@ private slots:
         QVERIFY(isCloseTo(averageColor(frameOf(settings.outputPath, 5)), Qt::green));
         QVERIFY(isCloseTo(averageColor(frameOf(settings.outputPath, 40)), Qt::blue));
         QVERIFY(partFiles().isEmpty());
+    }
+
+    void unicodeExportPathProducesPlayableMedia()
+    {
+        const QString folder = m_dir.filePath(QStringLiteral("चैनल-媒体"));
+        QVERIFY(QDir().mkpath(folder));
+        ExportSettings settings;
+        settings.outputPath = QDir(folder).filePath(QStringLiteral("वीडियो-测试.mp4"));
+        settings.speedPreset = QStringLiteral("ultrafast");
+
+        const std::atomic<bool> cancelled{false};
+        const Status status = RenderRunner(project(25), settings).run(cancelled);
+        QVERIFY2(status, qPrintable(status ? QString() : status.error().toString()));
+        QVERIFY(QFile::exists(settings.outputPath));
+
+        const Result<MediaInfo> info = media::probeMedia(settings.outputPath);
+        QVERIFY(info);
+        QCOMPARE(info->width, 160);
+        QCOMPARE(info->height, 90);
+        QVERIFY(info->hasAudio);
+        QVERIFY(QDir(folder)
+                    .entryList({QStringLiteral("*.part.mp4")}, QDir::Files | QDir::Hidden)
+                    .isEmpty());
     }
 
     void exportPreservesTransparentTitleOverlay()
@@ -308,6 +333,123 @@ private slots:
         QVERIFY(!result);
         QCOMPARE(result.error().code, ErrorCode::Conflict);
         QCOMPARE(QFileInfo(m_video).size(), before);
+    }
+
+    void helperCannotOverwriteProjectWithMp4Extension()
+    {
+        // The headless CLI accepts a valid project document regardless of its filename.
+        // A .mp4-named project must still be protected from export destination replacement.
+        const QString projectFile = m_dir.filePath(QStringLiteral("source-project.mp4"));
+        QVERIFY(project_format::saveToFile(project(25), projectFile));
+        QFile original(projectFile);
+        QVERIFY(original.open(QIODevice::ReadOnly));
+        const QByteArray before = original.readAll();
+        original.close();
+
+        QProcess helper;
+        helper.start(QStringLiteral(FT_RENDER_HELPER),
+                     {QStringLiteral("--project"), projectFile, QStringLiteral("--output"),
+                      projectFile, QStringLiteral("--preset"), QStringLiteral("ultrafast")});
+        QVERIFY2(helper.waitForStarted(10'000), qPrintable(helper.errorString()));
+        QVERIFY2(helper.waitForFinished(30'000), qPrintable(helper.errorString()));
+        QCOMPARE(helper.exitStatus(), QProcess::NormalExit);
+        QCOMPARE(helper.exitCode(), int(protocol::Failure));
+        QVERIFY(helper.readAllStandardOutput().contains("overwrite the project file"));
+        QFile preserved(projectFile);
+        QVERIFY(preserved.open(QIODevice::ReadOnly));
+        QCOMPARE(preserved.readAll(), before);
+        QVERIFY(partFiles().isEmpty());
+    }
+
+    void helperInspectsProjectWithoutProducingAnExport()
+    {
+        const QString source = m_dir.filePath(QStringLiteral("inspect-source.ftproj"));
+        Project p = project(25);
+        QVERIFY(project_format::saveToFile(p, source));
+        QFile existing(source);
+        QVERIFY(existing.open(QIODevice::ReadOnly));
+        const QByteArray original = existing.readAll();
+        existing.close();
+
+        QProcess helper;
+        helper.start(QStringLiteral(FT_RENDER_HELPER),
+                     {QStringLiteral("--inspect-project"), QStringLiteral("--project"), source});
+        QVERIFY2(helper.waitForStarted(10'000), qPrintable(helper.errorString()));
+        QVERIFY2(helper.waitForFinished(15'000), qPrintable(helper.errorString()));
+        QCOMPARE(helper.exitStatus(), QProcess::NormalExit);
+        QCOMPARE(helper.exitCode(), int(protocol::Success));
+        const auto report = protocol::decode(helper.readAllStandardOutput().trimmed());
+        QVERIFY(report);
+        QCOMPARE(report->value(QStringLiteral("event")).toString(),
+                 QStringLiteral("project_inspection"));
+        QCOMPARE(report->value(QStringLiteral("name")).toString(), QStringLiteral("Render"));
+        QCOMPARE(report->value(QStringLiteral("trackCount")).toInt(), 4);
+        QCOMPARE(report->value(QStringLiteral("videoTrackCount")).toInt(), 2);
+        QCOMPARE(report->value(QStringLiteral("audioTrackCount")).toInt(), 2);
+        QCOMPARE(report->value(QStringLiteral("clipCount")).toInt(), 2);
+        QCOMPARE(report->value(QStringLiteral("mediaCount")).toInt(), 2);
+        QCOMPARE(report->value(QStringLiteral("usedMediaCount")).toInt(), 2);
+        QCOMPARE(report->value(QStringLiteral("unusedMediaCount")).toInt(), 0);
+        QCOMPARE(report->value(QStringLiteral("missingMediaCount")).toInt(), 0);
+        QCOMPARE(report->value(QStringLiteral("missingUsedMediaCount")).toInt(), 0);
+        QCOMPARE(report->value(QStringLiteral("durationFrames")).toInt(), 40);
+        QVERIFY(!report->contains(QStringLiteral("filePath")));
+
+        QFile preserved(source);
+        QVERIFY(preserved.open(QIODevice::ReadOnly));
+        QCOMPARE(preserved.readAll(), original);
+        QVERIFY(partFiles().isEmpty());
+
+        // Unavailable source files are reported without making a structurally valid
+        // project unreadable or causing the inspector to fail.
+        MediaAsset offline = p.media().front();
+        offline.filePath = m_dir.filePath(QStringLiteral("not-present.mp4"));
+        QVERIFY(p.replaceAsset(offline));
+        MediaAsset unused = offline;
+        unused.id = createId();
+        unused.name = QStringLiteral("Unused missing file");
+        unused.filePath = m_dir.filePath(QStringLiteral("unused-not-present.mp4"));
+        QVERIFY(p.addAsset(unused));
+        const QString offlinePath = m_dir.filePath(QStringLiteral("inspect-offline.ftproj"));
+        QVERIFY(project_format::saveToFile(p, offlinePath));
+        QProcess second;
+        second.start(QStringLiteral(FT_RENDER_HELPER), {QStringLiteral("--inspect-project"),
+                                                        QStringLiteral("--project"), offlinePath});
+        QVERIFY2(second.waitForStarted(10'000), qPrintable(second.errorString()));
+        QVERIFY2(second.waitForFinished(15'000), qPrintable(second.errorString()));
+        QCOMPARE(second.exitCode(), int(protocol::Success));
+        const auto unavailable = protocol::decode(second.readAllStandardOutput().trimmed());
+        QVERIFY(unavailable);
+        QCOMPARE(unavailable->value(QStringLiteral("mediaCount")).toInt(), 3);
+        QCOMPARE(unavailable->value(QStringLiteral("usedMediaCount")).toInt(), 2);
+        QCOMPARE(unavailable->value(QStringLiteral("unusedMediaCount")).toInt(), 1);
+        QCOMPARE(unavailable->value(QStringLiteral("missingMediaCount")).toInt(), 2);
+        QCOMPARE(unavailable->value(QStringLiteral("missingUsedMediaCount")).toInt(), 1);
+    }
+
+    void helperInspectionRejectsInvalidArgumentAndMissingProject()
+    {
+        QProcess invalidArguments;
+        invalidArguments.start(QStringLiteral(FT_RENDER_HELPER),
+                               {QStringLiteral("--inspect-project"), QStringLiteral("--project"),
+                                m_dir.filePath(QStringLiteral("missing.ftproj")),
+                                QStringLiteral("--output"),
+                                m_dir.filePath(QStringLiteral("should-not-exist.mp4"))});
+        QVERIFY(invalidArguments.waitForStarted(10'000));
+        QVERIFY(invalidArguments.waitForFinished(15'000));
+        QCOMPARE(invalidArguments.exitCode(), int(protocol::BadArguments));
+
+        QProcess missingProject;
+        missingProject.start(QStringLiteral(FT_RENDER_HELPER),
+                             {QStringLiteral("--inspect-project"), QStringLiteral("--project"),
+                              m_dir.filePath(QStringLiteral("missing.ftproj"))});
+        QVERIFY(missingProject.waitForStarted(10'000));
+        QVERIFY(missingProject.waitForFinished(15'000));
+        QCOMPARE(missingProject.exitCode(), int(protocol::Failure));
+        const auto error = protocol::decode(missingProject.readAllStandardOutput().trimmed());
+        QVERIFY(error);
+        QCOMPARE(error->value(QStringLiteral("event")).toString(), QStringLiteral("error"));
+        QVERIFY(!QFile::exists(m_dir.filePath(QStringLiteral("should-not-exist.mp4"))));
     }
 
     void helperProcessEndToEnd()

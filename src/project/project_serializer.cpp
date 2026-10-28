@@ -40,7 +40,7 @@ QJsonObject mediaInfoToJson(const MediaInfo& info)
     o[QLatin1String("audioCodec")] = info.audioCodec;
     o[QLatin1String("fileSize")] = static_cast<double>(info.fileSize);
     if (info.lastModified.isValid()) {
-        o[QLatin1String("lastModified")] = info.lastModified.toUTC().toString(Qt::ISODate);
+        o[QLatin1String("lastModified")] = info.lastModified.toUTC().toString(Qt::ISODateWithMs);
     }
     return o;
 }
@@ -321,6 +321,17 @@ QJsonObject toJson(const Project& project, const QString& projectDir)
     body[QLatin1String("settings")] = settings;
     body[QLatin1String("media")] = media;
     body[QLatin1String("tracks")] = tracks;
+    QJsonArray markers;
+    for (const TimelineMarker& marker : project.markers()) {
+        QJsonObject o;
+        o[QLatin1String("id")] = marker.id;
+        o[QLatin1String("frame")] = static_cast<double>(marker.frame);
+        o[QLatin1String("label")] = marker.label;
+        markers.append(o);
+    }
+    if (!markers.isEmpty()) {
+        body[QLatin1String("markers")] = markers;
+    }
 
     QJsonObject root;
     root[QLatin1String("format")] = QLatin1String(kFormatName);
@@ -482,6 +493,33 @@ Result<Project> fromJson(const QJsonObject& document, const QString& projectDir)
         return r.error();
     }
     project.timeline().restoreTracks(std::move(tracks));
+    // Optional field: legacy v1 projects have no markers. v2 preserves and validates them.
+    const QJsonArray markerArray = r.array(body, "markers", kMaxTimelineMarkers);
+    std::vector<TimelineMarker> markers;
+    for (qsizetype i = 0; i < markerArray.size() && !r.failed(); ++i) {
+        Reader mr(QStringLiteral("$.project.markers[%1]").arg(i));
+        if (!markerArray.at(i).isObject()) {
+            mr.fail(QStringLiteral("marker"), QStringLiteral("expected an object"));
+        }
+        const QJsonObject o = markerArray.at(i).toObject();
+        TimelineMarker marker;
+        marker.id = mr.id(o, "id");
+        marker.frame = mr.integer(o, "frame", 0, kMaxTimelineFrames);
+        marker.label = mr.string(o, "label", true, kMaxMarkerLabelLength);
+        if (marker.label.trimmed().isEmpty() && !mr.failed()) {
+            mr.fail(QStringLiteral("label"), QStringLiteral("must not be blank"));
+        }
+        r.adopt(mr);
+        markers.push_back(std::move(marker));
+    }
+    if (!r.failed()) {
+        if (const Status checked = project.setMarkers(std::move(markers)); !checked) {
+            r.fail(QStringLiteral("markers"), checked.error().message);
+        }
+    }
+    if (r.failed()) {
+        return r.error();
+    }
 
     if (const Status valid = project.validate(); !valid) {
         Error error = valid.error();

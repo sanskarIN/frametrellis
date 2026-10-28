@@ -18,6 +18,8 @@ PanelFrame {
     readonly property alias lanesItem: lanesContent
 
     title: qsTr("Timeline")
+    signal markerAddRequested(real frame)
+    signal markerEditRequested(string markerId, real frame, string label)
 
     function trackAtY(y) {
         const row = Math.floor(y / trackHeight)
@@ -51,6 +53,7 @@ PanelFrame {
         IconButton { iconName: "audio"; text: qsTr("+ Audio"); tip: qsTr("Add an audio track"); onClicked: panel.timeline.addTrack("audio") },
         Rectangle { width: 1; height: 20; color: Theme.border; anchors.verticalCenter: parent ? parent.verticalCenter : undefined },
         IconButton { iconName: "split"; tip: qsTr("Split at playhead (S)"); enabled: !panel.timeline.empty; onClicked: panel.timeline.splitAtPlayhead() },
+        FtButton { text: qsTr("+ Marker"); onClicked: panel.markerAddRequested(panel.app.playback.position) },
         IconButton { iconName: "duplicate"; tip: qsTr("Duplicate selected clip to end of track (Ctrl+D)"); enabled: panel.timeline.selection.length === 1; onClicked: panel.timeline.duplicateSelection() },
         IconButton { iconName: "trash"; tip: qsTr("Delete selected clips (Delete)"); enabled: panel.timeline.selection.length > 0; onClicked: panel.timeline.deleteSelection(false) },
         IconButton { iconName: "ripple"; tip: qsTr("Ripple delete: remove and close the gap (Shift+Delete)"); enabled: panel.timeline.selection.length === 1; onClicked: panel.timeline.deleteSelection(true) },
@@ -102,6 +105,7 @@ PanelFrame {
                 contentX: lanes.contentX
                 pixelsPerFrame: panel.ppf
                 onScrubbed: frame => panel.app.playback.seek(frame)
+                onEditMarker: (id, frame, label) => panel.markerEditRequested(id, frame, label)
             }
             Rectangle { // playhead marker in the ruler
                 x: panel.app.playback.position * panel.ppf - lanes.contentX - 6

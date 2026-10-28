@@ -8,10 +8,16 @@
 #include "engine/mlt_runtime.h"
 #include "media_fixtures.h"
 #include "ui/app_controller.h"
+#include "ui/media_bin_model.h"
 #include "ui/title_image.h"
 
+#include <QClipboard>
 #include <QDir>
+#include <QFile>
 #include <QGuiApplication>
+#include <QJsonArray>
+#include <QJsonDocument>
+#include <QJsonObject>
 #include <QQmlApplicationEngine>
 #include <QQuickItem>
 #include <QQuickStyle>
@@ -39,6 +45,8 @@ private:
     std::unique_ptr<ui::AppController> m_app;
     std::unique_ptr<QQmlApplicationEngine> m_engine;
     QQuickWindow* m_window = nullptr;
+    // Remains alive as long as the warning signal connection does.
+    QList<QQmlError> m_qmlWarnings;
 
     void screenshot(const QString& name)
     {
@@ -113,6 +121,8 @@ private slots:
             m_media = demo.split(QLatin1Char(';'), Qt::SkipEmptyParts);
         } else {
             VideoSpec spec;
+            // Match the default sequence rate for exact-timecode interchange smoke tests.
+            spec.fps = 30;
             spec.size = QSize(320, 180);
             spec.segmentColors = {
                 QColor(QStringLiteral("#1f7a8c")), QColor(QStringLiteral("#e09f3e")),
@@ -132,9 +142,9 @@ private slots:
                                    m_app->createThumbnailProvider());
         m_engine->addImageProvider(QStringLiteral("ft-waveform"), m_app->createWaveformProvider());
         m_engine->setInitialProperties({{QStringLiteral("app"), QVariant::fromValue(m_app.get())}});
-        QList<QQmlError> errors;
+        m_qmlWarnings.clear();
         connect(m_engine.get(), &QQmlEngine::warnings, this,
-                [&errors](const QList<QQmlError>& w) { errors << w; });
+                [this](const QList<QQmlError>& w) { m_qmlWarnings << w; });
         m_engine->loadFromModule("FrameTrellis", "Main");
         QVERIFY(!m_engine->rootObjects().isEmpty());
         m_window = qobject_cast<QQuickWindow*>(m_engine->rootObjects().first());
@@ -142,10 +152,10 @@ private slots:
         m_window->resize(1600, 960);
         QVERIFY(QTest::qWaitForWindowExposed(m_window));
         QTest::qWait(200);
-        for (const QQmlError& e : std::as_const(errors)) {
+        for (const QQmlError& e : std::as_const(m_qmlWarnings)) {
             qWarning() << e.toString();
         }
-        QVERIFY2(errors.isEmpty(), "QML produced warnings while loading");
+        QVERIFY2(m_qmlWarnings.isEmpty(), "QML produced warnings while loading");
     }
 
     void firstRunGuideIsShownAndDismissable()
@@ -176,17 +186,65 @@ private slots:
         QCOMPARE(m_app->media()->model()->rowCount(), static_cast<int>(m_media.size()));
     }
 
+    void mediaBinCanFilterWithoutChangingProject()
+    {
+        ui::MediaBinFilterModel filter;
+        filter.setSourceModel(m_app->media()->model());
+        const int total = filter.count();
+        QVERIFY(total > 0);
+        QCOMPARE(total, m_app->media()->model()->rowCount());
+
+        const QString firstName =
+            m_app->media()->model()->get(0).value(QStringLiteral("name")).toString();
+        QVERIFY(!firstName.isEmpty());
+        filter.setSearchText(firstName.toUpper());
+        QVERIFY(filter.count() >= 1);
+        QCOMPARE(filter.data(filter.index(0, 0), ui::MediaBinModel::NameRole).toString(),
+                 firstName);
+        filter.setSearchText(QStringLiteral("NO_MATCH_MEDIA_BIN_12345"));
+        QCOMPARE(filter.count(), 0);
+        filter.setSearchText(QString());
+        QCOMPARE(filter.count(), total);
+
+        int expectedAudio = 0;
+        for (int i = 0; i < total; ++i) {
+            if (m_app->media()->model()->get(i).value(QStringLiteral("kind")).toString() ==
+                QLatin1String("audio")) {
+                ++expectedAudio;
+            }
+        }
+        filter.setCategory(QStringLiteral("audio"));
+        QCOMPARE(filter.count(), expectedAudio);
+        filter.setCategory(QStringLiteral("offline"));
+        QCOMPARE(filter.count(), 0);
+        filter.setCategory(QStringLiteral("invalid-category"));
+        QCOMPARE(filter.count(), total);
+
+        QQuickItem* grid = findItem(m_window->contentItem(), QStringLiteral("mediaGrid"));
+        QQuickItem* search = findItem(m_window->contentItem(), QStringLiteral("mediaSearchField"));
+        QVERIFY(grid);
+        QVERIFY(search);
+        search->setProperty("text", QStringLiteral("NO_MATCH_MEDIA_BIN_12345"));
+        QTRY_COMPARE(grid->property("count").toInt(), 0);
+        search->setProperty("text", QString());
+        QTRY_COMPARE(grid->property("count").toInt(), total);
+        QCOMPARE(m_app->media()->model()->rowCount(), total);
+    }
+
     void doubleClickingATileAppendsIt()
     {
         QQuickItem* grid = findItem(m_window->contentItem(), QStringLiteral("mediaGrid"));
         QVERIFY(grid);
         const int before = m_app->project()->project().timeline().clipCount();
+        // Clicking a delegate must not produce a QML ReferenceError from view lookup.
+        m_qmlWarnings.clear();
         // The first tile sits at the top-left of the grid.
         const QPoint tile = grid->mapToScene(QPointF(60, 60)).toPoint();
         QTest::mouseDClick(m_window, Qt::LeftButton, Qt::NoModifier, tile);
         QVERIFY(QTest::qWaitFor(
             [&] { return m_app->project()->project().timeline().clipCount() == before + 1; },
             3000));
+        QVERIFY2(m_qmlWarnings.isEmpty(), "Media-bin tile interaction emitted QML warnings");
         // Append the remaining media through the same action.
         for (int row = 1; row < m_app->media()->model()->rowCount(); ++row) {
             QVERIFY(m_app->timeline()->appendAsset(
@@ -198,6 +256,228 @@ private slots:
         m_app->playback()->seek(40);
         QTest::qWait(500);
         screenshot(QStringLiteral("03-timeline"));
+    }
+
+    void slipSelectedClipKeepsPlacementAndIsUndoable()
+    {
+        // The imported video has no spare source at first; trim its end to make
+        // room for a real slip while preserving its position in the sequence.
+        const Clip original = track(0).clips.front();
+        const Timeline before = m_app->project()->project().timeline();
+        QVERIFY(original.duration > 20);
+        QVERIFY(m_app->timeline()->trimEnd(original.id, static_cast<double>(original.end() - 10)));
+        m_app->timeline()->select(original.id, false);
+        QQuickItem* controls =
+            findItem(m_window->contentItem(), QStringLiteral("clipSlipControls"));
+        QVERIFY(controls);
+        QVERIFY(controls->isVisible());
+        QVERIFY(m_app->timeline()->slipSelection(5));
+        const Clip* slipped = m_app->project()->project().timeline().clip(original.id);
+        QVERIFY(slipped);
+        QCOMPARE(slipped->start, original.start);
+        QCOMPARE(slipped->duration, original.duration - FrameCount{10});
+        QCOMPARE(slipped->sourceIn, original.sourceIn + FrameCount{5});
+        QCOMPARE(m_app->project()->undoText(), QStringLiteral("Slip 1 Clip(s)"));
+        m_app->project()->undo();
+        QCOMPARE(m_app->project()->project().timeline().clip(original.id)->sourceIn,
+                 original.sourceIn);
+        m_app->project()->redo();
+        QCOMPARE(m_app->project()->project().timeline().clip(original.id)->sourceIn,
+                 original.sourceIn + FrameCount{5});
+        m_app->project()->undo();
+        m_app->project()->undo();
+        QCOMPARE(m_app->project()->project().timeline(), before);
+        m_app->timeline()->clearSelection();
+    }
+
+    void rollSelectedCutShowsInspectorAndRestoresUndoRedo()
+    {
+        const Clip original = track(0).clips.front();
+        QVERIFY(original.duration > 10);
+        const Timeline initial = m_app->project()->project().timeline();
+        m_app->timeline()->select(original.id, false);
+        m_app->playback()->seek(original.start + original.duration / 2);
+        QVERIFY(m_app->timeline()->splitAtPlayhead());
+        const Clip* left = m_app->project()->project().timeline().clip(original.id);
+        QVERIFY(left);
+        const FrameCount cut = left->end();
+        const Track& splitTrack = track(0);
+        Id rightId;
+        for (const Clip& c : splitTrack.clips) {
+            if (c.id != original.id && c.start == cut) {
+                rightId = c.id;
+                break;
+            }
+        }
+        QVERIFY(!rightId.isEmpty());
+        const FrameCount timelineEnd = m_app->project()->project().timeline().duration();
+        m_app->timeline()->select(original.id, false);
+        QVERIFY(
+            m_app->timeline()->selectedClip().value(QStringLiteral("rollCutAvailable")).toBool());
+        QQuickItem* controls =
+            findItem(m_window->contentItem(), QStringLiteral("clipRollControls"));
+        QVERIFY(controls);
+        QTRY_VERIFY(controls->isVisible());
+        QVERIFY(m_app->timeline()->rollSelection(1));
+        QCOMPARE(m_app->project()->undoText(), QStringLiteral("Roll Cut Right"));
+        QCOMPARE(m_app->project()->project().timeline().clip(original.id)->end(),
+                 cut + FrameCount{1});
+        QCOMPARE(m_app->project()->project().timeline().clip(rightId)->start, cut + FrameCount{1});
+        QCOMPARE(m_app->project()->project().timeline().duration(), timelineEnd);
+        m_app->project()->undo();
+        QCOMPARE(m_app->project()->project().timeline().clip(original.id)->end(), cut);
+        m_app->project()->redo();
+        QCOMPARE(m_app->project()->project().timeline().clip(original.id)->end(),
+                 cut + FrameCount{1});
+        m_app->project()->undo(); // roll
+        m_app->project()->undo(); // split
+        QCOMPARE(m_app->project()->project().timeline(), initial);
+        m_app->timeline()->clearSelection();
+    }
+
+    void goToTimecodeSeeksOnlyForValidPositions()
+    {
+        const double before = m_app->playback()->position();
+        QVERIFY(!m_app->playback()->seekToTimecode(QStringLiteral("invalid")));
+        QCOMPARE(m_app->playback()->position(), before);
+        QVERIFY(!m_app->playback()->seekToTimecode(QStringLiteral("99:00:00:00")));
+        QCOMPARE(m_app->playback()->position(), before);
+
+        QTest::keyClick(m_window, Qt::Key_G, Qt::ControlModifier);
+        QObject* dialog = m_window->findChild<QObject*>(QStringLiteral("goToTimecodeDialog"));
+        QVERIFY(dialog);
+        QTRY_VERIFY(dialog->property("visible").toBool());
+
+        QQuickItem* field = findItem(m_window->contentItem(), QStringLiteral("goToTimecodeField"));
+        QVERIFY(field);
+        field->setProperty("text", QStringLiteral("00:00:01:00"));
+        QVERIFY(QMetaObject::invokeMethod(dialog, "trySeek"));
+        QTRY_VERIFY(!dialog->property("visible").toBool());
+        QCOMPARE(static_cast<FrameCount>(m_app->playback()->position()), FrameCount{30});
+    }
+
+    void markerDialogUndoRedoAndFrameNavigation()
+    {
+        const Project before = m_app->project()->project();
+        const int previousMarkerCount = static_cast<int>(before.markers().size());
+
+        // Exercise the keyboard action and the actual QML form.
+        QTest::keyClick(m_window, Qt::Key_M, Qt::ShiftModifier);
+        QObject* dialog = m_window->findChild<QObject*>(QStringLiteral("markerDialog"));
+        QVERIFY(dialog);
+        QTRY_VERIFY(dialog->property("visible").toBool());
+        QQuickItem* label = findItem(m_window->contentItem(), QStringLiteral("markerLabelField"));
+        QQuickItem* frame = findItem(m_window->contentItem(), QStringLiteral("markerFrameField"));
+        QVERIFY(label);
+        QVERIFY(frame);
+        QVERIFY(label->setProperty("text", QStringLiteral("Review the music beat")));
+        QVERIFY(frame->setProperty("text", QStringLiteral("25")));
+        QVERIFY(QMetaObject::invokeMethod(dialog, "applyChanges"));
+        QTRY_VERIFY(!dialog->property("visible").toBool());
+
+        QCOMPARE(static_cast<int>(m_app->project()->project().markers().size()),
+                 previousMarkerCount + 1);
+        const TimelineMarker created = m_app->project()->project().markers().back();
+        QCOMPARE(created.frame, FrameCount{25});
+        QCOMPARE(created.label, QStringLiteral("Review the music beat"));
+        QCOMPARE(m_app->project()->undoText(), QStringLiteral("Add Marker"));
+
+        // Navigation changes transport only: the timeline and undo history stay intact.
+        const Timeline originalTimeline = m_app->project()->project().timeline();
+        m_app->playback()->seek(5);
+        m_app->timeline()->nextMarker();
+        QCOMPARE(m_app->playback()->positionFrames(), FrameCount{25});
+        m_app->playback()->seek(80);
+        m_app->timeline()->previousMarker();
+        QCOMPARE(m_app->playback()->positionFrames(), FrameCount{25});
+        QCOMPARE(m_app->project()->project().timeline(), originalTimeline);
+        QCOMPARE(m_app->project()->undoText(), QStringLiteral("Add Marker"));
+
+        // Invalid marker commands must not mutate project state or push a new edit.
+        QVERIFY(!m_app->timeline()->updateMarker(created.id, -1, QStringLiteral("Invalid")));
+        QVERIFY(!m_app->timeline()->addMarker(-1, QStringLiteral("Invalid")));
+        QCOMPARE(m_app->project()->project().markers().back(), created);
+        QCOMPARE(m_app->project()->undoText(), QStringLiteral("Add Marker"));
+
+        m_app->project()->undo();
+        QCOMPARE(static_cast<int>(m_app->project()->project().markers().size()),
+                 previousMarkerCount);
+        m_app->project()->redo();
+        QCOMPARE(static_cast<int>(m_app->project()->project().markers().size()),
+                 previousMarkerCount + 1);
+        QVERIFY(m_app->timeline()->removeMarker(created.id));
+        QCOMPARE(m_app->project()->project().markers(), before.markers());
+    }
+
+    void copyChaptersToClipboardWithoutChangingTheEdit()
+    {
+        const Timeline originalTimeline = m_app->project()->project().timeline();
+        const auto originalMarkers = m_app->project()->project().markers();
+        QVERIFY(m_app->timeline()->addMarker(0, QStringLiteral("Opening & Review")));
+        const auto markers = m_app->project()->project().markers();
+        QCOMPARE(markers.size(), originalMarkers.size() + size_t{1});
+        const QString undoLabel = m_app->project()->undoText();
+
+        QVERIFY(m_app->timeline()->copyMarkersAsChapters());
+        QClipboard* clipboard = QGuiApplication::clipboard();
+        QVERIFY(clipboard);
+        QCOMPARE(clipboard->text(), QStringLiteral("00:00:00 Opening & Review"));
+        QVERIFY(m_app->timeline()->copyMarkersAsWebVtt());
+        const QString webVtt = clipboard->text();
+        QVERIFY(webVtt.startsWith(QStringLiteral("WEBVTT\n\n"
+                                                 "00:00:00.000 --> ")));
+        QVERIFY(webVtt.contains(QStringLiteral("\nOpening &amp; Review\n")));
+        QCOMPARE(m_app->project()->undoText(), undoLabel);
+        QCOMPARE(m_app->project()->project().timeline(), originalTimeline);
+        QCOMPARE(m_app->project()->project().markers(), markers);
+
+        QVERIFY(m_app->timeline()->removeMarker(markers.front().id));
+        QCOMPARE(m_app->project()->project().markers(), originalMarkers);
+    }
+
+    void canExportReadOnlyMediaAuditFromController()
+    {
+        const Project before = m_app->project()->project();
+        QVERIFY(!before.media().empty());
+        const bool modified = m_app->project()->isModified();
+        const QString undoLabel = m_app->project()->undoText();
+        const QString reportPath = m_dir.filePath(QStringLiteral("ui-media-audit.json"));
+        QVERIFY(m_app->media()->exportMediaAudit(reportPath));
+        QFile file(reportPath);
+        QVERIFY(file.open(QIODevice::ReadOnly));
+        const QJsonDocument decoded = QJsonDocument::fromJson(file.readAll());
+        QVERIFY(decoded.isObject());
+        const QJsonObject report = decoded.object();
+        QCOMPARE(report.value(QStringLiteral("schemaVersion")).toInt(), 1);
+        QCOMPARE(report.value(QStringLiteral("assets")).toArray().size(),
+                 static_cast<qsizetype>(before.media().size()));
+        QCOMPARE(m_app->project()->project(), before);
+        QCOMPARE(m_app->project()->isModified(), modified);
+        QCOMPARE(m_app->project()->undoText(), undoLabel);
+    }
+
+    void canImportFolderRecursively()
+    {
+        const QString root = m_dir.filePath(QStringLiteral("import-folder"));
+        QVERIFY(QDir().mkpath(root + QStringLiteral("/nested")));
+        const QString still =
+            makeStill(root + QStringLiteral("/nested"), QStringLiteral("extra-still.png"),
+                      QColor(QStringLiteral("#446688")), QSize(32, 18));
+        QVERIFY(!still.isEmpty());
+
+        const int before = m_app->media()->model()->rowCount();
+        QVERIFY(m_app->media()->importFolder(root));
+        QVERIFY(QTest::qWaitFor([&] { return m_app->media()->model()->rowCount() == before + 1; },
+                                15000));
+        QVERIFY(m_app->project()->project().assetByPath(still));
+        QVERIFY(m_app->media()->importFolder(root));
+        QTest::qWait(250);
+        QCOMPARE(m_app->media()->model()->rowCount(), before + 1);
+        const MediaAsset* added = m_app->project()->project().assetByPath(still);
+        QVERIFY(added);
+        const Id addedId = added->id;
+        m_app->media()->remove(addedId);
+        QCOMPARE(m_app->media()->model()->rowCount(), before);
     }
 
     void audioClipsShowTheirWaveform()
@@ -247,6 +527,24 @@ private slots:
         QVERIFY(std::abs(m_app->project()->project().timeline().clip(original.id)->start -
                          original.start) <= 1);
         m_app->timeline()->setSnapping(true);
+    }
+
+    void copyPictureEdlRejectsLayersAndKeepsEditUnchanged()
+    {
+        // A still on V2 hides part of V1; a flattened-looking EDL would be misleading.
+        QVERIFY(!m_app->timeline()->copyPictureAsEdl());
+        const Id stillTrack = track(1).id;
+        QVERIFY(m_app->timeline()->setTrackFlag(stillTrack, QStringLiteral("hidden"), true));
+        const Project before = m_app->project()->project();
+        const QString undoLabel = m_app->project()->undoText();
+        QVERIFY(m_app->timeline()->copyPictureAsEdl());
+        QClipboard* clipboard = QGuiApplication::clipboard();
+        QVERIFY(clipboard);
+        QVERIFY(clipboard->text().startsWith(QStringLiteral("TITLE: ")));
+        QVERIFY(clipboard->text().contains(QStringLiteral("001  FT000001 V     C")));
+        QCOMPARE(m_app->project()->project(), before);
+        QCOMPARE(m_app->project()->undoText(), undoLabel);
+        QVERIFY(m_app->timeline()->setTrackFlag(stillTrack, QStringLiteral("hidden"), false));
     }
 
     void draggingOntoAnotherClipIsRefused()

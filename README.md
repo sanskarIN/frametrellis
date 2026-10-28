@@ -16,11 +16,11 @@ account, no cloud processing, no telemetry and no advertising.
 
 ![The FrameTrellis workspace with media bin, program monitor, clip inspector and a three-track timeline](docs/images/workspace.png)
 
-> **Latest stable release: 1.2.2.** Faster MP4 export includes Quick and Turbo H.264
-> profiles, optional no-upscale output and live render-speed feedback.
-> Download released Windows installers and portable ZIPs from the
-> [releases page](https://github.com/sanskarIN/frametrellis/releases).
-> On Linux, build from source. Keep backups of important projects.
+> **Latest stable release: 1.3.0.** Safer project saves and media identity,
+> searchable media bin, Go to Timecode (Ctrl+G), and read-only project inspection.
+> Download the verified Windows installer or portable ZIP from the
+> [v1.3.0 release](https://github.com/sanskarIN/frametrellis/releases/tag/v1.3.0).
+> On Linux, build from source. Back up important projects.
 
 
 ## Features
@@ -32,7 +32,8 @@ What works today (each item is implemented and covered by automated tests):
 - [x] Import video, audio and still images (common formats FFmpeg can decode), probed in the
       background with real thumbnails; duplicate imports are detected
 - [x] Missing-media detection with offline placeholders and relinking; projects resolve media
-      relative to a moved project folder
+      relative to a moved project folder; duplicate canonical media paths are refused
+- [x] Search and category-filter the media bin without removing any project assets
 - [x] Multi-track timeline with any number of video and audio tracks (up to 99)
 - [x] Drag media from the bin onto tracks, move clips (also between tracks), trim either edge,
       split at the playhead, delete and ripple delete — overlapping edits are refused, not destructive
@@ -40,7 +41,7 @@ What works today (each item is implemented and covered by automated tests):
 - [x] Create transparent PNG title overlays with font size and colour choices, stored beside
       the saved project and editable on the timeline as ordinary image clips
 - [x] Snapping to clip edges and the playhead, zoom, frame-accurate timecode (including
-      drop-frame for 29.97/59.94 fps)
+      drop-frame for 29.97/59.94 fps), and Go to Timecode (Ctrl+G)
 - [x] Real-time preview with audio (SDL2), seeking, frame stepping and edit-point navigation
 - [x] Track mute, hide and lock; clip volume, mute, fade in/out and opacity; batch mute/unmute,
       copy/paste clip attributes and reset picture adjustments for multi-selections
@@ -51,6 +52,8 @@ What works today (each item is implemented and covered by automated tests):
 - [x] Export to MP4 (H.264 + AAC) with Quick and Turbo profiles, no-upscale controls,
       real-time render frames/s, quality and encoder-speed settings, in a separate process
       with progress, cancellation and verification of the result
+- [x] Read-only project inspection via `frametrellis-render --inspect-project --project FILE`,
+      including media and track counts without revealing source paths
 - [x] Autosave every minute and crash recovery
 - [x] Recent projects, dark and light themes, keyboard shortcuts, first-run guide
 

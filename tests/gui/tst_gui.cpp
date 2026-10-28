@@ -348,10 +348,18 @@ private slots:
         QVERIFY(controls->isVisible());
         QQuickItem* add = findItem(m_window->contentItem(), QStringLiteral("addAudioKeyframe"));
         QVERIFY(add && add->isEnabled());
+        QQuickItem* inspectorScroll =
+            findItem(m_window->contentItem(), QStringLiteral("inspectorScroll"));
+        QVERIFY(inspectorScroll);
+        QObject* inspectorFlick = inspectorScroll->property("contentItem").value<QObject*>();
+        QVERIFY(inspectorFlick);
+        inspectorFlick->setProperty("contentY", std::max(0.0, controls->y() - 15));
+        QTest::qWait(50);
         m_qmlWarnings.clear();
-        QVERIFY(QMetaObject::invokeMethod(add, "clicked"));
-        QCOMPARE(m_app->project()->project().timeline().clip(original.id)->audioKeyframes.size(),
-                 size_t{1});
+        QTest::mouseClick(m_window, Qt::LeftButton, Qt::NoModifier, centreOf(add));
+        QTRY_COMPARE(
+            m_app->project()->project().timeline().clip(original.id)->audioKeyframes.size(),
+            size_t{1});
         QQuickItem* level = findItem(m_window->contentItem(), QStringLiteral("audioKeyframeLevel"));
         QVERIFY(level && level->isEnabled());
         QVERIFY(QMetaObject::invokeMethod(level, "moved", Q_ARG(double, -6.0)));
@@ -372,12 +380,26 @@ private slots:
         QQuickItem* item = clipItem(original.id);
         QVERIFY(item);
         QVERIFY(item->property("audioEnvelope").toList().size() >= 4);
+        const double previousZoom = m_app->timeline()->pixelsPerFrame();
+        m_app->timeline()->setPixelsPerFrame(24);
+        QQuickItem* envelope = findItem(item, QStringLiteral("audioEnvelope:") + original.id);
+        QVERIFY(envelope);
+        QQuickItem* lanes = findItem(m_window->contentItem(), QStringLiteral("timelineLanes"));
+        QVERIFY(lanes);
+        QTRY_VERIFY(item->width() > lanes->width());
+        QTRY_VERIFY(envelope->width() > 0 && envelope->width() <= lanes->width());
+        lanes->setProperty("contentX", static_cast<double>(original.start * 24 + 200));
+        QTRY_VERIFY(envelope->x() >= 200);
+        QVERIFY(envelope->width() <= lanes->width());
+        m_app->timeline()->setPixelsPerFrame(previousZoom);
+        lanes->setProperty("contentX", 0);
         QQuickItem* remove =
             findItem(m_window->contentItem(), QStringLiteral("removeAudioKeyframe"));
         QVERIFY(remove && remove->isEnabled());
-        QVERIFY(QMetaObject::invokeMethod(remove, "clicked"));
-        QCOMPARE(m_app->project()->project().timeline().clip(original.id)->audioKeyframes.size(),
-                 size_t{1});
+        QTest::mouseClick(m_window, Qt::LeftButton, Qt::NoModifier, centreOf(remove));
+        QTRY_COMPARE(
+            m_app->project()->project().timeline().clip(original.id)->audioKeyframes.size(),
+            size_t{1});
         m_app->project()->undo();
         QCOMPARE(m_app->project()->project().timeline(), automated);
         m_app->project()->redo();
@@ -387,12 +409,14 @@ private slots:
         QCOMPARE(m_app->project()->project().timeline(), automated);
         QTest::qWait(100);
         QVERIFY2(m_qmlWarnings.isEmpty(), "Volume keyframe controls emitted QML warnings");
+        m_app->showStatus(QString());
         screenshot(QStringLiteral("09-volume-keyframes"));
         m_app->project()->undo(); // second point
         m_app->project()->undo(); // first point slider drag
         m_app->project()->undo(); // add first point
         QCOMPARE(m_app->project()->project().timeline(), initial);
         m_app->timeline()->clearSelection();
+        inspectorFlick->setProperty("contentY", 0);
     }
 
     void goToTimecodeSeeksOnlyForValidPositions()

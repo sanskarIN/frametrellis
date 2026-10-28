@@ -26,6 +26,7 @@ PanelFrame {
 
     ScrollView {
         id: scroll
+        objectName: "inspectorScroll"
         anchors.fill: parent
         anchors.margins: Theme.spacingM
         contentWidth: availableWidth

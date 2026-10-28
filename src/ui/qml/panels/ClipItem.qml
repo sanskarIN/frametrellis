@@ -101,14 +101,18 @@ Rectangle {
     Canvas {
         id: envelopeCanvas
         objectName: "audioEnvelope:" + clip.clipId
-        anchors.fill: parent
+        // Allocate only the visible strip, even when a zoomed clip is hours long.
+        readonly property real visibleStart: Math.max(clip.x, clip.timelinePanel.viewportLeft)
+        x: visibleStart - clip.x
+        width: Math.max(0, Math.min(clip.x + clip.width, clip.timelinePanel.viewportLeft + clip.timelinePanel.viewportWidth) - visibleStart)
+        height: clip.height
         visible: clip.audioEnvelope.length > 0 && clip.width > 8 && height > 26
         onPaint: {
             const ctx = getContext("2d")
             ctx.reset()
             const points = clip.audioEnvelope
             if (points.length === 0) return
-            const pointX = p => p.frame * clip.ppf
+            const pointX = p => p.frame * clip.ppf - envelopeCanvas.x
             const pointY = p => height - 5 - ((p.decibels + 60) / 72) * (height - 25)
             ctx.strokeStyle = Theme.clipText
             ctx.fillStyle = Theme.clipText
@@ -129,10 +133,12 @@ Rectangle {
         }
         onWidthChanged: requestPaint()
         onHeightChanged: requestPaint()
+        onXChanged: requestPaint()
         Connections {
             target: clip
             function onAudioEnvelopeChanged() { envelopeCanvas.requestPaint() }
             function onSelectedChanged() { envelopeCanvas.requestPaint() }
+            function onPpfChanged() { envelopeCanvas.requestPaint() }
         }
     }
 

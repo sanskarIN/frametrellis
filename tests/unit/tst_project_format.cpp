@@ -599,11 +599,14 @@ private slots:
         QVERIFY(project.replaceAsset(saved));
 
         const QJsonObject report = media_audit::buildReport(project);
-        const QJsonObject asset = report.value(QStringLiteral("assets")).toArray().first().toObject();
+        const QJsonObject asset =
+            report.value(QStringLiteral("assets")).toArray().first().toObject();
         QCOMPARE(asset.value(QStringLiteral("status")).toString(), QStringLiteral("changed"));
-        QVERIFY(asset.value(QStringLiteral("changeReasons")).toArray().contains(
-            QStringLiteral("modified")));
-        QVERIFY(asset.value(QStringLiteral("storedModifiedUtc")).toString().contains(QLatin1Char('.')));
+        QVERIFY(asset.value(QStringLiteral("changeReasons"))
+                    .toArray()
+                    .contains(QStringLiteral("modified")));
+        QVERIFY(
+            asset.value(QStringLiteral("storedModifiedUtc")).toString().contains(QLatin1Char('.')));
 
         const QByteArray serialized = project_format::toBytes(project);
         Result<Project> restored = project_format::fromBytes(serialized);
@@ -624,8 +627,7 @@ private slots:
         const QJsonObject legacyReport = media_audit::buildReport(*restored);
         const QJsonObject legacyEntry =
             legacyReport.value(QStringLiteral("assets")).toArray().first().toObject();
-        QCOMPARE(legacyEntry.value(QStringLiteral("status")).toString(),
-                 QStringLiteral("online"));
+        QCOMPARE(legacyEntry.value(QStringLiteral("status")).toString(), QStringLiteral("online"));
     }
 
     void mediaAuditEmptyProjectHasValidSchema()

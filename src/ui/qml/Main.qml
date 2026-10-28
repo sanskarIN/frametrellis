@@ -17,7 +17,7 @@ ApplicationWindow {
     // Single-key editing shortcuts are disabled while a dialog is open, so that keys such as
     // Space, Delete or the arrows act on the dialog instead of the timeline.
     readonly property bool dialogOpen: newDialog.visible || titleDialog.visible || exportDialog.visible || aboutDialog.visible
-                                       || shortcutsDialog.visible || welcome.visible || messageBox.visible
+                                       || shortcutsDialog.visible || goToTimecodeDialog.visible || markerDialog.visible || welcome.visible || messageBox.visible
                                        || unsavedDialog.visible || exportRunningDialog.visible || recoveryDialog.visible
     readonly property bool editKeys: !dialogOpen
 
@@ -140,6 +140,7 @@ ApplicationWindow {
                 onTriggered: mediaAuditDialog.open()
             }
             Action { text: qsTr("Create &Title…"); onTriggered: titleDialog.open() }
+            Action { text: qsTr("Copy Picture EDL (CMX3600)"); enabled: window.editKeys && !window.app.timeline.empty; onTriggered: window.app.timeline.copyPictureAsEdl() }
             Action { text: qsTr("&Export…"); shortcut: "Ctrl+E"; enabled: !window.app.timeline.empty || window.app.exporter.busy; onTriggered: exportDialog.open() }
             MenuSeparator {}
             Action { text: qsTr("&Quit"); shortcut: StandardKey.Quit; onTriggered: window.close() }
@@ -158,6 +159,22 @@ ApplicationWindow {
                 Action { text: qsTr("Right 1 Frame"); shortcut: "Alt+Right"; onTriggered: window.app.timeline.nudgeSelection(1) }
                 Action { text: qsTr("Left 10 Frames"); shortcut: "Alt+Shift+Left"; onTriggered: window.app.timeline.nudgeSelection(-10) }
                 Action { text: qsTr("Right 10 Frames"); shortcut: "Alt+Shift+Right"; onTriggered: window.app.timeline.nudgeSelection(10) }
+            }
+            Menu {
+                title: qsTr("Slip Selected Clips (Source)")
+                enabled: window.editKeys && window.app.timeline.selection.length > 0
+                Action { text: qsTr("Earlier 1 Frame"); shortcut: "Ctrl+Alt+Left"; onTriggered: window.app.timeline.slipSelection(-1) }
+                Action { text: qsTr("Later 1 Frame"); shortcut: "Ctrl+Alt+Right"; onTriggered: window.app.timeline.slipSelection(1) }
+                Action { text: qsTr("Earlier 10 Frames"); shortcut: "Ctrl+Alt+Shift+Left"; onTriggered: window.app.timeline.slipSelection(-10) }
+                Action { text: qsTr("Later 10 Frames"); shortcut: "Ctrl+Alt+Shift+Right"; onTriggered: window.app.timeline.slipSelection(10) }
+            }
+            Menu {
+                title: qsTr("Roll Cut After Selected Clip")
+                enabled: window.editKeys && window.app.timeline.selection.length === 1
+                Action { text: qsTr("Earlier 1 Frame"); onTriggered: window.app.timeline.rollSelection(-1) }
+                Action { text: qsTr("Later 1 Frame"); onTriggered: window.app.timeline.rollSelection(1) }
+                Action { text: qsTr("Earlier 10 Frames"); onTriggered: window.app.timeline.rollSelection(-10) }
+                Action { text: qsTr("Later 10 Frames"); onTriggered: window.app.timeline.rollSelection(10) }
             }
             Action { text: qsTr("Copy Clip &Attributes"); shortcut: "Ctrl+Alt+C"; enabled: window.editKeys && window.app.timeline.selection.length === 1; onTriggered: window.app.timeline.copySelectionAttributes() }
             Action { text: qsTr("&Paste Clip Attributes"); shortcut: "Ctrl+Alt+V"; enabled: window.editKeys && window.app.timeline.selection.length > 0 && window.app.timeline.hasCopiedClipAttributes; onTriggered: window.app.timeline.pasteSelectionAttributes() }
@@ -196,6 +213,13 @@ ApplicationWindow {
             Action { text: qsTr("Forward One Second"); shortcut: "Shift+Right"; enabled: window.editKeys; onTriggered: window.app.playback.step(Math.round(window.app.timeline.frameRate)) }
             Action { text: qsTr("Previous Edit Point"); shortcut: "Up"; enabled: window.editKeys; onTriggered: window.app.timeline.previousEditPoint() }
             Action { text: qsTr("Next Edit Point"); shortcut: "Down"; enabled: window.editKeys; onTriggered: window.app.timeline.nextEditPoint() }
+            Action { text: qsTr("&Go to Timecode…"); shortcut: "Ctrl+G"; enabled: window.editKeys && !window.app.timeline.empty; onTriggered: goToTimecodeDialog.open() }
+            MenuSeparator {}
+            Action { text: qsTr("Add Timeline &Marker…"); shortcut: "Shift+M"; enabled: window.editKeys; onTriggered: markerDialog.openNew(window.app.playback.position) }
+            Action { text: qsTr("Previous Marker"); shortcut: "Ctrl+PgUp"; enabled: window.editKeys && window.app.timeline.markers.length > 0; onTriggered: window.app.timeline.previousMarker() }
+            Action { text: qsTr("Next Marker"); shortcut: "Ctrl+PgDown"; enabled: window.editKeys && window.app.timeline.markers.length > 0; onTriggered: window.app.timeline.nextMarker() }
+            Action { text: qsTr("Copy Markers as Video Chapters"); enabled: window.editKeys && window.app.timeline.markers.length > 0; onTriggered: window.app.timeline.copyMarkersAsChapters() }
+            Action { text: qsTr("Copy Markers as WebVTT Chapters"); enabled: window.editKeys && window.app.timeline.markers.length > 0; onTriggered: window.app.timeline.copyMarkersAsWebVtt() }
             Action { text: qsTr("Go to Start"); shortcut: "Home"; enabled: window.editKeys; onTriggered: window.app.playback.goToStart() }
             Action { text: qsTr("Go to End"); shortcut: "End"; enabled: window.editKeys; onTriggered: window.app.playback.goToEnd() }
             MenuSeparator {}
@@ -295,6 +319,8 @@ ApplicationWindow {
         }
 
         TimelinePanel {
+            onMarkerAddRequested: frame => markerDialog.openNew(frame)
+            onMarkerEditRequested: (id, frame, label) => markerDialog.openExisting(id, frame, label)
             id: timelinePanel
             app: window.app
             SplitView.fillHeight: true
@@ -400,6 +426,8 @@ ApplicationWindow {
     ExportDialog { id: exportDialog; objectName: "exportDialog"; app: window.app }
     AboutDialog { id: aboutDialog; objectName: "aboutDialog"; app: window.app }
     ShortcutsDialog { id: shortcutsDialog }
+    GoToTimecodeDialog { id: goToTimecodeDialog; objectName: "goToTimecodeDialog"; app: window.app }
+    MarkerDialog { id: markerDialog; objectName: "markerDialog"; app: window.app }
     WelcomeOverlay { id: welcome; objectName: "welcome"; app: window.app; onImportRequested: importDialog.open() }
     MessageBox { id: messageBox }
 

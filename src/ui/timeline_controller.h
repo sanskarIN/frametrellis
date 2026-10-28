@@ -8,6 +8,7 @@
 #include <QObject>
 #include <QQmlEngine>
 #include <QSet>
+#include <QVariantList>
 #include <QVariantMap>
 
 #include <optional>
@@ -30,6 +31,7 @@ class TimelineController : public QObject
     Q_PROPERTY(double maxPixelsPerFrame READ maxPixelsPerFrame CONSTANT)
     Q_PROPERTY(bool snapping READ snapping WRITE setSnapping NOTIFY snappingChanged)
     Q_PROPERTY(QStringList selection READ selection NOTIFY selectionChanged)
+    Q_PROPERTY(QVariantList markers READ markers NOTIFY markersChanged)
     Q_PROPERTY(bool hasCopiedClipAttributes READ hasCopiedClipAttributes NOTIFY
                    copiedClipAttributesChanged)
     Q_PROPERTY(QVariantMap selectedClip READ selectedClip NOTIFY selectedClipChanged)
@@ -52,6 +54,7 @@ public:
     [[nodiscard]] bool snapping() const { return m_snapping; }
     void setSnapping(bool snapping);
     [[nodiscard]] QStringList selection() const;
+    [[nodiscard]] QVariantList markers() const;
     [[nodiscard]] bool hasCopiedClipAttributes() const
     {
         return m_copiedClipAttributes.has_value();
@@ -92,6 +95,10 @@ public:
     Q_INVOKABLE bool duplicateSelection();
     /// Shift all selected clips by signed project frames without changing their source trims.
     Q_INVOKABLE bool nudgeSelection(int frames);
+    /// Slip source time on every selected clip, keeping track placement and clip duration.
+    Q_INVOKABLE bool slipSelection(int frames);
+    /// Adjust the cut following one selected outgoing clip, without moving outer edit edges.
+    Q_INVOKABLE bool rollSelection(int frames);
     /// Stores the attributes of one selected clip and applies them to later selections.
     Q_INVOKABLE bool copySelectionAttributes();
     Q_INVOKABLE bool pasteSelectionAttributes();
@@ -124,6 +131,20 @@ public:
     Q_INVOKABLE bool setTrackFlag(const QString& trackId, const QString& flag, bool value);
     Q_INVOKABLE bool renameTrack(const QString& trackId, const QString& name);
 
+    // Persistent timeline review markers, independent of clip and media edits.
+    Q_INVOKABLE bool addMarker(double frame, const QString& label);
+    Q_INVOKABLE bool updateMarker(const QString& id, double frame, const QString& label);
+    Q_INVOKABLE bool removeMarker(const QString& id);
+    Q_INVOKABLE void seekToMarker(const QString& id);
+    Q_INVOKABLE void previousMarker();
+    Q_INVOKABLE void nextMarker();
+    /// Copies validated sequence markers as HH:MM:SS chapter lines for video publishing.
+    Q_INVOKABLE bool copyMarkersAsChapters();
+    /// Place an HTML5/WebVTT chapter-track document on the clipboard.
+    Q_INVOKABLE bool copyMarkersAsWebVtt();
+    /// Copies a cuts-only CMX3600 picture edit decision list (non-destructive).
+    Q_INVOKABLE bool copyPictureAsEdl();
+
     // Navigation and zoom
     Q_INVOKABLE void previousEditPoint();
     Q_INVOKABLE void nextEditPoint();
@@ -134,6 +155,7 @@ public:
 signals:
     void zoomChanged();
     void snappingChanged();
+    void markersChanged();
     void selectionChanged();
     void copiedClipAttributesChanged();
     void selectedClipChanged();

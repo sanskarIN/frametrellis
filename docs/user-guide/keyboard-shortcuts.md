@@ -7,10 +7,15 @@
 | Shift+Left / Shift+Right | Back / forward one second |
 | Up / Down | Previous / next edit point |
 | Home / End | Go to start / end |
+| Ctrl+G | Jump to a SMPTE timecode within the sequence |
+| Shift+M | Add a named timeline marker |
+| Ctrl+PageUp / Ctrl+PageDown | Jump to previous / next timeline marker |
 | S | Split at playhead |
 | Ctrl+D | Duplicate one clip at the end of its track, or a multi-clip selection after the timeline while preserving relative spacing |
 | Alt+Left / Alt+Right | Move selected clips one frame left / right; rejects overlap or locked tracks |
 | Alt+Shift+Left / Alt+Shift+Right | Move selected clips ten frames left / right as one undoable operation |
+| Ctrl+Alt+Left / Ctrl+Alt+Right | Slip selected video/audio clips one source frame earlier / later without moving their timeline positions |
+| Ctrl+Alt+Shift+Left / Ctrl+Alt+Shift+Right | Slip selected clips ten source frames earlier / later in one undo step |
 | Ctrl+Alt+C | Copy volume, fades, mute and picture adjustments from one selected clip |
 | Ctrl+Alt+V | Paste copied clip attributes to selected clips in one undoable action |
 | Ctrl+Alt+M | Mute audio on the selected clips |

@@ -32,7 +32,7 @@ QJsonObject buildReport(const Project& project)
             exists && asset.info.fileSize > 0 && file.size() != asset.info.fileSize;
         const bool timeChanged =
             exists && asset.info.lastModified.isValid() &&
-            file.lastModified().toSecsSinceEpoch() != asset.info.lastModified.toSecsSinceEpoch();
+            file.lastModified().toMSecsSinceEpoch() != asset.info.lastModified.toMSecsSinceEpoch();
         const bool changed = sizeChanged || timeChanged;
         const QString status = !exists   ? QStringLiteral("missing")
                                : changed ? QStringLiteral("changed")
@@ -61,12 +61,12 @@ QJsonObject buildReport(const Project& project)
         entry.insert(QStringLiteral("storedBytes"), QString::number(asset.info.fileSize));
         if (asset.info.lastModified.isValid()) {
             entry.insert(QStringLiteral("storedModifiedUtc"),
-                         asset.info.lastModified.toUTC().toString(Qt::ISODate));
+                         asset.info.lastModified.toUTC().toString(Qt::ISODateWithMs));
         }
         if (exists) {
             entry.insert(QStringLiteral("currentBytes"), QString::number(file.size()));
             entry.insert(QStringLiteral("currentModifiedUtc"),
-                         file.lastModified().toUTC().toString(Qt::ISODate));
+                         file.lastModified().toUTC().toString(Qt::ISODateWithMs));
         }
         QJsonArray changeReasons;
         if (sizeChanged) {
@@ -92,7 +92,7 @@ QJsonObject buildReport(const Project& project)
     report.insert(QStringLiteral("projectName"), project.name());
     report.insert(QStringLiteral("projectId"), project.id());
     report.insert(QStringLiteral("checkedAtUtc"),
-                  QDateTime::currentDateTimeUtc().toString(Qt::ISODate));
+                  QDateTime::currentDateTimeUtc().toString(Qt::ISODateWithMs));
     report.insert(QStringLiteral("summary"), summary);
     report.insert(QStringLiteral("assets"), assets);
     return report;

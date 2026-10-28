@@ -5,6 +5,7 @@
 
 #include <QDir>
 #include <QFile>
+#include <QFileInfo>
 #include <QJsonArray>
 #include <QJsonDocument>
 #include <QTemporaryDir>
@@ -322,6 +323,49 @@ private slots:
         QVERIFY(!project_format::fromJson(root));
     }
 
+    void rejectsDuplicateMediaPathsWhenLoading()
+    {
+        QJsonObject root = validDocument();
+        QJsonObject body;
+        projectBody(root, body);
+        QJsonArray media = body[QLatin1String("media")].toArray();
+        QJsonObject duplicate = media.at(0).toObject();
+        duplicate[QLatin1String("id")] = QStringLiteral("unique-alias-id");
+        // Different IDs and spellings must not permit the same media twice.
+        duplicate[QLatin1String("path")] = QStringLiteral("/media/../media/clip.mp4");
+        media.append(duplicate);
+        body[QLatin1String("media")] = media;
+        root[QLatin1String("project")] = body;
+        QVERIFY(!project_format::fromJson(root));
+    }
+
+    void rejectsDuplicateMediaPathsInProjectApi()
+    {
+        Project project = makeProject(QStringLiteral("/media"));
+        const QString original = project.asset(QStringLiteral("m3"))->filePath;
+
+        const MediaAsset duplicate =
+            makeAsset(QStringLiteral("new-id"), QStringLiteral("/media/../media/clip.mp4"),
+                      MediaKind::Video, 1'000'000);
+        const Status rejected = project.addAsset(duplicate);
+        QVERIFY(!rejected);
+        QCOMPARE(rejected.error().code, ErrorCode::Conflict);
+
+        MediaAsset replacement = *project.asset(QStringLiteral("m3"));
+        replacement.filePath = duplicate.filePath;
+        const Status replaced = project.replaceAsset(replacement);
+        QVERIFY(!replaced);
+        QCOMPARE(replaced.error().code, ErrorCode::Conflict);
+        QCOMPARE(project.asset(QStringLiteral("m3"))->filePath, original);
+        QVERIFY(project.validate());
+
+        // Valid new assets are still accepted.
+        QVERIFY(
+            project.addAsset(makeAsset(QStringLiteral("fresh-id"), QStringLiteral("/media/new.mp4"),
+                                       MediaKind::Video, 1'000'000)));
+        QVERIFY(project.validate());
+    }
+
     void ignoresUnknownFields()
     {
         QJsonObject root = validDocument();
@@ -534,6 +578,32 @@ private slots:
         QVERIFY(source.open(QIODevice::ReadOnly));
         QCOMPARE(source.readAll(), original);
 #endif
+    }
+
+    void mediaAuditRecognizesSameSecondModificationDifferences()
+    {
+        QTemporaryDir dir;
+        QVERIFY(dir.isValid());
+        Project project = makeProject(dir.path());
+        QFile file(dir.filePath(QStringLiteral("clip.mp4")));
+        QVERIFY(file.open(QIODevice::WriteOnly));
+        QCOMPARE(file.write("same", 4), qint64{4});
+        file.close();
+
+        MediaAsset saved = *project.asset(QStringLiteral("m1"));
+        const QDateTime actual = QFileInfo(file.fileName()).lastModified();
+        QVERIFY(actual.isValid());
+        saved.info.fileSize = 4;
+        saved.info.lastModified = actual.addMSecs(actual.time().msec() == 0 ? 1 : -1);
+        QCOMPARE(saved.info.lastModified.toSecsSinceEpoch(), actual.toSecsSinceEpoch());
+        QVERIFY(project.replaceAsset(saved));
+
+        const QJsonObject report = media_audit::buildReport(project);
+        const QJsonObject asset = report.value(QStringLiteral("assets")).toArray().first().toObject();
+        QCOMPARE(asset.value(QStringLiteral("status")).toString(), QStringLiteral("changed"));
+        QVERIFY(asset.value(QStringLiteral("changeReasons")).toArray().contains(
+            QStringLiteral("modified")));
+        QVERIFY(asset.value(QStringLiteral("storedModifiedUtc")).toString().contains(QLatin1Char('.')));
     }
 
     void mediaAuditEmptyProjectHasValidSchema()

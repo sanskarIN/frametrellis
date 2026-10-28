@@ -37,6 +37,13 @@ std::unique_ptr<EditCommand> moveClip(const Id& clipId, const Id& targetTrackId,
 std::unique_ptr<EditCommand> nudgeClips(const QList<Id>& clipIds, FrameCount delta);
 std::unique_ptr<EditCommand> trimClipStart(const Id& clipId, FrameCount newStart);
 std::unique_ptr<EditCommand> trimClipEnd(const Id& clipId, FrameCount newEnd);
+/// Slip selected time-based clips through their source without moving their timeline edges.
+/// All clips must fit, keep required transition handles and be on unlocked tracks.
+/// The command is atomic and undoable, even for multi-track selections.
+std::unique_ptr<EditCommand> slipClips(const QList<Id>& clipIds, FrameCount delta);
+/// Rolls the shared cut after the outgoing clip. Source trims, fades and existing
+/// transitions are validated atomically; the edit is one undo/redo step.
+std::unique_ptr<EditCommand> rollCut(const Id& fromClipId, FrameCount delta);
 /// Splits every given clip that spans the frame. Fails when none does.
 std::unique_ptr<EditCommand> splitClips(const QList<Id>& clipIds, FrameCount frame);
 /// Updates clip properties; consecutive updates of the same clip merge into one undo step.

@@ -30,6 +30,12 @@ with their PRs, behavior, tests and any known limitations.
   atomic selection edits, undo/redo, transition-handle validation and tests.
   This remains a v1.4 proposal until CI and desktop review pass.
 
+- Roll-cut editing (feature PR in progress): a selected outgoing clip can move its
+  shared cut with the next touching video/audio clip by one or ten frames,
+  preserving the combined timeline length and validating source handles, fades,
+  track locks and transitions. Includes inspector controls, undo/redo and tests.
+  This is not shipped in the stable v1.3.0 release.
+
 ## Proposals not yet shipped
 
 - Timeline navigation enhancements and Zoom to Selection (PR #70).

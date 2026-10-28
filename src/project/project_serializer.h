@@ -19,7 +19,7 @@ namespace ft {
 namespace project_format {
 
 inline constexpr const char* kFormatName = "org.frametrellis.project";
-inline constexpr int kCurrentVersion = 2;
+inline constexpr int kCurrentVersion = 3;
 inline constexpr qint64 kMaxDocumentBytes = 64LL * 1024 * 1024;
 inline constexpr const char* kFileSuffix = "ftproj";
 

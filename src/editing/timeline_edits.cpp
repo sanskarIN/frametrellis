@@ -477,6 +477,33 @@ std::unique_ptr<EditCommand> resetClipPictures(const QList<Id>& clipIds)
                    });
 }
 
+std::unique_ptr<EditCommand> setAudioKeyframe(const Id& clipId, FrameCount sourceFrame,
+                                              double decibels)
+{
+    return command(
+        QStringLiteral("Set Volume Keyframe"),
+        [clipId, sourceFrame, decibels](Timeline& timeline, const SourceLookup& sources) {
+            return timeline.setAudioKeyframe(clipId, sourceFrame, decibels, sources);
+        },
+        QStringLiteral("audio-keyframe:%1:%2").arg(clipId).arg(sourceFrame));
+}
+
+std::unique_ptr<EditCommand> removeAudioKeyframe(const Id& clipId, FrameCount sourceFrame)
+{
+    return command(QStringLiteral("Remove Volume Keyframe"),
+                   [clipId, sourceFrame](Timeline& timeline, const SourceLookup&) {
+                       return timeline.removeAudioKeyframe(clipId, sourceFrame);
+                   });
+}
+
+std::unique_ptr<EditCommand> clearAudioKeyframes(const Id& clipId)
+{
+    return command(QStringLiteral("Clear Volume Keyframes"),
+                   [clipId](Timeline& timeline, const SourceLookup&) {
+                       return timeline.clearAudioKeyframes(clipId);
+                   });
+}
+
 std::unique_ptr<EditCommand> addTransition(const Id& fromClipId, FrameCount duration,
                                            const Id& transitionId)
 {

@@ -1,7 +1,8 @@
 # Project file format (`.ftproj`)
 
 A project is a UTF-8 JSON document. The **v2 development format** adds optional
-sequence-level markers; this abridged example shows the new shape. v1 files still load.
+sequence-level markers; this abridged example shows that shape. The **v3 development
+format** additionally preserves clip volume automation. v1 and v2 files still load.
 
 ```json
 {
@@ -58,6 +59,20 @@ sequence-level markers; this abridged example shows the new shape. v1 files stil
 * Project **format v2** is written by the development version to avoid silently losing
   markers when opened by v1 editors; the v1.3.0 editor cannot open these files.
   Back up projects before upgrading. Loading format v1 remains supported.
+* Clips may contain `audioKeyframes` in **format v3**:
+  `[{"sourceFrame":30,"decibels":0.0},{"sourceFrame":90,"decibels":-12.0}]`.
+  Source frames use the project frame rate, are integers in `[0, 1000000000]`, and
+  must be strictly increasing and unique. Levels must be finite numbers in
+  `[-60, 12]`. At most 1000 points per clip are accepted; the clip's media must have audio.
+* Keyframes are anchored to the source, independently for each clip. They remain in
+  the file outside the current trim, so trimming back out restores the envelope.
+  Levels interpolate linearly in dB and hold at the first/last point outside the curve.
+  An absent or empty curve is neutral (0 dB). Automation combines with clip gain,
+  fades and mute; it does not change track placement or media files.
+* The writer chooses v3 only when at least one clip has a nonempty audio envelope.
+  Projects without automation remain v2, including after all points are cleared.
+  Older v2 development builds refuse v3 rather than losing automation. A v1/v2
+  document containing nonempty `audioKeyframes` is rejected as inconsistent.
 * `relativePath` is relative to the folder containing the project file. When `path` does not
   exist but the relative location does, the relative one is used (projects can be moved
   together with their media).

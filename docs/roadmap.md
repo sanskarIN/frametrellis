@@ -113,16 +113,18 @@ Acceptance criteria, each checked before the release:
   from the still-unrecorded manual desktop smoke-test checklist
 
 ## v1.4.0 — Professional workflow candidates 🚧
-- 🚧 Video-description chapter handoff from review cues with exact rational frame clocks
-- 🚧 Video chapters copied from markers for descriptions and HTML5 WebVTT tracks
-- 🚧 Timeline review markers with names, frame-accurate placement, undoable commands,
-  previous/next navigation, ruler visuals, snapping and versioned project persistence
+- Integrated on main: persistent review markers, chapter/WebVTT chapter copy,
+  cuts-only picture EDL export, source slip and roll editing (PRs #75–#79, #82).
+- 🚧 Volume keyframes: source-anchored decibel envelopes, inspector controls,
+  timeline curves and matching preview/MP4 export; development candidate with
+  format v3 only for projects containing automation. Not in stable v1.3.0.
 - 🚧 Media inventory export, recursive folder imports and removal of unused references
   (existing separate PRs; unmerged until integrated tests pass)
-- 🚧 Roll edit candidate: move an adjacent video/audio cut while preserving the
-  combined duration, source handles, fades and existing transitions (review pending)
 - ⏳ Validate Linux, Windows and sanitizer CI and conduct manual editor smoke tests
   before labeling this milestone a preview or stable release
+
+The [professional-editor assessment](development/pro-editor-assessment.md) records
+the audited source state, concrete capability gaps and the next implementation order.
 
 ## Next milestones
 - ⏳ A Linux package (AppImage or Flatpak), published once it has been verified

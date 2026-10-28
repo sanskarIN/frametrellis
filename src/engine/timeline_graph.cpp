@@ -71,6 +71,40 @@ void attachAudioFilters(Mlt::Profile& profile, Mlt::Producer& cut, const Clip& c
     cut.attach(volume);
 }
 
+/// A second gain stage keeps automation independent of the clip's overall volume and fades.
+/// Filter animation positions are relative to filter-in, including transition source handles.
+Status attachAudioKeyframes(Mlt::Profile& profile, Mlt::Producer& cut, const Clip& clip)
+{
+    if (clip.audioKeyframes.empty()) {
+        return {};
+    }
+    if (!MltRuntime::capabilities().volumeFilter) {
+        return makeError(ErrorCode::Engine,
+                         QStringLiteral("Volume keyframes need the audio volume filter."));
+    }
+    Mlt::Filter volume(profile, "volume");
+    if (!volume.is_valid()) {
+        return makeError(ErrorCode::Engine,
+                         QStringLiteral("Could not prepare the volume keyframe filter."));
+    }
+    volume.set_in_and_out(cut.get_in(), cut.get_out());
+    const FrameCount first = cut.get_in();
+    const FrameCount last = cut.get_out();
+    QStringList points;
+    points << keyframes({{0, audioKeyframeDecibels(clip.audioKeyframes, first)}});
+    for (const AudioKeyframe& point : clip.audioKeyframes) {
+        if (point.sourceFrame > first && point.sourceFrame < last) {
+            points << keyframes({{point.sourceFrame - first, point.decibels}});
+        }
+    }
+    if (last > first) {
+        points << keyframes({{last - first, audioKeyframeDecibels(clip.audioKeyframes, last)}});
+    }
+    volume.set("level", points.join(QLatin1Char(';')).toUtf8().constData());
+    cut.attach(volume);
+    return {};
+}
+
 /// Applies video fades, opacity and picture adjustments (see attachAudioFilters for @p offset).
 void attachVideoFilters(Mlt::Profile& profile, Mlt::Producer& cut, const Clip& clip,
                         FrameCount offset)
@@ -304,6 +338,10 @@ Result<GraphBuildResult> TimelineGraphBuilder::build(const Project& project,
                 }
                 cut->set("ft.clip", clip.id.toUtf8().constData());
                 attachAudioFilters(m_profile, *cut, clip, before);
+                if (const Status automation = attachAudioKeyframes(m_profile, *cut, clip);
+                    !automation) {
+                    return automation.error();
+                }
                 if (track.kind == TrackKind::Video) {
                     attachVideoFilters(m_profile, *cut, clip, before);
                 }

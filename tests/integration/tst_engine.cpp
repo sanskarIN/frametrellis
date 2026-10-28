@@ -349,6 +349,59 @@ private slots:
         QVERIFY(isCloseTo(averageColor(renderAt(p, 10)), Qt::white));
     }
 
+    void volumeKeyframesFollowSourceTimeAndCombineWithGainAndMute()
+    {
+        QList<Id> ids;
+        Project p = projectWith({m_media.tone}, &ids);
+        const Id trackId = p.timeline().tracks()[2].id;
+        const Clip clip = clipOf(ids[0], 5, 5, 40);
+        QVERIFY(p.timeline().insertClip(trackId, clip, p.sourceLookup()));
+        const int full = audioPeakAt(p, 15); // source frame 15
+        QVERIFY(full > 8000);
+        QVERIFY(p.timeline().setAudioKeyframe(clip.id, 5, 0, p.sourceLookup()));
+        QVERIFY(p.timeline().setAudioKeyframe(clip.id, 25, -20, p.sourceLookup()));
+        QVERIFY(p.timeline().setAudioKeyframe(clip.id, 44, 0, p.sourceLookup()));
+        const int midpoint = audioPeakAt(p, 15); // -10 dB
+        QVERIFY2(midpoint > full * 0.28 && midpoint < full * 0.36,
+                 qPrintable(QStringLiteral("interpolated %1 / %2").arg(midpoint).arg(full)));
+        const int low = audioPeakAt(p, 25); // -20 dB
+        QVERIFY(low > full * 0.08 && low < full * 0.13);
+        ClipProperties properties;
+        properties.gain = 0.5;
+        QVERIFY(p.timeline().setClipProperties(clip.id, properties));
+        const int combined = audioPeakAt(p, 15);
+        QVERIFY(combined > midpoint * 0.45 && combined < midpoint * 0.55);
+        properties.muted = true;
+        QVERIFY(p.timeline().setClipProperties(clip.id, properties));
+        QVERIFY(audioPeakAt(p, 15) < 50);
+        properties.muted = false;
+        properties.gain = 1.0;
+        QVERIFY(p.timeline().setClipProperties(clip.id, properties));
+        const int beforeTrim = audioPeakAt(p, 20);
+        QVERIFY(p.timeline().trimClipStart(clip.id, 12, p.sourceLookup()));
+        QCOMPARE(audioPeakAt(p, 20), beforeTrim);
+        QVERIFY(p.timeline().splitClip(clip.id, 22, QStringLiteral("automation-right")));
+        QVERIFY(qAbs(audioPeakAt(p, 25) - low) < full * 0.025);
+    }
+
+    void volumeKeyframesRemainActiveAcrossTransitionHandles()
+    {
+        QList<Id> ids;
+        Project p = projectWith({m_media.red, m_media.blue}, &ids);
+        const Id trackId = p.timeline().tracks()[0].id;
+        const Clip outgoing = clipOf(ids[0], 0, 10, 35);
+        const Clip incoming = clipOf(ids[1], 35, 15, 35);
+        QVERIFY(p.timeline().insertClip(trackId, outgoing, p.sourceLookup()));
+        QVERIFY(p.timeline().insertClip(trackId, incoming, p.sourceLookup()));
+        QVERIFY(p.timeline().addTransition(outgoing.id, 10, p.sourceLookup()));
+        const int baseline = audioPeakAt(p, 35);
+        QVERIFY(baseline > 1000);
+        QVERIFY(p.timeline().setAudioKeyframe(outgoing.id, 10, -12, p.sourceLookup()));
+        const int automated = audioPeakAt(p, 35);
+        QVERIFY2(automated > baseline * 0.20 && automated < baseline * 0.30,
+                 qPrintable(QStringLiteral("transition %1 / %2").arg(automated).arg(baseline)));
+    }
+
     void transitionsDissolveAndCrossfade()
     {
         QList<Id> ids;

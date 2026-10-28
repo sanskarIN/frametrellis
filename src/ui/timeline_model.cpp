@@ -59,6 +59,25 @@ QVariant ClipListModel::data(const QModelIndex& index, int role) const
                    : QStringLiteral("image://ft-thumbnail/%1").arg(c.assetId);
     case WaveformRole:
         return row.waveform;
+    case AudioEnvelopeRole: {
+        QVariantList points;
+        if (c.audioKeyframes.empty()) {
+            return points;
+        }
+        const auto append = [&](FrameCount frame, double decibels, bool keyframe) {
+            points.append(QVariantMap{{QStringLiteral("frame"), static_cast<double>(frame)},
+                                      {QStringLiteral("decibels"), decibels},
+                                      {QStringLiteral("keyframe"), keyframe}});
+        };
+        append(0, audioKeyframeDecibels(c.audioKeyframes, c.sourceIn), false);
+        for (const AudioKeyframe& point : c.audioKeyframes) {
+            if (point.sourceFrame >= c.sourceIn && point.sourceFrame < c.sourceOut()) {
+                append(point.sourceFrame - c.sourceIn, point.decibels, true);
+            }
+        }
+        append(c.duration - 1, audioKeyframeDecibels(c.audioKeyframes, c.sourceOut() - 1), false);
+        return points;
+    }
     default:
         return {};
     }
@@ -81,7 +100,8 @@ QHash<int, QByteArray> ClipListModel::roleNames() const
             {FadeInRole, "fadeIn"},
             {FadeOutRole, "fadeOut"},
             {ThumbnailRole, "thumbnail"},
-            {WaveformRole, "waveform"}};
+            {WaveformRole, "waveform"},
+            {AudioEnvelopeRole, "audioEnvelope"}};
 }
 
 void ClipListModel::setClips(const Track& track, const Project& project, const QSet<Id>& selection)

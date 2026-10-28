@@ -35,6 +35,7 @@ class TimelineController : public QObject
     Q_PROPERTY(bool hasCopiedClipAttributes READ hasCopiedClipAttributes NOTIFY
                    copiedClipAttributesChanged)
     Q_PROPERTY(QVariantMap selectedClip READ selectedClip NOTIFY selectedClipChanged)
+    Q_PROPERTY(QVariantMap audioAutomation READ audioAutomation NOTIFY audioAutomationChanged)
     Q_PROPERTY(
         QVariantMap selectedTransition READ selectedTransition NOTIFY selectedTransitionChanged)
     Q_PROPERTY(double duration READ duration NOTIFY durationChanged)
@@ -60,6 +61,7 @@ public:
         return m_copiedClipAttributes.has_value();
     }
     [[nodiscard]] QVariantMap selectedClip() const;
+    [[nodiscard]] QVariantMap audioAutomation() const;
     [[nodiscard]] double duration() const;
     [[nodiscard]] double frameRate() const;
     [[nodiscard]] bool empty() const;
@@ -116,6 +118,13 @@ public:
     Q_INVOKABLE bool resetPictureAdjustments(const QString& clipId);
     Q_INVOKABLE void endEdit();
 
+    // Volume automation for the single selected clip; point edits require a paused playhead.
+    Q_INVOKABLE bool setAudioKeyframeAtPlayhead(double decibels);
+    Q_INVOKABLE bool removeAudioKeyframeAtPlayhead();
+    Q_INVOKABLE bool clearSelectedAudioKeyframes();
+    Q_INVOKABLE void previousAudioKeyframe();
+    Q_INVOKABLE void nextAudioKeyframe();
+
     // Transitions
     [[nodiscard]] QVariantMap selectedTransition() const;
     /// Adds a transition (one second, or less if the media does not allow it) at the cut after
@@ -159,6 +168,7 @@ signals:
     void selectionChanged();
     void copiedClipAttributesChanged();
     void selectedClipChanged();
+    void audioAutomationChanged();
     void selectedTransitionChanged();
     void durationChanged();
     void canAppendTitleChanged();
@@ -171,6 +181,8 @@ private:
     [[nodiscard]] FrameCount stillDuration() const;
     [[nodiscard]] const Project& project() const;
     [[nodiscard]] std::optional<FrameCount> placementLength(const MediaAsset& asset) const;
+    [[nodiscard]] const Clip* singleSelectedClip() const;
+    void seekAudioKeyframe(bool forward);
 
     ProjectController* m_project;
     PlaybackController* m_playback;

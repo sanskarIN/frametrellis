@@ -29,6 +29,7 @@ Rectangle {
     required property string thumbnail
     required property string waveform
     required property real gain
+    required property var audioEnvelope
 
     readonly property real ppf: app.timeline.pixelsPerFrame
     readonly property real snapTolerance: 8 / Math.max(ppf, 0.0001)
@@ -94,6 +95,45 @@ Rectangle {
         sourceSize.height: 20
         color: Theme.clipAudioEdge
         opacity: clip.muted ? 0.35 : 0.8
+    }
+
+    // Source-anchored volume envelope; diamonds are actual points, boundary samples are lines.
+    Canvas {
+        id: envelopeCanvas
+        objectName: "audioEnvelope:" + clip.clipId
+        anchors.fill: parent
+        visible: clip.audioEnvelope.length > 0 && clip.width > 8 && height > 26
+        onPaint: {
+            const ctx = getContext("2d")
+            ctx.reset()
+            const points = clip.audioEnvelope
+            if (points.length === 0) return
+            const pointX = p => p.frame * clip.ppf
+            const pointY = p => height - 5 - ((p.decibels + 60) / 72) * (height - 25)
+            ctx.strokeStyle = Theme.clipText
+            ctx.fillStyle = Theme.clipText
+            ctx.lineWidth = clip.selected ? 2 : 1
+            ctx.beginPath()
+            ctx.moveTo(pointX(points[0]), pointY(points[0]))
+            for (let i = 1; i < points.length; ++i) ctx.lineTo(pointX(points[i]), pointY(points[i]))
+            ctx.stroke()
+            for (let i = 0; i < points.length; ++i) {
+                if (!points[i].keyframe) continue
+                const x = pointX(points[i])
+                const y = pointY(points[i])
+                ctx.beginPath()
+                ctx.moveTo(x, y - 3); ctx.lineTo(x + 3, y)
+                ctx.lineTo(x, y + 3); ctx.lineTo(x - 3, y)
+                ctx.closePath(); ctx.fill()
+            }
+        }
+        onWidthChanged: requestPaint()
+        onHeightChanged: requestPaint()
+        Connections {
+            target: clip
+            function onAudioEnvelopeChanged() { envelopeCanvas.requestPaint() }
+            function onSelectedChanged() { envelopeCanvas.requestPaint() }
+        }
     }
 
     // Fade ramps

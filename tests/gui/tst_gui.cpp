@@ -26,6 +26,8 @@
 #include <QThreadPool>
 #include <QtQml/qqmlextensionplugin.h>
 
+#include <limits>
+
 Q_IMPORT_QML_PLUGIN(FrameTrellisPlugin)
 
 using namespace ft;
@@ -327,6 +329,68 @@ private slots:
                  cut + FrameCount{1});
         m_app->project()->undo(); // roll
         m_app->project()->undo(); // split
+        QCOMPARE(m_app->project()->project().timeline(), initial);
+        m_app->timeline()->clearSelection();
+    }
+
+    void volumeKeyframeInspectorNavigationAndUndo()
+    {
+        m_app->playback()->pause();
+        const Clip original = track(0).clips.front();
+        const Timeline initial = m_app->project()->project().timeline();
+        QVERIFY(original.duration > 40);
+        m_app->timeline()->select(original.id, false);
+        m_app->playback()->seek(static_cast<double>(original.start + 10));
+        QTRY_VERIFY(m_app->timeline()->audioAutomation().value(QStringLiteral("canEdit")).toBool());
+        QQuickItem* controls =
+            findItem(m_window->contentItem(), QStringLiteral("audioKeyframeControls"));
+        QVERIFY(controls);
+        QVERIFY(controls->isVisible());
+        QQuickItem* add = findItem(m_window->contentItem(), QStringLiteral("addAudioKeyframe"));
+        QVERIFY(add && add->isEnabled());
+        m_qmlWarnings.clear();
+        QVERIFY(QMetaObject::invokeMethod(add, "clicked"));
+        QCOMPARE(m_app->project()->project().timeline().clip(original.id)->audioKeyframes.size(),
+                 size_t{1});
+        QQuickItem* level = findItem(m_window->contentItem(), QStringLiteral("audioKeyframeLevel"));
+        QVERIFY(level && level->isEnabled());
+        QVERIFY(QMetaObject::invokeMethod(level, "moved", Q_ARG(double, -6.0)));
+        QVERIFY(QMetaObject::invokeMethod(level, "moved", Q_ARG(double, -12.0)));
+        m_app->timeline()->endEdit();
+        QCOMPARE(
+            m_app->project()->project().timeline().clip(original.id)->audioKeyframes[0].decibels,
+            -12.0);
+        m_app->playback()->seek(static_cast<double>(original.start + 30));
+        QVERIFY(m_app->timeline()->setAudioKeyframeAtPlayhead(-24));
+        m_app->timeline()->endEdit();
+        const Timeline automated = m_app->project()->project().timeline();
+        m_app->timeline()->previousAudioKeyframe();
+        QCOMPARE(m_app->playback()->positionFrames(), original.start + 10);
+        m_app->timeline()->nextAudioKeyframe();
+        QCOMPARE(m_app->playback()->positionFrames(), original.start + 30);
+        QCOMPARE(m_app->project()->project().timeline(), automated);
+        QQuickItem* item = clipItem(original.id);
+        QVERIFY(item);
+        QVERIFY(item->property("audioEnvelope").toList().size() >= 4);
+        QQuickItem* remove =
+            findItem(m_window->contentItem(), QStringLiteral("removeAudioKeyframe"));
+        QVERIFY(remove && remove->isEnabled());
+        QVERIFY(QMetaObject::invokeMethod(remove, "clicked"));
+        QCOMPARE(m_app->project()->project().timeline().clip(original.id)->audioKeyframes.size(),
+                 size_t{1});
+        m_app->project()->undo();
+        QCOMPARE(m_app->project()->project().timeline(), automated);
+        m_app->project()->redo();
+        m_app->project()->undo();
+        QVERIFY(!m_app->timeline()->setAudioKeyframeAtPlayhead(
+            std::numeric_limits<double>::quiet_NaN()));
+        QCOMPARE(m_app->project()->project().timeline(), automated);
+        QTest::qWait(100);
+        QVERIFY2(m_qmlWarnings.isEmpty(), "Volume keyframe controls emitted QML warnings");
+        screenshot(QStringLiteral("09-volume-keyframes"));
+        m_app->project()->undo(); // second point
+        m_app->project()->undo(); // first point slider drag
+        m_app->project()->undo(); // add first point
         QCOMPARE(m_app->project()->project().timeline(), initial);
         m_app->timeline()->clearSelection();
     }

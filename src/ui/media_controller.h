@@ -46,6 +46,8 @@ public:
     Q_INVOKABLE void remove(const QString& assetId);
     Q_INVOKABLE bool relink(const QString& assetId, const QString& urlOrPath);
     Q_INVOKABLE void rescan();
+    /// Save a read-only media inventory JSON without modifying project or source files.
+    Q_INVOKABLE bool exportMediaAudit(const QString& urlOrPath);
     /// Opens the folder that contains the asset's file in the system file manager.
     Q_INVOKABLE void revealInFolder(const QString& assetId) const;
 

@@ -5,12 +5,18 @@ GitHub release description. Unreleased changes are collected in [unreleased.md](
 
 | Version | Notes |
 |---|---|
+| 1.3.0 | [v1.3.0.md](v1.3.0.md) — source safety, searchable media bin, timecode navigation and render diagnostics (published stable) |
 | 1.2.2 | [v1.2.2.md](v1.2.2.md) — faster MP4 export presets and verified resolution safety |
 | 1.2.1 | [v1.2.1.md](v1.2.1.md) — startup diagnostics and Windows package verification |
 | 1.2.0 | [v1.2.0.md](v1.2.0.md) — multi-clip editing, clip attributes clipboard and batch adjustments |
 | 1.1.1 | [v1.1.1.md](v1.1.1.md) — title creation guard and export regression tests |
 | 1.1.0 | [v1.1.0.md](v1.1.0.md) — clip duplication, title overlays and container renderer |
 | 1.0.0 | [v1.0.0.md](v1.0.0.md) — the first stable release |
+
+The stable [v1.3.0 GitHub release](https://github.com/sanskarIN/frametrellis/releases/tag/v1.3.0)
+contains verified Windows download assets. See the
+[versioned verification report](v1.3.0-verification.md) for the automated
+release gates and manual testing distinction.
 
 ## Publishing a release
 

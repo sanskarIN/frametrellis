@@ -3,13 +3,21 @@
 #include "ui/timeline_controller.h"
 
 #include "core/timecode.h"
+#include "editing/marker_edits.h"
 #include "editing/timeline_edits.h"
 #include "engine/mlt_runtime.h"
+#include "project/edl_export.h"
+#include "project/marker_chapters.h"
 #include "ui/media_bin_model.h"
 #include "ui/playback_controller.h"
 #include "ui/project_controller.h"
 
+#include <QClipboard>
+#include <QGuiApplication>
+
+#include <algorithm>
 #include <cmath>
+#include <iterator>
 
 namespace ft::ui {
 
@@ -46,6 +54,9 @@ void TimelineController::onProjectChanged(const ChangeSet& changes)
     m_model.update(project(), changes.trackStructure, changes.media || changes.settings,
                    changes.tracks, m_selection);
     emit durationChanged();
+    if (changes.markers) {
+        emit markersChanged();
+    }
     if (changes.trackStructure || !changes.tracks.isEmpty()) {
         emit canAppendTitleChanged();
     }
@@ -85,6 +96,122 @@ void TimelineController::setTransitionSelection(const Id& transitionId)
     emit selectedTransitionChanged();
 }
 
+bool TimelineController::addMarker(double frame, const QString& label)
+{
+    if (!std::isfinite(frame) || frame < 0 || frame > kMaxTimelineFrames ||
+        std::trunc(frame) != frame || frame > duration()) {
+        emit statusMessage(QStringLiteral("Place the marker at a frame within the sequence."));
+        return false;
+    }
+    return m_project->execute(
+        edits::addMarker({createId(), static_cast<FrameCount>(frame), label.trimmed()}));
+}
+
+bool TimelineController::updateMarker(const QString& id, double frame, const QString& label)
+{
+    if (!std::isfinite(frame) || frame < 0 || frame > kMaxTimelineFrames ||
+        std::trunc(frame) != frame) {
+        emit statusMessage(QStringLiteral("The marker frame is invalid."));
+        return false;
+    }
+    return m_project->execute(edits::updateMarker(id, static_cast<FrameCount>(frame), label));
+}
+
+bool TimelineController::removeMarker(const QString& id)
+{
+    return m_project->execute(edits::removeMarker(id));
+}
+
+void TimelineController::seekToMarker(const QString& id)
+{
+    for (const TimelineMarker& marker : project().markers()) {
+        if (marker.id == id) {
+            if (marker.frame > project().timeline().duration()) {
+                emit statusMessage(
+                    QStringLiteral("This marker is beyond the current sequence end."));
+                return;
+            }
+            m_playback->seek(static_cast<double>(marker.frame));
+            return;
+        }
+    }
+    emit statusMessage(QStringLiteral("The sequence marker was not found."));
+}
+
+void TimelineController::previousMarker()
+{
+    const FrameCount current = m_playback->positionFrames();
+    const auto& points = project().markers();
+    const auto it = std::lower_bound(
+        points.begin(), points.end(), current,
+        [](const TimelineMarker& marker, FrameCount frame) { return marker.frame < frame; });
+    if (it != points.begin()) {
+        m_playback->seek(static_cast<double>(std::prev(it)->frame));
+    }
+}
+
+void TimelineController::nextMarker()
+{
+    const FrameCount current = m_playback->positionFrames();
+    for (const TimelineMarker& marker : project().markers()) {
+        if (marker.frame > current && marker.frame <= project().timeline().duration()) {
+            m_playback->seek(static_cast<double>(marker.frame));
+            return;
+        }
+    }
+}
+
+bool TimelineController::copyMarkersAsWebVtt()
+{
+    const auto text = chapters::toWebVtt(project());
+    if (!text) {
+        emit statusMessage(text.error().message);
+        return false;
+    }
+    QClipboard* clipboard = QGuiApplication::clipboard();
+    if (!clipboard) {
+        emit statusMessage(QStringLiteral("The system clipboard is unavailable."));
+        return false;
+    }
+    clipboard->setText(*text);
+    emit statusMessage(QStringLiteral("Copied WebVTT chapters to clipboard."));
+    return true;
+}
+
+bool TimelineController::copyMarkersAsChapters()
+{
+    const auto chapters = chapters::toText(project());
+    if (!chapters) {
+        emit statusMessage(chapters.error().message);
+        return false;
+    }
+    QClipboard* clipboard = QGuiApplication::clipboard();
+    if (!clipboard) {
+        emit statusMessage(QStringLiteral("The system clipboard is unavailable."));
+        return false;
+    }
+    clipboard->setText(*chapters);
+    emit statusMessage(QStringLiteral("Copied timeline chapters to clipboard."));
+    return true;
+}
+
+bool TimelineController::copyPictureAsEdl()
+{
+    const auto result = interchange::toCmx3600(project());
+    if (!result) {
+        emit statusMessage(result.error().message);
+        return false;
+    }
+    QClipboard* clipboard = QGuiApplication::clipboard();
+    if (!clipboard) {
+        emit statusMessage(QStringLiteral("The system clipboard is unavailable."));
+        return false;
+    }
+    clipboard->setText(*result);
+    emit statusMessage(QStringLiteral("Copied picture edit decision list (CMX3600)."));
+    return true;
+}
+
 void TimelineController::setPixelsPerFrame(double value)
 {
     value = std::clamp(value, minPixelsPerFrame(), maxPixelsPerFrame());
@@ -106,6 +233,20 @@ void TimelineController::setSnapping(bool snapping)
         m_snapping = snapping;
         emit snappingChanged();
     }
+}
+
+QVariantList TimelineController::markers() const
+{
+    QVariantList result;
+    for (const TimelineMarker& marker : project().markers()) {
+        result.append(
+            QVariantMap{{QStringLiteral("id"), marker.id},
+                        {QStringLiteral("frame"), static_cast<double>(marker.frame)},
+                        {QStringLiteral("label"), marker.label},
+                        {QStringLiteral("timecode"),
+                         timecode::format(marker.frame, project().settings().frameRate)}});
+    }
+    return result;
 }
 
 QStringList TimelineController::selection() const
@@ -159,6 +300,16 @@ QVariantMap TimelineController::selectedClip() const
     const MediaAsset* asset = project().asset(clip->assetId);
     const ClipProperties& p = clip->properties;
     const FrameRate& rate = project().settings().frameRate;
+    bool rollCutAvailable = false;
+    if (const auto location = project().timeline().findClip(clipId)) {
+        const auto& clips = track->clips;
+        const size_t index = static_cast<size_t>(location->clip);
+        if (index + 1 < clips.size() && clips[index].end() == clips[index + 1].start) {
+            const MediaAsset* nextAsset = project().asset(clips[index + 1].assetId);
+            rollCutAvailable = asset && nextAsset && asset->lengthInFrames(rate).has_value() &&
+                               nextAsset->lengthInFrames(rate).has_value();
+        }
+    }
     return {
         {QStringLiteral("count"), 1},
         {QStringLiteral("clipId"), clip->id},
@@ -169,13 +320,18 @@ QVariantMap TimelineController::selectedClip() const
         {QStringLiteral("trackName"), track->name},
         {QStringLiteral("trackKind"), trackKindToString(track->kind)},
         {QStringLiteral("locked"), track->locked},
+        {QStringLiteral("rollCutAvailable"), rollCutAvailable},
         {QStringLiteral("offline"), !asset || asset->status == MediaStatus::Missing},
         {QStringLiteral("start"), static_cast<double>(clip->start)},
         {QStringLiteral("duration"), static_cast<double>(clip->duration)},
         {QStringLiteral("startText"), timecode::format(clip->start, rate)},
         {QStringLiteral("endText"), timecode::format(clip->end(), rate)},
         {QStringLiteral("durationText"), timecode::formatClock(clip->duration, rate)},
+        {QStringLiteral("sourceIn"), static_cast<double>(clip->sourceIn)},
+        {QStringLiteral("sourceLength"),
+         asset ? static_cast<double>(asset->lengthInFrames(rate).value_or(-1)) : -1.0},
         {QStringLiteral("sourceInText"), timecode::format(clip->sourceIn, rate)},
+        {QStringLiteral("sourceOutText"), timecode::format(clip->sourceOut(), rate)},
         {QStringLiteral("hasAudio"), asset && asset->info.hasAudio},
         {QStringLiteral("hasVideo"),
          asset && asset->info.hasVideo && track->kind == TrackKind::Video},
@@ -332,6 +488,9 @@ double TimelineController::snapFrame(double frame, const QString& excludeClipId,
         return static_cast<double>(candidate);
     }
     std::vector<FrameCount> points = project().timeline().editPoints(excludeClipId);
+    for (const TimelineMarker& marker : project().markers()) {
+        points.push_back(marker.frame);
+    }
     points.push_back(m_playback->positionFrames());
     std::sort(points.begin(), points.end());
     const auto snapped =
@@ -348,6 +507,9 @@ double TimelineController::snapClipStart(double start, double duration,
         return static_cast<double>(std::max<FrameCount>(candidate, 0));
     }
     std::vector<FrameCount> points = project().timeline().editPoints(excludeClipId);
+    for (const TimelineMarker& marker : project().markers()) {
+        points.push_back(marker.frame);
+    }
     points.push_back(m_playback->positionFrames());
     std::sort(points.begin(), points.end());
     const auto tolerance = static_cast<FrameCount>(std::ceil(toleranceFrames));
@@ -453,6 +615,43 @@ bool TimelineController::nudgeSelection(int frames)
     }
     emit statusMessage(
         QStringLiteral("Moved %1 clip(s) by %2 frame(s).").arg(ids.size()).arg(frames));
+    return true;
+}
+
+bool TimelineController::slipSelection(int frames)
+{
+    if (m_selection.isEmpty()) {
+        emit statusMessage(QStringLiteral("Select one or more clips to slip."));
+        return false;
+    }
+    if (frames == 0) {
+        return false;
+    }
+    QList<Id> ids(m_selection.cbegin(), m_selection.cend());
+    std::sort(ids.begin(), ids.end());
+    if (!m_project->execute(edits::slipClips(ids, static_cast<FrameCount>(frames)))) {
+        return false;
+    }
+    emit statusMessage(
+        QStringLiteral("Slipped %1 clip(s) by %2 source frame(s).").arg(ids.size()).arg(frames));
+    return true;
+}
+
+bool TimelineController::rollSelection(int frames)
+{
+    if (m_selection.size() != 1) {
+        emit statusMessage(
+            QStringLiteral("Select exactly one outgoing (left) clip to roll its following cut."));
+        return false;
+    }
+    if (frames == 0) {
+        return false;
+    }
+    const Id outgoing = *m_selection.cbegin();
+    if (!m_project->execute(edits::rollCut(outgoing, static_cast<FrameCount>(frames)))) {
+        return false;
+    }
+    emit statusMessage(QStringLiteral("Rolled the cut by %1 frame(s).").arg(frames));
     return true;
 }
 

@@ -5,6 +5,7 @@
 #include "project/project_serializer.h"
 
 #include <QFile>
+#include <QFileInfo>
 #include <QSignalSpy>
 #include <QTemporaryDir>
 #include <QTest>
@@ -82,6 +83,106 @@ private slots:
         QVERIFY(f.doc.redo());
         QCOMPARE(f.doc.project(), afterMove);
         QVERIFY(!f.doc.redo());
+    }
+
+    void slipMultiTrackSelectionAndUndoRedo()
+    {
+        Fixture f;
+        Clip video = clipOf(QStringLiteral("m1"), 30, 80, QStringLiteral("picture"));
+        video.sourceIn = 20;
+        Clip sound = clipOf(QStringLiteral("m1"), 50, 60, QStringLiteral("audio"));
+        sound.sourceIn = 100;
+        sound.properties.gain = 0.4;
+        QVERIFY(f.doc.execute(edits::addClip(f.v1, video)));
+        QVERIFY(f.doc.execute(edits::addClip(f.a1, sound)));
+        const Project original = f.doc.project();
+        QVERIFY(f.doc.execute(
+            edits::slipClips({QStringLiteral("picture"), QStringLiteral("audio")}, 15)));
+        const Timeline& shifted = f.doc.project().timeline();
+        QCOMPARE(shifted.clip(video.id)->sourceIn, FrameCount{35});
+        QCOMPARE(shifted.clip(sound.id)->sourceIn, FrameCount{115});
+        QCOMPARE(shifted.clip(video.id)->start, video.start);
+        QCOMPARE(shifted.clip(video.id)->duration, video.duration);
+        QCOMPARE(shifted.clip(sound.id)->start, sound.start);
+        QCOMPARE(shifted.clip(sound.id)->properties.gain, sound.properties.gain);
+        QCOMPARE(f.doc.undoText(), QStringLiteral("Slip 2 Clip(s)"));
+        const Project slipped = f.doc.project();
+        QVERIFY(f.doc.undo());
+        QCOMPARE(f.doc.project(), original);
+        QVERIFY(f.doc.redo());
+        QCOMPARE(f.doc.project(), slipped);
+    }
+
+    void slipBatchFailureIsAtomicAndDoesNotChangeUndoText()
+    {
+        Fixture f;
+        Clip first = clipOf(QStringLiteral("m1"), 0, 50, QStringLiteral("first"));
+        first.sourceIn = 70;
+        Clip second = clipOf(QStringLiteral("m1"), 150, 50, QStringLiteral("second"));
+        second.sourceIn = 550; // source ends at 600
+        QVERIFY(f.doc.execute(edits::addClip(f.v1, first)));
+        QVERIFY(f.doc.execute(edits::addClip(f.v1, second)));
+        const Project before = f.doc.project();
+        const QString undoText = f.doc.undoText();
+        QVERIFY(!f.doc.execute(
+            edits::slipClips({QStringLiteral("first"), QStringLiteral("second")}, 1)));
+        QCOMPARE(f.doc.project(), before);
+        QCOMPARE(f.doc.undoText(), undoText);
+        QVERIFY(!f.doc.execute(edits::slipClips({}, 1)));
+        QVERIFY(!f.doc.execute(edits::slipClips({QStringLiteral("first")}, 0)));
+        QVERIFY(!f.doc.execute(
+            edits::slipClips({QStringLiteral("first"), QStringLiteral("first")}, 1)));
+        QVERIFY(!f.doc.execute(edits::slipClips({QStringLiteral("missing")}, 1)));
+        QVERIFY(!f.doc.execute(edits::slipClips({QStringLiteral("first")}, -71)));
+        QCOMPARE(f.doc.project(), before);
+        QCOMPARE(f.doc.undoText(), undoText);
+    }
+
+    void rollCutCommandIsSingleUndoableOperation()
+    {
+        Fixture f;
+        Clip left = clipOf(QStringLiteral("m1"), 10, 100, QStringLiteral("left"));
+        left.sourceIn = 50;
+        left.properties.gain = 0.6;
+        Clip right = clipOf(QStringLiteral("m1"), 110, 80, QStringLiteral("right"));
+        right.sourceIn = 150;
+        QVERIFY(f.doc.execute(edits::addClip(f.v1, left)));
+        QVERIFY(f.doc.execute(edits::addClip(f.v1, right)));
+        const Project before = f.doc.project();
+        QVERIFY(f.doc.execute(edits::rollCut(left.id, 15)));
+        QCOMPARE(f.doc.undoText(), QStringLiteral("Roll Cut Right"));
+        const Timeline& t = f.doc.project().timeline();
+        QCOMPARE(t.clip(left.id)->duration, FrameCount{115});
+        QCOMPARE(t.clip(left.id)->properties.gain, 0.6);
+        QCOMPARE(t.clip(right.id)->start, FrameCount{125});
+        QCOMPARE(t.clip(right.id)->sourceIn, FrameCount{165});
+        QCOMPARE(t.clip(right.id)->duration, FrameCount{65});
+        const Project after = f.doc.project();
+        QVERIFY(f.doc.undo());
+        QCOMPARE(f.doc.project(), before);
+        QVERIFY(f.doc.redo());
+        QCOMPARE(f.doc.project(), after);
+        QVERIFY(f.doc.execute(edits::rollCut(left.id, -15)));
+        QCOMPARE(f.doc.project(), before);
+    }
+
+    void rollCutFailuresDoNotModifyHistoryOrOtherClips()
+    {
+        Fixture f;
+        Clip left = clipOf(QStringLiteral("m1"), 0, 50, QStringLiteral("left"));
+        left.sourceIn = 550; // ends exactly at the source boundary
+        Clip right = clipOf(QStringLiteral("m1"), 50, 50, QStringLiteral("right"));
+        right.sourceIn = 10;
+        QVERIFY(f.doc.execute(edits::addClip(f.v1, left)));
+        QVERIFY(f.doc.execute(edits::addClip(f.v1, right)));
+        const Project original = f.doc.project();
+        const QString undo = f.doc.undoText();
+        QVERIFY(!f.doc.execute(edits::rollCut(left.id, 1)));
+        QVERIFY(!f.doc.execute(edits::rollCut(left.id, -11)));
+        QVERIFY(!f.doc.execute(edits::rollCut(QStringLiteral("missing"), 1)));
+        QVERIFY(!f.doc.execute(edits::rollCut(left.id, 0)));
+        QCOMPARE(f.doc.project(), original);
+        QCOMPARE(f.doc.undoText(), undo);
     }
 
     void duplicatePreservesSourceEditsAndHistory()
@@ -705,6 +806,40 @@ private slots:
             QVERIFY(history.undo(project));
         }
         QCOMPARE(project.timeline().trackCount(), 6);
+    }
+
+    void mediaRescanNoticesChangedTimestampWithSameSize()
+    {
+        QTemporaryDir dir;
+        QVERIFY(dir.isValid());
+        const QString path = dir.filePath(QStringLiteral("source.mp4"));
+        {
+            QFile source(path);
+            QVERIFY(source.open(QIODevice::WriteOnly));
+            QCOMPARE(source.write("AAAA", 4), qint64{4});
+        }
+
+        const QFileInfo before(path);
+        MediaAsset asset = videoAsset(QStringLiteral("observed"), path);
+        asset.info.fileSize = before.size();
+        asset.info.lastModified = before.lastModified();
+        Project project = Project::createNew(QStringLiteral("Changed source"), ProjectSettings{});
+        QVERIFY(project.addAsset(asset));
+        ProjectDocument doc(std::move(project));
+
+        QCOMPARE(doc.refreshMediaStatus().size(), 0);
+        QCOMPARE(doc.project().asset(asset.id)->status, MediaStatus::Online);
+
+        QFile edited(path);
+        QVERIFY(edited.open(QIODevice::ReadWrite));
+        QVERIFY(edited.setFileTime(before.lastModified().addSecs(120),
+                                   QFileDevice::FileModificationTime));
+        edited.close();
+        QCOMPARE(QFileInfo(path).size(), before.size()); // no file size change
+
+        QCOMPARE(doc.refreshMediaStatus().size(), 0); // not missing, just changed
+        QCOMPARE(doc.project().asset(asset.id)->status, MediaStatus::Changed);
+        QVERIFY(!doc.isModified()); // runtime status must not dirty a project
     }
 
     void loadedDocumentReportsMissingMedia()

@@ -715,6 +715,77 @@ Status Timeline::slipClip(const Id& clipId, FrameCount newSourceIn, const Source
     return {};
 }
 
+Status Timeline::rollCut(const Id& fromClipId, FrameCount delta, const SourceLookup& sources)
+{
+    if (delta == 0) {
+        return makeError(ErrorCode::InvalidArgument,
+                         QStringLiteral("Choose a nonzero number of frames to roll the cut."));
+    }
+    const auto location = findClip(fromClipId);
+    if (!location) {
+        return notFound(QStringLiteral("The outgoing clip"));
+    }
+    const Track& track = m_tracks[static_cast<size_t>(location->track)];
+    if (const Status editable = checkEditable(track); !editable) {
+        return editable;
+    }
+    const size_t index = static_cast<size_t>(location->clip);
+    if (index + 1 >= track.clips.size() ||
+        track.clips[index].end() != track.clips[index + 1].start) {
+        return makeError(ErrorCode::Conflict,
+                         QStringLiteral("Roll editing requires two clips touching at a cut."));
+    }
+    const Clip& left = track.clips[index];
+    const Clip& right = track.clips[index + 1];
+    // Both durations must stay positive. These comparisons also bound delta before additions.
+    if (delta <= -left.duration || delta >= right.duration) {
+        return makeError(
+            ErrorCode::OutOfRange,
+            QStringLiteral("Each side of a rolled cut must retain at least one frame."));
+    }
+    const auto leftLimits = sources ? sources(left.assetId) : std::nullopt;
+    const auto rightLimits = sources ? sources(right.assetId) : std::nullopt;
+    if (!leftLimits || !rightLimits) {
+        return notFound(QStringLiteral("The media at the cut"));
+    }
+    // Still images have no source-time axis for the right clip's incoming trim.
+    if (!leftLimits->length || !rightLimits->length) {
+        return makeError(ErrorCode::InvalidArgument,
+                         QStringLiteral("Roll editing requires two time-based media clips."));
+    }
+
+    Timeline candidate = *this;
+    Track& changed = candidate.m_tracks[static_cast<size_t>(location->track)];
+    Clip& outgoing = changed.clips[index];
+    Clip& incoming = changed.clips[index + 1];
+    const FrameCount movedCut = outgoing.end() + delta;
+    outgoing.duration += delta;
+    incoming.start = movedCut;
+    incoming.sourceIn += delta;
+    incoming.duration -= delta;
+    // Preserve clip properties and transition objects exactly. Do not silently truncate
+    // a fade or discard a dissolve because a roll consumed a required source handle.
+    if (const Status shape = checkClipShape(outgoing); !shape) {
+        return shape;
+    }
+    if (const Status shape = checkClipShape(incoming); !shape) {
+        return shape;
+    }
+    if (const Status source = checkSourceRange(outgoing, changed, sources); !source) {
+        return source;
+    }
+    if (const Status source = checkSourceRange(incoming, changed, sources); !source) {
+        return source;
+    }
+    if (const Status valid = candidate.validate(sources); !valid) {
+        return makeError(ErrorCode::Conflict,
+                         QStringLiteral("The roll would invalidate the timeline or a transition."),
+                         valid.error().message);
+    }
+    *this = std::move(candidate);
+    return {};
+}
+
 Result<Id> Timeline::splitClip(const Id& clipId, FrameCount frame, const Id& newClipId)
 {
     const auto location = findClip(clipId);

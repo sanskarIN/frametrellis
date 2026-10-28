@@ -119,6 +119,8 @@ Acceptance criteria, each checked before the release:
   previous/next navigation, ruler visuals, snapping and versioned project persistence
 - 🚧 Media inventory export, recursive folder imports and removal of unused references
   (existing separate PRs; unmerged until integrated tests pass)
+- 🚧 Roll edit candidate: move an adjacent video/audio cut while preserving the
+  combined duration, source handles, fades and existing transitions (review pending)
 - ⏳ Validate Linux, Windows and sanitizer CI and conduct manual editor smoke tests
   before labeling this milestone a preview or stable release
 

@@ -97,6 +97,8 @@ public:
     Q_INVOKABLE bool nudgeSelection(int frames);
     /// Slip source time on every selected clip, keeping track placement and clip duration.
     Q_INVOKABLE bool slipSelection(int frames);
+    /// Adjust the cut following one selected outgoing clip, without moving outer edit edges.
+    Q_INVOKABLE bool rollSelection(int frames);
     /// Stores the attributes of one selected clip and applies them to later selections.
     Q_INVOKABLE bool copySelectionAttributes();
     Q_INVOKABLE bool pasteSelectionAttributes();

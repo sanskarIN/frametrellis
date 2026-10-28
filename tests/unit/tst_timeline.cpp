@@ -325,6 +325,123 @@ private slots:
         QVERIFY(t.validate(sources));
     }
 
+    void rollingCutPreservesOuterEdgesSourceOutAndProperties()
+    {
+        Timeline t = timelineWithCut();
+        const SourceLookup sources = testSources();
+        const Timeline original = t;
+        const FrameCount originalEnd = t.duration();
+        QVERIFY(t.rollCut(QStringLiteral("a"), 20, sources));
+        const Clip* a = t.clip(QStringLiteral("a"));
+        const Clip* b = t.clip(QStringLiteral("b"));
+        QCOMPARE(a->start, FrameCount{0});
+        QCOMPARE(a->sourceIn, FrameCount{50});
+        QCOMPARE(a->duration, FrameCount{120});
+        QCOMPARE(b->start, FrameCount{120});
+        QCOMPARE(b->sourceIn, FrameCount{70});
+        QCOMPARE(b->duration, FrameCount{80});
+        QCOMPARE(b->sourceOut(), FrameCount{150});
+        QCOMPARE(t.duration(), originalEnd);
+        QVERIFY(t.validate(sources));
+
+        QVERIFY(t.rollCut(QStringLiteral("a"), -30, sources));
+        a = t.clip(QStringLiteral("a"));
+        b = t.clip(QStringLiteral("b"));
+        QCOMPARE(a->duration, FrameCount{90});
+        QCOMPARE(b->start, FrameCount{90});
+        QCOMPARE(b->sourceIn, FrameCount{40});
+        QCOMPARE(b->duration, FrameCount{110});
+        QCOMPARE(b->sourceOut(), FrameCount{150});
+        QCOMPARE(t.duration(), originalEnd);
+        QVERIFY(t.validate(sources));
+        QVERIFY(t.rollCut(QStringLiteral("a"), 10, sources));
+        QCOMPARE(t, original);
+    }
+
+    void rollingCutRejectsNonAdjacentLockedAndExhaustedMedia()
+    {
+        const SourceLookup sources = testSources();
+        Timeline t = timelineWithCut();
+        const Timeline original = t;
+        QVERIFY(!t.rollCut(QStringLiteral("missing"), 1, sources));
+        QVERIFY(!t.rollCut(QStringLiteral("b"), 1, sources));
+        QVERIFY(!t.rollCut(QStringLiteral("a"), 0, sources));
+        QVERIFY(!t.rollCut(QStringLiteral("a"), -100, sources));
+        QVERIFY(!t.rollCut(QStringLiteral("a"), 100, sources));
+        QCOMPARE(t, original);
+
+        QVERIFY(t.setTrackLocked(QStringLiteral("v1"), true));
+        const Timeline locked = t;
+        QVERIFY(!t.rollCut(QStringLiteral("a"), 1, sources));
+        QCOMPARE(t, locked);
+
+        Timeline gap = makeTimeline();
+        QVERIFY(gap.insertClip(QStringLiteral("v1"),
+                               makeClip(QStringLiteral("a"), kVideoAsset, 0, 10, 50), sources));
+        QVERIFY(gap.insertClip(QStringLiteral("v1"),
+                               makeClip(QStringLiteral("b"), kVideoAsset, 70, 50, 50), sources));
+        const Timeline beforeGap = gap;
+        QVERIFY(!gap.rollCut(QStringLiteral("a"), 1, sources));
+        QCOMPARE(gap, beforeGap);
+
+        Timeline limited = makeTimeline();
+        QVERIFY(limited.insertClip(QStringLiteral("v1"),
+                                   makeClip(QStringLiteral("a"), kVideoAsset, 0, 150, 100),
+                                   sources));
+        QVERIFY(limited.insertClip(
+            QStringLiteral("v1"), makeClip(QStringLiteral("b"), kVideoAsset, 100, 5, 80), sources));
+        const Timeline beforeLimited = limited;
+        QVERIFY(!limited.rollCut(QStringLiteral("a"), 1, sources));  // outgoing source exhausted
+        QVERIFY(!limited.rollCut(QStringLiteral("a"), -6, sources)); // incoming has no preroll
+        QCOMPARE(limited, beforeLimited);
+    }
+
+    void rollingCutPreservesFadesAndRejectsStillSources()
+    {
+        const SourceLookup sources = testSources();
+        Timeline t = makeTimeline();
+        Clip a = makeClip(QStringLiteral("a"), kVideoAsset, 0, 50, 100);
+        Clip b = makeClip(QStringLiteral("b"), kVideoAsset, 100, 50, 100);
+        a.properties.fadeOut = 95;
+        b.properties.fadeIn = 95;
+        QVERIFY(t.insertClip(QStringLiteral("v1"), a, sources));
+        QVERIFY(t.insertClip(QStringLiteral("v1"), b, sources));
+        const Timeline before = t;
+        QVERIFY(!t.rollCut(QStringLiteral("a"), 10, sources));  // incoming fade would not fit
+        QVERIFY(!t.rollCut(QStringLiteral("a"), -10, sources)); // outgoing fade would not fit
+        QCOMPARE(t, before);
+        QVERIFY(t.rollCut(QStringLiteral("a"), 3, sources));
+        QCOMPARE(t.clip(QStringLiteral("a"))->properties, a.properties);
+        QCOMPARE(t.clip(QStringLiteral("b"))->properties, b.properties);
+
+        Timeline stills = makeTimeline();
+        QVERIFY(stills.insertClip(QStringLiteral("v1"),
+                                  makeClip(QStringLiteral("still"), kStillAsset, 0, 0, 30),
+                                  sources));
+        QVERIFY(stills.insertClip(QStringLiteral("v1"),
+                                  makeClip(QStringLiteral("video"), kVideoAsset, 30, 20, 40),
+                                  sources));
+        const Timeline unchanged = stills;
+        QVERIFY(!stills.rollCut(QStringLiteral("still"), 1, sources));
+        QCOMPARE(stills, unchanged);
+    }
+
+    void rollingCutKeepsDissolvesAndRefusesLostHandles()
+    {
+        const SourceLookup sources = testSources();
+        Timeline t = timelineWithCut();
+        const Result<Id> tr = t.addTransition(QStringLiteral("a"), 20, sources);
+        QVERIFY(tr);
+        QVERIFY(t.rollCut(QStringLiteral("a"), 20, sources));
+        QCOMPARE(t.transition(*tr)->duration, FrameCount{20});
+        QCOMPARE(t.transition(*tr)->fromClip, QStringLiteral("a"));
+        QCOMPARE(t.transition(*tr)->toClip, QStringLiteral("b"));
+        const Timeline accepted = t;
+        QVERIFY(!t.rollCut(QStringLiteral("a"), -65, sources));
+        QCOMPARE(t, accepted);
+        QVERIFY(t.validate(sources));
+    }
+
     void trimRespectsNeighbours()
     {
         Timeline t = makeTimeline();

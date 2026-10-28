@@ -286,6 +286,51 @@ private slots:
         m_app->timeline()->clearSelection();
     }
 
+    void rollSelectedCutShowsInspectorAndRestoresUndoRedo()
+    {
+        const Clip original = track(0).clips.front();
+        QVERIFY(original.duration > 10);
+        const Timeline initial = m_app->project()->project().timeline();
+        m_app->timeline()->select(original.id, false);
+        m_app->playback()->seek(original.start + original.duration / 2);
+        QVERIFY(m_app->timeline()->splitAtPlayhead());
+        const Clip* left = m_app->project()->project().timeline().clip(original.id);
+        QVERIFY(left);
+        const FrameCount cut = left->end();
+        const Track& splitTrack = track(0);
+        Id rightId;
+        for (const Clip& c : splitTrack.clips) {
+            if (c.id != original.id && c.start == cut) {
+                rightId = c.id;
+                break;
+            }
+        }
+        QVERIFY(!rightId.isEmpty());
+        const FrameCount timelineEnd = m_app->project()->project().timeline().duration();
+        m_app->timeline()->select(original.id, false);
+        QVERIFY(
+            m_app->timeline()->selectedClip().value(QStringLiteral("rollCutAvailable")).toBool());
+        QQuickItem* controls =
+            findItem(m_window->contentItem(), QStringLiteral("clipRollControls"));
+        QVERIFY(controls);
+        QTRY_VERIFY(controls->isVisible());
+        QVERIFY(m_app->timeline()->rollSelection(1));
+        QCOMPARE(m_app->project()->undoText(), QStringLiteral("Roll Cut Right"));
+        QCOMPARE(m_app->project()->project().timeline().clip(original.id)->end(),
+                 cut + FrameCount{1});
+        QCOMPARE(m_app->project()->project().timeline().clip(rightId)->start, cut + FrameCount{1});
+        QCOMPARE(m_app->project()->project().timeline().duration(), timelineEnd);
+        m_app->project()->undo();
+        QCOMPARE(m_app->project()->project().timeline().clip(original.id)->end(), cut);
+        m_app->project()->redo();
+        QCOMPARE(m_app->project()->project().timeline().clip(original.id)->end(),
+                 cut + FrameCount{1});
+        m_app->project()->undo(); // roll
+        m_app->project()->undo(); // split
+        QCOMPARE(m_app->project()->project().timeline(), initial);
+        m_app->timeline()->clearSelection();
+    }
+
     void goToTimecodeSeeksOnlyForValidPositions()
     {
         const double before = m_app->playback()->position();

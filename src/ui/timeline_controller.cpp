@@ -300,6 +300,16 @@ QVariantMap TimelineController::selectedClip() const
     const MediaAsset* asset = project().asset(clip->assetId);
     const ClipProperties& p = clip->properties;
     const FrameRate& rate = project().settings().frameRate;
+    bool rollCutAvailable = false;
+    if (const auto location = project().timeline().findClip(clipId)) {
+        const auto& clips = track->clips;
+        const size_t index = static_cast<size_t>(location->clip);
+        if (index + 1 < clips.size() && clips[index].end() == clips[index + 1].start) {
+            const MediaAsset* nextAsset = project().asset(clips[index + 1].assetId);
+            rollCutAvailable = asset && nextAsset && asset->lengthInFrames(rate).has_value() &&
+                               nextAsset->lengthInFrames(rate).has_value();
+        }
+    }
     return {
         {QStringLiteral("count"), 1},
         {QStringLiteral("clipId"), clip->id},
@@ -310,6 +320,7 @@ QVariantMap TimelineController::selectedClip() const
         {QStringLiteral("trackName"), track->name},
         {QStringLiteral("trackKind"), trackKindToString(track->kind)},
         {QStringLiteral("locked"), track->locked},
+        {QStringLiteral("rollCutAvailable"), rollCutAvailable},
         {QStringLiteral("offline"), !asset || asset->status == MediaStatus::Missing},
         {QStringLiteral("start"), static_cast<double>(clip->start)},
         {QStringLiteral("duration"), static_cast<double>(clip->duration)},
@@ -623,6 +634,24 @@ bool TimelineController::slipSelection(int frames)
     }
     emit statusMessage(
         QStringLiteral("Slipped %1 clip(s) by %2 source frame(s).").arg(ids.size()).arg(frames));
+    return true;
+}
+
+bool TimelineController::rollSelection(int frames)
+{
+    if (m_selection.size() != 1) {
+        emit statusMessage(
+            QStringLiteral("Select exactly one outgoing (left) clip to roll its following cut."));
+        return false;
+    }
+    if (frames == 0) {
+        return false;
+    }
+    const Id outgoing = *m_selection.cbegin();
+    if (!m_project->execute(edits::rollCut(outgoing, static_cast<FrameCount>(frames)))) {
+        return false;
+    }
+    emit statusMessage(QStringLiteral("Rolled the cut by %1 frame(s).").arg(frames));
     return true;
 }
 

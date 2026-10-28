@@ -138,6 +138,53 @@ private slots:
         QCOMPARE(f.doc.undoText(), undoText);
     }
 
+    void rollCutCommandIsSingleUndoableOperation()
+    {
+        Fixture f;
+        Clip left = clipOf(QStringLiteral("m1"), 10, 100, QStringLiteral("left"));
+        left.sourceIn = 50;
+        left.properties.gain = 0.6;
+        Clip right = clipOf(QStringLiteral("m1"), 110, 80, QStringLiteral("right"));
+        right.sourceIn = 150;
+        QVERIFY(f.doc.execute(edits::addClip(f.v1, left)));
+        QVERIFY(f.doc.execute(edits::addClip(f.v1, right)));
+        const Project before = f.doc.project();
+        QVERIFY(f.doc.execute(edits::rollCut(left.id, 15)));
+        QCOMPARE(f.doc.undoText(), QStringLiteral("Roll Cut Right"));
+        const Timeline& t = f.doc.project().timeline();
+        QCOMPARE(t.clip(left.id)->duration, FrameCount{115});
+        QCOMPARE(t.clip(left.id)->properties.gain, 0.6);
+        QCOMPARE(t.clip(right.id)->start, FrameCount{125});
+        QCOMPARE(t.clip(right.id)->sourceIn, FrameCount{165});
+        QCOMPARE(t.clip(right.id)->duration, FrameCount{65});
+        const Project after = f.doc.project();
+        QVERIFY(f.doc.undo());
+        QCOMPARE(f.doc.project(), before);
+        QVERIFY(f.doc.redo());
+        QCOMPARE(f.doc.project(), after);
+        QVERIFY(f.doc.execute(edits::rollCut(left.id, -15)));
+        QCOMPARE(f.doc.project(), before);
+    }
+
+    void rollCutFailuresDoNotModifyHistoryOrOtherClips()
+    {
+        Fixture f;
+        Clip left = clipOf(QStringLiteral("m1"), 0, 50, QStringLiteral("left"));
+        left.sourceIn = 550; // ends exactly at the source boundary
+        Clip right = clipOf(QStringLiteral("m1"), 50, 50, QStringLiteral("right"));
+        right.sourceIn = 10;
+        QVERIFY(f.doc.execute(edits::addClip(f.v1, left)));
+        QVERIFY(f.doc.execute(edits::addClip(f.v1, right)));
+        const Project original = f.doc.project();
+        const QString undo = f.doc.undoText();
+        QVERIFY(!f.doc.execute(edits::rollCut(left.id, 1)));
+        QVERIFY(!f.doc.execute(edits::rollCut(left.id, -11)));
+        QVERIFY(!f.doc.execute(edits::rollCut(QStringLiteral("missing"), 1)));
+        QVERIFY(!f.doc.execute(edits::rollCut(left.id, 0)));
+        QCOMPARE(f.doc.project(), original);
+        QCOMPARE(f.doc.undoText(), undo);
+    }
+
     void duplicatePreservesSourceEditsAndHistory()
     {
         Fixture f;

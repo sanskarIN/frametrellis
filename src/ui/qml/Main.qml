@@ -163,6 +163,14 @@ ApplicationWindow {
                 Action { text: qsTr("Earlier 10 Frames"); shortcut: "Ctrl+Alt+Shift+Left"; onTriggered: window.app.timeline.slipSelection(-10) }
                 Action { text: qsTr("Later 10 Frames"); shortcut: "Ctrl+Alt+Shift+Right"; onTriggered: window.app.timeline.slipSelection(10) }
             }
+            Menu {
+                title: qsTr("Roll Cut After Selected Clip")
+                enabled: window.editKeys && window.app.timeline.selection.length === 1
+                Action { text: qsTr("Earlier 1 Frame"); onTriggered: window.app.timeline.rollSelection(-1) }
+                Action { text: qsTr("Later 1 Frame"); onTriggered: window.app.timeline.rollSelection(1) }
+                Action { text: qsTr("Earlier 10 Frames"); onTriggered: window.app.timeline.rollSelection(-10) }
+                Action { text: qsTr("Later 10 Frames"); onTriggered: window.app.timeline.rollSelection(10) }
+            }
             Action { text: qsTr("Copy Clip &Attributes"); shortcut: "Ctrl+Alt+C"; enabled: window.editKeys && window.app.timeline.selection.length === 1; onTriggered: window.app.timeline.copySelectionAttributes() }
             Action { text: qsTr("&Paste Clip Attributes"); shortcut: "Ctrl+Alt+V"; enabled: window.editKeys && window.app.timeline.selection.length > 0 && window.app.timeline.hasCopiedClipAttributes; onTriggered: window.app.timeline.pasteSelectionAttributes() }
             MenuSeparator {}

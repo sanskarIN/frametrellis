@@ -211,6 +211,43 @@ PanelFrame {
                 }
             }
 
+            // ---- Roll cut after this clip ----
+            ColumnLayout {
+                objectName: "clipRollControls"
+                visible: panel.hasClip && (panel.clip.rollCutAvailable || false)
+                enabled: !panel.clip.locked
+                Layout.fillWidth: true
+                spacing: Theme.spacingS
+                Rectangle { Layout.fillWidth: true; height: 1; color: Theme.border }
+                Text {
+                    text: qsTr("Roll Following Cut")
+                    color: Theme.text
+                    font.weight: Font.DemiBold
+                    font.pixelSize: Theme.fontSize
+                }
+                Text {
+                    text: qsTr("Move this cut while keeping both clips' combined duration fixed. Source handles and transitions must remain valid.")
+                    color: Theme.textMuted
+                    font.pixelSize: Theme.fontSizeSmall
+                    wrapMode: Text.WordWrap
+                    Layout.fillWidth: true
+                }
+                RowLayout {
+                    Layout.fillWidth: true
+                    spacing: Theme.spacingS
+                    FtButton {
+                        text: qsTr("Earlier 1 frame")
+                        Layout.fillWidth: true
+                        onClicked: panel.app.timeline.rollSelection(-1)
+                    }
+                    FtButton {
+                        text: qsTr("Later 1 frame")
+                        Layout.fillWidth: true
+                        onClicked: panel.app.timeline.rollSelection(1)
+                    }
+                }
+            }
+
             // ---- Transition after this clip ----
             ColumnLayout {
                 visible: panel.hasClip

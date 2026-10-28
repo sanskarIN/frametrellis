@@ -339,6 +339,14 @@ std::unique_ptr<EditCommand> slipClips(const QList<Id>& clipIds, FrameCount delt
         });
 }
 
+std::unique_ptr<EditCommand> rollCut(const Id& fromClipId, FrameCount delta)
+{
+    return command(delta < 0 ? QStringLiteral("Roll Cut Left") : QStringLiteral("Roll Cut Right"),
+                   [fromClipId, delta](Timeline& timeline, const SourceLookup& sources) {
+                       return timeline.rollCut(fromClipId, delta, sources);
+                   });
+}
+
 std::unique_ptr<EditCommand> splitClips(const QList<Id>& clipIds, FrameCount frame)
 {
     return command(

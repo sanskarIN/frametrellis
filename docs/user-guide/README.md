@@ -93,6 +93,15 @@ every imported file again. Filtering never removes files from the project.
   that would remove a transition's source handles are rejected without edits.
   Trimming the end of a clip may create room to slip it later.
   This is not yet in the v1.3.0 stable release.
+* **Roll a cut (v1.4 development):** select the outgoing clip (the one before a cut)
+  and choose *Edit → Roll Cut After Selected Clip*. For a touching time-based clip,
+  the inspector also offers **Roll Following Cut** controls. Rolling earlier shortens
+  the outgoing clip and reveals more of the incoming source; rolling later does the
+  opposite. The combined duration and surrounding timeline edges stay fixed.
+  A roll preserves clip properties, fades and transitions and is undoable in one step.
+  An invalid roll (exhausted source media, invalid fades or transition handles,
+  separated clips, still images or a locked track) fails without changing either clip.
+  This is not part of the stable v1.3.0 package.
 * **Split:** move the playhead and press **S**. With clips selected, only those are split;
   otherwise every unlocked clip under the playhead is split.
 * **Duplicate:** select one clip and press **Ctrl+D** (or use the timeline copy button). The copy

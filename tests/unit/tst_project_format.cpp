@@ -594,7 +594,7 @@ private slots:
         const QDateTime actual = QFileInfo(file.fileName()).lastModified();
         QVERIFY(actual.isValid());
         saved.info.fileSize = 4;
-        saved.info.lastModified = actual.addMSecs(actual.time().msec() == 0 ? 1 : -1);
+        saved.info.lastModified = actual.addMSecs(actual.time().msec() == 999 ? -1 : 1);
         QCOMPARE(saved.info.lastModified.toSecsSinceEpoch(), actual.toSecsSinceEpoch());
         QVERIFY(project.replaceAsset(saved));
 
@@ -604,6 +604,28 @@ private slots:
         QVERIFY(asset.value(QStringLiteral("changeReasons")).toArray().contains(
             QStringLiteral("modified")));
         QVERIFY(asset.value(QStringLiteral("storedModifiedUtc")).toString().contains(QLatin1Char('.')));
+
+        const QByteArray serialized = project_format::toBytes(project);
+        Result<Project> restored = project_format::fromBytes(serialized);
+        QVERIFY(restored);
+        const MediaAsset* restoredAsset = restored->asset(QStringLiteral("m1"));
+        QVERIFY(restoredAsset);
+        QCOMPARE(restoredAsset->info.lastModified.toMSecsSinceEpoch(),
+                 saved.info.lastModified.toMSecsSinceEpoch());
+        const QJsonObject restoredReport = media_audit::buildReport(*restored);
+        const QJsonObject restoredEntry =
+            restoredReport.value(QStringLiteral("assets")).toArray().first().toObject();
+        QCOMPARE(restoredEntry.value(QStringLiteral("status")).toString(),
+                 QStringLiteral("changed"));
+
+        MediaAsset legacy = *restoredAsset;
+        legacy.info.lastModified = actual.addMSecs(-actual.time().msec());
+        QVERIFY(restored->replaceAsset(legacy));
+        const QJsonObject legacyReport = media_audit::buildReport(*restored);
+        const QJsonObject legacyEntry =
+            legacyReport.value(QStringLiteral("assets")).toArray().first().toObject();
+        QCOMPARE(legacyEntry.value(QStringLiteral("status")).toString(),
+                 QStringLiteral("online"));
     }
 
     void mediaAuditEmptyProjectHasValidSchema()

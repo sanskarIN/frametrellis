@@ -40,7 +40,7 @@ QJsonObject mediaInfoToJson(const MediaInfo& info)
     o[QLatin1String("audioCodec")] = info.audioCodec;
     o[QLatin1String("fileSize")] = static_cast<double>(info.fileSize);
     if (info.lastModified.isValid()) {
-        o[QLatin1String("lastModified")] = info.lastModified.toUTC().toString(Qt::ISODate);
+        o[QLatin1String("lastModified")] = info.lastModified.toUTC().toString(Qt::ISODateWithMs);
     }
     return o;
 }

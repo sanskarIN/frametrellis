@@ -30,9 +30,14 @@ QJsonObject buildReport(const Project& project)
         const bool exists = file.exists() && file.isFile();
         const bool sizeChanged =
             exists && asset.info.fileSize > 0 && file.size() != asset.info.fileSize;
+        // Older project versions stored only whole seconds. Respect that precision
+        // instead of marking every legacy source with milliseconds as modified.
         const bool timeChanged =
             exists && asset.info.lastModified.isValid() &&
-            file.lastModified().toMSecsSinceEpoch() != asset.info.lastModified.toMSecsSinceEpoch();
+            (asset.info.lastModified.time().msec() == 0
+                 ? file.lastModified().toSecsSinceEpoch() != asset.info.lastModified.toSecsSinceEpoch()
+                 : file.lastModified().toMSecsSinceEpoch() !=
+                       asset.info.lastModified.toMSecsSinceEpoch());
         const bool changed = sizeChanged || timeChanged;
         const QString status = !exists   ? QStringLiteral("missing")
                                : changed ? QStringLiteral("changed")

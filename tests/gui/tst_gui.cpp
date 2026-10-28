@@ -308,8 +308,8 @@ private slots:
         QVERIFY(!rightId.isEmpty());
         const FrameCount timelineEnd = m_app->project()->project().timeline().duration();
         m_app->timeline()->select(original.id, false);
-        QVERIFY(m_app->timeline()->selectedClip()
-                    .value(QStringLiteral("rollCutAvailable")).toBool());
+        QVERIFY(
+            m_app->timeline()->selectedClip().value(QStringLiteral("rollCutAvailable")).toBool());
         QQuickItem* controls =
             findItem(m_window->contentItem(), QStringLiteral("clipRollControls"));
         QVERIFY(controls);
@@ -318,8 +318,7 @@ private slots:
         QCOMPARE(m_app->project()->undoText(), QStringLiteral("Roll Cut Right"));
         QCOMPARE(m_app->project()->project().timeline().clip(original.id)->end(),
                  cut + FrameCount{1});
-        QCOMPARE(m_app->project()->project().timeline().clip(rightId)->start,
-                 cut + FrameCount{1});
+        QCOMPARE(m_app->project()->project().timeline().clip(rightId)->start, cut + FrameCount{1});
         QCOMPARE(m_app->project()->project().timeline().duration(), timelineEnd);
         m_app->project()->undo();
         QCOMPARE(m_app->project()->project().timeline().clip(original.id)->end(), cut);

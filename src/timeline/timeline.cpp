@@ -739,8 +739,9 @@ Status Timeline::rollCut(const Id& fromClipId, FrameCount delta, const SourceLoo
     const Clip& right = track.clips[index + 1];
     // Both durations must stay positive. These comparisons also bound delta before additions.
     if (delta <= -left.duration || delta >= right.duration) {
-        return makeError(ErrorCode::OutOfRange,
-                         QStringLiteral("Each side of a rolled cut must retain at least one frame."));
+        return makeError(
+            ErrorCode::OutOfRange,
+            QStringLiteral("Each side of a rolled cut must retain at least one frame."));
     }
     const auto leftLimits = sources ? sources(left.assetId) : std::nullopt;
     const auto rightLimits = sources ? sources(right.assetId) : std::nullopt;

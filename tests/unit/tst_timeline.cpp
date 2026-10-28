@@ -385,12 +385,13 @@ private slots:
         QCOMPARE(gap, beforeGap);
 
         Timeline limited = makeTimeline();
-        QVERIFY(limited.insertClip(
-            QStringLiteral("v1"), makeClip(QStringLiteral("a"), kVideoAsset, 0, 150, 100), sources));
+        QVERIFY(limited.insertClip(QStringLiteral("v1"),
+                                   makeClip(QStringLiteral("a"), kVideoAsset, 0, 150, 100),
+                                   sources));
         QVERIFY(limited.insertClip(
             QStringLiteral("v1"), makeClip(QStringLiteral("b"), kVideoAsset, 100, 5, 80), sources));
         const Timeline beforeLimited = limited;
-        QVERIFY(!limited.rollCut(QStringLiteral("a"), 1, sources)); // outgoing source exhausted
+        QVERIFY(!limited.rollCut(QStringLiteral("a"), 1, sources));  // outgoing source exhausted
         QVERIFY(!limited.rollCut(QStringLiteral("a"), -6, sources)); // incoming has no preroll
         QCOMPARE(limited, beforeLimited);
     }

@@ -85,6 +85,10 @@ public:
     /// Changes source in/out without moving either timeline edge or changing duration.
     /// Rejects still images, unavailable source handles and invalidated transitions.
     Status slipClip(const Id& clipId, FrameCount newSourceIn, const SourceLookup& sources);
+    /// Rolls the cut after fromClipId by signed frames. Two adjacent time-based clips
+    /// exchange duration at their shared cut without moving the surrounding timeline edges.
+    /// Rejects unsafe source handles, fades, transitions, locked tracks or invalid neighbours.
+    Status rollCut(const Id& fromClipId, FrameCount delta, const SourceLookup& sources);
     /// Splits a clip at a timeline frame strictly inside it. Returns the id of the right part.
     Result<Id> splitClip(const Id& clipId, FrameCount frame, const Id& newClipId = {});
     Status setClipProperties(const Id& clipId, const ClipProperties& properties);

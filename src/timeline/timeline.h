@@ -97,6 +97,13 @@ public:
                             const SourceLookup& sources);
     Status removeAudioKeyframe(const Id& clipId, FrameCount sourceFrame);
     Status clearAudioKeyframes(const Id& clipId);
+    /// Edit a source-anchored opacity point on an unlocked video track (including stills).
+    Status setOpacityKeyframe(const Id& clipId, FrameCount sourceFrame, double opacity,
+                              const SourceLookup& sources);
+    Status removeOpacityKeyframe(const Id& clipId, FrameCount sourceFrame);
+    Status clearOpacityKeyframes(const Id& clipId);
+    /// Reset scalar picture adjustments and the opacity envelope, preserving audio and fades.
+    Status resetClipPicture(const Id& clipId);
 
     // Transition operations
     /// Adds a transition at the cut between the clip and the clip that starts where it ends.

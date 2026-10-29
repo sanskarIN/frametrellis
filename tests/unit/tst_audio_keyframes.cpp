@@ -249,7 +249,7 @@ private slots:
         QVERIFY(loaded);
         QCOMPARE(loaded->timeline(), project.timeline());
         QJsonObject tooNew = saved;
-        tooNew[QStringLiteral("version")] = 4;
+        tooNew[QStringLiteral("version")] = project_format::kCurrentVersion + 1;
         QCOMPARE(project_format::fromJson(tooNew).error().code, ErrorCode::UnsupportedVersion);
         QJsonObject wrongVersion = saved;
         wrongVersion[QStringLiteral("version")] = 2;

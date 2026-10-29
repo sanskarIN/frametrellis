@@ -105,6 +105,40 @@ Status attachAudioKeyframes(Mlt::Profile& profile, Mlt::Producer& cut, const Cli
     return {};
 }
 
+/// Multiply source alpha after scalar opacity/fades; never replace the image's own alpha.
+Status attachOpacityKeyframes(Mlt::Profile& profile, Mlt::Producer& cut, const Clip& clip)
+{
+    if (clip.opacityKeyframes.empty()) {
+        return {};
+    }
+    if (!MltRuntime::capabilities().brightnessFilter) {
+        return makeError(ErrorCode::Engine,
+                         QStringLiteral("Opacity keyframes need the video alpha filter."));
+    }
+    Mlt::Filter alpha(profile, "brightness");
+    if (!alpha.is_valid()) {
+        return makeError(ErrorCode::Engine,
+                         QStringLiteral("Could not prepare the opacity keyframe filter."));
+    }
+    alpha.set_in_and_out(cut.get_in(), cut.get_out());
+    alpha.set("level", 1.0);
+    const FrameCount first = cut.get_in();
+    const FrameCount last = cut.get_out();
+    QStringList points;
+    points << keyframes({{0, opacityKeyframeValue(clip.opacityKeyframes, first)}});
+    for (const OpacityKeyframe& point : clip.opacityKeyframes) {
+        if (point.sourceFrame > first && point.sourceFrame < last) {
+            points << keyframes({{point.sourceFrame - first, point.opacity}});
+        }
+    }
+    if (last > first) {
+        points << keyframes({{last - first, opacityKeyframeValue(clip.opacityKeyframes, last)}});
+    }
+    alpha.set("alpha", points.join(QLatin1Char(';')).toUtf8().constData());
+    cut.attach(alpha);
+    return {};
+}
+
 /// Applies video fades, opacity and picture adjustments (see attachAudioFilters for @p offset).
 void attachVideoFilters(Mlt::Profile& profile, Mlt::Producer& cut, const Clip& clip,
                         FrameCount offset)
@@ -344,6 +378,10 @@ Result<GraphBuildResult> TimelineGraphBuilder::build(const Project& project,
                 }
                 if (track.kind == TrackKind::Video) {
                     attachVideoFilters(m_profile, *cut, clip, before);
+                    if (const Status opacity = attachOpacityKeyframes(m_profile, *cut, clip);
+                        !opacity) {
+                        return opacity.error();
+                    }
                 }
                 if (before > 0 || after > 0) {
                     // Mixing cuts the clip again from its source; wrapping it keeps the clip's

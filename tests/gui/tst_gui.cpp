@@ -419,6 +419,150 @@ private slots:
         inspectorFlick->setProperty("contentY", 0);
     }
 
+    void opacityKeyframesUseRealControlsAndPreserveAudio()
+    {
+        m_app->playback()->pause();
+        const Clip original = track(0).clips.front();
+        const Timeline initial = m_app->project()->project().timeline();
+        const double previousZoom = m_app->timeline()->pixelsPerFrame();
+        m_app->timeline()->select(original.id, false);
+        m_app->playback()->seek(static_cast<double>(original.start + 10));
+        QVERIFY(m_app->timeline()->setAudioKeyframeAtPlayhead(-12));
+        m_app->timeline()->endEdit();
+        QTRY_VERIFY(
+            m_app->timeline()->opacityAutomation().value(QStringLiteral("canEdit")).toBool());
+        QQuickItem* controls =
+            findItem(m_window->contentItem(), QStringLiteral("opacityKeyframeControls"));
+        QQuickItem* scroll = findItem(m_window->contentItem(), QStringLiteral("inspectorScroll"));
+        QVERIFY(controls && controls->isVisible());
+        QVERIFY(scroll);
+        QObject* flick = scroll->property("contentItem").value<QObject*>();
+        QVERIFY(flick);
+        flick->setProperty("contentY", std::max(0.0, controls->y() - 15));
+        QTest::qWait(50);
+        QQuickItem* add = findItem(m_window->contentItem(), QStringLiteral("addOpacityKeyframe"));
+        QQuickItem* level =
+            findItem(m_window->contentItem(), QStringLiteral("opacityKeyframeLevel"));
+        QVERIFY(add && add->isEnabled());
+        QVERIFY(level);
+        m_qmlWarnings.clear();
+        QTest::mouseClick(m_window, Qt::LeftButton, Qt::NoModifier, centreOf(add));
+        QTRY_VERIFY(level->isEnabled());
+        QVERIFY(QMetaObject::invokeMethod(level, "moved", Q_ARG(double, 0.5)));
+        QVERIFY(QMetaObject::invokeMethod(level, "moved", Q_ARG(double, 0.0)));
+        m_app->timeline()->endEdit();
+        QTRY_COMPARE(level->property("value").toDouble(), 0.0);
+        QCOMPARE(
+            m_app->project()->project().timeline().clip(original.id)->opacityKeyframes[0].opacity,
+            0.0);
+        m_app->playback()->seek(static_cast<double>(original.start + 30));
+        QVERIFY(m_app->timeline()->setOpacityKeyframeAtPlayhead(1));
+        m_app->timeline()->endEdit();
+        const Timeline automated = m_app->project()->project().timeline();
+        m_app->playback()->seek(static_cast<double>(original.start + 20));
+        QCOMPARE(m_app->timeline()->opacityAutomation().value(QStringLiteral("opacity")).toDouble(),
+                 0.5);
+        m_app->timeline()->previousOpacityKeyframe();
+        QCOMPARE(m_app->playback()->positionFrames(), original.start + 10);
+        m_app->timeline()->nextOpacityKeyframe();
+        QCOMPARE(m_app->playback()->positionFrames(), original.start + 30);
+        QCOMPARE(m_app->project()->project().timeline(), automated);
+        m_app->playback()->seek(static_cast<double>(original.end()));
+        QVERIFY(!m_app->timeline()->setOpacityKeyframeAtPlayhead(0.5));
+        m_app->playback()->seek(static_cast<double>(original.start + 30));
+        QVERIFY(!m_app->timeline()->setOpacityKeyframeAtPlayhead(
+            std::numeric_limits<double>::quiet_NaN()));
+        QCOMPARE(m_app->project()->project().timeline(), automated);
+        QVERIFY(m_app->timeline()->resetPictureAdjustments(original.id));
+        QVERIFY(m_app->project()->project().timeline().clip(original.id)->opacityKeyframes.empty());
+        QCOMPARE(m_app->project()->project().timeline().clip(original.id)->audioKeyframes.size(),
+                 size_t{1});
+        m_app->project()->undo();
+        QCOMPARE(m_app->project()->project().timeline(), automated);
+        const Id trackId = m_app->project()->project().timeline().trackOfClip(original.id)->id;
+        QVERIFY(m_app->timeline()->setTrackFlag(trackId, QStringLiteral("locked"), true));
+        QVERIFY(!m_app->timeline()->setOpacityKeyframeAtPlayhead(0.5));
+        QVERIFY(!m_app->timeline()->clearSelectedOpacityKeyframes());
+        m_app->project()->undo();
+        QCOMPARE(m_app->project()->project().timeline(), automated);
+        QQuickItem* remove =
+            findItem(m_window->contentItem(), QStringLiteral("removeOpacityKeyframe"));
+        QQuickItem* clear =
+            findItem(m_window->contentItem(), QStringLiteral("clearOpacityKeyframes"));
+        QVERIFY(remove && remove->isEnabled());
+        QVERIFY(clear && clear->isEnabled());
+        QTest::mouseClick(m_window, Qt::LeftButton, Qt::NoModifier, centreOf(remove));
+        QTRY_COMPARE(
+            m_app->project()->project().timeline().clip(original.id)->opacityKeyframes.size(),
+            size_t{1});
+        m_app->project()->undo();
+        QTest::mouseClick(m_window, Qt::LeftButton, Qt::NoModifier, centreOf(clear));
+        QTRY_VERIFY(
+            m_app->project()->project().timeline().clip(original.id)->opacityKeyframes.empty());
+        QCOMPARE(m_app->project()->project().timeline().clip(original.id)->audioKeyframes.size(),
+                 size_t{1});
+        m_app->project()->undo();
+        QCOMPARE(m_app->project()->project().timeline(), automated);
+        m_app->timeline()->setPixelsPerFrame(24);
+        QQuickItem* item = clipItem(original.id);
+        QQuickItem* lanes = findItem(m_window->contentItem(), QStringLiteral("timelineLanes"));
+        QVERIFY(item && lanes);
+        QQuickItem* opacity = findItem(item, QStringLiteral("opacityEnvelope:") + original.id);
+        QQuickItem* audio = findItem(item, QStringLiteral("audioEnvelope:") + original.id);
+        QVERIFY(opacity && audio);
+        QVERIFY(!opacity->property("diamonds").toBool());
+        QVERIFY(audio->property("diamonds").toBool());
+        QTRY_VERIFY(opacity->width() > 0 && opacity->width() <= lanes->width());
+        lanes->setProperty("contentX", static_cast<double>(original.start * 24 + 200));
+        QTRY_VERIFY(opacity->x() >= 200);
+        QVERIFY(opacity->width() <= lanes->width());
+        QVERIFY(audio->width() <= lanes->width());
+        m_app->timeline()->setPixelsPerFrame(previousZoom);
+        lanes->setProperty("contentX", 0);
+        m_window->resize(1200, 800);
+        flick->setProperty("contentY", std::max(0.0, controls->y() - 15));
+        QTest::qWait(100);
+        QVERIFY2(m_qmlWarnings.isEmpty(), "Opacity controls or envelope emitted QML warnings");
+        m_app->showStatus(QString());
+        screenshot(QStringLiteral("10-opacity-keyframes"));
+        m_window->resize(1600, 960);
+        m_app->project()->undo(); // second opacity point
+        m_app->project()->undo(); // opacity slider drag
+        m_app->project()->undo(); // add first opacity point
+        m_app->project()->undo(); // audio point
+        QCOMPARE(m_app->project()->project().timeline(), initial);
+        m_app->timeline()->clearSelection();
+        flick->setProperty("contentY", 0);
+    }
+
+    void opacityKeyframesAlsoWorkForStillImages()
+    {
+        const Timeline initial = m_app->project()->project().timeline();
+        Id imageClip;
+        for (const Track& track : initial.tracks()) {
+            for (const Clip& clip : track.clips) {
+                const MediaAsset* asset = m_app->project()->project().asset(clip.assetId);
+                if (track.kind == TrackKind::Video && asset &&
+                    asset->info.kind == MediaKind::Image) {
+                    imageClip = clip.id;
+                    break;
+                }
+            }
+        }
+        QVERIFY(!imageClip.isEmpty());
+        const Clip* image = initial.clip(imageClip);
+        m_app->timeline()->select(imageClip, false);
+        m_app->playback()->seek(static_cast<double>(image->start + 10));
+        QVERIFY(m_app->timeline()->opacityAutomation().value(QStringLiteral("canEdit")).toBool());
+        QVERIFY(m_app->timeline()->setOpacityKeyframeAtPlayhead(0.5));
+        m_app->timeline()->endEdit();
+        QVERIFY(!m_app->timeline()->audioAutomation().value(QStringLiteral("available")).toBool());
+        QVERIFY(!m_app->timeline()->setAudioKeyframeAtPlayhead(-12));
+        m_app->project()->undo();
+        QCOMPARE(m_app->project()->project().timeline(), initial);
+        m_app->timeline()->clearSelection();
+    }
+
     void goToTimecodeSeeksOnlyForValidPositions()
     {
         const double before = m_app->playback()->position();

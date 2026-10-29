@@ -509,6 +509,51 @@ private slots:
         QVERIFY(partFiles().isEmpty());
     }
 
+    void helperProcessPreservesOpacityKeyframesInEncodedPicture()
+    {
+        ProjectSettings profileSettings;
+        profileSettings.width = 160;
+        profileSettings.height = 90;
+        profileSettings.frameRate = *FrameRate::create(25, 1);
+        Project p = Project::createNew(QStringLiteral("Opacity export"), profileSettings);
+        const QString blue =
+            makeStill(m_dir.path(), QStringLiteral("opacity-blue.png"), Qt::blue, QSize(160, 90));
+        const QString red =
+            makeStill(m_dir.path(), QStringLiteral("opacity-red.png"), Qt::red, QSize(160, 90));
+        const auto bottom = media::createAsset(blue);
+        const auto top = media::createAsset(red);
+        QVERIFY(bottom && top);
+        QVERIFY(p.addAsset(*bottom));
+        QVERIFY(p.addAsset(*top));
+        Clip lower;
+        lower.id = createId();
+        lower.assetId = bottom->id;
+        lower.duration = 50;
+        Clip upper = lower;
+        upper.id = createId();
+        upper.assetId = top->id;
+        QVERIFY(p.timeline().insertClip(p.timeline().tracks()[0].id, lower, p.sourceLookup()));
+        QVERIFY(p.timeline().insertClip(p.timeline().tracks()[1].id, upper, p.sourceLookup()));
+        for (const OpacityKeyframe& point :
+             std::vector<OpacityKeyframe>{{0, 0}, {10, 0}, {20, 0.5}, {30, 1}, {49, 1}}) {
+            QVERIFY(p.timeline().setOpacityKeyframe(upper.id, point.sourceFrame, point.opacity,
+                                                    p.sourceLookup()));
+        }
+        RenderJob job(QStringLiteral(FT_RENDER_HELPER));
+        QSignalSpy finished(&job, &RenderJob::finished);
+        ExportSettings settings;
+        settings.outputPath = m_dir.filePath(QStringLiteral("opacity-keyframes.mp4"));
+        settings.speedPreset = QStringLiteral("ultrafast");
+        QVERIFY(job.start(p, settings));
+        QVERIFY(finished.wait(60'000));
+        QVERIFY2(job.state() == RenderJob::State::Succeeded,
+                 qPrintable(job.errorMessage() + job.errorDetail()));
+        QVERIFY(isCloseTo(averageColor(frameOf(settings.outputPath, 5)), Qt::blue, 30));
+        QVERIFY(isCloseTo(averageColor(frameOf(settings.outputPath, 20)), QColor(128, 0, 128), 30));
+        QVERIFY(isCloseTo(averageColor(frameOf(settings.outputPath, 35)), Qt::red, 30));
+        QVERIFY(partFiles().isEmpty());
+    }
+
     void helperProcessCancel()
     {
         RenderJob job(QStringLiteral(FT_RENDER_HELPER));

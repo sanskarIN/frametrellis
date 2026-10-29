@@ -13,6 +13,7 @@ uploaded. This guide covers everything the current version can do.
 - [Transitions](#transitions)
 - [Adjusting clips](#adjusting-clips)
 - [Volume keyframes (development preview)](#volume-keyframes-development-preview)
+- [Opacity keyframes (development preview)](#opacity-keyframes-development-preview)
 - [Playback](#playback)
 - [Exporting](#exporting)
 - [Exporting an edit decision list (development preview)](#exporting-a-picture-edit-decision-list-development-preview)
@@ -157,7 +158,43 @@ destination clip's automation unchanged.
 **Compatibility:** Projects containing volume points save in project format **v3**.
 Earlier development builds that only understand v2 cannot reopen them. Keep a backup
 before upgrading. Projects without volume points continue to save as v2; the reader
-can load v1, v2 and v3. v1.3.0 stable cannot open either development format.
+can load v1 through v4. v1.3.0 stable cannot open these development formats.
+
+## Opacity keyframes (development preview)
+
+Select a video or still-image clip on a video track, pause playback, and place the
+playhead inside the clip. Scroll to **Opacity Keyframes** in the inspector.
+
+1. Choose **Add point**, then adjust **Keyframe opacity** from 0% to 100%. Zero
+   reveals the tracks underneath; 100% applies no extra transparency. Double-click
+   the slider to reset that point to 100%.
+2. Move to another frame and add more points. For a gradual reveal, use 0% at the
+   beginning and 100% later. Levels interpolate linearly between points and hold
+   before the first and after the last point.
+3. Use **Previous point**, **Next point**, **Remove point** or **Clear all opacity
+   points**. Clear also removes points hidden outside the current trim. Every edit
+   is undoable; a whole slider drag is one undo step.
+
+Accent-colored squares show opacity points on the timeline. White diamonds show
+volume points. Both curves stay visible and paint only the current viewport as
+you zoom or scroll. Opacity multiplies the source's own transparency, the existing
+clip **Opacity** slider and video fades. A transparent PNG keeps its transparent
+regions. Opacity changes do not mute the clip's audio.
+
+The curve uses the same source-frame anchoring as volume automation. Move, trim,
+split, roll, slip and duplication preserve source-relative points. Image clips use
+project frames as their source clock. Copy/paste of scalar attributes preserves
+destination curves; **Reset Picture** clears picture adjustments and opacity
+points together while retaining volume points, audio settings and fades.
+
+Opacity points are dormant while a video source is on an audio track. Moving it
+back to a video track restores the picture envelope. Audio-only sources cannot
+have opacity points. Locked tracks prevent edits.
+
+**Compatibility:** Any project containing opacity points saves as format **v4**,
+which requires a build supporting opacity automation. Volume-only projects still
+use v3; projects with neither curve use v2. Keep backup project copies before
+switching development builds. This feature is not part of stable v1.3.0.
 
 ## Timeline markers (v1.4 development preview)
 

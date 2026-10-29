@@ -40,6 +40,12 @@ TimelineController::TimelineController(ProjectController* project, PlaybackContr
             &TimelineController::audioAutomationChanged);
     connect(m_playback, &PlaybackController::playingChanged, this,
             &TimelineController::audioAutomationChanged);
+    connect(this, &TimelineController::selectedClipChanged, this,
+            &TimelineController::opacityAutomationChanged);
+    connect(m_playback, &PlaybackController::positionChanged, this,
+            &TimelineController::opacityAutomationChanged);
+    connect(m_playback, &PlaybackController::playingChanged, this,
+            &TimelineController::opacityAutomationChanged);
     connect(m_project, &ProjectController::documentReplaced, this, [this] {
         m_selection.clear();
         setTransitionSelection({});
@@ -841,10 +847,8 @@ bool TimelineController::resetPictureAdjustments(const QString& clipId)
     if (!clip) {
         return false;
     }
-    ClipProperties p = clip->properties;
-    p.video = VideoAdjustments{};
     m_project->document()->breakMerge();
-    return m_project->execute(edits::setClipProperties(clipId, p, QStringLiteral("Reset Picture")));
+    return m_project->execute(edits::resetClipPicture(clipId));
 }
 
 const Clip* TimelineController::singleSelectedClip() const
@@ -966,6 +970,125 @@ void TimelineController::previousAudioKeyframe()
 void TimelineController::nextAudioKeyframe()
 {
     seekAudioKeyframe(true);
+}
+
+QVariantMap TimelineController::opacityAutomation() const
+{
+    const Clip* clip = singleSelectedClip();
+    if (!clip) {
+        return {{QStringLiteral("available"), false}, {QStringLiteral("count"), 0}};
+    }
+    const Track* track = project().timeline().trackOfClip(clip->id);
+    const MediaAsset* asset = project().asset(clip->assetId);
+    const FrameCount frame = m_playback->positionFrames();
+    const FrameCount sourceFrame =
+        clip->sourceIn + std::clamp<FrameCount>(frame - clip->start, 0, clip->duration - 1);
+    const bool available = asset && asset->info.hasVideo && track &&
+                           track->kind == TrackKind::Video &&
+                           engine::MltRuntime::capabilities().brightnessFilter;
+    bool atKeyframe = false;
+    bool hasPrevious = false;
+    bool hasNext = false;
+    int visibleCount = 0;
+    for (const OpacityKeyframe& point : clip->opacityKeyframes) {
+        if (point.sourceFrame < clip->sourceIn || point.sourceFrame >= clip->sourceOut()) {
+            continue;
+        }
+        const FrameCount timelineFrame = clip->start + point.sourceFrame - clip->sourceIn;
+        ++visibleCount;
+        atKeyframe = atKeyframe || timelineFrame == frame;
+        hasPrevious = hasPrevious || timelineFrame < frame;
+        hasNext = hasNext || timelineFrame > frame;
+    }
+    return {{QStringLiteral("available"), available},
+            {QStringLiteral("canEdit"), available && track && !track->locked &&
+                                            clip->contains(frame) && !m_playback->playing()},
+            {QStringLiteral("atKeyframe"), atKeyframe},
+            {QStringLiteral("count"), static_cast<int>(clip->opacityKeyframes.size())},
+            {QStringLiteral("visibleCount"), visibleCount},
+            {QStringLiteral("opacity"), opacityKeyframeValue(clip->opacityKeyframes, sourceFrame)},
+            {QStringLiteral("hasPrevious"), hasPrevious},
+            {QStringLiteral("hasNext"), hasNext}};
+}
+
+bool TimelineController::setOpacityKeyframeAtPlayhead(double opacity)
+{
+    const Clip* clip = singleSelectedClip();
+    if (!clip || !opacityAutomation().value(QStringLiteral("canEdit")).toBool()) {
+        emit statusMessage(
+            QStringLiteral("Pause with the playhead inside one unlocked video or image clip "
+                           "to set an opacity keyframe."));
+        return false;
+    }
+    const FrameCount sourceFrame = clip->sourceIn + m_playback->positionFrames() - clip->start;
+    // Avoid adding an undo entry for an unchanged point, but always validate numeric input.
+    if (std::isfinite(opacity)) {
+        for (const OpacityKeyframe& point : clip->opacityKeyframes) {
+            if (point.sourceFrame == sourceFrame && point.opacity == opacity) {
+                return true;
+            }
+        }
+    }
+    return m_project->execute(edits::setOpacityKeyframe(clip->id, sourceFrame, opacity));
+}
+
+bool TimelineController::removeOpacityKeyframeAtPlayhead()
+{
+    const Clip* clip = singleSelectedClip();
+    if (!clip || !opacityAutomation().value(QStringLiteral("canEdit")).toBool()) {
+        emit statusMessage(
+            QStringLiteral("Pause with the playhead inside an unlocked video or image clip "
+                           "to remove its opacity keyframe."));
+        return false;
+    }
+    m_project->document()->breakMerge();
+    return m_project->execute(edits::removeOpacityKeyframe(
+        clip->id, clip->sourceIn + m_playback->positionFrames() - clip->start));
+}
+
+bool TimelineController::clearSelectedOpacityKeyframes()
+{
+    const Clip* clip = singleSelectedClip();
+    if (!clip || clip->opacityKeyframes.empty()) {
+        return false;
+    }
+    m_project->document()->breakMerge();
+    return m_project->execute(edits::clearOpacityKeyframes(clip->id));
+}
+
+void TimelineController::seekOpacityKeyframe(bool forward)
+{
+    const Clip* clip = singleSelectedClip();
+    if (!clip) {
+        return;
+    }
+    std::optional<FrameCount> target;
+    const FrameCount frame = m_playback->positionFrames();
+    for (const OpacityKeyframe& point : clip->opacityKeyframes) {
+        if (point.sourceFrame < clip->sourceIn || point.sourceFrame >= clip->sourceOut()) {
+            continue;
+        }
+        const FrameCount candidate = clip->start + point.sourceFrame - clip->sourceIn;
+        if ((forward && candidate > frame && (!target || candidate < *target)) ||
+            (!forward && candidate < frame && (!target || candidate > *target))) {
+            target = candidate;
+        }
+    }
+    if (target) {
+        m_playback->pause();
+        m_project->document()->breakMerge();
+        m_playback->seek(static_cast<double>(*target));
+    }
+}
+
+void TimelineController::previousOpacityKeyframe()
+{
+    seekOpacityKeyframe(false);
+}
+
+void TimelineController::nextOpacityKeyframe()
+{
+    seekOpacityKeyframe(true);
 }
 
 void TimelineController::endEdit()

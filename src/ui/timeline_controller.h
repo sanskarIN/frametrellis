@@ -36,6 +36,7 @@ class TimelineController : public QObject
                    copiedClipAttributesChanged)
     Q_PROPERTY(QVariantMap selectedClip READ selectedClip NOTIFY selectedClipChanged)
     Q_PROPERTY(QVariantMap audioAutomation READ audioAutomation NOTIFY audioAutomationChanged)
+    Q_PROPERTY(QVariantMap opacityAutomation READ opacityAutomation NOTIFY opacityAutomationChanged)
     Q_PROPERTY(
         QVariantMap selectedTransition READ selectedTransition NOTIFY selectedTransitionChanged)
     Q_PROPERTY(double duration READ duration NOTIFY durationChanged)
@@ -62,6 +63,7 @@ public:
     }
     [[nodiscard]] QVariantMap selectedClip() const;
     [[nodiscard]] QVariantMap audioAutomation() const;
+    [[nodiscard]] QVariantMap opacityAutomation() const;
     [[nodiscard]] double duration() const;
     [[nodiscard]] double frameRate() const;
     [[nodiscard]] bool empty() const;
@@ -124,6 +126,11 @@ public:
     Q_INVOKABLE bool clearSelectedAudioKeyframes();
     Q_INVOKABLE void previousAudioKeyframe();
     Q_INVOKABLE void nextAudioKeyframe();
+    Q_INVOKABLE bool setOpacityKeyframeAtPlayhead(double opacity);
+    Q_INVOKABLE bool removeOpacityKeyframeAtPlayhead();
+    Q_INVOKABLE bool clearSelectedOpacityKeyframes();
+    Q_INVOKABLE void previousOpacityKeyframe();
+    Q_INVOKABLE void nextOpacityKeyframe();
 
     // Transitions
     [[nodiscard]] QVariantMap selectedTransition() const;
@@ -169,6 +176,7 @@ signals:
     void copiedClipAttributesChanged();
     void selectedClipChanged();
     void audioAutomationChanged();
+    void opacityAutomationChanged();
     void selectedTransitionChanged();
     void durationChanged();
     void canAppendTitleChanged();
@@ -183,6 +191,7 @@ private:
     [[nodiscard]] std::optional<FrameCount> placementLength(const MediaAsset& asset) const;
     [[nodiscard]] const Clip* singleSelectedClip() const;
     void seekAudioKeyframe(bool forward);
+    void seekOpacityKeyframe(bool forward);
 
     ProjectController* m_project;
     PlaybackController* m_playback;

@@ -290,6 +290,87 @@ private slots:
         QVERIFY(isCloseTo(averageColor(picture, QRect(60, 40, 20, 10)), Qt::yellow));
     }
 
+    void opacityKeyframesUseSourceTimeAndCombineWithScalarOpacityAndFades()
+    {
+        QList<Id> ids;
+        Project p = projectWith({m_media.blue, m_media.red}, &ids);
+        QVERIFY(p.timeline().insertClip(p.timeline().tracks()[0].id, clipOf(ids[0], 0, 0, 50),
+                                        p.sourceLookup()));
+        const Clip top = clipOf(ids[1], 5, 5, 40);
+        QVERIFY(p.timeline().insertClip(p.timeline().tracks()[1].id, top, p.sourceLookup()));
+        QVERIFY(p.timeline().setOpacityKeyframe(top.id, 5, 0, p.sourceLookup()));
+        QVERIFY(p.timeline().setOpacityKeyframe(top.id, 25, 1, p.sourceLookup()));
+        QVERIFY(p.timeline().setOpacityKeyframe(top.id, 44, 0, p.sourceLookup()));
+        QVERIFY(isCloseTo(averageColor(renderAt(p, 5)), Qt::blue));
+        QVERIFY(isCloseTo(averageColor(renderAt(p, 15)), QColor(128, 0, 128), 25));
+        QVERIFY(isCloseTo(averageColor(renderAt(p, 25)), Qt::red));
+        QVERIFY(isCloseTo(averageColor(renderAt(p, 44)), Qt::blue));
+        QVERIFY(audioPeakAt(p, 5) > 1000); // transparent picture does not mute source sound
+        ClipProperties properties;
+        properties.video.opacity = 0.5;
+        QVERIFY(p.timeline().setClipProperties(top.id, properties));
+        QVERIFY(isCloseTo(averageColor(renderAt(p, 25)), QColor(128, 0, 128), 25));
+        properties.fadeIn = 20;
+        QVERIFY(p.timeline().setClipProperties(top.id, properties));
+        const QColor faded = averageColor(renderAt(p, 15));
+        QVERIFY2(faded.red() > 10 && faded.red() < 75 && faded.blue() > 170,
+                 qPrintable(faded.name()));
+        QVERIFY(p.timeline().setClipProperties(top.id, ClipProperties{}));
+        const QColor before = averageColor(renderAt(p, 20));
+        QVERIFY(p.timeline().trimClipStart(top.id, 12, p.sourceLookup()));
+        QVERIFY(isCloseTo(averageColor(renderAt(p, 20)), before, 5));
+        QVERIFY(p.timeline().splitClip(top.id, 22, QStringLiteral("opacity-right")));
+        QVERIFY(isCloseTo(averageColor(renderAt(p, 25)), Qt::red));
+    }
+
+    void opacityKeyframesPreservePngAlphaAndOneFrameClips()
+    {
+        const QString path = m_dir.filePath(QStringLiteral("half-alpha-red.png"));
+        QImage image(QSize(160, 90), QImage::Format_RGBA8888);
+        image.fill(QColor(255, 0, 0, 128));
+        for (int y = 0; y < 20; ++y) {
+            for (int x = 0; x < 20; ++x) {
+                image.setPixelColor(x, y, Qt::transparent);
+            }
+        }
+        QVERIFY(image.save(path));
+        QList<Id> ids;
+        Project p = projectWith({m_media.blue, path}, &ids);
+        QVERIFY(p.timeline().insertClip(p.timeline().tracks()[0].id, clipOf(ids[0], 0, 0, 30),
+                                        p.sourceLookup()));
+        Clip top = clipOf(ids[1], 0, 10, 25);
+        top.properties.video.opacity = 0.5;
+        QVERIFY(p.timeline().insertClip(p.timeline().tracks()[1].id, top, p.sourceLookup()));
+        QVERIFY(p.timeline().setOpacityKeyframe(top.id, 10, 0.5, p.sourceLookup()));
+        const QImage frame = renderAt(p, 10);
+        QVERIFY(isCloseTo(averageColor(frame, QRect(0, 0, 5, 5)), Qt::blue));
+        const QColor blended = averageColor(frame, QRect(60, 40, 20, 10));
+        QVERIFY2(blended.red() > 10 && blended.red() < 65 && blended.blue() > 185,
+                 qPrintable(blended.name())); // 1/2 PNG alpha * 1/2 scalar * 1/2 curve
+        QVERIFY(p.timeline().trimClipEnd(top.id, 1, p.sourceLookup()));
+        QVERIFY(isCloseTo(averageColor(renderAt(p, 0), QRect(60, 40, 20, 10)), blended, 5));
+    }
+
+    void opacityKeyframesSurviveDissolveHandles()
+    {
+        QList<Id> ids;
+        Project p = projectWith({m_media.blue, m_media.red}, &ids);
+        QVERIFY(p.timeline().insertClip(p.timeline().tracks()[0].id, clipOf(ids[0], 0, 0, 60),
+                                        p.sourceLookup()));
+        const Id trackId = p.timeline().tracks()[1].id;
+        const Clip left = clipOf(ids[1], 0, 10, 25);
+        const Clip right = clipOf(ids[1], 25, 15, 25);
+        QVERIFY(p.timeline().insertClip(trackId, left, p.sourceLookup()));
+        QVERIFY(p.timeline().insertClip(trackId, right, p.sourceLookup()));
+        QVERIFY(p.timeline().addTransition(left.id, 10, p.sourceLookup()));
+        QVERIFY(isCloseTo(averageColor(renderAt(p, 25)), Qt::red));
+        QVERIFY(p.timeline().setOpacityKeyframe(left.id, 10, 0.5, p.sourceLookup()));
+        QVERIFY(p.timeline().setOpacityKeyframe(right.id, 15, 0.5, p.sourceLookup()));
+        const QColor blended = averageColor(renderAt(p, 25));
+        QVERIFY2(blended.red() > 50 && blended.red() < 220 && blended.blue() > 40,
+                 qPrintable(blended.name()));
+    }
+
     void videoFadeIn()
     {
         QList<Id> ids;

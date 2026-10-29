@@ -5,6 +5,7 @@
 #include "core/framerate.h"
 #include "core/ids.h"
 #include "timeline/audio_keyframes.h"
+#include "timeline/opacity_keyframes.h"
 
 namespace ft {
 
@@ -44,7 +45,8 @@ struct Clip
     FrameCount sourceIn = 0; ///< first source frame used
     FrameCount duration = 1; ///< number of frames, always >= 1
     ClipProperties properties;
-    std::vector<AudioKeyframe> audioKeyframes; ///< source-anchored volume envelope, in dB
+    std::vector<AudioKeyframe> audioKeyframes;     ///< source-anchored volume envelope, in dB
+    std::vector<OpacityKeyframe> opacityKeyframes; ///< source-anchored alpha multiplier
 
     [[nodiscard]] FrameCount end() const { return start + duration; }          ///< exclusive
     [[nodiscard]] FrameCount sourceOut() const { return sourceIn + duration; } ///< exclusive

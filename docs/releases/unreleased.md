@@ -21,8 +21,11 @@ are not included in those downloads. No v1.4 release is declared by these notes.
 - [#82](https://github.com/sanskarIN/frametrellis/pull/82): roll adjacent video/audio
   cuts without changing their combined duration; preserve source handles, fades,
   locks and transitions, with inspector controls and undo/redo.
+- [#83](https://github.com/sanskarIN/frametrellis/pull/83): source-anchored volume
+  keyframes, inspector controls, shared preview/export automation and bounded
+  timeline envelope painting. Volume points require project format v3.
 
-## Volume automation candidate
+## Volume automation
 
 - Source-anchored volume keyframes from -60 to +12 dB, with linear interpolation
   in dB and held endpoints. Preview and MP4 export share the same envelope.
@@ -37,8 +40,25 @@ are not included in those downloads. No v1.4 release is declared by these notes.
   Projects without points continue to save as v2; loading v1/v2 remains supported.
   Back up projects before moving between development builds.
 
-This candidate requires final branch checks and review before integration. It is
-not a stable release, version bump, tag or published binary.
+## Opacity automation
+
+- Source-anchored opacity points from 0% to 100%, with linear interpolation and
+  held endpoints. Video and still-image clips use the same project-frame clock.
+- Multiply the curve with source alpha, scalar opacity and video fades; preserve
+  PNG transparency and source audio. Dissolve handles retain the opacity filters.
+- Inspector add/remove/clear and previous/next controls, percentage values and
+  accent-colored square points. White volume diamonds remain independent. Both
+  envelopes share viewport-bounded painting during zoom and horizontal scrolling.
+- Reset Picture clears scalar picture adjustments and opacity points together,
+  retaining volume points and fades. Attribute paste retains destination curves.
+- Format v4 preserves opacity automation; volume-only projects remain v3 and
+  projects without automation remain v2. Loading formats v1 through v4 is supported.
+- Model, undo, legacy/malformed document, generated-frame, exported MP4 and GUI
+  regressions cover zero opacity, still images, PNG alpha, one-frame clips,
+  transitions, source edits, real controls and narrower layouts. See the
+  [opacity acceptance matrix](../testing/opacity-automation.md).
+
+These are development features after v1.3.0, not a new stable release or version bump.
 
 ## Separate open proposals
 

@@ -205,6 +205,8 @@ bool SubtitleController::seekSelected()
     const auto frame =
         subtitleFrameAtMilliseconds(m_track.cues[static_cast<size_t>(selectedIndex())].startMs,
                                     m_project->project().settings().frameRate);
+    if (!frame)
+        return fail(tr("The subtitle time could not be converted to a video frame."));
     m_playback->pause();
     m_playback->seek(static_cast<double>(*frame));
     return true;

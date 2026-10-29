@@ -57,10 +57,11 @@ Status validateSubtitles(const SubtitleTrack& track)
                                                 "invalid Unicode character."));
             }
             if (ch.isHighSurrogate()) {
-                if (i + 1 >= cue.text.size() || !cue.text.at(++i).isLowSurrogate()) {
+                if (i + 1 >= cue.text.size() || !cue.text.at(i + 1).isLowSurrogate()) {
                     return makeError(ErrorCode::InvalidArgument,
                                      QStringLiteral("Subtitle text contains invalid Unicode."));
                 }
+                ++i;
             }
         }
         const QStringList lines = cue.text.split(QLatin1Char('\n'));
@@ -173,7 +174,8 @@ Result<SubtitleTrack> fromBytes(const QByteArray& bytes)
             lines.at(row).trimmed().toLongLong() == 0) {
             return error(QStringLiteral("expected a positive numeric cue counter"));
         }
-        if (++row >= lines.size()) {
+        ++row;
+        if (row >= lines.size()) {
             return error(QStringLiteral("missing timing line"));
         }
         const auto match = timing.match(lines.at(row).trimmed());
@@ -187,12 +189,14 @@ Result<SubtitleTrack> fromBytes(const QByteArray& bytes)
         }
         QStringList caption;
         qsizetype cueLength = 0;
-        while (++row < lines.size() && !lines.at(row).trimmed().isEmpty()) {
+        ++row;
+        while (row < lines.size() && !lines.at(row).trimmed().isEmpty()) {
             cueLength += lines.at(row).size() + (caption.isEmpty() ? 0 : 1);
             if (cueLength > kMaxSubtitleTextLength) {
                 return error(QStringLiteral("a cue exceeds 2000 characters"));
             }
             caption.append(lines.at(row));
+            ++row;
         }
         totalText += cueLength;
         if (track.cues.size() >= static_cast<size_t>(kMaxSubtitleCues) ||

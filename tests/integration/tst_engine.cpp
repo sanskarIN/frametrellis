@@ -476,6 +476,121 @@ private slots:
         }
     }
 
+    void subtitlesHaveExactBoundariesAndDoNotChangeSoundOrDuration()
+    {
+        QList<Id> ids;
+        Project p = projectWith({m_media.red}, &ids);
+        QVERIFY(p.timeline().insertClip(p.timeline().tracks()[0].id, clipOf(ids[0], 0, 0, 75),
+                                        p.sourceLookup()));
+        const QImage plain = renderAt(p, 25);
+        const int baselineAudio = audioPeakAt(p, 25);
+        SubtitleTrack captions;
+        captions.fontPercent = 10;
+        captions.cues = {
+            {QStringLiteral("caption"), 1000, 2000, QStringLiteral("FrameTrellis\nSubtitles")}};
+        QVERIFY(p.setSubtitles(captions));
+        const auto whites = [](const QImage& image) {
+            int count = 0;
+            for (int y = 0; y < image.height(); ++y)
+                for (int x = 0; x < image.width(); ++x) {
+                    const QColor pixel = image.pixelColor(x, y);
+                    if (pixel.red() > 120 && pixel.green() > 120 && pixel.blue() > 120)
+                        ++count;
+                }
+            return count;
+        };
+        QCOMPARE(whites(renderAt(p, 24)), 0);
+        QVERIFY(whites(renderAt(p, 25)) > 10);
+        QVERIFY(whites(renderAt(p, 49)) > 10);
+        QCOMPARE(whites(renderAt(p, 50)), 0);
+        QVERIFY(isCloseTo(averageColor(renderAt(p, 25), QRect(0, 0, 160, 35)),
+                          averageColor(plain, QRect(0, 0, 160, 35)), 2));
+        QVERIFY(std::abs(audioPeakAt(p, 25) - baselineAudio) < 20);
+        captions.burnIn = false;
+        QVERIFY(p.setSubtitles(captions));
+        QCOMPARE(whites(renderAt(p, 25)), 0);
+        captions.burnIn = true;
+        captions.cues[0].startMs = 0;
+        captions.cues[0].endMs = 1;
+        QVERIFY(p.setSubtitles(captions));
+        QVERIFY(
+            p.timeline().trimClipEnd(p.timeline().tracks()[0].clips[0].id, 1, p.sourceLookup()));
+        QVERIFY(whites(renderAt(p, 0)) > 10);
+        auto profile = engine::createProfile(160, 90, p.settings().frameRate);
+        engine::TimelineGraphBuilder builder(*profile);
+        const auto graph = builder.build(p);
+        QVERIFY(graph);
+        QCOMPARE(graph->duration, FrameCount{1});
+    }
+
+    void subtitleSamplingAtFractionalRatesAndPreviewLayout()
+    {
+        QList<Id> ids;
+        Project p = projectWith({m_media.blue}, &ids);
+        ProjectSettings settings = p.settings();
+        settings.width = 1280;
+        settings.height = 720;
+        settings.frameRate = *FrameRate::create(30000, 1001);
+        QVERIFY(p.setSettings(settings));
+        QVERIFY(p.timeline().insertClip(p.timeline().tracks()[0].id, clipOf(ids[0], 0, 0, 80),
+                                        p.sourceLookup()));
+        SubtitleTrack captions;
+        captions.fontPercent = 8;
+        captions.cues = {{QStringLiteral("caption"), 1000, 2000,
+                          QStringLiteral("A wrapping subtitle with precise timing")}};
+        QVERIFY(p.setSubtitles(captions));
+        const auto ink = [](const QImage& image) {
+            int count = 0;
+            for (int y = 0; y < image.height(); ++y)
+                for (int x = 0; x < image.width(); ++x)
+                    if (image.pixelColor(x, y).red() > 100)
+                        ++count;
+            return count;
+        };
+        QCOMPARE(ink(renderAt(p, 29)), 0);
+        const QImage full = renderAt(p, 30);
+        QVERIFY(ink(full) > 20);
+        QCOMPARE(ink(renderAt(p, 60)), 0);
+        auto profile = engine::createProfile(80, 46, p.settings().frameRate);
+        engine::TimelineGraphBuilder builder(*profile);
+        const auto graph = builder.build(p);
+        QVERIFY(graph);
+        graph->tractor->seek(30);
+        std::unique_ptr<Mlt::Frame> frame(graph->tractor->get_frame());
+        const QImage small = engine::frameToImage(*frame, QSize(80, 46));
+        QVERIFY(ink(small) > 5);
+        const QImage expected =
+            full.scaled(small.size(), Qt::IgnoreAspectRatio, Qt::SmoothTransformation);
+        qint64 difference = 0;
+        for (int y = 0; y < small.height(); ++y)
+            for (int x = 0; x < small.width(); ++x) {
+                const QColor a = small.pixelColor(x, y);
+                const QColor b = expected.pixelColor(x, y);
+                difference += std::abs(a.red() - b.red()) + std::abs(a.green() - b.green()) +
+                              std::abs(a.blue() - b.blue());
+            }
+        // Different resamplers and the odd preview height can shift padding by one pixel.
+        // Check both mean colour error and ink placement, rather than exact raster bytes.
+        QVERIFY2(difference < small.width() * small.height() * 30,
+                 qPrintable(QString::number(difference)));
+        const auto bounds = [](const QImage& image) {
+            QRect rectangle;
+            for (int y = 0; y < image.height(); ++y) {
+                for (int x = 0; x < image.width(); ++x) {
+                    if (image.pixelColor(x, y).red() > 100)
+                        rectangle = rectangle.united(QRect(x, y, 1, 1));
+                }
+            }
+            return rectangle;
+        };
+        const QRect actualInk = bounds(small);
+        const QRect expectedInk = bounds(expected);
+        QVERIFY(std::abs(actualInk.left() - expectedInk.left()) <= 2);
+        QVERIFY(std::abs(actualInk.top() - expectedInk.top()) <= 2);
+        QVERIFY(std::abs(actualInk.right() - expectedInk.right()) <= 2);
+        QVERIFY(std::abs(actualInk.bottom() - expectedInk.bottom()) <= 2);
+    }
+
     void videoFadeIn()
     {
         QList<Id> ids;
@@ -808,5 +923,5 @@ private slots:
     void cleanupTestCase() { engine::MltRuntime::shutdown(); }
 };
 
-QTEST_GUILESS_MAIN(EngineTest)
+QTEST_MAIN(EngineTest)
 #include "tst_engine.moc"

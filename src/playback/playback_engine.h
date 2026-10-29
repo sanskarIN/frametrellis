@@ -21,6 +21,8 @@ namespace ft::playback {
 /// frames at preview resolution and paces them by the audio device clock, or by the wall clock
 /// when no audio device is available. Seeks are coalesced so that scrubbing never queues work, and
 /// only the most recent frame is handed to the UI thread, so a slow UI cannot cause a backlog.
+/// Requests invalidate superseded frames before publication and queued GUI delivery, keeping
+/// an old picture from reversing a newer seek or restoring a replaced project snapshot.
 ///
 /// The engine works on snapshots: setProject() copies the project, so edits never race with
 /// rendering.

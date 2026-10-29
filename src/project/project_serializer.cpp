@@ -71,6 +71,15 @@ QJsonObject clipToJson(const Clip& c)
         }
         o[QLatin1String("audioKeyframes")] = points;
     }
+    if (!c.opacityKeyframes.empty()) {
+        QJsonArray points;
+        for (const OpacityKeyframe& point : c.opacityKeyframes) {
+            points.append(
+                QJsonObject{{QStringLiteral("sourceFrame"), static_cast<double>(point.sourceFrame)},
+                            {QStringLiteral("opacity"), point.opacity}});
+        }
+        o[QLatin1String("opacityKeyframes")] = points;
+    }
     return o;
 }
 
@@ -344,15 +353,17 @@ QJsonObject toJson(const Project& project, const QString& projectDir)
 
     QJsonObject root;
     root[QLatin1String("format")] = QLatin1String(kFormatName);
-    // Keep projects without automation readable by existing v2 development builds. Readers
-    // that cannot preserve automation must reject v3 instead of silently discarding it.
+    // Choose the oldest development format that can preserve every envelope. Older readers
+    // must reject unsupported automation instead of silently discarding it.
     bool hasAudioKeyframes = false;
+    bool hasOpacityKeyframes = false;
     for (const Track& track : project.timeline().tracks()) {
         for (const Clip& clip : track.clips) {
             hasAudioKeyframes = hasAudioKeyframes || !clip.audioKeyframes.empty();
+            hasOpacityKeyframes = hasOpacityKeyframes || !clip.opacityKeyframes.empty();
         }
     }
-    root[QLatin1String("version")] = hasAudioKeyframes ? kCurrentVersion : 2;
+    root[QLatin1String("version")] = hasOpacityKeyframes ? 4 : (hasAudioKeyframes ? 3 : 2);
     root[QLatin1String("generator")] = QStringLiteral("%1 %2").arg(
         QLatin1String(version::applicationName), QLatin1String(version::string));
     root[QLatin1String("project")] = body;
@@ -506,6 +517,26 @@ Result<Project> fromJson(const QJsonObject& document, const QString& projectDir)
                     kr.number(point, "decibels", kMinAudioKeyframeDb, kMaxAudioKeyframeDb, 0.0);
                 cr.adopt(kr);
                 clip.audioKeyframes.push_back(key);
+            }
+            const QJsonArray opacityPoints = cr.array(co, "opacityKeyframes", kMaxOpacityKeyframes);
+            if (!opacityPoints.isEmpty() && versionNumber < 4) {
+                cr.fail(QStringLiteral("opacityKeyframes"),
+                        QStringLiteral("opacity automation requires project format v4"));
+            }
+            for (qsizetype k = 0; k < opacityPoints.size() && !cr.failed(); ++k) {
+                Reader kr(cr.path() + QStringLiteral(".opacityKeyframes[%1]").arg(k));
+                if (!opacityPoints.at(k).isObject()) {
+                    kr.fail(QStringLiteral("keyframe"), QStringLiteral("expected an object"));
+                }
+                const QJsonObject point = opacityPoints.at(k).toObject();
+                OpacityKeyframe key;
+                key.sourceFrame = kr.integer(point, "sourceFrame", 0, kMaxTimelineFrames);
+                if (!point.contains(QLatin1String("opacity"))) {
+                    kr.fail(QStringLiteral("opacity"), QStringLiteral("required number"));
+                }
+                key.opacity = kr.number(point, "opacity", 0.0, 1.0, 1.0);
+                cr.adopt(kr);
+                clip.opacityKeyframes.push_back(key);
             }
             tr.adopt(cr);
             track.clips.push_back(std::move(clip));

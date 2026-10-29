@@ -2,7 +2,8 @@
 
 A project is a UTF-8 JSON document. The **v2 development format** adds optional
 sequence-level markers; this abridged example shows that shape. The **v3 development
-format** additionally preserves clip volume automation. v1 and v2 files still load.
+format** additionally preserves clip volume automation. **v4** adds opacity curves;
+the reader supports all four versions.
 
 ```json
 {
@@ -69,10 +70,22 @@ format** additionally preserves clip volume automation. v1 and v2 files still lo
   Levels interpolate linearly in dB and hold at the first/last point outside the curve.
   An absent or empty curve is neutral (0 dB). Automation combines with clip gain,
   fades and mute; it does not change track placement or media files.
-* The writer chooses v3 only when at least one clip has a nonempty audio envelope.
-  Projects without automation remain v2, including after all points are cleared.
-  Older v2 development builds refuse v3 rather than losing automation. A v1/v2
-  document containing nonempty `audioKeyframes` is rejected as inconsistent.
+* Clips may contain `opacityKeyframes` in **format v4**:
+  `[{"sourceFrame":30,"opacity":0.0},{"sourceFrame":90,"opacity":1.0}]`.
+  The same source-frame bounds, strict ordering, unique-frame rule and 1000-point
+  limit apply. Values must be finite numbers in `[0, 1]`; the source must have video
+  (including still images). Values interpolate linearly and hold at the endpoints.
+  An empty curve is neutral (factor 1). The curve multiplies source alpha, scalar
+  opacity and fades. Sound is independent of opacity.
+* Opacity curves may remain on a video source temporarily moved to an audio track;
+  they are dormant there and reappear if it returns to a video track. Creating or
+  updating an opacity point requires an unlocked video track. Reset Picture clears
+  scalar picture adjustments and opacity points together; audio and fades remain.
+* The writer chooses the minimum required development format: v4 if any clip has
+  opacity points, otherwise v3 if any clip has volume points, otherwise v2. Clearing
+  curves can lower the next save's version. Older readers refuse unsupported
+  versions rather than losing automation. Nonempty audio curves in v1/v2, or opacity
+  curves in v1/v2/v3, are rejected as inconsistent.
 * `relativePath` is relative to the folder containing the project file. When `path` does not
   exist but the relative location does, the relative one is used (projects can be moved
   together with their media).

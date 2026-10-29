@@ -246,6 +246,9 @@ QStringList EngineCapabilities::missingOptional() const
     if (!eqFilter) {
         missing << QStringLiteral("avfilter.eq (brightness, contrast and saturation)");
     }
+    if (!transformFilter) {
+        missing << QStringLiteral("affine filter (clip position, scale and rotation)");
+    }
     return missing;
 }
 
@@ -292,6 +295,7 @@ Status MltRuntime::initialize()
     }
     caps.volumeFilter = hasService(repository, mlt_service_filter_type, "volume");
     caps.brightnessFilter = hasService(repository, mlt_service_filter_type, "brightness");
+    caps.transformFilter = hasService(repository, mlt_service_filter_type, "affine");
     caps.eqFilter =
         hasService(repository, mlt_service_filter_type, "avfilter.eq") && eqFilterWorks();
     g_capabilities = caps;

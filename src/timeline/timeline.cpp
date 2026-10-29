@@ -369,6 +369,10 @@ Status Timeline::checkClipShape(const Clip& c)
         !keys) {
         return keys;
     }
+    if (const Status keys = validateTransformKeyframes(c.transformKeyframes, kMaxTimelineFrames);
+        !keys) {
+        return keys;
+    }
     return checkProperties(c.properties, c.duration);
 }
 
@@ -396,6 +400,10 @@ Status Timeline::checkSourceRange(const Clip& c, const Track& t, const SourceLoo
     if (!c.opacityKeyframes.empty() && !limits->hasVideo) {
         return makeError(ErrorCode::InvalidArgument,
                          QStringLiteral("Opacity keyframes require video or image media."));
+    }
+    if (!c.transformKeyframes.empty() && !limits->hasVideo) {
+        return makeError(ErrorCode::InvalidArgument,
+                         QStringLiteral("Transform keyframes require video or image media."));
     }
     if (limits->length && c.sourceOut() > *limits->length) {
         return makeError(ErrorCode::OutOfRange,
@@ -1008,6 +1016,79 @@ Status Timeline::clearOpacityKeyframes(const Id& clipId)
     return {};
 }
 
+Status Timeline::setTransformKeyframe(const Id& clipId, FrameCount sourceFrame,
+                                      const VideoTransform& value, const SourceLookup& sources)
+{
+    const auto location = findClip(clipId);
+    if (!location) {
+        return notFound(QStringLiteral("The clip"));
+    }
+    Track& track = m_tracks[static_cast<size_t>(location->track)];
+    if (const Status editable = checkEditable(track); !editable) {
+        return editable;
+    }
+    Clip& clip = track.clips[static_cast<size_t>(location->clip)];
+    const auto limits = sources ? sources(clip.assetId) : std::nullopt;
+    if (!limits || !limits->hasVideo || track.kind != TrackKind::Video) {
+        return makeError(ErrorCode::InvalidArgument,
+                         QStringLiteral("Select a video or image clip on a video track to add "
+                                        "transform keyframes."));
+    }
+    if (sourceFrame < clip.sourceIn || sourceFrame >= clip.sourceOut()) {
+        return makeError(ErrorCode::OutOfRange,
+                         QStringLiteral("Place the keyframe within the selected clip."));
+    }
+    auto points = clip.transformKeyframes;
+    const auto it = std::lower_bound(
+        points.begin(), points.end(), sourceFrame,
+        [](const TransformKeyframe& point, FrameCount frame) { return point.sourceFrame < frame; });
+    if (it != points.end() && it->sourceFrame == sourceFrame) {
+        it->value = value;
+    } else {
+        points.insert(it, {sourceFrame, value});
+    }
+    if (const Status valid = validateTransformKeyframes(points, kMaxTimelineFrames); !valid) {
+        return valid;
+    }
+    clip.transformKeyframes = std::move(points);
+    return {};
+}
+
+Status Timeline::removeTransformKeyframe(const Id& clipId, FrameCount sourceFrame)
+{
+    const auto location = findClip(clipId);
+    if (!location) {
+        return notFound(QStringLiteral("The clip"));
+    }
+    Track& track = m_tracks[static_cast<size_t>(location->track)];
+    if (const Status editable = checkEditable(track); !editable) {
+        return editable;
+    }
+    auto& points = track.clips[static_cast<size_t>(location->clip)].transformKeyframes;
+    const auto it = std::lower_bound(
+        points.begin(), points.end(), sourceFrame,
+        [](const TransformKeyframe& point, FrameCount frame) { return point.sourceFrame < frame; });
+    if (it == points.end() || it->sourceFrame != sourceFrame) {
+        return notFound(QStringLiteral("The transform keyframe"));
+    }
+    points.erase(it);
+    return {};
+}
+
+Status Timeline::clearTransformKeyframes(const Id& clipId)
+{
+    const auto location = findClip(clipId);
+    if (!location) {
+        return notFound(QStringLiteral("The clip"));
+    }
+    Track& track = m_tracks[static_cast<size_t>(location->track)];
+    if (const Status editable = checkEditable(track); !editable) {
+        return editable;
+    }
+    track.clips[static_cast<size_t>(location->clip)].transformKeyframes.clear();
+    return {};
+}
+
 Status Timeline::resetClipPicture(const Id& clipId)
 {
     const auto location = findClip(clipId);
@@ -1021,6 +1102,7 @@ Status Timeline::resetClipPicture(const Id& clipId)
     Clip& clip = track.clips[static_cast<size_t>(location->clip)];
     clip.properties.video = {};
     clip.opacityKeyframes.clear();
+    clip.transformKeyframes.clear();
     return {};
 }
 

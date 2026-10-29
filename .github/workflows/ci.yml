@@ -103,6 +103,10 @@ jobs:
           path: |
             ${{ runner.temp }}/frametrellis-screenshots/07-clip-duplication.png
             ${{ runner.temp }}/frametrellis-screenshots/08-title-overlay.png
+            ${{ runner.temp }}/frametrellis-screenshots/09-volume-keyframes.png
+            ${{ runner.temp }}/frametrellis-screenshots/10-opacity-keyframes.png
+            ${{ runner.temp }}/frametrellis-screenshots/11-transform-keyframes.png
+            ${{ runner.temp }}/frametrellis-screenshots/12-transform-keyframes-light.png
           if-no-files-found: warn
           retention-days: 14
 

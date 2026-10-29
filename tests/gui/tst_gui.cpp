@@ -18,6 +18,7 @@
 #include <QQuickItem>
 #include <QQuickStyle>
 #include <QQuickWindow>
+#include <QScopeGuard>
 #include <QSettings>
 #include <QSignalSpy>
 #include <QStandardPaths>
@@ -26,6 +27,7 @@
 #include <QThreadPool>
 #include <QtQml/qqmlextensionplugin.h>
 
+#include <cmath>
 #include <limits>
 
 Q_IMPORT_QML_PLUGIN(FrameTrellisPlugin)
@@ -419,6 +421,173 @@ private slots:
         inspectorFlick->setProperty("contentY", 0);
     }
 
+    void transformControlsAndMonitorDragsPreserveUndoAndOtherCurves()
+    {
+        m_app->playback()->pause();
+        const Timeline initial = m_app->project()->project().timeline();
+        const Clip original = track(0).clips.front();
+        const QSize previousSize = m_window->size();
+        const QString previousTheme = m_app->theme();
+        const auto restore = qScopeGuard([&] {
+            m_app->playback()->pause();
+            m_app->timeline()->setTransformHandlesVisible(false);
+            m_app->setTheme(previousTheme);
+            for (int i = 0; i < 20 && m_app->project()->project().timeline() != initial; ++i) {
+                m_app->project()->undo();
+            }
+            m_window->resize(previousSize);
+        });
+        m_app->timeline()->select(original.id, false);
+        m_app->playback()->seek(static_cast<double>(original.start + 10));
+        QTRY_VERIFY(
+            m_app->timeline()->transformAutomation().value(QStringLiteral("canEdit")).toBool());
+        QVERIFY(m_app->timeline()->setAudioKeyframeAtPlayhead(-12));
+        m_app->timeline()->endEdit();
+        QVERIFY(m_app->timeline()->setOpacityKeyframeAtPlayhead(0.75));
+        m_app->timeline()->endEdit();
+        QQuickItem* controls =
+            findItem(m_window->contentItem(), QStringLiteral("transformKeyframeControls"));
+        QQuickItem* scroll = findItem(m_window->contentItem(), QStringLiteral("inspectorScroll"));
+        QVERIFY(controls && scroll);
+        QObject* flick = scroll->property("contentItem").value<QObject*>();
+        QVERIFY(flick);
+        const auto reveal = [&](QQuickItem* item) {
+            const qreal y = item->mapToItem(controls, QPointF()).y() + controls->y();
+            flick->setProperty("contentY", std::max(0.0, y - 30));
+            QTest::qWait(60);
+        };
+        const auto click = [&](const QString& name) {
+            QQuickItem* item = findItem(m_window->contentItem(), name);
+            if (!item || !item->isEnabled())
+                return false;
+            reveal(item);
+            QSignalSpy clicks(item, SIGNAL(clicked()));
+            QTest::mouseClick(m_window, Qt::LeftButton, Qt::NoModifier, centreOf(item));
+            return QTest::qWaitFor([&] { return !clicks.isEmpty(); }, 1000);
+        };
+        QVERIFY(click(QStringLiteral("addTransformKeyframe")));
+        QCOMPARE(m_app->timeline()->transformAutomation().value(QStringLiteral("count")).toInt(),
+                 1);
+        QQuickItem* xSlider =
+            findItem(m_window->contentItem(), QStringLiteral("transformPositionX"));
+        QVERIFY(xSlider);
+        QVERIFY(QMetaObject::invokeMethod(xSlider, "moved", Q_ARG(double, 0.1)));
+        QVERIFY(QMetaObject::invokeMethod(xSlider, "moved", Q_ARG(double, 0.2)));
+        m_app->timeline()->endEdit();
+        QCOMPARE(m_app->timeline()->transformAutomation().value(QStringLiteral("x")).toDouble(),
+                 0.2);
+        m_app->project()->undo();
+        QCOMPARE(m_app->timeline()->transformAutomation().value(QStringLiteral("x")).toDouble(),
+                 0.0);
+        QVERIFY(m_app->timeline()->setTransformComponent(QStringLiteral("scale"), 0.5));
+        m_app->timeline()->endEdit();
+        QVERIFY(click(QStringLiteral("showTransformHandles")));
+        QQuickItem* overlay =
+            findItem(m_window->contentItem(), QStringLiteral("monitorTransformOverlay"));
+        QQuickItem* move = findItem(m_window->contentItem(), QStringLiteral("transformMoveArea"));
+        QQuickItem* scale =
+            findItem(m_window->contentItem(), QStringLiteral("transformScaleHandle"));
+        QQuickItem* rotate =
+            findItem(m_window->contentItem(), QStringLiteral("transformRotateHandle"));
+        QVERIFY(overlay && move && scale && rotate);
+        QTRY_VERIFY(overlay->isVisible());
+        const Timeline beforeMove = m_app->project()->project().timeline();
+        const QPoint centre = centreOf(move);
+        drag(centre, centre + QPoint(25, 12));
+        QVERIFY(m_app->timeline()->transformAutomation().value(QStringLiteral("x")).toDouble() >
+                0.02);
+        QVERIFY(m_app->timeline()->transformAutomation().value(QStringLiteral("y")).toDouble() >
+                0.02);
+        const Timeline moved = m_app->project()->project().timeline();
+        m_app->project()->undo();
+        QCOMPARE(m_app->project()->project().timeline(), beforeMove);
+        m_app->project()->redo();
+        QCOMPARE(m_app->project()->project().timeline(), moved);
+        const Timeline beforeScale = m_app->project()->project().timeline();
+        const QPoint fromScale = centreOf(scale);
+        drag(fromScale, fromScale + QPoint(30, 15));
+        QVERIFY(m_app->timeline()->transformAutomation().value(QStringLiteral("scale")).toDouble() >
+                0.55);
+        m_app->project()->undo();
+        QCOMPARE(m_app->project()->project().timeline(), beforeScale);
+        const Timeline beforeRotate = m_app->project()->project().timeline();
+        const QPoint rotationCentre = centreOf(move);
+        const QPoint fromRotation = centreOf(rotate);
+        drag(fromRotation, rotationCentre + QPoint(35, -35));
+        const double angle =
+            m_app->timeline()->transformAutomation().value(QStringLiteral("rotation")).toDouble();
+        QVERIFY2(angle > 15 && angle < 75, qPrintable(QString::number(angle)));
+        m_app->project()->undo();
+        QCOMPARE(m_app->project()->project().timeline(), beforeRotate);
+        m_app->project()->redo();
+        const VideoTransform first = m_app->project()
+                                         ->project()
+                                         .timeline()
+                                         .clip(original.id)
+                                         ->transformKeyframes.front()
+                                         .value;
+        m_app->playback()->seek(static_cast<double>(original.start + 40));
+        QVERIFY(m_app->timeline()->setTransformAtPlayhead(-0.1, 0, 0.75, 720));
+        m_app->timeline()->endEdit();
+        QCOMPARE(m_app->timeline()->transformAutomation().value(QStringLiteral("count")).toInt(),
+                 2);
+        QVERIFY(click(QStringLiteral("previousTransformKeyframe")));
+        QCOMPARE(m_app->playback()->positionFrames(), original.start + 10);
+        QVERIFY(click(QStringLiteral("nextTransformKeyframe")));
+        QTRY_COMPARE(m_app->playback()->positionFrames(), original.start + 40);
+        m_app->playback()->seek(static_cast<double>(original.start + 25));
+        QVERIFY(std::abs(m_app->timeline()
+                             ->transformAutomation()
+                             .value(QStringLiteral("rotation"))
+                             .toDouble() -
+                         (first.rotation + 720) / 2) < 0.001);
+        const Timeline beforeReset = m_app->project()->project().timeline();
+        m_app->playback()->seek(static_cast<double>(original.end() + 1));
+        QVERIFY(!overlay->isVisible());
+        QVERIFY(!m_app->timeline()->setTransformComponent(QStringLiteral("x"), 0.5));
+        QCOMPARE(m_app->project()->project().timeline(), beforeReset);
+        m_app->playback()->seek(static_cast<double>(original.start + 10));
+        QVERIFY(m_app->timeline()->setTrackFlag(track(0).id, QStringLiteral("locked"), true));
+        const Timeline locked = m_app->project()->project().timeline();
+        QVERIFY(!m_app->timeline()->setTransformAtPlayhead(0, 0, 1, 0));
+        QVERIFY(!m_app->timeline()->clearSelectedTransformKeyframes());
+        QCOMPARE(m_app->project()->project().timeline(), locked);
+        m_app->project()->undo();
+        QVERIFY(m_app->timeline()->resetPictureAdjustments(original.id));
+        const Clip* reset = m_app->project()->project().timeline().clip(original.id);
+        QVERIFY(reset->transformKeyframes.empty());
+        QVERIFY(reset->opacityKeyframes.empty());
+        QVERIFY(!reset->audioKeyframes.empty());
+        m_app->project()->undo();
+        QCOMPARE(m_app->project()->project().timeline(), beforeReset);
+        QVERIFY(click(QStringLiteral("removeTransformKeyframe")));
+        QCOMPARE(m_app->timeline()->transformAutomation().value(QStringLiteral("count")).toInt(),
+                 1);
+        m_app->project()->undo();
+        QVERIFY(click(QStringLiteral("clearTransformKeyframes")));
+        QCOMPARE(m_app->timeline()->transformAutomation().value(QStringLiteral("count")).toInt(),
+                 0);
+        m_app->project()->undo();
+        QQuickItem* badge =
+            findItem(clipItem(original.id), QStringLiteral("transformBadge:") + original.id);
+        QVERIFY(badge && badge->isVisible());
+        m_window->resize(1200, 800);
+        QTest::qWait(100);
+        reveal(controls);
+        screenshot(QStringLiteral("11-transform-keyframes"));
+        m_app->setTheme(QStringLiteral("light"));
+        QTest::qWait(100);
+        screenshot(QStringLiteral("12-transform-keyframes-light"));
+        m_app->setTheme(QStringLiteral("dark"));
+        m_app->timeline()->setTransformHandlesVisible(false);
+        for (int i = 0; i < 20 && m_app->project()->project().timeline() != initial; ++i) {
+            m_app->project()->undo();
+        }
+        QCOMPARE(m_app->project()->project().timeline(), initial);
+        m_window->resize(previousSize);
+        flick->setProperty("contentY", 0);
+    }
+
     void opacityKeyframesUseRealControlsAndPreserveAudio()
     {
         m_app->playback()->pause();
@@ -560,7 +729,23 @@ private slots:
         QVERIFY(!m_app->timeline()->setAudioKeyframeAtPlayhead(-12));
         m_app->project()->undo();
         QCOMPARE(m_app->project()->project().timeline(), initial);
+        QVERIFY(m_app->timeline()->transformAutomation().value(QStringLiteral("canEdit")).toBool());
+        QVERIFY(m_app->timeline()->setTransformAtPlayhead(0.25, -0.25, 0.5, 90));
+        m_app->timeline()->endEdit();
+        const Timeline transformed = m_app->project()->project().timeline();
+        QVERIFY(!m_app->timeline()->setTransformAtPlayhead(0, 0, 0, 0));
+        QVERIFY(!m_app->timeline()->setTransformAtPlayhead(std::numeric_limits<double>::quiet_NaN(),
+                                                           0, 1, 0));
+        QVERIFY(!m_app->timeline()->setTransformComponent(QStringLiteral("unknown"), 1));
+        QCOMPARE(m_app->project()->project().timeline(), transformed);
+        m_app->project()->undo();
+        QCOMPARE(m_app->project()->project().timeline(), initial);
         m_app->timeline()->clearSelection();
+        m_app->timeline()->setTransformHandlesVisible(true);
+        QQuickItem* overlay =
+            findItem(m_window->contentItem(), QStringLiteral("monitorTransformOverlay"));
+        QVERIFY(overlay && !overlay->isVisible());
+        m_app->timeline()->setTransformHandlesVisible(false);
     }
 
     void goToTimecodeSeeksOnlyForValidPositions()

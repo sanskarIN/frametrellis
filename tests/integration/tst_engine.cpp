@@ -371,6 +371,111 @@ private slots:
                  qPrintable(blended.name()));
     }
 
+    void transformKeyframesUseSourceTimeAndPreserveAudio()
+    {
+        QVERIFY(engine::MltRuntime::capabilities().transformFilter);
+        QList<Id> ids;
+        Project p = projectWith({m_media.blue, m_media.red}, &ids);
+        QVERIFY(p.timeline().insertClip(p.timeline().tracks()[0].id, clipOf(ids[0], 0, 0, 60),
+                                        p.sourceLookup()));
+        const Clip top = clipOf(ids[1], 5, 10, 41);
+        QVERIFY(p.timeline().insertClip(p.timeline().tracks()[1].id, top, p.sourceLookup()));
+        QVERIFY(
+            p.timeline().setTransformKeyframe(top.id, 10, {-0.25, 0, 0.5, 0}, p.sourceLookup()));
+        QVERIFY(p.timeline().setTransformKeyframe(top.id, 50, {0.25, 0, 0.5, 0}, p.sourceLookup()));
+        const auto sample = [&](FrameCount frame, int x, int y) {
+            return averageColor(renderAt(p, frame), QRect(x - 2, y - 2, 4, 4));
+        };
+        QVERIFY(isCloseTo(sample(5, 40, 45), Qt::red));
+        QVERIFY(isCloseTo(sample(5, 120, 45), Qt::blue));
+        QVERIFY(isCloseTo(sample(25, 80, 45), Qt::red));
+        QVERIFY(isCloseTo(sample(25, 15, 45), Qt::blue));
+        QVERIFY(isCloseTo(sample(45, 120, 45), Qt::red));
+        QVERIFY(isCloseTo(sample(45, 40, 45), Qt::blue));
+        QVERIFY(audioPeakAt(p, 25) > 1000);
+        const QImage before = renderAt(p, 25);
+        QVERIFY(p.timeline().trimClipStart(top.id, 12, p.sourceLookup()));
+        QVERIFY(isCloseTo(averageColor(renderAt(p, 25), QRect(75, 40, 10, 10)),
+                          averageColor(before, QRect(75, 40, 10, 10)), 5));
+        QVERIFY(p.timeline().splitClip(top.id, 22, QStringLiteral("transform-right")));
+        QVERIFY(isCloseTo(sample(45, 120, 45), Qt::red));
+        QVERIFY(p.timeline().slipClip(QStringLiteral("transform-right"), 30, p.sourceLookup()));
+        QVERIFY(isCloseTo(sample(22, 80, 45), Qt::red));
+    }
+
+    void transformRotationAlphaAndPreviewResolution()
+    {
+        const QString path = m_dir.filePath(QStringLiteral("transform-quadrants.png"));
+        QImage image(QSize(160, 90), QImage::Format_RGBA8888);
+        for (int y = 0; y < image.height(); ++y) {
+            for (int x = 0; x < image.width(); ++x) {
+                image.setPixelColor(x, y,
+                                    y < 45 ? (x < 80 ? QColor(Qt::red) : QColor(Qt::green))
+                                           : (x < 80 ? QColor(Qt::yellow) : QColor(Qt::cyan)));
+            }
+        }
+        // A transparent hole must reveal the underlying track after rotation.
+        for (int y = 50; y < 70; ++y) {
+            for (int x = 20; x < 40; ++x) {
+                image.setPixelColor(x, y, Qt::transparent);
+            }
+        }
+        QVERIFY(image.save(path));
+        QList<Id> ids;
+        Project p = projectWith({m_media.blue, path}, &ids);
+        QVERIFY(p.timeline().insertClip(p.timeline().tracks()[0].id, clipOf(ids[0], 0, 0, 60),
+                                        p.sourceLookup()));
+        const Clip top = clipOf(ids[1], 0, 10, 50);
+        QVERIFY(p.timeline().insertClip(p.timeline().tracks()[1].id, top, p.sourceLookup()));
+        QVERIFY(p.timeline().setTransformKeyframe(top.id, 10, {0, 0, 0.5, 90}, p.sourceLookup()));
+        const QImage frame = renderAt(p, 20);
+        QVERIFY2(!frame.isNull(), "Transformed frame unavailable");
+        QVERIFY2(isCloseTo(averageColor(frame, QRect(85, 15, 5, 5)), Qt::red),
+                 qPrintable(averageColor(frame, QRect(85, 15, 5, 5)).name()));
+        QVERIFY(isCloseTo(averageColor(frame, QRect(65, 60, 5, 5)), Qt::cyan));
+        QVERIFY(isCloseTo(averageColor(frame, QRect(5, 5, 5, 5)), Qt::blue));
+        QVERIFY(isCloseTo(averageColor(frame, QRect(70, 18, 3, 3)), Qt::blue));
+        auto profile = engine::createProfile(160, 90, p.settings().frameRate);
+        engine::TimelineGraphBuilder builder(*profile);
+        const auto graph = builder.build(p);
+        QVERIFY(graph);
+        graph->tractor->seek(20);
+        std::unique_ptr<Mlt::Frame> smallFrame(graph->tractor->get_frame());
+        const QImage small = engine::frameToImage(*smallFrame, QSize(80, 45));
+        QVERIFY(isCloseTo(averageColor(small, QRect(43, 8, 2, 2)), Qt::red));
+        ClipProperties props;
+        props.video.opacity = 0.5;
+        QVERIFY(p.timeline().setClipProperties(top.id, props));
+        QVERIFY(p.timeline().setOpacityKeyframe(top.id, 10, 0.5, p.sourceLookup()));
+        QVERIFY(
+            isCloseTo(averageColor(renderAt(p, 20), QRect(85, 15, 5, 5)), QColor(64, 0, 191), 25));
+        QVERIFY(p.timeline().trimClipEnd(top.id, 1, p.sourceLookup()));
+        QVERIFY(
+            isCloseTo(averageColor(renderAt(p, 0), QRect(85, 15, 5, 5)), QColor(64, 0, 191), 25));
+    }
+
+    void transformPreservesAspectFitAndTransitionHandles()
+    {
+        QList<Id> ids;
+        Project p = projectWith({m_media.blue, m_media.narrowStill}, &ids);
+        QVERIFY(p.timeline().insertClip(p.timeline().tracks()[0].id, clipOf(ids[0], 0, 0, 60),
+                                        p.sourceLookup()));
+        const Id trackId = p.timeline().tracks()[1].id;
+        const Clip left = clipOf(ids[1], 0, 10, 25);
+        const Clip right = clipOf(ids[1], 25, 15, 25);
+        QVERIFY(p.timeline().insertClip(trackId, left, p.sourceLookup()));
+        QVERIFY(p.timeline().insertClip(trackId, right, p.sourceLookup()));
+        QVERIFY(p.timeline().setTransformKeyframe(left.id, 10, {0, 0, 0.5, 0}, p.sourceLookup()));
+        QVERIFY(p.timeline().setTransformKeyframe(right.id, 15, {0, 0, 0.5, 0}, p.sourceLookup()));
+        QVERIFY(p.timeline().addTransition(left.id, 10, p.sourceLookup()));
+        for (FrameCount frame : {FrameCount{10}, FrameCount{25}, FrameCount{40}}) {
+            const QImage image = renderAt(p, frame);
+            QVERIFY(isCloseTo(averageColor(image, QRect(75, 40, 10, 10)), Qt::yellow));
+            // Square source occupies a 45x45 rectangle, rather than stretching to 80x45.
+            QVERIFY(isCloseTo(averageColor(image, QRect(45, 40, 5, 5)), Qt::blue));
+        }
+    }
+
     void videoFadeIn()
     {
         QList<Id> ids;

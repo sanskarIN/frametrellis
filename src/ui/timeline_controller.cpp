@@ -46,6 +46,12 @@ TimelineController::TimelineController(ProjectController* project, PlaybackContr
             &TimelineController::opacityAutomationChanged);
     connect(m_playback, &PlaybackController::playingChanged, this,
             &TimelineController::opacityAutomationChanged);
+    connect(this, &TimelineController::selectedClipChanged, this,
+            &TimelineController::transformAutomationChanged);
+    connect(m_playback, &PlaybackController::positionChanged, this,
+            &TimelineController::transformAutomationChanged);
+    connect(m_playback, &PlaybackController::playingChanged, this,
+            &TimelineController::transformAutomationChanged);
     connect(m_project, &ProjectController::documentReplaced, this, [this] {
         m_selection.clear();
         setTransitionSelection({});
@@ -1089,6 +1095,173 @@ void TimelineController::previousOpacityKeyframe()
 void TimelineController::nextOpacityKeyframe()
 {
     seekOpacityKeyframe(true);
+}
+
+QVariantMap TimelineController::transformAutomation() const
+{
+    const Clip* clip = singleSelectedClip();
+    if (!clip) {
+        return {{QStringLiteral("available"), false}, {QStringLiteral("count"), 0}};
+    }
+    const Track* track = project().timeline().trackOfClip(clip->id);
+    const MediaAsset* asset = project().asset(clip->assetId);
+    const FrameCount frame = m_playback->positionFrames();
+    const FrameCount sourceFrame =
+        clip->sourceIn + std::clamp<FrameCount>(frame - clip->start, 0, clip->duration - 1);
+    const bool available = asset && asset->info.hasVideo && track &&
+                           track->kind == TrackKind::Video &&
+                           engine::MltRuntime::capabilities().transformFilter;
+    bool atKeyframe = false;
+    bool hasPrevious = false;
+    bool hasNext = false;
+    int visibleCount = 0;
+    for (const TransformKeyframe& point : clip->transformKeyframes) {
+        if (point.sourceFrame < clip->sourceIn || point.sourceFrame >= clip->sourceOut()) {
+            continue;
+        }
+        const FrameCount timelineFrame = clip->start + point.sourceFrame - clip->sourceIn;
+        ++visibleCount;
+        atKeyframe = atKeyframe || timelineFrame == frame;
+        hasPrevious = hasPrevious || timelineFrame < frame;
+        hasNext = hasNext || timelineFrame > frame;
+    }
+    const VideoTransform value = transformKeyframeValue(clip->transformKeyframes, sourceFrame);
+    return {{QStringLiteral("clipId"), clip->id},
+            {QStringLiteral("sourceFrame"), static_cast<double>(sourceFrame)},
+            {QStringLiteral("available"), available},
+            {QStringLiteral("canEdit"), available && track && !track->locked &&
+                                            clip->contains(frame) && !m_playback->playing()},
+            {QStringLiteral("atKeyframe"), atKeyframe},
+            {QStringLiteral("count"), static_cast<int>(clip->transformKeyframes.size())},
+            {QStringLiteral("visibleCount"), visibleCount},
+            {QStringLiteral("x"), value.x},
+            {QStringLiteral("y"), value.y},
+            {QStringLiteral("scale"), value.scale},
+            {QStringLiteral("rotation"), value.rotation},
+            {QStringLiteral("hasPrevious"), hasPrevious},
+            {QStringLiteral("hasNext"), hasNext}};
+}
+
+bool TimelineController::setTransformAtPlayhead(double x, double y, double scale, double rotation)
+{
+    const Clip* clip = singleSelectedClip();
+    if (!clip || !transformAutomation().value(QStringLiteral("canEdit")).toBool()) {
+        emit statusMessage(QStringLiteral("Pause with the playhead inside one unlocked video or "
+                                          "image clip to edit its transform."));
+        return false;
+    }
+    const VideoTransform value{x, y, scale, rotation};
+    const FrameCount sourceFrame = clip->sourceIn + m_playback->positionFrames() - clip->start;
+    if (validateVideoTransform(value)) {
+        for (const TransformKeyframe& point : clip->transformKeyframes) {
+            if (point.sourceFrame == sourceFrame && point.value == value) {
+                return true;
+            }
+        }
+    }
+    return m_project->execute(edits::setTransformKeyframe(clip->id, sourceFrame, value));
+}
+
+bool TimelineController::setTransformComponent(const QString& component, double value)
+{
+    const QVariantMap current = transformAutomation();
+    VideoTransform transform{current.value(QStringLiteral("x")).toDouble(),
+                             current.value(QStringLiteral("y")).toDouble(),
+                             current.value(QStringLiteral("scale"), 1.0).toDouble(),
+                             current.value(QStringLiteral("rotation")).toDouble()};
+    if (component == QLatin1String("x")) {
+        transform.x = value;
+    } else if (component == QLatin1String("y")) {
+        transform.y = value;
+    } else if (component == QLatin1String("scale")) {
+        transform.scale = value;
+    } else if (component == QLatin1String("rotation")) {
+        transform.rotation = value;
+    } else {
+        return false;
+    }
+    return setTransformAtPlayhead(transform.x, transform.y, transform.scale, transform.rotation);
+}
+
+bool TimelineController::addTransformKeyframeAtPlayhead()
+{
+    const QVariantMap current = transformAutomation();
+    m_project->document()->breakMerge();
+    const bool added =
+        setTransformAtPlayhead(current.value(QStringLiteral("x")).toDouble(),
+                               current.value(QStringLiteral("y")).toDouble(),
+                               current.value(QStringLiteral("scale"), 1.0).toDouble(),
+                               current.value(QStringLiteral("rotation")).toDouble());
+    m_project->document()->breakMerge();
+    return added;
+}
+
+bool TimelineController::removeTransformKeyframeAtPlayhead()
+{
+    const Clip* clip = singleSelectedClip();
+    if (!clip || !transformAutomation().value(QStringLiteral("canEdit")).toBool()) {
+        emit statusMessage(
+            QStringLiteral("Pause with the playhead inside an unlocked video or image clip "
+                           "to remove its transform keyframe."));
+        return false;
+    }
+    m_project->document()->breakMerge();
+    return m_project->execute(edits::removeTransformKeyframe(
+        clip->id, clip->sourceIn + m_playback->positionFrames() - clip->start));
+}
+
+bool TimelineController::clearSelectedTransformKeyframes()
+{
+    const Clip* clip = singleSelectedClip();
+    if (!clip || clip->transformKeyframes.empty()) {
+        return false;
+    }
+    m_project->document()->breakMerge();
+    return m_project->execute(edits::clearTransformKeyframes(clip->id));
+}
+
+void TimelineController::seekTransformKeyframe(bool forward)
+{
+    const Clip* clip = singleSelectedClip();
+    if (!clip) {
+        return;
+    }
+    std::optional<FrameCount> target;
+    const FrameCount frame = m_playback->positionFrames();
+    for (const TransformKeyframe& point : clip->transformKeyframes) {
+        if (point.sourceFrame < clip->sourceIn || point.sourceFrame >= clip->sourceOut()) {
+            continue;
+        }
+        const FrameCount candidate = clip->start + point.sourceFrame - clip->sourceIn;
+        if ((forward && candidate > frame && (!target || candidate < *target)) ||
+            (!forward && candidate < frame && (!target || candidate > *target))) {
+            target = candidate;
+        }
+    }
+    if (target) {
+        m_playback->pause();
+        m_project->document()->breakMerge();
+        m_playback->seek(static_cast<double>(*target));
+    }
+}
+
+void TimelineController::previousTransformKeyframe()
+{
+    seekTransformKeyframe(false);
+}
+
+void TimelineController::nextTransformKeyframe()
+{
+    seekTransformKeyframe(true);
+}
+
+void TimelineController::setTransformHandlesVisible(bool visible)
+{
+    if (m_transformHandlesVisible == visible) {
+        return;
+    }
+    m_transformHandlesVisible = visible;
+    emit transformHandlesVisibleChanged();
 }
 
 void TimelineController::endEdit()

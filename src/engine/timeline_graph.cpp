@@ -139,6 +139,63 @@ Status attachOpacityKeyframes(Mlt::Profile& profile, Mlt::Producer& cut, const C
     return {};
 }
 
+/// One absolute geometry stage, using the actual cut's source clock including dissolve handles.
+Status attachTransformKeyframes(Mlt::Profile& profile, Mlt::Producer& cut, const Clip& clip)
+{
+    if (clip.transformKeyframes.empty()) {
+        return {};
+    }
+    if (!MltRuntime::capabilities().transformFilter) {
+        return makeError(ErrorCode::Engine,
+                         QStringLiteral("Transform keyframes need the video affine filter."));
+    }
+    Mlt::Filter transform(profile, "affine");
+    if (!transform.is_valid()) {
+        return makeError(ErrorCode::Engine,
+                         QStringLiteral("Could not prepare the transform keyframe filter."));
+    }
+    transform.set_in_and_out(cut.get_in(), cut.get_out());
+    transform.set("background", "color:0x00000000");
+    transform.set("transition.distort", 0);
+    transform.set("transition.fill", 1);
+    transform.set("transition.halign", "center");
+    transform.set("transition.valign", "middle");
+    transform.set("transition.b_alpha", 1);
+    transform.set("transition.repeat_off", 1);
+    const FrameCount first = cut.get_in();
+    const FrameCount last = cut.get_out();
+    QStringList rectangles;
+    QStringList rotations;
+    const auto append = [&](FrameCount sourceFrame) {
+        const VideoTransform value = transformKeyframeValue(clip.transformKeyframes, sourceFrame);
+        const double width = profile.width();
+        const double height = profile.height();
+        // Pixel coordinates use the graph profile; MLT rescales them for smaller previews.
+        rectangles << QStringLiteral("%1=%2 %3 %4 %5 1")
+                          .arg(sourceFrame - first)
+                          .arg((value.x + (1.0 - value.scale) / 2.0) * width, 0, 'g', 15)
+                          .arg((value.y + (1.0 - value.scale) / 2.0) * height, 0, 'g', 15)
+                          .arg(value.scale * width, 0, 'g', 15)
+                          .arg(value.scale * height, 0, 'g', 15);
+        rotations
+            << QStringLiteral("%1=%2").arg(sourceFrame - first).arg(value.rotation, 0, 'g', 15);
+    };
+    append(first);
+    for (const TransformKeyframe& point : clip.transformKeyframes) {
+        if (point.sourceFrame > first && point.sourceFrame < last) {
+            append(point.sourceFrame);
+        }
+    }
+    if (last > first) {
+        append(last);
+    }
+    transform.set("transition.rect", rectangles.join(QLatin1Char(';')).toUtf8().constData());
+    // MLT affine names its in-plane (XY) rotation fix_rotate_x, including in 7.22.
+    transform.set("transition.fix_rotate_x", rotations.join(QLatin1Char(';')).toUtf8().constData());
+    cut.attach(transform);
+    return {};
+}
+
 /// Applies video fades, opacity and picture adjustments (see attachAudioFilters for @p offset).
 void attachVideoFilters(Mlt::Profile& profile, Mlt::Producer& cut, const Clip& clip,
                         FrameCount offset)
@@ -381,6 +438,10 @@ Result<GraphBuildResult> TimelineGraphBuilder::build(const Project& project,
                     if (const Status opacity = attachOpacityKeyframes(m_profile, *cut, clip);
                         !opacity) {
                         return opacity.error();
+                    }
+                    if (const Status transform = attachTransformKeyframes(m_profile, *cut, clip);
+                        !transform) {
+                        return transform.error();
                     }
                 }
                 if (before > 0 || after > 0) {

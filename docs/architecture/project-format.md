@@ -2,8 +2,8 @@
 
 A project is a UTF-8 JSON document. The **v2 development format** adds optional
 sequence-level markers; this abridged example shows that shape. The **v3 development
-format** additionally preserves clip volume automation. **v4** adds opacity curves;
-the reader supports all four versions.
+format** additionally preserves clip volume automation. **v4** adds opacity curves,
+and **v5** adds position/scale/rotation curves. The reader supports all five versions.
 
 ```json
 {
@@ -80,12 +80,29 @@ the reader supports all four versions.
 * Opacity curves may remain on a video source temporarily moved to an audio track;
   they are dormant there and reappear if it returns to a video track. Creating or
   updating an opacity point requires an unlocked video track. Reset Picture clears
-  scalar picture adjustments and opacity points together; audio and fades remain.
-* The writer chooses the minimum required development format: v4 if any clip has
-  opacity points, otherwise v3 if any clip has volume points, otherwise v2. Clearing
-  curves can lower the next save's version. Older readers refuse unsupported
-  versions rather than losing automation. Nonempty audio curves in v1/v2, or opacity
-  curves in v1/v2/v3, are rejected as inconsistent.
+  scalar picture adjustments, opacity points and transform points together; audio and fades remain.
+* Clips may contain `transformKeyframes` in **format v5**:
+  `[{"sourceFrame":30,"x":0.0,"y":0.0,"scale":0.5,"rotation":90.0}]`.
+  Each field is required and finite. `sourceFrame` follows the same integer bounds,
+  strict increasing order and 1000-point limit as the other curves. `x` and `y`
+  are offsets from the canvas centre in canvas widths/heights, within `[-4, 4]`;
+  positive values move right/down. Uniform `scale` is within `[0.01, 10]` and applies
+  to the aspect-fitted picture. Clockwise `rotation` is within `[-3600, 3600]` degrees
+  about that picture's centre. All four coordinates interpolate linearly. Angles
+  do not wrap: 0→720 is two full clockwise turns. Endpoints hold outside the curve;
+  one point is a constant transform and an empty curve is identity. The curve is
+  absolute geometry, independent of scalar picture adjustments, opacity and audio.
+* Transform curves remain source-anchored through move/trim/split/roll/slip/duplicate,
+  including hidden points. They may remain dormant on video sources temporarily
+  moved to audio tracks. Audio-only sources cannot contain transform curves.
+  Attribute paste retains destination curves. Clearing transforms restores identity;
+  Reset Picture clears all picture curves atomically and preserves audio/fades.
+* The writer chooses the minimum required development format: v5 if any clip has
+  transform points, otherwise v4 if it has opacity points, otherwise v3 if it has
+  volume points, otherwise v2. Clearing curves can lower the next save's version.
+  Older readers refuse unsupported versions rather than losing automation.
+  Nonempty audio curves before v3, opacity curves before v4, and transform curves
+  before v5 are rejected as inconsistent.
 * `relativePath` is relative to the folder containing the project file. When `path` does not
   exist but the relative location does, the relative one is used (projects can be moved
   together with their media).

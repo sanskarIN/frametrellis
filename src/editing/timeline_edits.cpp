@@ -504,6 +504,33 @@ std::unique_ptr<EditCommand> clearOpacityKeyframes(const Id& clipId)
                    });
 }
 
+std::unique_ptr<EditCommand> setTransformKeyframe(const Id& clipId, FrameCount sourceFrame,
+                                                  const VideoTransform& value)
+{
+    return command(
+        QStringLiteral("Set Transform Keyframe"),
+        [clipId, sourceFrame, value](Timeline& timeline, const SourceLookup& sources) {
+            return timeline.setTransformKeyframe(clipId, sourceFrame, value, sources);
+        },
+        QStringLiteral("transform-keyframe:%1:%2").arg(clipId).arg(sourceFrame));
+}
+
+std::unique_ptr<EditCommand> removeTransformKeyframe(const Id& clipId, FrameCount sourceFrame)
+{
+    return command(QStringLiteral("Remove Transform Keyframe"),
+                   [clipId, sourceFrame](Timeline& timeline, const SourceLookup&) {
+                       return timeline.removeTransformKeyframe(clipId, sourceFrame);
+                   });
+}
+
+std::unique_ptr<EditCommand> clearTransformKeyframes(const Id& clipId)
+{
+    return command(QStringLiteral("Clear Transform Keyframes"),
+                   [clipId](Timeline& timeline, const SourceLookup&) {
+                       return timeline.clearTransformKeyframes(clipId);
+                   });
+}
+
 std::unique_ptr<EditCommand> setAudioKeyframe(const Id& clipId, FrameCount sourceFrame,
                                               double decibels)
 {

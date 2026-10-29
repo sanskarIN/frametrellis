@@ -554,6 +554,58 @@ private slots:
         QVERIFY(partFiles().isEmpty());
     }
 
+    void helperProcessExportsPositionScaleAndRotationFromFormatFive()
+    {
+        ProjectSettings profile;
+        profile.width = 160;
+        profile.height = 90;
+        profile.frameRate = *FrameRate::create(25, 1);
+        Project p = Project::createNew(QStringLiteral("Transform export"), profile);
+        const auto bottom = media::createAsset(makeStill(
+            m_dir.path(), QStringLiteral("transform-blue.png"), Qt::blue, QSize(160, 90)));
+        const auto top = media::createAsset(
+            makeStill(m_dir.path(), QStringLiteral("transform-red.png"), Qt::red, QSize(160, 90)));
+        QVERIFY(bottom && top);
+        QVERIFY(p.addAsset(*bottom));
+        QVERIFY(p.addAsset(*top));
+        Clip lower;
+        lower.id = createId();
+        lower.assetId = bottom->id;
+        lower.duration = 50;
+        Clip upper = lower;
+        upper.id = createId();
+        upper.assetId = top->id;
+        upper.sourceIn = 10;
+        upper.properties.video.opacity = 0.5;
+        QVERIFY(p.timeline().insertClip(p.timeline().tracks()[0].id, lower, p.sourceLookup()));
+        QVERIFY(p.timeline().insertClip(p.timeline().tracks()[1].id, upper, p.sourceLookup()));
+        QVERIFY(
+            p.timeline().setTransformKeyframe(upper.id, 10, {-0.25, 0, 0.5, 0}, p.sourceLookup()));
+        QVERIFY(
+            p.timeline().setTransformKeyframe(upper.id, 50, {0.25, 0, 0.5, 90}, p.sourceLookup()));
+        QVERIFY(p.timeline().setOpacityKeyframe(upper.id, 10, 0.5, p.sourceLookup()));
+        QCOMPARE(project_format::toJson(p)[QStringLiteral("version")].toInt(), 5);
+        RenderJob job(QStringLiteral(FT_RENDER_HELPER));
+        QSignalSpy finished(&job, &RenderJob::finished);
+        ExportSettings settings;
+        settings.outputPath = m_dir.filePath(QStringLiteral("transform-keyframes.mp4"));
+        settings.speedPreset = QStringLiteral("ultrafast");
+        QVERIFY(job.start(p, settings));
+        QVERIFY(finished.wait(60'000));
+        QVERIFY2(job.state() == RenderJob::State::Succeeded,
+                 qPrintable(job.errorMessage() + job.errorDetail()));
+        const QImage first = frameOf(settings.outputPath, 0);
+        const QImage middle = frameOf(settings.outputPath, 20);
+        const QImage last = frameOf(settings.outputPath, 40);
+        const QColor blend(64, 0, 191);
+        QVERIFY(isCloseTo(averageColor(first, QRect(35, 40, 10, 10)), blend, 25));
+        QVERIFY(isCloseTo(averageColor(first, QRect(35, 10, 10, 5)), Qt::blue, 25));
+        QVERIFY(isCloseTo(averageColor(middle, QRect(75, 40, 10, 10)), blend, 25));
+        QVERIFY(isCloseTo(averageColor(last, QRect(115, 10, 10, 5)), blend, 25));
+        QVERIFY(isCloseTo(averageColor(last, QRect(85, 40, 5, 10)), Qt::blue, 25));
+        QVERIFY(partFiles().isEmpty());
+    }
+
     void helperProcessCancel()
     {
         RenderJob job(QStringLiteral(FT_RENDER_HELPER));

@@ -80,6 +80,18 @@ QJsonObject clipToJson(const Clip& c)
         }
         o[QLatin1String("opacityKeyframes")] = points;
     }
+    if (!c.transformKeyframes.empty()) {
+        QJsonArray points;
+        for (const TransformKeyframe& point : c.transformKeyframes) {
+            points.append(
+                QJsonObject{{QStringLiteral("sourceFrame"), static_cast<double>(point.sourceFrame)},
+                            {QStringLiteral("x"), point.value.x},
+                            {QStringLiteral("y"), point.value.y},
+                            {QStringLiteral("scale"), point.value.scale},
+                            {QStringLiteral("rotation"), point.value.rotation}});
+        }
+        o[QLatin1String("transformKeyframes")] = points;
+    }
     return o;
 }
 
@@ -357,13 +369,16 @@ QJsonObject toJson(const Project& project, const QString& projectDir)
     // must reject unsupported automation instead of silently discarding it.
     bool hasAudioKeyframes = false;
     bool hasOpacityKeyframes = false;
+    bool hasTransformKeyframes = false;
     for (const Track& track : project.timeline().tracks()) {
         for (const Clip& clip : track.clips) {
             hasAudioKeyframes = hasAudioKeyframes || !clip.audioKeyframes.empty();
             hasOpacityKeyframes = hasOpacityKeyframes || !clip.opacityKeyframes.empty();
+            hasTransformKeyframes = hasTransformKeyframes || !clip.transformKeyframes.empty();
         }
     }
-    root[QLatin1String("version")] = hasOpacityKeyframes ? 4 : (hasAudioKeyframes ? 3 : 2);
+    root[QLatin1String("version")] =
+        hasTransformKeyframes ? 5 : (hasOpacityKeyframes ? 4 : (hasAudioKeyframes ? 3 : 2));
     root[QLatin1String("generator")] = QStringLiteral("%1 %2").arg(
         QLatin1String(version::applicationName), QLatin1String(version::string));
     root[QLatin1String("project")] = body;
@@ -537,6 +552,32 @@ Result<Project> fromJson(const QJsonObject& document, const QString& projectDir)
                 key.opacity = kr.number(point, "opacity", 0.0, 1.0, 1.0);
                 cr.adopt(kr);
                 clip.opacityKeyframes.push_back(key);
+            }
+            const QJsonArray transformPoints =
+                cr.array(co, "transformKeyframes", kMaxTransformKeyframes);
+            if (!transformPoints.isEmpty() && versionNumber < 5) {
+                cr.fail(QStringLiteral("transformKeyframes"),
+                        QStringLiteral("transform automation requires project format v5"));
+            }
+            for (qsizetype k = 0; k < transformPoints.size() && !cr.failed(); ++k) {
+                Reader kr(cr.path() + QStringLiteral(".transformKeyframes[%1]").arg(k));
+                if (!transformPoints.at(k).isObject()) {
+                    kr.fail(QStringLiteral("keyframe"), QStringLiteral("expected an object"));
+                }
+                const QJsonObject point = transformPoints.at(k).toObject();
+                for (const char* field : {"x", "y", "scale", "rotation"}) {
+                    if (!point.contains(QLatin1String(field))) {
+                        kr.fail(QLatin1String(field), QStringLiteral("required number"));
+                    }
+                }
+                TransformKeyframe key;
+                key.sourceFrame = kr.integer(point, "sourceFrame", 0, kMaxTimelineFrames);
+                key.value.x = kr.number(point, "x", -4.0, 4.0, 0.0);
+                key.value.y = kr.number(point, "y", -4.0, 4.0, 0.0);
+                key.value.scale = kr.number(point, "scale", 0.01, 10.0, 1.0);
+                key.value.rotation = kr.number(point, "rotation", -3600.0, 3600.0, 0.0);
+                cr.adopt(kr);
+                clip.transformKeyframes.push_back(key);
             }
             tr.adopt(cr);
             track.clips.push_back(std::move(clip));

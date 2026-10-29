@@ -53,6 +53,7 @@ struct Command
     QSize size;
     bool flag = false;
     double value = 1.0;
+    quint64 generation = 0;
 };
 
 } // namespace
@@ -77,7 +78,22 @@ public:
     {
         {
             std::lock_guard lock(m_mutex);
+            switch (command.type) {
+            case Command::Type::SetProject:
+            case Command::Type::ClearProject:
+            case Command::Type::Play:
+            case Command::Type::Pause:
+            case Command::Type::Seek:
+            case Command::Type::Step:
+            case Command::Type::PreviewSize:
+                command.generation = ++m_requestedGeneration;
+                break;
+            default:
+                break;
+            }
             if (command.type == Command::Type::Seek) {
+                m_owner->m_position = std::clamp<FrameCount>(
+                    command.frame, 0, std::max<FrameCount>(m_owner->duration() - 1, 0));
                 // Coalesce: only the latest pending seek matters.
                 for (auto it = m_queue.begin(); it != m_queue.end();) {
                     it = it->type == Command::Type::Seek ? m_queue.erase(it) : it + 1;
@@ -90,10 +106,14 @@ public:
 
     QImage takeFrame(FrameCount* position)
     {
+        // The same lock orders request invalidation, publication and delivery. An old
+        // queued GUI callback cannot deliver a frame from before a newer seek or edit.
+        std::lock_guard commandLock(m_mutex);
         std::lock_guard lock(m_frameMutex);
         m_deliveryPending = false;
         *position = m_framePosition;
-        if (!m_frameFresh) {
+        if (!m_frameFresh || m_frameGeneration != m_requestedGeneration) {
+            m_frameFresh = false;
             return {};
         }
         m_frameFresh = false;
@@ -116,15 +136,18 @@ private:
     std::mutex m_mutex;
     std::condition_variable m_cv;
     std::deque<Command> m_queue;
+    quint64 m_requestedGeneration = 0; ///< guarded by m_mutex
 
     std::mutex m_frameMutex;
     QImage m_frame;
     FrameCount m_framePosition = 0;
     bool m_deliveryPending = false;
     bool m_frameFresh = false;
+    quint64 m_frameGeneration = 0;
 
     // Worker-thread state
     std::shared_ptr<const Project> m_project;
+    quint64 m_appliedGeneration = 0;
     std::unique_ptr<Mlt::Profile> m_profile;
     std::unique_ptr<engine::TimelineGraphBuilder> m_builder;
     std::unique_ptr<Mlt::Tractor> m_tractor;
@@ -264,14 +287,19 @@ void PlaybackEngine::Worker::publish(const QImage& image, FrameCount position)
 {
     bool schedule = false;
     {
+        std::lock_guard commandLock(m_mutex);
+        if (m_appliedGeneration != m_requestedGeneration) {
+            return;
+        }
         std::lock_guard lock(m_frameMutex);
         m_frame = image;
         m_framePosition = position;
         m_frameFresh = true;
+        m_frameGeneration = m_appliedGeneration;
         schedule = !m_deliveryPending;
         m_deliveryPending = true;
+        m_owner->m_position = position;
     }
-    m_owner->m_position = position;
     if (schedule) {
         QMetaObject::invokeMethod(
             m_owner,
@@ -287,6 +315,9 @@ void PlaybackEngine::Worker::publish(const QImage& image, FrameCount position)
 bool PlaybackEngine::Worker::applyCommands(std::deque<Command>& commands)
 {
     for (Command& command : commands) {
+        if (command.generation != 0) {
+            m_appliedGeneration = command.generation;
+        }
         // Commands that depend on the sequence length must see the latest project.
         if (m_needsRebuild &&
             (command.type == Command::Type::Seek || command.type == Command::Type::Step ||
@@ -341,6 +372,7 @@ bool PlaybackEngine::Worker::applyCommands(std::deque<Command>& commands)
                 m_maxPreview = command.size;
                 m_needsRebuild = true;
             }
+            m_needsRender = true;
             break;
         case Command::Type::Audio:
             m_audioEnabled = command.flag;
@@ -507,7 +539,6 @@ void PlaybackEngine::seek(FrameCount frame)
 {
     Command c{Command::Type::Seek};
     c.frame = frame;
-    m_position = std::clamp<FrameCount>(frame, 0, std::max<FrameCount>(duration() - 1, 0));
     m_worker->post(std::move(c));
 }
 

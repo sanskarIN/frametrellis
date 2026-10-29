@@ -102,7 +102,11 @@ public:
                               const SourceLookup& sources);
     Status removeOpacityKeyframe(const Id& clipId, FrameCount sourceFrame);
     Status clearOpacityKeyframes(const Id& clipId);
-    /// Reset scalar picture adjustments and the opacity envelope, preserving audio and fades.
+    Status setTransformKeyframe(const Id& clipId, FrameCount sourceFrame,
+                                const VideoTransform& value, const SourceLookup& sources);
+    Status removeTransformKeyframe(const Id& clipId, FrameCount sourceFrame);
+    Status clearTransformKeyframes(const Id& clipId);
+    /// Reset scalar picture adjustments, opacity and transforms, preserving audio and fades.
     Status resetClipPicture(const Id& clipId);
 
     // Transition operations

@@ -114,12 +114,14 @@ Acceptance criteria, each checked before the release:
 
 ## v1.4.0 — Professional workflow candidates 🚧
 - Integrated on main: persistent review markers, chapter/WebVTT chapter copy,
-  cuts-only picture EDL export, source slip, roll editing and volume automation
-  (PRs #75–#79, #82, #83).
-- 🚧 Opacity keyframes: source-anchored transparency, PNG alpha and fade composition,
-  inspector controls, timeline curves, persistence and matching preview/MP4 export.
-  Opacity points require format v4; volume-only projects use v3. These are
-  development features outside stable v1.3.0.
+  cuts-only picture EDL export, source slip, roll editing, volume and opacity automation
+  (PRs #75–#79, #82, #83, #84).
+- 🚧 Transform animation: source-anchored position, uniform scale and clockwise
+  rotation; inspector controls and direct monitor handles, matching preview/export,
+  undo/redo and validated format-v5 persistence. Opacity-only projects use v4 and
+  volume-only projects v3. These development features are outside stable v1.3.0.
+- 🚧 Reliable preview delivery: invalidate old in-flight/queued frames after newer
+  seeks and edits, with deterministic playback regression coverage.
 - 🚧 Media inventory export, recursive folder imports and removal of unused references
   (existing separate PRs; unmerged until integrated tests pass)
 - ⏳ Validate Linux, Windows and sanitizer CI and conduct manual editor smoke tests
@@ -140,7 +142,7 @@ the audited source state, concrete capability gaps and the next implementation o
 
 ## Later
 - Subtitles (import, edit, burn-in and export as SRT)
-- Transform keyframes for position, scale and rotation
+- Animation easing, numeric transform entry, custom pivots and crop controls
 - Customisable keyboard shortcuts
 - More export formats (WebM/VP9, ProRes, image sequences, audio-only)
 - Plugin extension points (effects and exporters) with documentation

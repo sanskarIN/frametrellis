@@ -14,6 +14,7 @@ uploaded. This guide covers everything the current version can do.
 - [Adjusting clips](#adjusting-clips)
 - [Volume keyframes (development preview)](#volume-keyframes-development-preview)
 - [Opacity keyframes (development preview)](#opacity-keyframes-development-preview)
+- [Transform animation (development preview)](#transform-animation-development-preview)
 - [Playback](#playback)
 - [Exporting](#exporting)
 - [Exporting an edit decision list (development preview)](#exporting-a-picture-edit-decision-list-development-preview)
@@ -157,8 +158,8 @@ destination clip's automation unchanged.
 
 **Compatibility:** Projects containing volume points save in project format **v3**.
 Earlier development builds that only understand v2 cannot reopen them. Keep a backup
-before upgrading. Projects without volume points continue to save as v2; the reader
-can load v1 through v4. v1.3.0 stable cannot open these development formats.
+before upgrading. Projects without any automation save as v2; the reader
+can load v1 through v5. Opacity curves require v4 and transform curves require v5. v1.3.0 stable cannot open these development formats.
 
 ## Opacity keyframes (development preview)
 
@@ -184,17 +185,62 @@ regions. Opacity changes do not mute the clip's audio.
 The curve uses the same source-frame anchoring as volume automation. Move, trim,
 split, roll, slip and duplication preserve source-relative points. Image clips use
 project frames as their source clock. Copy/paste of scalar attributes preserves
-destination curves; **Reset Picture** clears picture adjustments and opacity
-points together while retaining volume points, audio settings and fades.
+destination curves; **Reset Picture** clears picture adjustments, opacity
+points and transform points together while retaining volume points, audio settings and fades.
 
 Opacity points are dormant while a video source is on an audio track. Moving it
 back to a video track restores the picture envelope. Audio-only sources cannot
 have opacity points. Locked tracks prevent edits.
 
-**Compatibility:** Any project containing opacity points saves as format **v4**,
-which requires a build supporting opacity automation. Volume-only projects still
-use v3; projects with neither curve use v2. Keep backup project copies before
+**Compatibility:** Opacity points require at least format **v4**; transform points
+raise the saved format to **v5**. Volume-only projects use v3 and projects without
+automation use v2. Keep backup project copies before
 switching development builds. This feature is not part of stable v1.3.0.
+
+## Transform animation (development preview)
+
+Select one video or image clip on a video track, pause playback and place the
+playhead inside it. In **Transform**, adjust **Horizontal position**, **Vertical
+position**, **Scale** or **Clockwise rotation**. Each change adds or updates a point
+at that source frame. One point holds the same transform over the entire clip;
+add points at other times to animate between different positions, sizes and angles.
+
+- Position 0%, 0% centres the picture; +100% moves by one canvas width/height to
+  the right/down. Position is limited to ±400% so a clip can move off-screen.
+- Scale is uniform, from 1% to 1000%, with the source aspect ratio preserved.
+- Rotation is clockwise around the picture centre, from -3600° to +3600°. Values
+  interpolate directly: 0°→720° makes two full turns, while 350°→10° travels back
+  through 180°. Enter the intended angles rather than relying on angle wrapping.
+- Double-click a slider to restore that coordinate's neutral value at the playhead.
+  Slider drags form one undo step. Keyboard arrows on a focused slider allow small
+  changes at the specified step.
+
+Enable **Show monitor handles** to move the selected clip by dragging its outline,
+scale it with the lower-right square, or rotate it with the circular handle near
+its top edge. The outline uses the actual monitor picture, excluding letterbox
+margins. Each mouse drag is one undo step. The handles disappear while playing,
+when the playhead leaves the clip, or when its track is locked. Use the inspector
+or **Reset all transforms** to recover a picture moved completely outside the canvas.
+The outline describes the fitted canvas, including transparent source regions.
+
+**Add point** records the interpolated transform without moving the picture.
+**Previous point** and **Next point** seek to points inside the current trim;
+**Remove point** removes the current point. **Reset all transforms** clears the
+whole curve, including hidden points, and restores centred, unrotated, 100% scale.
+A `T · count` badge identifies transformed clips in the timeline. All actions are
+undoable. Sound, fades, scalar picture settings and opacity automation are independent.
+**Reset Picture** also removes transform and opacity curves, retaining audio/fades.
+
+Points use source frames at the project rate. Move, trim, split, roll and duplicate
+preserve the curve; slip exposes the transform at the newly selected source frames.
+Endpoints hold outside the first/last point. Attribute paste leaves destination
+curves intact. Picture curves are dormant when a video source is moved to an audio
+track and resume when moved back. The same graph renders preview and MP4 output.
+
+**Compatibility:** Any transform point requires project format **v5**, including
+one constant point. Older builds refuse these projects. Loading v1–v5 is supported;
+clearing transform points permits v4/v3/v2 saves according to the remaining curves.
+This feature is development work after stable v1.3.0. Keep backup project copies.
 
 ## Timeline markers (v1.4 development preview)
 
@@ -217,7 +263,7 @@ system also snaps clips to markers when snapping is on. Cues saved beyond the cu
 of a shortened sequence remain in the project but cannot be navigated to until media again
 covers their position.
 
-**Compatibility:** Saving in this development version uses project format v2. FrameTrellis
+**Compatibility:** Markers require project format v2; automation may require v3/v4/v5. FrameTrellis
 v1.3 and older reject these newer project files, even if they contain no markers. Keep a
 backup if you may need to return to an older editor. This feature is not in v1.3.0 stable.
 

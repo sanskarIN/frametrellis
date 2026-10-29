@@ -25,6 +25,10 @@ are not included in those downloads. No v1.4 release is declared by these notes.
   keyframes, inspector controls, shared preview/export automation and bounded
   timeline envelope painting. Volume points require project format v3.
 
+- [#84](https://github.com/sanskarIN/frametrellis/pull/84): source-anchored opacity
+  curves with PNG alpha/fade composition, inspector controls and preview/MP4 parity;
+  project format v4.
+
 ## Volume automation
 
 - Source-anchored volume keyframes from -60 to +12 dB, with linear interpolation
@@ -36,8 +40,8 @@ are not included in those downloads. No v1.4 release is declared by these notes.
   Attribute paste leaves destination automation unchanged.
 - Strict model and JSON validation, per-clip point limits, locked-track protection,
   undo/redo, generated-media tests and encoded-audio regression coverage.
-- Projects containing points save as **format v3**, refused by older v2 readers.
-  Projects without points continue to save as v2; loading v1/v2 remains supported.
+- Volume-only projects save as **format v3**, refused by older v2 readers.
+  Projects without automation save as v2; the reader supports v1–v5.
   Back up projects before moving between development builds.
 
 ## Opacity automation
@@ -49,14 +53,36 @@ are not included in those downloads. No v1.4 release is declared by these notes.
 - Inspector add/remove/clear and previous/next controls, percentage values and
   accent-colored square points. White volume diamonds remain independent. Both
   envelopes share viewport-bounded painting during zoom and horizontal scrolling.
-- Reset Picture clears scalar picture adjustments and opacity points together,
+- Reset Picture clears scalar picture adjustments, opacity points and transform points together,
   retaining volume points and fades. Attribute paste retains destination curves.
-- Format v4 preserves opacity automation; volume-only projects remain v3 and
-  projects without automation remain v2. Loading formats v1 through v4 is supported.
+- Opacity points require format v4; transform points raise the format to v5.
+  Volume-only projects remain v3 and projects without automation remain v2.
+  Loading formats v1 through v5 is supported.
 - Model, undo, legacy/malformed document, generated-frame, exported MP4 and GUI
   regressions cover zero opacity, still images, PNG alpha, one-frame clips,
   transitions, source edits, real controls and narrower layouts. See the
   [opacity acceptance matrix](../testing/opacity-automation.md).
+
+## Transform animation and reliable preview delivery
+
+- Position, uniform scale and clockwise rotation keyframes for video and images,
+  using bounded canvas-relative coordinates, linear interpolation, unwrapped angles
+  and held endpoints. One point applies a fixed transform throughout a clip.
+- Inspector values and add/remove/reset/navigation controls; direct program-monitor
+  move, scale and rotation handles, with each mouse drag forming one undo step.
+  The timeline identifies transformed clips with a point-count badge.
+- Source anchoring survives trim, split, roll, slip and duplication. Reset Picture
+  clears scalar picture settings and both picture curves while preserving sound/fades.
+  Attribute paste retains destination curves. Locks and atomic failures are covered.
+- Format v5 is written only for transform points. Projects without them retain the
+  minimum required v4/v3/v2 format; older readers refuse unsupported versions.
+- Shared graph preview/export tests cover rotation direction, transparent pixels,
+  combined opacity, aspect preservation, smaller previews, one-frame clips,
+  dissolve handles and decoded MP4 frames. GUI tests exercise real mouse handles
+  and dark/light narrow layouts. See the [transform acceptance matrix](../testing/transform-animation.md).
+- Prevent an old in-flight or queued preview frame from undoing a newer seek or
+  showing a superseded project snapshot. A targeted regression reproduces on the
+  prior engine and passes with generation-checked publication/delivery.
 
 These are development features after v1.3.0, not a new stable release or version bump.
 

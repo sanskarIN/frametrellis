@@ -45,6 +45,36 @@ Project pictureProject(MediaKind kind = MediaKind::Video, FrameCount duration = 
     return project;
 }
 
+QJsonObject withPoints(QJsonObject document, const QJsonValue& points)
+{
+    QJsonObject body = document[QStringLiteral("project")].toObject();
+    QJsonArray tracks = body[QStringLiteral("tracks")].toArray();
+    for (qsizetype i = 0; i < tracks.size(); ++i) {
+        QJsonObject track = tracks[i].toObject();
+        QJsonArray clips = track[QStringLiteral("clips")].toArray();
+        if (clips.isEmpty()) {
+            continue;
+        }
+        QJsonObject clip = clips[0].toObject();
+        clip[QStringLiteral("transformKeyframes")] = points;
+        clips[0] = clip;
+        track[QStringLiteral("clips")] = clips;
+        tracks[i] = track;
+    }
+    body[QStringLiteral("tracks")] = tracks;
+    document[QStringLiteral("project")] = body;
+    return document;
+}
+
+QJsonObject point(double frame)
+{
+    return {{QStringLiteral("sourceFrame"), frame},
+            {QStringLiteral("x"), 0.25},
+            {QStringLiteral("y"), -0.125},
+            {QStringLiteral("scale"), 0.5},
+            {QStringLiteral("rotation"), 90}};
+}
+
 } // namespace
 
 class TransformKeyframeTest : public QObject
@@ -219,6 +249,88 @@ private slots:
         QVERIFY(document.undo());
         QCOMPARE(document.project(), beforeReset);
         QVERIFY(document.project().validate());
+    }
+    void formatFiveRoundtripAndMinimumRequiredVersions()
+    {
+        Project project = pictureProject();
+        QJsonObject legacy = project_format::toJson(project);
+        for (int version : {1, 2, 3, 4, 5}) {
+            legacy[QStringLiteral("version")] = version;
+            QVERIFY(project_format::fromJson(legacy));
+        }
+        auto& timeline = project.timeline();
+        const auto sources = project.sourceLookup();
+        QVERIFY(timeline.setAudioKeyframe(QStringLiteral("clip"), 30, -6, sources));
+        QVERIFY(timeline.setOpacityKeyframe(QStringLiteral("clip"), 30, 0.5, sources));
+        QVERIFY(timeline.setTransformKeyframe(QStringLiteral("clip"), 30, {-0.25, 0.125, 0.5, -90},
+                                              sources));
+        QVERIFY(timeline.setTransformKeyframe(QStringLiteral("clip"), 80, {0.25, -0.125, 2, 720},
+                                              sources));
+        QJsonObject saved = project_format::toJson(project);
+        QCOMPARE(saved[QStringLiteral("version")].toInt(), 5);
+        const auto loaded = project_format::fromBytes(project_format::toBytes(project));
+        QVERIFY(loaded);
+        QCOMPARE(loaded->timeline(), timeline);
+        for (int version : {1, 2, 3, 4}) {
+            saved[QStringLiteral("version")] = version;
+            QVERIFY(!project_format::fromJson(saved));
+        }
+        QVERIFY(timeline.clearTransformKeyframes(QStringLiteral("clip")));
+        QCOMPARE(project_format::toJson(project)[QStringLiteral("version")].toInt(), 4);
+        QVERIFY(timeline.clearOpacityKeyframes(QStringLiteral("clip")));
+        QCOMPARE(project_format::toJson(project)[QStringLiteral("version")].toInt(), 3);
+        QVERIFY(timeline.clearAudioKeyframes(QStringLiteral("clip")));
+        QCOMPARE(project_format::toJson(project)[QStringLiteral("version")].toInt(), 2);
+    }
+
+    void malformedTransformDocumentsAreRefused()
+    {
+        QJsonObject document = project_format::toJson(pictureProject());
+        document[QStringLiteral("version")] = 5;
+        const auto rejects = [&](const QJsonValue& points) {
+            const auto result = project_format::fromJson(withPoints(document, points));
+            return !result && result.error().code == ErrorCode::InvalidDocument;
+        };
+        QVERIFY(rejects(QStringLiteral("not an array")));
+        QVERIFY(rejects(QJsonArray{QJsonValue::Null}));
+        for (double frame : {-1.0, 30.5, static_cast<double>(kMaxTimelineFrames + 1)}) {
+            QVERIFY(rejects(QJsonArray{point(frame)}));
+        }
+        for (const QString& field :
+             {QStringLiteral("sourceFrame"), QStringLiteral("x"), QStringLiteral("y"),
+              QStringLiteral("scale"), QStringLiteral("rotation")}) {
+            QJsonObject missing = point(30);
+            missing.remove(field);
+            QVERIFY(rejects(QJsonArray{missing}));
+            for (const QJsonValue& value : {QJsonValue(QJsonValue::Null),
+                                            QJsonValue(QStringLiteral("zero")), QJsonValue(true)}) {
+                QJsonObject wrong = point(30);
+                wrong[field] = value;
+                QVERIFY(rejects(QJsonArray{wrong}));
+            }
+        }
+        for (const auto& entry :
+             std::vector<std::pair<QString, double>>{{QStringLiteral("x"), 4.01},
+                                                     {QStringLiteral("y"), -4.01},
+                                                     {QStringLiteral("scale"), 0},
+                                                     {QStringLiteral("scale"), 10.01},
+                                                     {QStringLiteral("rotation"), -3601}}) {
+            QJsonObject wrong = point(30);
+            wrong[entry.first] = entry.second;
+            QVERIFY(rejects(QJsonArray{wrong}));
+        }
+        QVERIFY(rejects(QJsonArray{point(30), point(30)}));
+        QVERIFY(rejects(QJsonArray{point(80), point(30)}));
+        QJsonArray oversized;
+        for (int i = 0; i <= kMaxTransformKeyframes; ++i) {
+            oversized.append(point(i));
+        }
+        QVERIFY(rejects(oversized));
+        QJsonObject audio = project_format::toJson(pictureProject(MediaKind::Audio));
+        audio[QStringLiteral("version")] = 5;
+        QVERIFY(!project_format::fromJson(withPoints(audio, QJsonArray{point(30)})));
+        document[QStringLiteral("version")] = project_format::kCurrentVersion + 1;
+        QVERIFY(!project_format::fromJson(document));
     }
 };
 

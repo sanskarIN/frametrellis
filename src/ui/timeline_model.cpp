@@ -78,6 +78,8 @@ QVariant ClipListModel::data(const QModelIndex& index, int role) const
         append(c.duration - 1, audioKeyframeDecibels(c.audioKeyframes, c.sourceOut() - 1), false);
         return points;
     }
+    case TransformPointCountRole:
+        return row.onAudioTrack ? 0 : static_cast<int>(c.transformKeyframes.size());
     case OpacityEnvelopeRole: {
         QVariantList points;
         if (c.opacityKeyframes.empty() || row.onAudioTrack) {
@@ -121,7 +123,8 @@ QHash<int, QByteArray> ClipListModel::roleNames() const
             {ThumbnailRole, "thumbnail"},
             {WaveformRole, "waveform"},
             {AudioEnvelopeRole, "audioEnvelope"},
-            {OpacityEnvelopeRole, "opacityEnvelope"}};
+            {OpacityEnvelopeRole, "opacityEnvelope"},
+            {TransformPointCountRole, "transformPointCount"}};
 }
 
 void ClipListModel::setClips(const Track& track, const Project& project, const QSet<Id>& selection)

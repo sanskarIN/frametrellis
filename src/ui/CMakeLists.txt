@@ -17,6 +17,7 @@ qt_add_qml_module(ft_ui
         qml/Theme.qml
         qml/controls/DialogButtons.qml
         qml/controls/AutomationEnvelope.qml
+        qml/controls/TransformOverlay.qml
         qml/controls/EmptyState.qml
         qml/controls/FtButton.qml
         qml/controls/FtCheckBox.qml

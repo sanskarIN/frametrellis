@@ -18,6 +18,7 @@ PanelFrame {
     readonly property real fps: Math.max(1, app.timeline.frameRate)
     readonly property var automation: app.timeline.audioAutomation
     readonly property var opacityAutomation: app.timeline.opacityAutomation
+    readonly property var transformAutomation: app.timeline.transformAutomation
 
     title: hasClip ? qsTr("Clip") : (hasTransition ? qsTr("Transition") : qsTr("Project"))
 
@@ -408,6 +409,137 @@ PanelFrame {
                     format: v => (v / panel.fps).toFixed(2) + " s"
                     onMoved: v => panel.setProp("fadeOut", Math.round(v))
                     onCommitted: panel.app.timeline.endEdit()
+                }
+            }
+
+            // ---- Transform animation ----
+            ColumnLayout {
+                objectName: "transformKeyframeControls"
+                visible: panel.hasClip && panel.clip.hasVideo
+                enabled: !panel.clip.locked
+                Layout.fillWidth: true
+                spacing: Theme.spacingS
+                Rectangle { Layout.fillWidth: true; height: 1; color: Theme.border }
+                Text {
+                    text: qsTr("Transform")
+                    color: Theme.text
+                    font.weight: Font.DemiBold
+                    font.pixelSize: Theme.fontSize
+                }
+                Text {
+                    text: qsTr("%1 points (%2 within this trim). Changes create a point at the playhead.")
+                              .arg(panel.transformAutomation.count || 0).arg(panel.transformAutomation.visibleCount || 0)
+                    color: Theme.textMuted
+                    font.pixelSize: Theme.fontSizeSmall
+                    wrapMode: Text.WordWrap
+                    Layout.fillWidth: true
+                }
+                Text {
+                    visible: !(panel.transformAutomation.canEdit || false)
+                    text: (panel.transformAutomation.available || false)
+                              ? qsTr("Pause with the playhead inside this clip to edit its transform.")
+                              : qsTr("The video transform filter is unavailable. Reset transforms to remove the animation.")
+                    color: Theme.textFaint
+                    font.pixelSize: Theme.fontSizeSmall
+                    wrapMode: Text.WordWrap
+                    Layout.fillWidth: true
+                }
+                ColumnLayout {
+                    enabled: panel.transformAutomation.canEdit || false
+                    Layout.fillWidth: true
+                    spacing: Theme.spacingS
+                    ValueSlider {
+                        objectName: "transformPositionX"
+                        label: qsTr("Horizontal position")
+                        from: -4; to: 4; stepSize: 0.001; defaultValue: 0
+                        value: panel.transformAutomation.x || 0
+                        format: v => (v * 100).toFixed(1) + "%"
+                        onMoved: v => panel.app.timeline.setTransformComponent("x", v)
+                        onCommitted: panel.app.timeline.endEdit()
+                    }
+                    ValueSlider {
+                        objectName: "transformPositionY"
+                        label: qsTr("Vertical position")
+                        from: -4; to: 4; stepSize: 0.001; defaultValue: 0
+                        value: panel.transformAutomation.y || 0
+                        format: v => (v * 100).toFixed(1) + "%"
+                        onMoved: v => panel.app.timeline.setTransformComponent("y", v)
+                        onCommitted: panel.app.timeline.endEdit()
+                    }
+                    ValueSlider {
+                        objectName: "transformScale"
+                        label: qsTr("Scale")
+                        from: 0.01; to: 10; stepSize: 0.01; defaultValue: 1
+                        value: panel.transformAutomation.scale === undefined ? 1 : panel.transformAutomation.scale
+                        format: v => Math.round(v * 100) + "%"
+                        onMoved: v => panel.app.timeline.setTransformComponent("scale", v)
+                        onCommitted: panel.app.timeline.endEdit()
+                    }
+                    ValueSlider {
+                        objectName: "transformRotation"
+                        label: qsTr("Clockwise rotation")
+                        from: -3600; to: 3600; stepSize: 1; defaultValue: 0
+                        value: panel.transformAutomation.rotation || 0
+                        format: v => v.toFixed(0) + "°"
+                        onMoved: v => panel.app.timeline.setTransformComponent("rotation", v)
+                        onCommitted: panel.app.timeline.endEdit()
+                    }
+                }
+                FtCheckBox {
+                    objectName: "showTransformHandles"
+                    text: qsTr("Show monitor handles")
+                    enabled: panel.transformAutomation.available || false
+                    checked: panel.app.timeline.transformHandlesVisible
+                    onToggled: panel.app.timeline.transformHandlesVisible = checked
+                }
+                RowLayout {
+                    Layout.fillWidth: true
+                    spacing: Theme.spacingS
+                    FtButton {
+                        objectName: "addTransformKeyframe"
+                        text: qsTr("Add point")
+                        Layout.fillWidth: true
+                        enabled: (panel.transformAutomation.canEdit || false) && !(panel.transformAutomation.atKeyframe || false)
+                        onClicked: panel.app.timeline.addTransformKeyframeAtPlayhead()
+                    }
+                    FtButton {
+                        objectName: "removeTransformKeyframe"
+                        text: qsTr("Remove point")
+                        Layout.fillWidth: true
+                        enabled: (panel.transformAutomation.canEdit || false) && (panel.transformAutomation.atKeyframe || false)
+                        onClicked: panel.app.timeline.removeTransformKeyframeAtPlayhead()
+                    }
+                }
+                RowLayout {
+                    Layout.fillWidth: true
+                    spacing: Theme.spacingS
+                    FtButton {
+                        objectName: "previousTransformKeyframe"
+                        text: qsTr("Previous point")
+                        Layout.fillWidth: true
+                        enabled: panel.transformAutomation.hasPrevious || false
+                        onClicked: panel.app.timeline.previousTransformKeyframe()
+                    }
+                    FtButton {
+                        objectName: "nextTransformKeyframe"
+                        text: qsTr("Next point")
+                        Layout.fillWidth: true
+                        enabled: panel.transformAutomation.hasNext || false
+                        onClicked: panel.app.timeline.nextTransformKeyframe()
+                    }
+                }
+                FtButton {
+                    objectName: "clearTransformKeyframes"
+                    text: qsTr("Reset all transforms")
+                    enabled: (panel.transformAutomation.count || 0) > 0
+                    onClicked: panel.app.timeline.clearSelectedTransformKeyframes()
+                }
+                Text {
+                    text: qsTr("One point applies to the whole clip; add more to animate. Positive position moves right/down from the canvas centre. Rotation includes full turns.")
+                    color: Theme.textFaint
+                    font.pixelSize: Theme.fontSizeSmall
+                    wrapMode: Text.WordWrap
+                    Layout.fillWidth: true
                 }
             }
 

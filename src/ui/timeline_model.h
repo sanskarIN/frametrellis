@@ -42,6 +42,7 @@ public:
         WaveformRole,
         AudioEnvelopeRole,
         OpacityEnvelopeRole,
+        TransformPointCountRole,
     };
 
     explicit ClipListModel(QObject* parent = nullptr);

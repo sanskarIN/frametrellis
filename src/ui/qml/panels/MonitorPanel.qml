@@ -50,6 +50,15 @@ PanelFrame {
                 }
             }
 
+            TransformOverlay {
+                objectName: "monitorTransformOverlay"
+                app: panel.app
+                x: view.pictureRect.x
+                y: view.pictureRect.y
+                width: view.pictureRect.width
+                height: view.pictureRect.height
+            }
+
             EmptyState {
                 anchors.centerIn: parent
                 visible: panel.app.timeline.empty

@@ -38,6 +38,10 @@ class TimelineController : public QObject
     Q_PROPERTY(QVariantMap audioAutomation READ audioAutomation NOTIFY audioAutomationChanged)
     Q_PROPERTY(QVariantMap opacityAutomation READ opacityAutomation NOTIFY opacityAutomationChanged)
     Q_PROPERTY(
+        QVariantMap transformAutomation READ transformAutomation NOTIFY transformAutomationChanged)
+    Q_PROPERTY(bool transformHandlesVisible READ transformHandlesVisible WRITE
+                   setTransformHandlesVisible NOTIFY transformHandlesVisibleChanged)
+    Q_PROPERTY(
         QVariantMap selectedTransition READ selectedTransition NOTIFY selectedTransitionChanged)
     Q_PROPERTY(double duration READ duration NOTIFY durationChanged)
     Q_PROPERTY(double frameRate READ frameRate NOTIFY durationChanged)
@@ -64,6 +68,9 @@ public:
     [[nodiscard]] QVariantMap selectedClip() const;
     [[nodiscard]] QVariantMap audioAutomation() const;
     [[nodiscard]] QVariantMap opacityAutomation() const;
+    [[nodiscard]] QVariantMap transformAutomation() const;
+    [[nodiscard]] bool transformHandlesVisible() const { return m_transformHandlesVisible; }
+    void setTransformHandlesVisible(bool visible);
     [[nodiscard]] double duration() const;
     [[nodiscard]] double frameRate() const;
     [[nodiscard]] bool empty() const;
@@ -131,6 +138,13 @@ public:
     Q_INVOKABLE bool clearSelectedOpacityKeyframes();
     Q_INVOKABLE void previousOpacityKeyframe();
     Q_INVOKABLE void nextOpacityKeyframe();
+    Q_INVOKABLE bool setTransformAtPlayhead(double x, double y, double scale, double rotation);
+    Q_INVOKABLE bool setTransformComponent(const QString& component, double value);
+    Q_INVOKABLE bool addTransformKeyframeAtPlayhead();
+    Q_INVOKABLE bool removeTransformKeyframeAtPlayhead();
+    Q_INVOKABLE bool clearSelectedTransformKeyframes();
+    Q_INVOKABLE void previousTransformKeyframe();
+    Q_INVOKABLE void nextTransformKeyframe();
 
     // Transitions
     [[nodiscard]] QVariantMap selectedTransition() const;
@@ -177,6 +191,8 @@ signals:
     void selectedClipChanged();
     void audioAutomationChanged();
     void opacityAutomationChanged();
+    void transformAutomationChanged();
+    void transformHandlesVisibleChanged();
     void selectedTransitionChanged();
     void durationChanged();
     void canAppendTitleChanged();
@@ -192,6 +208,8 @@ private:
     [[nodiscard]] const Clip* singleSelectedClip() const;
     void seekAudioKeyframe(bool forward);
     void seekOpacityKeyframe(bool forward);
+    void seekTransformKeyframe(bool forward);
+    bool m_transformHandlesVisible = false;
 
     ProjectController* m_project;
     PlaybackController* m_playback;

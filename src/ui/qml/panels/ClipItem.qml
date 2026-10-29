@@ -30,6 +30,7 @@ Rectangle {
     required property string waveform
     required property real gain
     required property var audioEnvelope
+    required property int transformPointCount
     required property var opacityEnvelope
     required property real viewportLeft
     required property real viewportWidth
@@ -173,10 +174,31 @@ Rectangle {
                 color: Theme.clipText
                 font.pixelSize: Theme.fontSizeSmall
                 elide: Text.ElideRight
-                width: Math.max(0, clip.width - 30)
+                width: Math.max(0, clip.width - 30 - (clip.transformPointCount > 0 ? 50 : 0))
                 anchors.verticalCenter: parent.verticalCenter
             }
         }
+    }
+
+    Rectangle {
+        objectName: "transformBadge:" + clip.clipId
+        visible: clip.transformPointCount > 0 && clip.width > 85
+        anchors.right: parent.right
+        anchors.top: parent.top
+        anchors.margins: 3
+        width: transformLabel.implicitWidth + 8
+        height: 14
+        radius: 3
+        color: Theme.panel
+        Text {
+            id: transformLabel
+            anchors.centerIn: parent
+            text: "T · " + clip.transformPointCount
+            color: Theme.accent
+            font.pixelSize: Theme.fontSizeSmall - 1
+        }
+        Accessible.role: Accessible.StaticText
+        Accessible.name: qsTr("%1 transform keyframes").arg(clip.transformPointCount)
     }
 
     // ---- Interaction ----

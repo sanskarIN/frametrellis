@@ -15,6 +15,7 @@ PanelFrame {
     property int trackHeight: 60
     readonly property int headerWidth: 176
     readonly property int rulerHeight: 28
+    readonly property int subtitleHeight: app.subtitles.count > 0 ? 30 : 0
     readonly property alias lanesItem: lanesContent
     readonly property real viewportLeft: lanes.contentX
     readonly property real viewportWidth: lanes.width
@@ -22,6 +23,7 @@ PanelFrame {
     title: qsTr("Timeline")
     signal markerAddRequested(real frame)
     signal markerEditRequested(string markerId, real frame, string label)
+    signal editSubtitlesRequested()
 
     function trackAtY(y) {
         const row = Math.floor(y / trackHeight)
@@ -120,11 +122,76 @@ PanelFrame {
             }
         }
 
-        // Track headers follow the vertical scroll of the lanes.
-        Item {
+        // Subtitle spans share the frame scale but stay separate from clip/source edits.
+        Rectangle {
             y: panel.rulerHeight
             width: panel.headerWidth
-            height: parent.height - panel.rulerHeight
+            height: panel.subtitleHeight
+            visible: height > 0
+            color: Theme.panelAlt
+            border.color: Theme.border
+            Text {
+                anchors.fill: parent
+                anchors.leftMargin: Theme.spacingM
+                verticalAlignment: Text.AlignVCenter
+                text: (panel.app.subtitles.burnIn ? qsTr("Subtitles · %1") : qsTr("Sidecar · %1")).arg(panel.app.subtitles.count)
+                color: Theme.textMuted
+                font.pixelSize: Theme.fontSizeSmall
+            }
+            MouseArea { anchors.fill: parent; cursorShape: Qt.PointingHandCursor; onClicked: panel.editSubtitlesRequested() }
+        }
+        Rectangle {
+            id: subtitleLane
+            objectName: "subtitleLane"
+            x: panel.headerWidth
+            y: panel.rulerHeight
+            width: lanes.width
+            height: panel.subtitleHeight
+            visible: height > 0
+            clip: true
+            color: Theme.panelAlt
+            Repeater {
+                model: {
+                    const revision = panel.app.subtitles.revision
+                    return panel.app.subtitles.visibleCues(Math.max(0, lanes.contentX / panel.ppf),
+                                                          Math.min(1000000000, (lanes.contentX + subtitleLane.width) / panel.ppf))
+                }
+                delegate: Rectangle {
+                    id: cueBar
+                    required property var modelData
+                    objectName: "subtitleSpan:" + modelData.id
+                    x: Math.max(modelData.first * panel.ppf, lanes.contentX) - lanes.contentX
+                    y: 4
+                    width: Math.max(1, Math.min(modelData.end * panel.ppf, lanes.contentX + subtitleLane.width) - Math.max(modelData.first * panel.ppf, lanes.contentX))
+                    height: 22
+                    radius: 3
+                    color: modelData.selected ? Theme.accent : Theme.raised
+                    opacity: panel.app.subtitles.burnIn ? 1 : 0.6
+                    Text {
+                        anchors.fill: parent
+                        anchors.margins: 4
+                        text: cueBar.modelData.text.replace(/\n/g, " · ")
+                        textFormat: Text.PlainText
+                        color: cueBar.modelData.selected ? Theme.accentText : Theme.text
+                        font.pixelSize: Theme.fontSizeSmall
+                        verticalAlignment: Text.AlignVCenter
+                        elide: Text.ElideRight
+                    }
+                    MouseArea {
+                        anchors.fill: parent
+                        cursorShape: Qt.PointingHandCursor
+                        onClicked: panel.app.subtitles.selectCue(cueBar.modelData.id)
+                        onDoubleClicked: panel.editSubtitlesRequested()
+                    }
+                }
+            }
+        }
+
+        // Track headers follow the vertical scroll of the lanes.
+        Item {
+            y: panel.rulerHeight + panel.subtitleHeight
+            width: panel.headerWidth
+            height: parent.height - y
             clip: true
             Column {
                 y: -lanes.contentY
@@ -144,9 +211,9 @@ PanelFrame {
             id: lanes
             objectName: "timelineLanes"
             x: panel.headerWidth
-            y: panel.rulerHeight
+            y: panel.rulerHeight + panel.subtitleHeight
             width: parent.width - panel.headerWidth
-            height: parent.height - panel.rulerHeight
+            height: parent.height - y
             clip: true
             interactive: false
             boundsBehavior: Flickable.StopAtBounds

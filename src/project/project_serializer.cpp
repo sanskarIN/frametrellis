@@ -363,6 +363,22 @@ QJsonObject toJson(const Project& project, const QString& projectDir)
         body[QLatin1String("markers")] = markers;
     }
 
+    if (project.subtitles() != SubtitleTrack{}) {
+        const SubtitleTrack& track = project.subtitles();
+        QJsonArray cues;
+        for (const SubtitleCue& cue : track.cues) {
+            cues.append(QJsonObject{{QStringLiteral("id"), cue.id},
+                                    {QStringLiteral("startMs"), static_cast<double>(cue.startMs)},
+                                    {QStringLiteral("endMs"), static_cast<double>(cue.endMs)},
+                                    {QStringLiteral("text"), cue.text}});
+        }
+        body[QStringLiteral("subtitles")] =
+            QJsonObject{{QStringLiteral("burnIn"), track.burnIn},
+                        {QStringLiteral("fontPercent"), track.fontPercent},
+                        {QStringLiteral("background"), track.background},
+                        {QStringLiteral("cues"), cues}};
+    }
+
     QJsonObject root;
     root[QLatin1String("format")] = QLatin1String(kFormatName);
     // Choose the oldest development format that can preserve every envelope. Older readers
@@ -378,7 +394,9 @@ QJsonObject toJson(const Project& project, const QString& projectDir)
         }
     }
     root[QLatin1String("version")] =
-        hasTransformKeyframes ? 5 : (hasOpacityKeyframes ? 4 : (hasAudioKeyframes ? 3 : 2));
+        project.subtitles() != SubtitleTrack{}
+            ? 6
+            : (hasTransformKeyframes ? 5 : (hasOpacityKeyframes ? 4 : (hasAudioKeyframes ? 3 : 2)));
     root[QLatin1String("generator")] = QStringLiteral("%1 %2").arg(
         QLatin1String(version::applicationName), QLatin1String(version::string));
     root[QLatin1String("project")] = body;
@@ -626,6 +644,48 @@ Result<Project> fromJson(const QJsonObject& document, const QString& projectDir)
         if (const Status checked = project.setMarkers(std::move(markers)); !checked) {
             r.fail(QStringLiteral("markers"), checked.error().message);
         }
+    }
+    if (r.failed()) {
+        return r.error();
+    }
+
+    if (body.contains(QStringLiteral("subtitles"))) {
+        Reader sr(QStringLiteral("$.project.subtitles"));
+        if (versionNumber < 6) {
+            sr.fail(QStringLiteral("version"),
+                    QStringLiteral("subtitles require project format v6"));
+        }
+        const QJsonObject object = sr.object(body, "subtitles");
+        for (const char* field : {"burnIn", "fontPercent", "background", "cues"}) {
+            if (!object.contains(QLatin1String(field))) {
+                sr.fail(QLatin1String(field), QStringLiteral("required field"));
+            }
+        }
+        SubtitleTrack track;
+        track.burnIn = sr.boolean(object, "burnIn", true);
+        track.fontPercent = static_cast<int>(sr.integer(object, "fontPercent", 2, 10));
+        track.background = sr.boolean(object, "background", true);
+        const QJsonArray cues = sr.array(object, "cues", kMaxSubtitleCues);
+        for (qsizetype i = 0; i < cues.size() && !sr.failed(); ++i) {
+            Reader cr(QStringLiteral("$.project.subtitles.cues[%1]").arg(i));
+            if (!cues.at(i).isObject()) {
+                cr.fail(QStringLiteral("cue"), QStringLiteral("expected an object"));
+            }
+            const QJsonObject cue = cues.at(i).toObject();
+            SubtitleCue value;
+            value.id = cr.id(cue, "id");
+            value.startMs = cr.integer(cue, "startMs", 0, kMaxSubtitleTimeMs);
+            value.endMs = cr.integer(cue, "endMs", 1, kMaxSubtitleTimeMs);
+            value.text = cr.string(cue, "text", true, kMaxSubtitleTextLength);
+            sr.adopt(cr);
+            track.cues.push_back(std::move(value));
+        }
+        if (!sr.failed()) {
+            if (const Status checked = project.setSubtitles(std::move(track)); !checked) {
+                sr.fail(QStringLiteral("cues"), checked.error().message);
+            }
+        }
+        r.adopt(sr);
     }
     if (r.failed()) {
         return r.error();

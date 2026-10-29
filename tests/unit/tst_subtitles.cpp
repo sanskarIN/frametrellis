@@ -20,6 +20,13 @@ Project project()
 {
     return Project::createNew(QStringLiteral("Subtitles"), {});
 }
+QJsonObject withTrack(QJsonObject document, const QJsonValue& track)
+{
+    QJsonObject body = document[QStringLiteral("project")].toObject();
+    body[QStringLiteral("subtitles")] = track;
+    document[QStringLiteral("project")] = body;
+    return document;
+}
 } // namespace
 
 class SubtitleTest : public QObject
@@ -210,6 +217,112 @@ private slots:
         QVERIFY(!doc.canUndo());
         QVERIFY(doc.execute(edits::setSubtitleAppearance(true, 5, true)));
         QVERIFY(!doc.canUndo());
+    }
+    void formatSixPreservesCuesOptionsAndLegacyLoads()
+    {
+        Project p = project();
+        QJsonObject legacy = project_format::toJson(p);
+        QCOMPARE(legacy[QStringLiteral("version")].toInt(), 2);
+        for (int version : {1, 2, 3, 4, 5, 6}) {
+            legacy[QStringLiteral("version")] = version;
+            QVERIFY(project_format::fromJson(legacy));
+        }
+        SubtitleTrack track;
+        track.cues = {cue(QStringLiteral("a"), 1, 1002, QStringLiteral("नमस्ते\nHello")),
+                      cue(QStringLiteral("b"), 3005, 4010)};
+        track.burnIn = false;
+        track.fontPercent = 8;
+        track.background = false;
+        QVERIFY(p.setSubtitles(track));
+        const QJsonObject saved = project_format::toJson(p);
+        QCOMPARE(saved[QStringLiteral("version")].toInt(), 6);
+        const auto loaded = project_format::fromBytes(project_format::toBytes(p));
+        QVERIFY(loaded);
+        QCOMPARE(loaded->subtitles(), track);
+        for (int version : {1, 2, 3, 4, 5}) {
+            QJsonObject wrong = saved;
+            wrong[QStringLiteral("version")] = version;
+            QVERIFY(!project_format::fromJson(wrong));
+        }
+        // SRT times survive a frame-rate change while the media timeline is empty.
+        const QByteArray before = *srt::toBytes(p.subtitles());
+        ProjectSettings settings = p.settings();
+        settings.frameRate = *FrameRate::create(30000, 1001);
+        QVERIFY(p.setSettings(settings));
+        QCOMPARE(*srt::toBytes(p.subtitles()), before);
+        track.cues.clear();
+        QVERIFY(p.setSubtitles(track));
+        QCOMPARE(project_format::toJson(p)[QStringLiteral("version")].toInt(), 6);
+        QVERIFY(p.setSubtitles({}));
+        QCOMPARE(project_format::toJson(p)[QStringLiteral("version")].toInt(), 2);
+    }
+
+    void malformedProjectSubtitleFieldsFailAtomically()
+    {
+        Project p = project();
+        SubtitleTrack track;
+        track.cues = {cue(QStringLiteral("a"))};
+        QVERIFY(p.setSubtitles(track));
+        QJsonObject document = project_format::toJson(p);
+        const QJsonObject valid =
+            document[QStringLiteral("project")].toObject()[QStringLiteral("subtitles")].toObject();
+        const auto rejects = [&](const QJsonValue& value) {
+            const auto parsed = project_format::fromJson(withTrack(document, value));
+            return !parsed && parsed.error().code == ErrorCode::InvalidDocument;
+        };
+        QVERIFY(rejects(QJsonValue::Null));
+        QVERIFY(rejects(QJsonArray{}));
+        for (const QString& field : {QStringLiteral("burnIn"), QStringLiteral("fontPercent"),
+                                     QStringLiteral("background"), QStringLiteral("cues")}) {
+            QJsonObject bad = valid;
+            bad.remove(field);
+            QVERIFY(rejects(bad));
+            bad = valid;
+            bad[field] = QStringLiteral("wrong type");
+            QVERIFY(rejects(bad));
+        }
+        const QJsonObject validCue = valid[QStringLiteral("cues")].toArray()[0].toObject();
+        const auto rejectCue = [&](const QJsonValue& value) {
+            QJsonObject bad = valid;
+            bad[QStringLiteral("cues")] = QJsonArray{value};
+            return rejects(bad);
+        };
+        QVERIFY(rejectCue(QJsonValue::Null));
+        for (const QString& field : {QStringLiteral("id"), QStringLiteral("startMs"),
+                                     QStringLiteral("endMs"), QStringLiteral("text")}) {
+            QJsonObject bad = validCue;
+            bad.remove(field);
+            QVERIFY(rejectCue(bad));
+            bad = validCue;
+            bad[field] = true;
+            QVERIFY(rejectCue(bad));
+        }
+        for (const auto& entry : std::vector<std::pair<QString, QJsonValue>>{
+                 {QStringLiteral("startMs"), -1},
+                 {QStringLiteral("startMs"), 0.5},
+                 {QStringLiteral("endMs"), 0},
+                 {QStringLiteral("endMs"), static_cast<double>(kMaxSubtitleTimeMs + 1)},
+                 {QStringLiteral("text"), QStringLiteral("a\n\nb")},
+                 {QStringLiteral("text"), QString(kMaxSubtitleTextLength + 1, QLatin1Char('a'))}}) {
+            QJsonObject bad = validCue;
+            bad[entry.first] = entry.second;
+            QVERIFY(rejectCue(bad));
+        }
+        QJsonObject bad = valid;
+        bad[QStringLiteral("cues")] = QJsonArray{validCue, validCue};
+        QVERIFY(rejects(bad));
+        QJsonArray oversized;
+        for (int i = 0; i <= kMaxSubtitleCues; ++i)
+            oversized.append(validCue);
+        bad[QStringLiteral("cues")] = oversized;
+        QVERIFY(rejects(bad));
+        for (int font : {1, 11}) {
+            bad = valid;
+            bad[QStringLiteral("fontPercent")] = font;
+            QVERIFY(rejects(bad));
+        }
+        document[QStringLiteral("version")] = project_format::kCurrentVersion + 1;
+        QVERIFY(!project_format::fromJson(document));
     }
 };
 

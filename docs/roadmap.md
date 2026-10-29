@@ -114,10 +114,12 @@ Acceptance criteria, each checked before the release:
 
 ## v1.4.0 — Professional workflow candidates 🚧
 - Integrated on main: persistent review markers, chapter/WebVTT chapter copy,
-  cuts-only picture EDL export, source slip and roll editing (PRs #75–#79, #82).
-- 🚧 Volume keyframes: source-anchored decibel envelopes, inspector controls,
-  timeline curves and matching preview/MP4 export; development candidate with
-  format v3 only for projects containing automation. Not in stable v1.3.0.
+  cuts-only picture EDL export, source slip, roll editing and volume automation
+  (PRs #75–#79, #82, #83).
+- 🚧 Opacity keyframes: source-anchored transparency, PNG alpha and fade composition,
+  inspector controls, timeline curves, persistence and matching preview/MP4 export.
+  Opacity points require format v4; volume-only projects use v3. These are
+  development features outside stable v1.3.0.
 - 🚧 Media inventory export, recursive folder imports and removal of unused references
   (existing separate PRs; unmerged until integrated tests pass)
 - ⏳ Validate Linux, Windows and sanitizer CI and conduct manual editor smoke tests
@@ -138,7 +140,7 @@ the audited source state, concrete capability gaps and the next implementation o
 
 ## Later
 - Subtitles (import, edit, burn-in and export as SRT)
-- Keyframes for opacity, volume and position
+- Transform keyframes for position, scale and rotation
 - Customisable keyboard shortcuts
 - More export formats (WebM/VP9, ProRes, image sequences, audio-only)
 - Plugin extension points (effects and exporters) with documentation

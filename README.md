@@ -57,12 +57,13 @@ What works today (each item is implemented and covered by automated tests):
 - [x] Autosave every minute and crash recovery
 - [x] Recent projects, dark and light themes, keyboard shortcuts, first-run guide
 
-Planned (see the [roadmap](docs/roadmap.md)): editable title layers, subtitles, keyframes,
+Planned (see the [roadmap](docs/roadmap.md)): editable title layers, subtitles, transform keyframes,
 proxy media, customisable shortcuts, more export formats, and Linux and macOS packages.
 
 Development source also contains review markers, chapter/EDL handoff and slip/roll edits.
-Volume keyframes are being developed with inspector controls and shared preview/export
-automation. These are separate from the stable Windows downloads; see the
+Volume keyframes are integrated, and development source adds opacity keyframes with
+inspector controls, timeline curves and shared preview/export automation. These are
+separate from the stable Windows downloads; see the
 [current-state assessment](docs/development/pro-editor-assessment.md) and
 [unreleased notes](docs/releases/unreleased.md).
 
@@ -121,8 +122,9 @@ and Turbo presets and how to measure improvements. The [user guide](docs/user-gu
 
 ## Current limitations
 
-- Titles are PNG image overlays, not editable text layers; there are no keyframes yet and
-  dissolve/crossfade is the only transition. Keep generated PNGs when moving the project.
+- Titles are PNG image overlays rather than editable text layers; transform keyframes
+  remain planned, and dissolve/crossfade is the only transition. Volume and opacity
+  automation are development features. Keep generated PNGs when moving the project.
 - Only MP4 (H.264 + AAC) export; frame rate is fixed once clips are on the timeline.
 - Very large timelines (thousands of clips) are not optimised yet.
 - Picture adjustments need an FFmpeg/MLT build with a working `eq` filter; the inspector says

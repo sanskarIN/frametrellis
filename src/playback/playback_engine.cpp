@@ -345,7 +345,14 @@ bool PlaybackEngine::Worker::applyCommands(std::deque<Command>& commands)
                 setPlaying(true);
             }
             break;
-        case Command::Type::Pause:
+        case Command::Type::Pause: {
+            std::lock_guard lock(m_mutex);
+            // Playback renders ahead of the displayed frame. Freeze the published
+            // position before acknowledging pause; a pending seek/step keeps its target.
+            if (!m_needsRender && m_appliedGeneration == m_requestedGeneration) {
+                m_position = m_owner->m_position.load();
+            }
+        }
             setPlaying(false);
             m_needsRender = true;
             break;

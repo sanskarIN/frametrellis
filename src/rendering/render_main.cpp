@@ -15,6 +15,7 @@
 #include <QCommandLineParser>
 #include <QCoreApplication>
 #include <QFileInfo>
+#include <QGuiApplication>
 #include <QSet>
 
 #include <atomic>
@@ -114,7 +115,14 @@ void watchStdin()
 
 int main(int argc, char** argv)
 {
-    QCoreApplication app(argc, argv);
+    // Font shaping needs Qt Gui. Use the native Windows font backend to match
+    // the editor; elsewhere offscreen keeps the helper usable without a display.
+#ifndef Q_OS_WIN
+    if (qEnvironmentVariableIsEmpty("QT_QPA_PLATFORM")) {
+        qputenv("QT_QPA_PLATFORM", "offscreen");
+    }
+#endif
+    QGuiApplication app(argc, argv);
     QCoreApplication::setApplicationName(QStringLiteral("frametrellis-render"));
     QCoreApplication::setApplicationVersion(QLatin1String(version::string));
 
@@ -217,6 +225,9 @@ int main(int argc, char** argv)
                    {QStringLiteral("audioTrackCount"), audioTracks},
                    {QStringLiteral("clipCount"), inspected->timeline().clipCount()},
                    {QStringLiteral("mediaCount"), static_cast<int>(inspected->media().size())},
+                   {QStringLiteral("subtitleCueCount"),
+                    static_cast<int>(inspected->subtitles().cues.size())},
+                   {QStringLiteral("subtitleBurnIn"), inspected->subtitles().burnIn},
                    {QStringLiteral("usedMediaCount"), static_cast<int>(referencedIds.size())},
                    {QStringLiteral("unusedMediaCount"), unusedMedia},
                    {QStringLiteral("missingMediaCount"), missingMedia},

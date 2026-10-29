@@ -606,6 +606,53 @@ private slots:
         QVERIFY(partFiles().isEmpty());
     }
 
+    void helperBurnsSubtitlesAtExactBoundariesFromFormatSix()
+    {
+        Project p = project();
+        SubtitleTrack captions;
+        captions.fontPercent = 10;
+        captions.cues = {
+            {QStringLiteral("caption"), 200, 800, QStringLiteral("Caption test")},
+            {QStringLiteral("future"), 100000, 102000, QStringLiteral("Retained outside video")}};
+        QVERIFY(p.setSubtitles(captions));
+        QCOMPARE(project_format::toJson(p)[QStringLiteral("version")].toInt(), 6);
+        RenderJob job(QStringLiteral(FT_RENDER_HELPER));
+        QSignalSpy finished(&job, &RenderJob::finished);
+        ExportSettings settings;
+        settings.outputPath = m_dir.filePath(QStringLiteral("subtitle-burn-in.mp4"));
+        settings.speedPreset = QStringLiteral("ultrafast");
+        QVERIFY(job.start(p, settings));
+        QVERIFY(finished.wait(60000));
+        QVERIFY2(job.state() == RenderJob::State::Succeeded,
+                 qPrintable(job.errorMessage() + job.errorDetail()));
+        const auto whites = [](const QImage& image) {
+            int count = 0;
+            for (int y = 0; y < image.height(); ++y)
+                for (int x = 0; x < image.width(); ++x) {
+                    const QColor pixel = image.pixelColor(x, y);
+                    if (pixel.red() > 140 && pixel.green() > 140 && pixel.blue() > 140)
+                        ++count;
+                }
+            return count;
+        };
+        QCOMPARE(whites(frameOf(settings.outputPath, 4)), 0);
+        QVERIFY(whites(frameOf(settings.outputPath, 5)) > 10);
+        QVERIFY(whites(frameOf(settings.outputPath, 19)) > 10);
+        QCOMPARE(whites(frameOf(settings.outputPath, 20)), 0);
+        const auto media = media::probeMedia(settings.outputPath);
+        QVERIFY(media);
+        QVERIFY(std::abs(media->durationUs - 2000000) < 100000);
+        captions.burnIn = false;
+        QVERIFY(p.setSubtitles(captions));
+        settings.outputPath = m_dir.filePath(QStringLiteral("subtitle-sidecar-only.mp4"));
+        finished.clear();
+        QVERIFY(job.start(p, settings));
+        QVERIFY(finished.wait(60000));
+        QCOMPARE(job.state(), RenderJob::State::Succeeded);
+        QCOMPARE(whites(frameOf(settings.outputPath, 10)), 0);
+        QVERIFY(partFiles().isEmpty());
+    }
+
     void helperProcessCancel()
     {
         RenderJob job(QStringLiteral(FT_RENDER_HELPER));
@@ -668,7 +715,7 @@ private slots:
         QCOMPARE(seen, (QStringList{QStringLiteral("engine"), QStringLiteral("encoders"),
                                     QStringLiteral("media"), QStringLiteral("probe"),
                                     QStringLiteral("project"), QStringLiteral("export"),
-                                    QStringLiteral("verify")}));
+                                    QStringLiteral("subtitles"), QStringLiteral("verify")}));
         QVERIFY(QFile::exists(report.projectPath));
         QVERIFY(QFile::exists(report.outputPath));
         // The generated project opens like any other project.
@@ -691,5 +738,5 @@ private slots:
     void cleanupTestCase() { engine::MltRuntime::shutdown(); }
 };
 
-QTEST_GUILESS_MAIN(RenderTest)
+QTEST_MAIN(RenderTest)
 #include "tst_render.moc"

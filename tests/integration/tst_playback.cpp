@@ -188,6 +188,32 @@ private slots:
         QVERIFY(stoppedAt > 0 && stoppedAt < 75);
     }
 
+    void pauseKeepsThePublishedPositionWithAFrameInFlight()
+    {
+        playback::PlaybackEngine engine;
+        QSignalSpy frames(&engine, &playback::PlaybackEngine::frameReady);
+        engine.setAudioEnabled(false);
+        engine.setMaximumPreviewSize(QSize(160, 90));
+        engine.setProject(project());
+        engine.seek(10);
+        QVERIFY(!waitForFrameAt(frames, 10).isNull());
+        const qint64 before = engine.renderedFrameCount();
+        engine.play();
+        // Do not dispatch GUI events. The first playing frame publishes immediately;
+        // the next renders ahead and waits for its wall-clock deadline.
+        QElapsedTimer timer;
+        timer.start();
+        while (engine.renderedFrameCount() < before + 2 && timer.elapsed() < 3000)
+            QThread::msleep(1);
+        QVERIFY(engine.renderedFrameCount() >= before + 2);
+        const FrameCount published = engine.position();
+        engine.pause();
+        QVERIFY(QTest::qWaitFor([&] { return !engine.isPlaying(); }, 2000));
+        QTest::qWait(100);
+        QCOMPARE(engine.position(), published);
+        QVERIFY(!waitForFrameAt(frames, published).isNull());
+    }
+
     void projectUpdatesDuringPlayback()
     {
         playback::PlaybackEngine engine;

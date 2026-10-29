@@ -15,6 +15,7 @@ uploaded. This guide covers everything the current version can do.
 - [Volume keyframes (development preview)](#volume-keyframes-development-preview)
 - [Opacity keyframes (development preview)](#opacity-keyframes-development-preview)
 - [Transform animation (development preview)](#transform-animation-development-preview)
+- [Subtitles (development preview)](#subtitles-development-preview)
 - [Playback](#playback)
 - [Exporting](#exporting)
 - [Exporting an edit decision list (development preview)](#exporting-a-picture-edit-decision-list-development-preview)
@@ -158,8 +159,8 @@ destination clip's automation unchanged.
 
 **Compatibility:** Projects containing volume points save in project format **v3**.
 Earlier development builds that only understand v2 cannot reopen them. Keep a backup
-before upgrading. Projects without any automation save as v2; the reader
-can load v1 through v5. Opacity curves require v4 and transform curves require v5. v1.3.0 stable cannot open these development formats.
+before upgrading. Projects without automation or subtitles save as v2; the reader
+can load v1 through v6. Opacity curves require v4, transform curves v5 and subtitles v6. v1.3.0 stable cannot open these development formats.
 
 ## Opacity keyframes (development preview)
 
@@ -193,8 +194,8 @@ back to a video track restores the picture envelope. Audio-only sources cannot
 have opacity points. Locked tracks prevent edits.
 
 **Compatibility:** Opacity points require at least format **v4**; transform points
-raise the saved format to **v5**. Volume-only projects use v3 and projects without
-automation use v2. Keep backup project copies before
+raise the saved format to **v5** and subtitles require **v6**. Volume-only projects
+use v3 and projects without automation or subtitles use v2. Keep backup project copies before
 switching development builds. This feature is not part of stable v1.3.0.
 
 ## Transform animation (development preview)
@@ -238,9 +239,54 @@ curves intact. Picture curves are dormant when a video source is moved to an aud
 track and resume when moved back. The same graph renders preview and MP4 output.
 
 **Compatibility:** Any transform point requires project format **v5**, including
-one constant point. Older builds refuse these projects. Loading v1–v5 is supported;
-clearing transform points permits v4/v3/v2 saves according to the remaining curves.
+one constant point. Older builds refuse these projects. Loading v1–v6 is supported;
+subtitles require v6. With no subtitles, clearing transform points permits v4/v3/v2
+saves according to the remaining curves.
 This feature is development work after stable v1.3.0. Keep backup project copies.
+
+## Subtitles (development preview)
+
+Open **File → Subtitles…**, the **Subtitles** toolbar button, or `Ctrl+Alt+S`.
+Pause inside a free gap and choose **+ At playhead**, or **Import SRT…** to append
+cues from a UTF-8 `.srt` file. An overlap refuses the entire import and preserves
+existing cues. Use **Clear track** first to replace a track; clearing and importing
+are separate undo steps. Touching cues are allowed, with only one cue active at once.
+
+Select a cue to seek to its first visible frame. Edit its plain text and start/end
+times in `HH:MM:SS,mmm` format, then choose **Apply cue** (`Ctrl+Return`). The end
+is exclusive. **Use playhead** copies the current clock time into either field.
+**Previous**, **Next**, **Preview cue** and the timeline subtitle strip navigate
+the cues. The editor's applied preview shows the saved cue, so apply text changes
+before reviewing them. On shorter windows, close the editor to see the program monitor.
+Switching cues, importing, undoing or closing protects unapplied drafts with
+Apply/Discard/Cancel. Saving the project applies a valid draft first. Project
+**Undo/Redo** buttons are separate from text-field undo.
+
+**Burn into preview and video** enables the same centered, bottom-aligned captions
+in preview and MP4 export. Set text size from 2% to 10% of picture height and
+toggle the dark background. Long text wraps and shrinks to fit; text remains
+literal, including `<b>` tags. Install fonts for each language you use on every
+rendering machine. Font substitution can change layout across operating systems.
+Appearance changes, cue edits, import, removal and clearing are undoable.
+
+**Export SRT…** saves every cue atomically, including cues beyond the video and
+very short cues with no sampled video frame. It does not alter the project or
+its history; SRT contains text and exact millisecond times, without styling.
+Turn burn-in off for sidecar-only delivery. SRT export is separate from MP4 export;
+the MP4 does not contain a switchable subtitle stream.
+
+Times remain exact milliseconds at fractional frame rates; picture frames sample
+those times, so a cue can begin on the next frame. Cues stay at their sequence
+times when clips move, slip, split or ripple, and do not extend the video.
+Review alignment after changing the edit. Cues outside the current video are
+marked in the list and retained, with navigation disabled until they have a frame.
+Input is limited to 8 MiB, 10,000 cues, 2,000 UTF-16 units per cue and 1,000,000
+units total. Blank text lines separate cues in SRT and cannot be embedded in a cue.
+
+**Compatibility:** Subtitles or nondefault subtitle styling require project
+**format v6**. Older builds refuse these projects. Clear cues and **Reset style**
+to return to the minimum format required by other features. Loading v1–v6 remains
+supported. This workflow is outside the stable v1.3.0 downloads.
 
 ## Timeline markers (v1.4 development preview)
 
@@ -263,7 +309,7 @@ system also snaps clips to markers when snapping is on. Cues saved beyond the cu
 of a shortened sequence remain in the project but cannot be navigated to until media again
 covers their position.
 
-**Compatibility:** Markers require project format v2; automation may require v3/v4/v5. FrameTrellis
+**Compatibility:** Markers require project format v2; automation may require v3/v4/v5 and subtitles v6. FrameTrellis
 v1.3 and older reject these newer project files, even if they contain no markers. Keep a
 backup if you may need to return to an older editor. This feature is not in v1.3.0 stable.
 

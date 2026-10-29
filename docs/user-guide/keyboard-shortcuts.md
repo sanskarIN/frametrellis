@@ -32,7 +32,11 @@
 | Ctrl+N / Ctrl+O | New / open project |
 | Ctrl+S / Ctrl+Shift+S | Save / save as |
 | Ctrl+I | Import media |
+| Ctrl+Alt+S | Open the subtitle editor (development source) |
+| Ctrl+Return | Apply the current subtitle draft while its editor is open |
 | Ctrl+E | Export |
 | F1 | Show keyboard shortcuts |
 
 Single-key shortcuts are disabled while a dialog is open. On macOS, Ctrl is Cmd.
+Within the subtitle text field, undo/redo edits the text draft. The editor's
+**Undo** and **Redo** buttons operate on project history and protect unapplied drafts.

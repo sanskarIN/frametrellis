@@ -19,6 +19,7 @@ ApplicationWindow {
     readonly property bool dialogOpen: newDialog.visible || titleDialog.visible || exportDialog.visible || aboutDialog.visible
                                        || shortcutsDialog.visible || goToTimecodeDialog.visible || markerDialog.visible || welcome.visible || messageBox.visible
                                        || unsavedDialog.visible || exportRunningDialog.visible || recoveryDialog.visible
+                                       || subtitleDialog.visible || subtitleImportDialog.visible || subtitleExportDialog.visible
     readonly property bool editKeys: !dialogOpen
 
     width: Math.min(1440, Screen.desktopAvailableWidth - 40)
@@ -53,6 +54,12 @@ ApplicationWindow {
 
     // ---------- Unsaved-changes guard ----------
     function guarded(action, verb) {
+        if (subtitleDialog.visible && subtitleDialog.dirty) {
+            subtitleDialog.guarded(() => window.guarded(action, verb))
+            return
+        }
+        if (subtitleDialog.visible)
+            subtitleDialog.close()
         if (!app.project.modified) {
             action()
             return
@@ -68,6 +75,8 @@ ApplicationWindow {
             action()
     }
     function save(thenRun) {
+        if (subtitleDialog.visible && !subtitleDialog.applyIfDirty())
+            return
         if (app.project.hasFilePath) {
             if (app.project.save() && thenRun)
                 runPending()
@@ -131,10 +140,11 @@ ApplicationWindow {
             }
             MenuSeparator {}
             Action { text: qsTr("&Save"); shortcut: StandardKey.Save; onTriggered: window.save(false) }
-            Action { text: qsTr("Save &As…"); shortcut: "Ctrl+Shift+S"; onTriggered: { saveDialog.runAfterSave = false; saveDialog.open() } }
+            Action { text: qsTr("Save &As…"); shortcut: "Ctrl+Shift+S"; onTriggered: { if (subtitleDialog.visible && !subtitleDialog.applyIfDirty()) return; saveDialog.runAfterSave = false; saveDialog.open() } }
             MenuSeparator {}
             Action { text: qsTr("&Import Media…"); shortcut: "Ctrl+I"; onTriggered: importDialog.open() }
             Action { text: qsTr("Create &Title…"); onTriggered: titleDialog.open() }
+            Action { text: qsTr("&Subtitles…"); shortcut: "Ctrl+Alt+S"; enabled: window.editKeys; onTriggered: subtitleDialog.open() }
             Action { text: qsTr("Copy Picture EDL (CMX3600)"); enabled: window.editKeys && !window.app.timeline.empty; onTriggered: window.app.timeline.copyPictureAsEdl() }
             Action { text: qsTr("&Export…"); shortcut: "Ctrl+E"; enabled: !window.app.timeline.empty || window.app.exporter.busy; onTriggered: exportDialog.open() }
             MenuSeparator {}
@@ -142,8 +152,8 @@ ApplicationWindow {
         }
         Menu {
             title: qsTr("&Edit")
-            Action { text: window.app.project.canUndo ? qsTr("&Undo %1").arg(window.app.project.undoText) : qsTr("&Undo"); shortcut: StandardKey.Undo; enabled: window.app.project.canUndo; onTriggered: window.app.project.undo() }
-            Action { text: window.app.project.canRedo ? qsTr("&Redo %1").arg(window.app.project.redoText) : qsTr("&Redo"); shortcut: "Ctrl+Shift+Z"; enabled: window.app.project.canRedo; onTriggered: window.app.project.redo() }
+            Action { text: window.app.project.canUndo ? qsTr("&Undo %1").arg(window.app.project.undoText) : qsTr("&Undo"); shortcut: StandardKey.Undo; enabled: window.editKeys && window.app.project.canUndo; onTriggered: window.app.project.undo() }
+            Action { text: window.app.project.canRedo ? qsTr("&Redo %1").arg(window.app.project.redoText) : qsTr("&Redo"); shortcut: "Ctrl+Shift+Z"; enabled: window.editKeys && window.app.project.canRedo; onTriggered: window.app.project.redo() }
             MenuSeparator {}
             Action { text: qsTr("&Split at Playhead"); shortcut: "S"; enabled: window.editKeys; onTriggered: window.app.timeline.splitAtPlayhead() }
             Action { text: qsTr("D&uplicate Selected Clips"); shortcut: "Ctrl+D"; enabled: window.editKeys && window.app.timeline.selection.length > 0; onTriggered: window.app.timeline.duplicateSelection() }
@@ -256,6 +266,7 @@ ApplicationWindow {
             IconButton { iconName: "redo"; tip: window.app.project.canRedo ? qsTr("Redo %1 (Ctrl+Shift+Z)").arg(window.app.project.redoText) : qsTr("Nothing to redo"); enabled: window.app.project.canRedo; onClicked: window.app.project.redo() }
             Rectangle { width: 1; height: 22; color: Theme.border; Layout.leftMargin: 6; Layout.rightMargin: 6 }
             IconButton { iconName: "import"; text: qsTr("Import"); tip: qsTr("Import media (Ctrl+I)"); onClicked: importDialog.open() }
+            IconButton { iconName: "subtitles"; text: qsTr("Subtitles"); objectName: "subtitlesButton"; tip: qsTr("Edit subtitles (Ctrl+Alt+S)"); onClicked: subtitleDialog.open() }
             IconButton { iconName: "export"; text: qsTr("Export"); tip: qsTr("Export video (Ctrl+E)"); enabled: !window.app.timeline.empty || window.app.exporter.busy; onClicked: exportDialog.open() }
             Item { Layout.fillWidth: true }
             Text {
@@ -314,6 +325,7 @@ ApplicationWindow {
         }
 
         TimelinePanel {
+            onEditSubtitlesRequested: subtitleDialog.open()
             onMarkerAddRequested: frame => markerDialog.openNew(frame)
             onMarkerEditRequested: (id, frame, label) => markerDialog.openExisting(id, frame, label)
             id: timelinePanel
@@ -337,6 +349,7 @@ ApplicationWindow {
                 Layout.fillWidth: true
                 text: window.app.statusMessage.length > 0 ? window.app.statusMessage
                       : (window.app.media.importing ? qsTr("Importing %1 file(s)…").arg(window.app.media.pendingImports) : qsTr("Ready"))
+                textFormat: Text.PlainText
                 color: Theme.textMuted
                 font.pixelSize: Theme.fontSizeSmall
                 elide: Text.ElideRight
@@ -406,6 +419,24 @@ ApplicationWindow {
         nameFilters: window.app.media.nameFilters
         onAccepted: window.app.media.relink(assetId, window.app.localPath(selectedFile))
     }
+    FileDialog {
+        id: subtitleImportDialog
+        title: qsTr("Import subtitles (append cues)")
+        fileMode: FileDialog.OpenFile
+        nameFilters: [qsTr("SubRip subtitles (*.srt *.SRT)")]
+        currentFolder: window.app.fileUrl(window.app.project.projectFolder())
+        onAccepted: window.app.subtitles.importSrt(window.app.localPath(selectedFile))
+    }
+    FileDialog {
+        id: subtitleExportDialog
+        title: qsTr("Export subtitles")
+        fileMode: FileDialog.SaveFile
+        defaultSuffix: "srt"
+        nameFilters: [qsTr("SubRip subtitles (*.srt)")]
+        currentFolder: window.app.fileUrl(window.app.project.projectFolder())
+        selectedFile: window.app.fileUrl(window.app.project.projectFolder() + "/" + window.app.project.suggestedFileName().replace(/\.ftproj$/i, ".srt"))
+        onAccepted: window.app.subtitles.exportSrt(window.app.localPath(selectedFile))
+    }
 
     NewProjectDialog { id: newDialog; app: window.app }
     TitleDialog { id: titleDialog; objectName: "titleDialog"; app: window.app }
@@ -414,6 +445,13 @@ ApplicationWindow {
     ShortcutsDialog { id: shortcutsDialog }
     GoToTimecodeDialog { id: goToTimecodeDialog; objectName: "goToTimecodeDialog"; app: window.app }
     MarkerDialog { id: markerDialog; objectName: "markerDialog"; app: window.app }
+    SubtitleDialog {
+        id: subtitleDialog
+        objectName: "subtitleDialog"
+        app: window.app
+        onImportRequested: subtitleImportDialog.open()
+        onExportRequested: subtitleExportDialog.open()
+    }
     WelcomeOverlay { id: welcome; objectName: "welcome"; app: window.app; onImportRequested: importDialog.open() }
     MessageBox { id: messageBox }
 

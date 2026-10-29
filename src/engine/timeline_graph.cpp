@@ -5,6 +5,7 @@
 #include "core/logging.h"
 #include "engine/mlt_runtime.h"
 #include "engine/still_producer.h"
+#include "engine/subtitle_producer.h"
 
 #include <QFile>
 #include <QFileInfo>
@@ -510,6 +511,31 @@ Result<GraphBuildResult> TimelineGraphBuilder::build(const Project& project,
             field->plant_transition(composite, 0, mltTrack);
         }
         ++mltTrack;
+    }
+
+    if (timeline.duration() > 0 && project.subtitles().burnIn &&
+        !project.subtitles().cues.empty()) {
+        auto captions =
+            createSubtitleProducer(m_profile, project.subtitles(),
+                                   QSize(project.settings().width, project.settings().height),
+                                   project.settings().frameRate, total);
+        if (!captions || !captions->is_valid()) {
+            return makeError(
+                ErrorCode::Engine,
+                QStringLiteral(
+                    "Could not prepare subtitle fonts. Use the standard GUI-capable renderer."));
+        }
+        tractor->set_track(*captions, mltTrack);
+        Mlt::Transition composite(m_profile, caps.compositor.toUtf8().constData());
+        if (!composite.is_valid()) {
+            return makeError(ErrorCode::Engine,
+                             QStringLiteral("Could not prepare subtitle compositing."));
+        }
+        composite.set("always_active", 1);
+        composite.set("fill", 1);
+        composite.set("distort", 0);
+        composite.set("rect", "0 0 100% 100% 1");
+        field->plant_transition(composite, 0, mltTrack);
     }
 
     // Drop cached producers for clips that no longer exist.

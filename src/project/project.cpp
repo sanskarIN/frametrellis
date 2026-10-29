@@ -72,6 +72,20 @@ Status Project::setMarkers(std::vector<TimelineMarker> markers)
     return {};
 }
 
+Status Project::setSubtitles(SubtitleTrack subtitles)
+{
+    if (subtitles.cues.size() > static_cast<size_t>(kMaxSubtitleCues)) {
+        return validateSubtitles(subtitles);
+    }
+    std::sort(subtitles.cues.begin(), subtitles.cues.end(),
+              [](const SubtitleCue& a, const SubtitleCue& b) { return a.startMs < b.startMs; });
+    if (const Status checked = validateSubtitles(subtitles); !checked) {
+        return checked;
+    }
+    m_subtitles = std::move(subtitles);
+    return {};
+}
+
 Status Project::setSettings(const ProjectSettings& settings)
 {
     if (const Status valid = settings.validate(); !valid) {
@@ -239,6 +253,9 @@ Status Project::validate() const
         paths.insert(key);
     }
     if (const Status checked = checkMarkers(m_markers); !checked) {
+        return makeError(ErrorCode::InvalidDocument, checked.error().message);
+    }
+    if (const Status checked = validateSubtitles(m_subtitles); !checked) {
         return makeError(ErrorCode::InvalidDocument, checked.error().message);
     }
     return m_timeline.validate(sourceLookup());

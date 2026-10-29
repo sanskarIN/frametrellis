@@ -28,6 +28,8 @@ are not included in those downloads. No v1.4 release is declared by these notes.
 - [#84](https://github.com/sanskarIN/frametrellis/pull/84): source-anchored opacity
   curves with PNG alpha/fade composition, inspector controls and preview/MP4 parity;
   project format v4.
+- [#85](https://github.com/sanskarIN/frametrellis/pull/85): transform animation,
+  direct monitor handles, format v5 and generation-checked preview delivery.
 
 ## Volume automation
 
@@ -41,7 +43,7 @@ are not included in those downloads. No v1.4 release is declared by these notes.
 - Strict model and JSON validation, per-clip point limits, locked-track protection,
   undo/redo, generated-media tests and encoded-audio regression coverage.
 - Volume-only projects save as **format v3**, refused by older v2 readers.
-  Projects without automation save as v2; the reader supports v1–v5.
+  Projects without automation or subtitles save as v2; the reader supports v1–v6.
   Back up projects before moving between development builds.
 
 ## Opacity automation
@@ -56,8 +58,8 @@ are not included in those downloads. No v1.4 release is declared by these notes.
 - Reset Picture clears scalar picture adjustments, opacity points and transform points together,
   retaining volume points and fades. Attribute paste retains destination curves.
 - Opacity points require format v4; transform points raise the format to v5.
-  Volume-only projects remain v3 and projects without automation remain v2.
-  Loading formats v1 through v5 is supported.
+  Volume-only projects remain v3 and projects without automation or subtitles remain v2.
+  Loading formats v1 through v6 is supported; subtitles require v6.
 - Model, undo, legacy/malformed document, generated-frame, exported MP4 and GUI
   regressions cover zero opacity, still images, PNG alpha, one-frame clips,
   transitions, source edits, real controls and narrower layouts. See the
@@ -85,6 +87,29 @@ are not included in those downloads. No v1.4 release is declared by these notes.
   prior engine and passes with generation-checked publication/delivery.
 
 These are development features after v1.3.0, not a new stable release or version bump.
+
+## Subtitle editing and SRT delivery
+
+- One sequence subtitle track with exact millisecond times, plain Unicode text,
+  undoable cue editing, add-at-playhead, navigation and a viewport-filtered timeline strip.
+- UTF-8 SRT import appends all cues in one undo step. Overlaps, malformed times,
+  invalid text and capacity violations refuse the entire change. Atomic SRT export
+  retains every cue independently of project history and the video's duration.
+- A dedicated editor protects unapplied text drafts and includes an applied preview,
+  project Undo/Redo, text size and background controls. Burn-in can be disabled
+  for sidecar-only delivery. MP4 export does not create a switchable subtitle stream.
+- A native caption producer shares exact frame sampling and canonical text layout
+  between preview and export. Captions do not modify sound or extend the video;
+  moving/slipping/rippling clips leaves their sequence times unchanged.
+- Subtitle content or nondefault styling requires project format **v6**. Earlier
+  project formats remain readable; older builds explicitly refuse v6.
+- Headless rendering includes the Qt font platform and Linux fonts; Windows uses
+  installed system fonts. Package/container self-tests inspect caption pixels in
+  the encoded MP4. See the [subtitle acceptance matrix](../testing/subtitle-workflow.md)
+  and [user workflow](../user-guide/README.md#subtitles-development-preview).
+- Freeze the published playhead before acknowledging pause, preventing a rendered-ahead
+  frame from moving a stopped playhead during precise cue timing. A dedicated
+  in-flight-frame regression accompanies the existing pause/seek tests.
 
 ## Separate open proposals
 

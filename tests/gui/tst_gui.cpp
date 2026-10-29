@@ -588,6 +588,104 @@ private slots:
         flick->setProperty("contentY", 0);
     }
 
+    void subtitleEditorGuardsDraftsAndUsesSequenceTimes()
+    {
+        m_app->playback()->pause();
+        const Timeline initial = m_app->project()->project().timeline();
+        const SubtitleTrack initialSubtitles = m_app->project()->project().subtitles();
+        const QSize previousSize = m_window->size();
+        const QString previousTheme = m_app->theme();
+        QObject* dialog = m_window->findChild<QObject*>(QStringLiteral("subtitleDialog"));
+        QVERIFY(dialog);
+        const auto restore = qScopeGuard([&] {
+            QMetaObject::invokeMethod(dialog, "close");
+            m_app->setTheme(previousTheme);
+            for (int i = 0; i < 12 && m_app->project()->project().subtitles() != initialSubtitles;
+                 ++i)
+                m_app->project()->undo();
+            m_window->resize(previousSize);
+        });
+        const auto click = [&](const QString& name) {
+            QQuickItem* item = findItem(m_window->contentItem(), name);
+            if (!item || !item->isVisible() || !item->isEnabled())
+                return false;
+            QTest::mouseClick(m_window, Qt::LeftButton, Qt::NoModifier, centreOf(item));
+            return true;
+        };
+        const auto type = [&](const char* value) {
+            for (char c : QByteArray(value))
+                QTest::keyClick(m_window, c);
+        };
+        m_app->playback()->seek(0);
+        m_window->resize(1200, 800);
+        m_app->setTheme(QStringLiteral("dark"));
+        m_qmlWarnings.clear();
+        QVERIFY(click(QStringLiteral("subtitlesButton")));
+        QTRY_VERIFY(dialog->property("visible").toBool());
+        QVERIFY(click(QStringLiteral("subtitleAdd")));
+        QTRY_COMPARE(m_app->subtitles()->rowCount(), 1);
+        QQuickItem* text = findItem(m_window->contentItem(), QStringLiteral("subtitleText"));
+        QQuickItem* start = findItem(m_window->contentItem(), QStringLiteral("subtitleStart"));
+        QQuickItem* end = findItem(m_window->contentItem(), QStringLiteral("subtitleEnd"));
+        QVERIFY(text && start && end);
+        text->forceActiveFocus();
+        QTest::keyClick(m_window, Qt::Key_A, Qt::ControlModifier);
+        type("Welcome to FrameTrellis");
+        QTest::keyClick(m_window, Qt::Key_Return);
+        type("A precise subtitle workflow.");
+        QTest::keyClick(m_window, Qt::Key_Space);
+        QTest::keyClick(m_window, Qt::Key_Left);
+        QTest::keyClick(m_window, Qt::Key_Delete);
+        QVERIFY(dialog->property("dirty").toBool());
+        QCOMPARE(m_app->project()->project().timeline(), initial);
+        QCOMPARE(m_app->subtitles()->rowCount(), 1);
+        QVERIFY(!m_app->playback()->playing());
+        start->forceActiveFocus();
+        QTest::keyClick(m_window, Qt::Key_A, Qt::ControlModifier);
+        type("00:00:00,123");
+        QVERIFY(click(QStringLiteral("subtitleApply")));
+        QTRY_VERIFY(!dialog->property("dirty").toBool());
+        QCOMPARE(m_app->project()->project().subtitles().cues.front().startMs, 123);
+        const SubtitleTrack applied = m_app->project()->project().subtitles();
+        QVERIFY(click(QStringLiteral("subtitleUndo")));
+        QTRY_COMPARE(m_app->project()->project().subtitles().cues.front().startMs, 0);
+        m_app->project()->redo();
+        QTRY_COMPARE(m_app->project()->project().subtitles(), applied);
+        end->forceActiveFocus();
+        QTest::keyClick(m_window, Qt::Key_A, Qt::ControlModifier);
+        type("00:00:00,100");
+        QVERIFY(click(QStringLiteral("subtitleApply")));
+        QVERIFY(dialog->property("dirty").toBool());
+        QVERIFY(!m_app->subtitles()->error().isEmpty());
+        QCOMPARE(m_app->project()->project().subtitles(), applied);
+        QVERIFY(click(QStringLiteral("subtitleClose")));
+        QObject* guard = m_window->findChild<QObject*>(QStringLiteral("subtitleDraftGuard"));
+        QVERIFY(guard);
+        QTRY_VERIFY(guard->property("visible").toBool());
+        QVERIFY(click(QStringLiteral("subtitleDraftGuardCancel")));
+        QTRY_VERIFY(!guard->property("visible").toBool());
+        QVERIFY(dialog->property("visible").toBool());
+        QVERIFY(dialog->property("dirty").toBool());
+        QVERIFY(click(QStringLiteral("subtitleClose")));
+        QTRY_VERIFY(guard->property("visible").toBool());
+        QVERIFY(click(QStringLiteral("subtitleDraftGuardDiscard")));
+        QTRY_VERIFY(!dialog->property("visible").toBool());
+        QCOMPARE(m_app->project()->project().subtitles(), applied);
+        QQuickItem* span = findItem(m_window->contentItem(),
+                                    QStringLiteral("subtitleSpan:") + applied.cues.front().id);
+        QVERIFY(span && span->isVisible());
+        QVERIFY(span->width() > 0 && span->width() <= 1200);
+        QTest::mouseClick(m_window, Qt::LeftButton, Qt::NoModifier, centreOf(span));
+        QCOMPARE(m_app->playback()->positionFrames(), 4);
+        QVERIFY(click(QStringLiteral("subtitlesButton")));
+        QTRY_VERIFY(dialog->property("visible").toBool());
+        screenshot(QStringLiteral("13-subtitles"));
+        m_app->setTheme(QStringLiteral("light"));
+        screenshot(QStringLiteral("14-subtitles-light"));
+        QVERIFY2(m_qmlWarnings.isEmpty(), "Subtitle editor produced QML warnings");
+        QCOMPARE(m_app->project()->project().timeline(), initial);
+    }
+
     void opacityKeyframesUseRealControlsAndPreserveAudio()
     {
         m_app->playback()->pause();

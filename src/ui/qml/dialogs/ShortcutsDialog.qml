@@ -33,6 +33,7 @@ FtDialog {
         ["+ / −", qsTr("Zoom timeline in / out")],
         ["Ctrl+Z / Ctrl+Shift+Z", qsTr("Undo / redo")],
         ["Ctrl+I", qsTr("Import media")],
+        ["Ctrl+Alt+S", qsTr("Open the subtitle editor")],
         ["Ctrl+E", qsTr("Export")],
         ["Ctrl+N / Ctrl+O", qsTr("New / open project")],
         ["Ctrl+S / Ctrl+Shift+S", qsTr("Save / save as")]

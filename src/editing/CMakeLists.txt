@@ -4,6 +4,7 @@ add_library(ft_editing STATIC
     command_history.cpp command_history.h
     edit_command.cpp edit_command.h
     marker_edits.cpp marker_edits.h
+    subtitle_edits.cpp subtitle_edits.h
     project_document.cpp project_document.h
     timeline_edits.cpp timeline_edits.h
 )

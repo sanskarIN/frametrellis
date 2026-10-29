@@ -122,6 +122,10 @@ Acceptance criteria, each checked before the release:
   volume-only projects v3. These development features are outside stable v1.3.0.
 - 🚧 Reliable preview delivery: invalidate old in-flight/queued frames after newer
   seeks and edits, with deterministic playback regression coverage.
+- 🚧 Subtitles: exact millisecond cue editing, UTF-8 SRT import/export, atomic
+  overlap rejection, undo/redo, draft protection, a subtitle timeline strip and
+  shared preview/MP4 burn-in. Format v6 protects captions from older readers.
+  These are development features outside stable v1.3.0.
 - 🚧 Media inventory export, recursive folder imports and removal of unused references
   (existing separate PRs; unmerged until integrated tests pass)
 - ⏳ Validate Linux, Windows and sanitizer CI and conduct manual editor smoke tests
@@ -141,7 +145,7 @@ the audited source state, concrete capability gaps and the next implementation o
 - ⏳ Evaluate WinGet, Flathub and Homebrew as additional distribution channels
 
 ## Later
-- Subtitles (import, edit, burn-in and export as SRT)
+- Subtitle refinements: multiple tracks/languages, richer styling and additional formats
 - Animation easing, numeric transform entry, custom pivots and crop controls
 - Customisable keyboard shortcuts
 - More export formats (WebM/VP9, ProRes, image sequences, audio-only)

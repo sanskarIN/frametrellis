@@ -57,13 +57,15 @@ What works today (each item is implemented and covered by automated tests):
 - [x] Autosave every minute and crash recovery
 - [x] Recent projects, dark and light themes, keyboard shortcuts, first-run guide
 
-Planned (see the [roadmap](docs/roadmap.md)): editable title layers, subtitles, advanced animation controls,
+Planned (see the [roadmap](docs/roadmap.md)): editable title layers, advanced animation controls,
 proxy media, customisable shortcuts, more export formats, and Linux and macOS packages.
 
 Development source also contains review markers, chapter/EDL handoff and slip/roll edits.
 Volume keyframes are integrated, and development source adds opacity keyframes with
 inspector controls, timeline curves and shared preview/export automation. Position, scale
-and rotation keyframes add inspector editing and direct monitor handles. These are
+and rotation keyframes add inspector editing and direct monitor handles. Development
+source also adds a subtitle editor, exact SRT import/export, a caption timeline strip
+and matching preview/video burn-in. These are
 separate from the stable Windows downloads; see the
 [current-state assessment](docs/development/pro-editor-assessment.md) and
 [unreleased notes](docs/releases/unreleased.md).

@@ -213,6 +213,8 @@ PanelFrame {
                                     height: panel.trackHeight - 7
                                     app: panel.app
                                     timelinePanel: panel
+                                    viewportLeft: panel.viewportLeft
+                                    viewportWidth: panel.viewportWidth
                                     trackId: lane.trackId
                                     trackLocked: lane.locked
                                     opacity: (lane.hidden || lane.muted) ? 0.55 : (lane.locked ? 0.6 : 1)

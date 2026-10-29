@@ -30,6 +30,9 @@ Rectangle {
     required property string waveform
     required property real gain
     required property var audioEnvelope
+    required property var opacityEnvelope
+    required property real viewportLeft
+    required property real viewportWidth
 
     readonly property real ppf: app.timeline.pixelsPerFrame
     readonly property real snapTolerance: 8 / Math.max(ppf, 0.0001)
@@ -97,49 +100,35 @@ Rectangle {
         opacity: clip.muted ? 0.35 : 0.8
     }
 
-    // Source-anchored volume envelope; diamonds are actual points, boundary samples are lines.
-    Canvas {
-        id: envelopeCanvas
+    // White diamonds are volume points; accent squares are opacity points.
+    AutomationEnvelope {
         objectName: "audioEnvelope:" + clip.clipId
-        // Allocate only the visible strip, even when a zoomed clip is hours long.
-        readonly property real visibleStart: Math.max(clip.x, clip.timelinePanel.viewportLeft)
-        x: visibleStart - clip.x
-        width: Math.max(0, Math.min(clip.x + clip.width, clip.timelinePanel.viewportLeft + clip.timelinePanel.viewportWidth) - visibleStart)
+        points: clip.audioEnvelope
+        clipOffset: clip.x
+        clipWidth: clip.width
+        pixelsPerFrame: clip.ppf
+        viewportLeft: clip.viewportLeft
+        viewportWidth: clip.viewportWidth
+        lineColor: Theme.clipText
+        valueField: "decibels"
+        minimum: -60
+        maximum: 12
+        highlighted: clip.selected
         height: clip.height
-        visible: clip.audioEnvelope.length > 0 && clip.width > 8 && height > 26
-        onPaint: {
-            const ctx = getContext("2d")
-            ctx.reset()
-            const points = clip.audioEnvelope
-            if (points.length === 0) return
-            const pointX = p => p.frame * clip.ppf - envelopeCanvas.x
-            const pointY = p => height - 5 - ((p.decibels + 60) / 72) * (height - 25)
-            ctx.strokeStyle = Theme.clipText
-            ctx.fillStyle = Theme.clipText
-            ctx.lineWidth = clip.selected ? 2 : 1
-            ctx.beginPath()
-            ctx.moveTo(pointX(points[0]), pointY(points[0]))
-            for (let i = 1; i < points.length; ++i) ctx.lineTo(pointX(points[i]), pointY(points[i]))
-            ctx.stroke()
-            for (let i = 0; i < points.length; ++i) {
-                if (!points[i].keyframe) continue
-                const x = pointX(points[i])
-                const y = pointY(points[i])
-                ctx.beginPath()
-                ctx.moveTo(x, y - 3); ctx.lineTo(x + 3, y)
-                ctx.lineTo(x, y + 3); ctx.lineTo(x - 3, y)
-                ctx.closePath(); ctx.fill()
-            }
-        }
-        onWidthChanged: requestPaint()
-        onHeightChanged: requestPaint()
-        onXChanged: requestPaint()
-        Connections {
-            target: clip
-            function onAudioEnvelopeChanged() { envelopeCanvas.requestPaint() }
-            function onSelectedChanged() { envelopeCanvas.requestPaint() }
-            function onPpfChanged() { envelopeCanvas.requestPaint() }
-        }
+    }
+    AutomationEnvelope {
+        objectName: "opacityEnvelope:" + clip.clipId
+        points: clip.opacityEnvelope
+        clipOffset: clip.x
+        clipWidth: clip.width
+        pixelsPerFrame: clip.ppf
+        viewportLeft: clip.viewportLeft
+        viewportWidth: clip.viewportWidth
+        lineColor: Theme.accent
+        valueField: "opacity"
+        diamonds: false
+        highlighted: clip.selected
+        height: clip.height
     }
 
     // Fade ramps

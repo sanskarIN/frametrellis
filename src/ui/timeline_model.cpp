@@ -78,6 +78,25 @@ QVariant ClipListModel::data(const QModelIndex& index, int role) const
         append(c.duration - 1, audioKeyframeDecibels(c.audioKeyframes, c.sourceOut() - 1), false);
         return points;
     }
+    case OpacityEnvelopeRole: {
+        QVariantList points;
+        if (c.opacityKeyframes.empty() || row.onAudioTrack) {
+            return points;
+        }
+        const auto append = [&](FrameCount frame, double opacity, bool keyframe) {
+            points.append(QVariantMap{{QStringLiteral("frame"), static_cast<double>(frame)},
+                                      {QStringLiteral("opacity"), opacity},
+                                      {QStringLiteral("keyframe"), keyframe}});
+        };
+        append(0, opacityKeyframeValue(c.opacityKeyframes, c.sourceIn), false);
+        for (const OpacityKeyframe& point : c.opacityKeyframes) {
+            if (point.sourceFrame >= c.sourceIn && point.sourceFrame < c.sourceOut()) {
+                append(point.sourceFrame - c.sourceIn, point.opacity, true);
+            }
+        }
+        append(c.duration - 1, opacityKeyframeValue(c.opacityKeyframes, c.sourceOut() - 1), false);
+        return points;
+    }
     default:
         return {};
     }
@@ -101,7 +120,8 @@ QHash<int, QByteArray> ClipListModel::roleNames() const
             {FadeOutRole, "fadeOut"},
             {ThumbnailRole, "thumbnail"},
             {WaveformRole, "waveform"},
-            {AudioEnvelopeRole, "audioEnvelope"}};
+            {AudioEnvelopeRole, "audioEnvelope"},
+            {OpacityEnvelopeRole, "opacityEnvelope"}};
 }
 
 void ClipListModel::setClips(const Track& track, const Project& project, const QSet<Id>& selection)

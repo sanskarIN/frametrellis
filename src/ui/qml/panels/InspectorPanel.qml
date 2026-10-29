@@ -17,6 +17,7 @@ PanelFrame {
     readonly property bool hasTransition: transition.count === 1
     readonly property real fps: Math.max(1, app.timeline.frameRate)
     readonly property var automation: app.timeline.audioAutomation
+    readonly property var opacityAutomation: app.timeline.opacityAutomation
 
     title: hasClip ? qsTr("Clip") : (hasTransition ? qsTr("Transition") : qsTr("Project"))
 
@@ -407,6 +408,103 @@ PanelFrame {
                     format: v => (v / panel.fps).toFixed(2) + " s"
                     onMoved: v => panel.setProp("fadeOut", Math.round(v))
                     onCommitted: panel.app.timeline.endEdit()
+                }
+            }
+
+            // ---- Opacity automation ----
+            ColumnLayout {
+                objectName: "opacityKeyframeControls"
+                visible: panel.hasClip && panel.clip.hasVideo
+                enabled: !panel.clip.locked
+                Layout.fillWidth: true
+                spacing: Theme.spacingS
+                Rectangle { Layout.fillWidth: true; height: 1; color: Theme.border }
+                Text {
+                    text: qsTr("Opacity Keyframes")
+                    color: Theme.text
+                    font.weight: Font.DemiBold
+                    font.pixelSize: Theme.fontSize
+                }
+                Text {
+                    text: qsTr("%1 points (%2 within this trim). Opacity combines with clip opacity, source transparency and fades.")
+                              .arg(panel.opacityAutomation.count || 0).arg(panel.opacityAutomation.visibleCount || 0)
+                    color: Theme.textMuted
+                    font.pixelSize: Theme.fontSizeSmall
+                    wrapMode: Text.WordWrap
+                    Layout.fillWidth: true
+                }
+                Text {
+                    visible: !(panel.opacityAutomation.canEdit || false)
+                    text: (panel.opacityAutomation.available || false)
+                              ? qsTr("Pause with the playhead inside this clip to edit a point.")
+                              : qsTr("The video alpha filter is unavailable. Clear opacity points to remove this automation.")
+                    color: Theme.textFaint
+                    font.pixelSize: Theme.fontSizeSmall
+                    wrapMode: Text.WordWrap
+                    Layout.fillWidth: true
+                }
+                ValueSlider {
+                    objectName: "opacityKeyframeLevel"
+                    label: qsTr("Keyframe opacity")
+                    from: 0; to: 1; stepSize: 0.01; defaultValue: 1
+                    value: (panel.opacityAutomation.opacity === undefined ? 1 : panel.opacityAutomation.opacity)
+                    enabled: (panel.opacityAutomation.canEdit || false) && (panel.opacityAutomation.atKeyframe || false)
+                    format: v => Math.round(v * 100) + "%"
+                    onMoved: v => panel.app.timeline.setOpacityKeyframeAtPlayhead(v)
+                    onCommitted: panel.app.timeline.endEdit()
+                }
+                RowLayout {
+                    Layout.fillWidth: true
+                    spacing: Theme.spacingS
+                    FtButton {
+                        objectName: "addOpacityKeyframe"
+                        text: qsTr("Add point")
+                        Layout.fillWidth: true
+                        enabled: (panel.opacityAutomation.canEdit || false) && !(panel.opacityAutomation.atKeyframe || false)
+                        onClicked: {
+                            panel.app.timeline.endEdit()
+                            panel.app.timeline.setOpacityKeyframeAtPlayhead((panel.opacityAutomation.opacity === undefined ? 1 : panel.opacityAutomation.opacity))
+                            panel.app.timeline.endEdit()
+                        }
+                    }
+                    FtButton {
+                        objectName: "removeOpacityKeyframe"
+                        text: qsTr("Remove point")
+                        Layout.fillWidth: true
+                        enabled: (panel.opacityAutomation.canEdit || false) && (panel.opacityAutomation.atKeyframe || false)
+                        onClicked: panel.app.timeline.removeOpacityKeyframeAtPlayhead()
+                    }
+                }
+                RowLayout {
+                    Layout.fillWidth: true
+                    spacing: Theme.spacingS
+                    FtButton {
+                        objectName: "previousOpacityKeyframe"
+                        text: qsTr("Previous point")
+                        Layout.fillWidth: true
+                        enabled: panel.opacityAutomation.hasPrevious || false
+                        onClicked: panel.app.timeline.previousOpacityKeyframe()
+                    }
+                    FtButton {
+                        objectName: "nextOpacityKeyframe"
+                        text: qsTr("Next point")
+                        Layout.fillWidth: true
+                        enabled: panel.opacityAutomation.hasNext || false
+                        onClicked: panel.app.timeline.nextOpacityKeyframe()
+                    }
+                }
+                FtButton {
+                    objectName: "clearOpacityKeyframes"
+                    text: qsTr("Clear all opacity points")
+                    enabled: (panel.opacityAutomation.count || 0) > 0
+                    onClicked: panel.app.timeline.clearSelectedOpacityKeyframes()
+                }
+                Text {
+                    text: qsTr("Accent squares show opacity points; white diamonds show volume points. Projects with opacity points require a compatible editor build.")
+                    color: Theme.textFaint
+                    font.pixelSize: Theme.fontSizeSmall
+                    wrapMode: Text.WordWrap
+                    Layout.fillWidth: true
                 }
             }
 

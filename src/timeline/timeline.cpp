@@ -362,6 +362,9 @@ Status Timeline::checkClipShape(const Clip& c)
         return makeError(ErrorCode::OutOfRange,
                          QStringLiteral("The clip exceeds the maximum timeline length."));
     }
+    if (const Status keys = validateAudioKeyframes(c.audioKeyframes, kMaxTimelineFrames); !keys) {
+        return keys;
+    }
     return checkProperties(c.properties, c.duration);
 }
 
@@ -380,6 +383,10 @@ Status Timeline::checkSourceRange(const Clip& c, const Track& t, const SourceLoo
         return makeError(
             ErrorCode::InvalidArgument,
             QStringLiteral("This media has no audio, so it cannot go on an audio track."));
+    }
+    if (!c.audioKeyframes.empty() && !limits->hasAudio) {
+        return makeError(ErrorCode::InvalidArgument,
+                         QStringLiteral("Volume keyframes require media with audio."));
     }
     if (limits->length && c.sourceOut() > *limits->length) {
         return makeError(ErrorCode::OutOfRange,
@@ -844,6 +851,78 @@ Status Timeline::setClipProperties(const Id& clipId, const ClipProperties& prope
         return valid;
     }
     c.properties = properties;
+    return {};
+}
+
+Status Timeline::setAudioKeyframe(const Id& clipId, FrameCount sourceFrame, double decibels,
+                                  const SourceLookup& sources)
+{
+    const auto location = findClip(clipId);
+    if (!location) {
+        return notFound(QStringLiteral("The clip"));
+    }
+    Track& track = m_tracks[static_cast<size_t>(location->track)];
+    if (const Status editable = checkEditable(track); !editable) {
+        return editable;
+    }
+    Clip& clip = track.clips[static_cast<size_t>(location->clip)];
+    const auto limits = sources ? sources(clip.assetId) : std::nullopt;
+    if (!limits || !limits->hasAudio) {
+        return makeError(ErrorCode::InvalidArgument,
+                         QStringLiteral("Select a clip with audio to add volume keyframes."));
+    }
+    if (sourceFrame < clip.sourceIn || sourceFrame >= clip.sourceOut()) {
+        return makeError(ErrorCode::OutOfRange,
+                         QStringLiteral("Place the keyframe within the selected clip."));
+    }
+    std::vector<AudioKeyframe> points = clip.audioKeyframes;
+    const auto it = std::lower_bound(
+        points.begin(), points.end(), sourceFrame,
+        [](const AudioKeyframe& point, FrameCount frame) { return point.sourceFrame < frame; });
+    if (it != points.end() && it->sourceFrame == sourceFrame) {
+        it->decibels = decibels;
+    } else {
+        points.insert(it, {sourceFrame, decibels});
+    }
+    if (const Status valid = validateAudioKeyframes(points, kMaxTimelineFrames); !valid) {
+        return valid;
+    }
+    clip.audioKeyframes = std::move(points);
+    return {};
+}
+
+Status Timeline::removeAudioKeyframe(const Id& clipId, FrameCount sourceFrame)
+{
+    const auto location = findClip(clipId);
+    if (!location) {
+        return notFound(QStringLiteral("The clip"));
+    }
+    Track& track = m_tracks[static_cast<size_t>(location->track)];
+    if (const Status editable = checkEditable(track); !editable) {
+        return editable;
+    }
+    auto& points = track.clips[static_cast<size_t>(location->clip)].audioKeyframes;
+    const auto it = std::lower_bound(
+        points.begin(), points.end(), sourceFrame,
+        [](const AudioKeyframe& point, FrameCount frame) { return point.sourceFrame < frame; });
+    if (it == points.end() || it->sourceFrame != sourceFrame) {
+        return notFound(QStringLiteral("The volume keyframe"));
+    }
+    points.erase(it);
+    return {};
+}
+
+Status Timeline::clearAudioKeyframes(const Id& clipId)
+{
+    const auto location = findClip(clipId);
+    if (!location) {
+        return notFound(QStringLiteral("The clip"));
+    }
+    Track& track = m_tracks[static_cast<size_t>(location->track)];
+    if (const Status editable = checkEditable(track); !editable) {
+        return editable;
+    }
+    track.clips[static_cast<size_t>(location->clip)].audioKeyframes.clear();
     return {};
 }
 

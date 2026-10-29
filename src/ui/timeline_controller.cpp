@@ -34,6 +34,12 @@ TimelineController::TimelineController(ProjectController* project, PlaybackContr
 {
     connect(m_project, &ProjectController::projectChanged, this,
             &TimelineController::onProjectChanged);
+    connect(this, &TimelineController::selectedClipChanged, this,
+            &TimelineController::audioAutomationChanged);
+    connect(m_playback, &PlaybackController::positionChanged, this,
+            &TimelineController::audioAutomationChanged);
+    connect(m_playback, &PlaybackController::playingChanged, this,
+            &TimelineController::audioAutomationChanged);
     connect(m_project, &ProjectController::documentReplaced, this, [this] {
         m_selection.clear();
         setTransitionSelection({});
@@ -839,6 +845,127 @@ bool TimelineController::resetPictureAdjustments(const QString& clipId)
     p.video = VideoAdjustments{};
     m_project->document()->breakMerge();
     return m_project->execute(edits::setClipProperties(clipId, p, QStringLiteral("Reset Picture")));
+}
+
+const Clip* TimelineController::singleSelectedClip() const
+{
+    return m_selection.size() == 1 ? project().timeline().clip(*m_selection.cbegin()) : nullptr;
+}
+
+QVariantMap TimelineController::audioAutomation() const
+{
+    const Clip* clip = singleSelectedClip();
+    if (!clip) {
+        return {{QStringLiteral("available"), false}, {QStringLiteral("count"), 0}};
+    }
+    const Track* track = project().timeline().trackOfClip(clip->id);
+    const MediaAsset* asset = project().asset(clip->assetId);
+    const FrameCount frame = m_playback->positionFrames();
+    const FrameCount sourceFrame =
+        clip->sourceIn + std::clamp<FrameCount>(frame - clip->start, 0, clip->duration - 1);
+    const bool available =
+        asset && asset->info.hasAudio && engine::MltRuntime::capabilities().volumeFilter;
+    bool atKeyframe = false;
+    bool hasPrevious = false;
+    bool hasNext = false;
+    int visibleCount = 0;
+    for (const AudioKeyframe& point : clip->audioKeyframes) {
+        if (point.sourceFrame < clip->sourceIn || point.sourceFrame >= clip->sourceOut()) {
+            continue;
+        }
+        const FrameCount timelineFrame = clip->start + point.sourceFrame - clip->sourceIn;
+        ++visibleCount;
+        atKeyframe = atKeyframe || timelineFrame == frame;
+        hasPrevious = hasPrevious || timelineFrame < frame;
+        hasNext = hasNext || timelineFrame > frame;
+    }
+    return {{QStringLiteral("available"), available},
+            {QStringLiteral("canEdit"), available && track && !track->locked &&
+                                            clip->contains(frame) && !m_playback->playing()},
+            {QStringLiteral("atKeyframe"), atKeyframe},
+            {QStringLiteral("count"), static_cast<int>(clip->audioKeyframes.size())},
+            {QStringLiteral("visibleCount"), visibleCount},
+            {QStringLiteral("decibels"), audioKeyframeDecibels(clip->audioKeyframes, sourceFrame)},
+            {QStringLiteral("hasPrevious"), hasPrevious},
+            {QStringLiteral("hasNext"), hasNext}};
+}
+
+bool TimelineController::setAudioKeyframeAtPlayhead(double decibels)
+{
+    const Clip* clip = singleSelectedClip();
+    if (!clip || !audioAutomation().value(QStringLiteral("canEdit")).toBool()) {
+        emit statusMessage(QStringLiteral("Pause with the playhead inside one unlocked audio clip "
+                                          "or video clip with audio to set a volume keyframe."));
+        return false;
+    }
+    const FrameCount sourceFrame = clip->sourceIn + m_playback->positionFrames() - clip->start;
+    // Avoid adding an undo entry for an unchanged point, but always validate numeric input.
+    if (std::isfinite(decibels)) {
+        for (const AudioKeyframe& point : clip->audioKeyframes) {
+            if (point.sourceFrame == sourceFrame && point.decibels == decibels) {
+                return true;
+            }
+        }
+    }
+    return m_project->execute(edits::setAudioKeyframe(clip->id, sourceFrame, decibels));
+}
+
+bool TimelineController::removeAudioKeyframeAtPlayhead()
+{
+    const Clip* clip = singleSelectedClip();
+    if (!clip || !audioAutomation().value(QStringLiteral("canEdit")).toBool()) {
+        emit statusMessage(QStringLiteral("Pause with the playhead inside an unlocked audio clip "
+                                          "to remove its volume keyframe."));
+        return false;
+    }
+    m_project->document()->breakMerge();
+    return m_project->execute(edits::removeAudioKeyframe(
+        clip->id, clip->sourceIn + m_playback->positionFrames() - clip->start));
+}
+
+bool TimelineController::clearSelectedAudioKeyframes()
+{
+    const Clip* clip = singleSelectedClip();
+    if (!clip || clip->audioKeyframes.empty()) {
+        return false;
+    }
+    m_project->document()->breakMerge();
+    return m_project->execute(edits::clearAudioKeyframes(clip->id));
+}
+
+void TimelineController::seekAudioKeyframe(bool forward)
+{
+    const Clip* clip = singleSelectedClip();
+    if (!clip) {
+        return;
+    }
+    std::optional<FrameCount> target;
+    const FrameCount frame = m_playback->positionFrames();
+    for (const AudioKeyframe& point : clip->audioKeyframes) {
+        if (point.sourceFrame < clip->sourceIn || point.sourceFrame >= clip->sourceOut()) {
+            continue;
+        }
+        const FrameCount candidate = clip->start + point.sourceFrame - clip->sourceIn;
+        if ((forward && candidate > frame && (!target || candidate < *target)) ||
+            (!forward && candidate < frame && (!target || candidate > *target))) {
+            target = candidate;
+        }
+    }
+    if (target) {
+        m_playback->pause();
+        m_project->document()->breakMerge();
+        m_playback->seek(static_cast<double>(*target));
+    }
+}
+
+void TimelineController::previousAudioKeyframe()
+{
+    seekAudioKeyframe(false);
+}
+
+void TimelineController::nextAudioKeyframe()
+{
+    seekAudioKeyframe(true);
 }
 
 void TimelineController::endEdit()

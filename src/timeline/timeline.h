@@ -92,6 +92,11 @@ public:
     /// Splits a clip at a timeline frame strictly inside it. Returns the id of the right part.
     Result<Id> splitClip(const Id& clipId, FrameCount frame, const Id& newClipId = {});
     Status setClipProperties(const Id& clipId, const ClipProperties& properties);
+    /// Add/update a volume point at an audible source frame inside the clip's current trim.
+    Status setAudioKeyframe(const Id& clipId, FrameCount sourceFrame, double decibels,
+                            const SourceLookup& sources);
+    Status removeAudioKeyframe(const Id& clipId, FrameCount sourceFrame);
+    Status clearAudioKeyframes(const Id& clipId);
 
     // Transition operations
     /// Adds a transition at the cut between the clip and the clip that starts where it ends.

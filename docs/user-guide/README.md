@@ -12,6 +12,7 @@ uploaded. This guide covers everything the current version can do.
 - [Title overlays](#title-overlays)
 - [Transitions](#transitions)
 - [Adjusting clips](#adjusting-clips)
+- [Volume keyframes (development preview)](#volume-keyframes-development-preview)
 - [Playback](#playback)
 - [Exporting](#exporting)
 - [Exporting an edit decision list (development preview)](#exporting-a-picture-edit-decision-list-development-preview)
@@ -121,6 +122,42 @@ Every change can be undone (Ctrl+Z) and redone (Ctrl+Shift+Z).
 Clips on audio tracks show the waveform of their sound, scaled by the clip's volume. The first
 time a file is used, FrameTrellis reads its sound in the background (a few seconds for a long
 file) and keeps the result in its cache, so the waveform appears instantly afterwards.
+
+## Volume keyframes (development preview)
+
+This feature is a development candidate, **not part of the v1.3.0 Windows downloads**.
+Select an audio clip or a video clip with audio, pause playback, and put the playhead
+inside that clip. In the inspector's **Volume Keyframes** section:
+
+1. Choose **Add point**. The new point starts at the currently interpolated level.
+2. Adjust **Keyframe level** from -60 to +12 dB. Double-click the slider to return
+   that point to 0 dB. A complete slider drag is one undo step.
+3. Move the playhead and add more points. For music under dialogue, use four points:
+   0 dB before the voice, -12 dB at the voice start, -12 dB at the voice end, and
+   0 dB after the voice. Adjust the levels to suit the recording.
+4. Use **Previous point** and **Next point** to navigate within the current trim.
+   **Remove point** deletes the point at the playhead; **Clear all volume points**
+   also clears points currently hidden outside the trim. All changes can be undone.
+
+The timeline draws a volume envelope with diamonds at the actual keyframes. Levels
+interpolate in decibels between points and hold at the first/last level outside them.
+With no points, the envelope adds 0 dB. The curve combines with the existing **Volume**
+slider and fades; clip and track mute still silence the clip. The waveform continues
+to show source audio scaled by the overall Volume slider, with automation drawn over it.
+Preview and MP4 export use the same envelope.
+
+Points belong to the clip's **source frames** at the project frame rate. Moving or
+duplicating a clip keeps its envelope. Trimming hides points without deleting them;
+splitting copies the source envelope into both pieces. Slipping selects different
+source frames and therefore reveals their corresponding levels. Transitions use the
+same source envelope in their extra handles. Copy/paste of clip attributes changes
+the existing scalar volume, mute, fades and picture settings; it leaves each
+destination clip's automation unchanged.
+
+**Compatibility:** Projects containing volume points save in project format **v3**.
+Earlier development builds that only understand v2 cannot reopen them. Keep a backup
+before upgrading. Projects without volume points continue to save as v2; the reader
+can load v1, v2 and v3. v1.3.0 stable cannot open either development format.
 
 ## Timeline markers (v1.4 development preview)
 

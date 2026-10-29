@@ -16,6 +16,7 @@ PanelFrame {
     readonly property var transition: app.timeline.selectedTransition
     readonly property bool hasTransition: transition.count === 1
     readonly property real fps: Math.max(1, app.timeline.frameRate)
+    readonly property var automation: app.timeline.audioAutomation
 
     title: hasClip ? qsTr("Clip") : (hasTransition ? qsTr("Transition") : qsTr("Project"))
 
@@ -25,6 +26,7 @@ PanelFrame {
 
     ScrollView {
         id: scroll
+        objectName: "inspectorScroll"
         anchors.fill: parent
         anchors.margins: Theme.spacingM
         contentWidth: availableWidth
@@ -284,6 +286,101 @@ PanelFrame {
                     format: v => v <= 0 ? "−∞ dB" : ((20 * Math.log(v) / Math.LN10 >= 0 ? "+" : "") + (20 * Math.log(v) / Math.LN10).toFixed(1) + " dB")
                     onMoved: v => panel.setProp("gain", v)
                     onCommitted: panel.app.timeline.endEdit()
+                }
+            }
+
+            // ---- Volume automation ----
+            ColumnLayout {
+                objectName: "audioKeyframeControls"
+                visible: panel.hasClip && panel.clip.hasAudio
+                enabled: !panel.clip.locked && (panel.automation.available || false)
+                Layout.fillWidth: true
+                spacing: Theme.spacingS
+                Rectangle { Layout.fillWidth: true; height: 1; color: Theme.border }
+                Text {
+                    text: qsTr("Volume Keyframes")
+                    color: Theme.text
+                    font.weight: Font.DemiBold
+                    font.pixelSize: Theme.fontSize
+                }
+                Text {
+                    text: qsTr("%1 points (%2 within this trim). Levels blend in dB and combine with Volume and fades.")
+                              .arg(panel.automation.count || 0).arg(panel.automation.visibleCount || 0)
+                    color: Theme.textMuted
+                    font.pixelSize: Theme.fontSizeSmall
+                    wrapMode: Text.WordWrap
+                    Layout.fillWidth: true
+                }
+                Text {
+                    visible: !(panel.automation.canEdit || false)
+                    text: qsTr("Pause with the playhead inside this clip to edit a point.")
+                    color: Theme.textFaint
+                    font.pixelSize: Theme.fontSizeSmall
+                    wrapMode: Text.WordWrap
+                    Layout.fillWidth: true
+                }
+                ValueSlider {
+                    objectName: "audioKeyframeLevel"
+                    label: qsTr("Keyframe level")
+                    from: -60; to: 12; stepSize: 0.1; defaultValue: 0
+                    value: panel.automation.decibels || 0
+                    enabled: (panel.automation.canEdit || false) && (panel.automation.atKeyframe || false)
+                    format: v => (v >= 0 ? "+" : "") + v.toFixed(1) + " dB"
+                    onMoved: v => panel.app.timeline.setAudioKeyframeAtPlayhead(v)
+                    onCommitted: panel.app.timeline.endEdit()
+                }
+                RowLayout {
+                    Layout.fillWidth: true
+                    spacing: Theme.spacingS
+                    FtButton {
+                        objectName: "addAudioKeyframe"
+                        text: qsTr("Add point")
+                        Layout.fillWidth: true
+                        enabled: (panel.automation.canEdit || false) && !(panel.automation.atKeyframe || false)
+                        onClicked: {
+                            panel.app.timeline.endEdit()
+                            panel.app.timeline.setAudioKeyframeAtPlayhead(panel.automation.decibels || 0)
+                            panel.app.timeline.endEdit()
+                        }
+                    }
+                    FtButton {
+                        objectName: "removeAudioKeyframe"
+                        text: qsTr("Remove point")
+                        Layout.fillWidth: true
+                        enabled: (panel.automation.canEdit || false) && (panel.automation.atKeyframe || false)
+                        onClicked: panel.app.timeline.removeAudioKeyframeAtPlayhead()
+                    }
+                }
+                RowLayout {
+                    Layout.fillWidth: true
+                    spacing: Theme.spacingS
+                    FtButton {
+                        objectName: "previousAudioKeyframe"
+                        text: qsTr("Previous point")
+                        Layout.fillWidth: true
+                        enabled: panel.automation.hasPrevious || false
+                        onClicked: panel.app.timeline.previousAudioKeyframe()
+                    }
+                    FtButton {
+                        objectName: "nextAudioKeyframe"
+                        text: qsTr("Next point")
+                        Layout.fillWidth: true
+                        enabled: panel.automation.hasNext || false
+                        onClicked: panel.app.timeline.nextAudioKeyframe()
+                    }
+                }
+                FtButton {
+                    objectName: "clearAudioKeyframes"
+                    text: qsTr("Clear all volume points")
+                    enabled: (panel.automation.count || 0) > 0
+                    onClicked: panel.app.timeline.clearSelectedAudioKeyframes()
+                }
+                Text {
+                    text: qsTr("Projects with volume points require an editor build that supports volume automation.")
+                    color: Theme.textFaint
+                    font.pixelSize: Theme.fontSizeSmall
+                    wrapMode: Text.WordWrap
+                    Layout.fillWidth: true
                 }
             }
 

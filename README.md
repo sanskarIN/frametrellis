@@ -60,6 +60,12 @@ What works today (each item is implemented and covered by automated tests):
 Planned (see the [roadmap](docs/roadmap.md)): editable title layers, subtitles, keyframes,
 proxy media, customisable shortcuts, more export formats, and Linux and macOS packages.
 
+Development source also contains review markers, chapter/EDL handoff and slip/roll edits.
+Volume keyframes are being developed with inspector controls and shared preview/export
+automation. These are separate from the stable Windows downloads; see the
+[current-state assessment](docs/development/pro-editor-assessment.md) and
+[unreleased notes](docs/releases/unreleased.md).
+
 ## Platforms
 
 | Platform | Status |

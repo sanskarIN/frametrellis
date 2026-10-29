@@ -2,46 +2,51 @@
 
 The latest published stable release is [FrameTrellis 1.3.0](v1.3.0.md).
 The [v1.3.0 GitHub release](https://github.com/sanskarIN/frametrellis/releases/tag/v1.3.0)
-provides verified Windows installer and portable ZIP downloads.
-All changes already delivered in v1.3.0 belong in the
-[1.3.0 release notes](v1.3.0.md), not here.
+provides Windows installer and portable ZIP downloads. Development features below
+are not included in those downloads. No v1.4 release is declared by these notes.
 
-## In-progress proposals (not yet merged or released)
+## Integrated on main for the next milestone
 
-- Cut-only CMX3600 EDL (stacked follow-up): safe picture interchange for one visible
-  video track, including explicit black gaps, stable reel IDs, exact timecodes,
-  input validation and unit tests. Clipboard-only; proposed for v1.4.
-- Chapter handoff (stacked follow-up PR): read-only clipboard export of named review cues
-  into video-description chapter timestamps, including rational frame-rate handling.
-- Video chapter copy (stacked PR #76): description-ready timestamps and WebVTT
-  chapter tracks with frame-derived millisecond cue boundaries; both are read-only.
-- Timeline markers: named, frame-accurate review cues, undoable editing and playback
-  navigation, ruler indicators and snapping. This proposal uses project format v2 and
-  requires Linux/Windows GUI validation before merge. **Not part of v1.3.0.**
+- [#75](https://github.com/sanskarIN/frametrellis/pull/75): persistent timeline markers,
+  undoable edits, ruler indicators, navigation and snapping; project format v2.
+- [#76](https://github.com/sanskarIN/frametrellis/pull/76): read-only video-description
+  chapter lines and HTML5 WebVTT chapter tracks copied from timeline markers.
+- [#77](https://github.com/sanskarIN/frametrellis/pull/77): cut-only CMX3600 picture EDL
+  clipboard export, with black gaps, reel IDs and exact frame-rate validation.
+- [#78](https://github.com/sanskarIN/frametrellis/pull/78): media-bin GridView delegate fix.
+- [#79](https://github.com/sanskarIN/frametrellis/pull/79): atomic selected-clip source
+  slip edits, inspector controls, undo/redo and transition-handle validation.
+- [#80](https://github.com/sanskarIN/frametrellis/pull/80): separate prerelease tag names
+  from base package versions in the guarded release workflow.
+- [#82](https://github.com/sanskarIN/frametrellis/pull/82): roll adjacent video/audio
+  cuts without changing their combined duration; preserve source handles, fades,
+  locks and transitions, with inspector controls and undo/redo.
 
-No subsequent features are claimed as integrated by this file yet.
-Newly merged changes after the v1.3.0 release tag should be recorded here
-with their PRs, behavior, tests and any known limitations.
+## Volume automation candidate
 
-## In-progress development (not yet merged or released)
+- Source-anchored volume keyframes from -60 to +12 dB, with linear interpolation
+  in dB and held endpoints. Preview and MP4 export share the same envelope.
+- Inspector add/remove/clear controls, a decibel slider, previous/next navigation,
+  timeline envelope curves and keyframe diamonds. Slider drags form one undo step.
+- Clip volume, fades and mute combine with automation. Trim/split/move/duplicate
+  preserve the source envelope; slip reveals levels for the newly selected frames.
+  Attribute paste leaves destination automation unchanged.
+- Strict model and JSON validation, per-clip point limits, locked-track protection,
+  undo/redo, generated-media tests and encoded-audio regression coverage.
+- Projects containing points save as **format v3**, refused by older v2 readers.
+  Projects without points continue to save as v2; loading v1/v2 remains supported.
+  Back up projects before moving between development builds.
 
-- Clip slip editing: shift source in/out points of selected video/audio clips
-  while keeping exact timeline boundaries, duration, track and clip properties;
-  atomic selection edits, undo/redo, transition-handle validation and tests.
-  This remains a v1.4 proposal until CI and desktop review pass.
+This candidate requires final branch checks and review before integration. It is
+not a stable release, version bump, tag or published binary.
 
-- Roll-cut editing (feature PR in progress): a selected outgoing clip can move its
-  shared cut with the next touching video/audio clip by one or ten frames,
-  preserving the combined timeline length and validating source handles, fades,
-  track locks and transitions. Includes inspector controls, undo/redo and tests.
-  This is not shipped in the stable v1.3.0 release.
+## Separate open proposals
 
-## Proposals not yet shipped
+- Media audit, recursive folder import and unused-media cleanup: PRs #65, #66, #67,
+  with their documented integration order and separate validation requirements.
+- Timeline navigation and Zoom to Selection: PR #70.
+- Preview-frame PNG snapshots and other bulk track/export workflows remain subject
+  to their own PR review; open PRs are not released features.
 
-- Timeline navigation enhancements and Zoom to Selection (PR #70).
-- Preview-frame PNG snapshots (PR #27).
-- Proposed bulk track operations, creator export presets, and additional
-  media organization workflows remain subject to separate PR review.
-
-An open pull request is **not** a released feature. See the
+See the [professional-editor assessment](../development/pro-editor-assessment.md),
 [roadmap](../roadmap.md) and [v1.3.0 verification report](v1.3.0-verification.md).

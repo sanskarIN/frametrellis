@@ -471,6 +471,44 @@ private slots:
         QVERIFY(media::probeMedia(settings.outputPath));
     }
 
+    void helperProcessPreservesVolumeKeyframesInEncodedAudio()
+    {
+        Project p = project();
+        const Id video = p.timeline().tracks()[0].clips.front().id;
+        const Id audio = p.timeline().tracks()[2].clips.front().id;
+        ClipProperties muted;
+        muted.muted = true;
+        QVERIFY(p.timeline().setClipProperties(video, muted));
+        for (const AudioKeyframe& point :
+             std::vector<AudioKeyframe>{{0, 0}, {10, -20}, {20, -20}, {30, 0}, {39, 0}}) {
+            QVERIFY(p.timeline().setAudioKeyframe(audio, point.sourceFrame, point.decibels,
+                                                  p.sourceLookup()));
+        }
+        RenderJob job(QStringLiteral(FT_RENDER_HELPER));
+        QSignalSpy finished(&job, &RenderJob::finished);
+        ExportSettings settings;
+        settings.outputPath = m_dir.filePath(QStringLiteral("volume-keyframes.mp4"));
+        settings.speedPreset = QStringLiteral("ultrafast");
+        QVERIFY(job.start(p, settings));
+        QVERIFY(finished.wait(60'000));
+        QVERIFY2(job.state() == RenderJob::State::Succeeded,
+                 qPrintable(job.errorMessage() + job.errorDetail()));
+        auto profile = engine::createProfile(160, 90, p.settings().frameRate);
+        const QByteArray resource = QByteArrayLiteral("avformat:") + settings.outputPath.toUtf8();
+        Mlt::Producer output(*profile, resource.constData());
+        QVERIFY(output.is_valid());
+        const auto peakAt = [&](int frame) {
+            output.seek(frame);
+            std::unique_ptr<Mlt::Frame> f(output.get_frame());
+            return peakLevel(engine::frameToAudio(*f, 25.0, 48000, 2, frame).samples);
+        };
+        const int quiet = peakAt(15);
+        const int full = peakAt(35);
+        QVERIFY2(full > 5000 && quiet > full * 0.05 && quiet < full * 0.17,
+                 qPrintable(QStringLiteral("encoded levels %1 / %2").arg(quiet).arg(full)));
+        QVERIFY(partFiles().isEmpty());
+    }
+
     void helperProcessCancel()
     {
         RenderJob job(QStringLiteral(FT_RENDER_HELPER));

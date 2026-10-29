@@ -16,6 +16,8 @@ PanelFrame {
     readonly property int headerWidth: 176
     readonly property int rulerHeight: 28
     readonly property alias lanesItem: lanesContent
+    readonly property real viewportLeft: lanes.contentX
+    readonly property real viewportWidth: lanes.width
 
     title: qsTr("Timeline")
     signal markerAddRequested(real frame)

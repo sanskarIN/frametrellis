@@ -461,19 +461,46 @@ std::unique_ptr<EditCommand> resetClipPictures(const QList<Id>& clipIds)
                                                 QStringLiteral("A clip was selected twice."));
                            }
                            visited.insert(id);
-                           const Clip* clip = timeline.clip(id);
-                           if (!clip) {
-                               return makeError(ErrorCode::NotFound,
-                                                QStringLiteral("A selected clip was not found."));
-                           }
-                           ClipProperties properties = clip->properties;
-                           properties.video = VideoAdjustments{};
-                           if (const Status updated = timeline.setClipProperties(id, properties);
-                               !updated) {
+                           if (const Status updated = timeline.resetClipPicture(id); !updated) {
                                return updated;
                            }
                        }
                        return {};
+                   });
+}
+
+std::unique_ptr<EditCommand> resetClipPicture(const Id& clipId)
+{
+    return command(QStringLiteral("Reset Picture"),
+                   [clipId](Timeline& timeline, const SourceLookup&) {
+                       return timeline.resetClipPicture(clipId);
+                   });
+}
+
+std::unique_ptr<EditCommand> setOpacityKeyframe(const Id& clipId, FrameCount sourceFrame,
+                                                double opacity)
+{
+    return command(
+        QStringLiteral("Set Opacity Keyframe"),
+        [clipId, sourceFrame, opacity](Timeline& timeline, const SourceLookup& sources) {
+            return timeline.setOpacityKeyframe(clipId, sourceFrame, opacity, sources);
+        },
+        QStringLiteral("opacity-keyframe:%1:%2").arg(clipId).arg(sourceFrame));
+}
+
+std::unique_ptr<EditCommand> removeOpacityKeyframe(const Id& clipId, FrameCount sourceFrame)
+{
+    return command(QStringLiteral("Remove Opacity Keyframe"),
+                   [clipId, sourceFrame](Timeline& timeline, const SourceLookup&) {
+                       return timeline.removeOpacityKeyframe(clipId, sourceFrame);
+                   });
+}
+
+std::unique_ptr<EditCommand> clearOpacityKeyframes(const Id& clipId)
+{
+    return command(QStringLiteral("Clear Opacity Keyframes"),
+                   [clipId](Timeline& timeline, const SourceLookup&) {
+                       return timeline.clearOpacityKeyframes(clipId);
                    });
 }
 

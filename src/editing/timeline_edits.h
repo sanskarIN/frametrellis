@@ -55,14 +55,19 @@ std::unique_ptr<EditCommand> pasteClipProperties(const QList<Id>& clipIds,
                                                  const ClipProperties& properties);
 /// Toggle audio muting for all selected clips without altering their other adjustments.
 std::unique_ptr<EditCommand> muteClips(const QList<Id>& clipIds, bool muted);
-/// Reset picture adjustments across selected clips without changing sound or fades.
+/// Reset picture adjustments and opacity curves without changing sound or fades.
 std::unique_ptr<EditCommand> resetClipPictures(const QList<Id>& clipIds);
+std::unique_ptr<EditCommand> resetClipPicture(const Id& clipId);
 
 /// Source-anchored audio automation. Changes at the same point merge until breakMerge().
 std::unique_ptr<EditCommand> setAudioKeyframe(const Id& clipId, FrameCount sourceFrame,
                                               double decibels);
 std::unique_ptr<EditCommand> removeAudioKeyframe(const Id& clipId, FrameCount sourceFrame);
 std::unique_ptr<EditCommand> clearAudioKeyframes(const Id& clipId);
+std::unique_ptr<EditCommand> setOpacityKeyframe(const Id& clipId, FrameCount sourceFrame,
+                                                double opacity);
+std::unique_ptr<EditCommand> removeOpacityKeyframe(const Id& clipId, FrameCount sourceFrame);
+std::unique_ptr<EditCommand> clearOpacityKeyframes(const Id& clipId);
 
 /// Adds a transition at the cut after the clip. The id lets callers select the new transition.
 std::unique_ptr<EditCommand> addTransition(const Id& fromClipId, FrameCount duration,

@@ -77,6 +77,8 @@ const DOC_GROUPS = [
               summary: 'Build the docs site, test guide navigation and preserve accessibility.' },
             { src: 'docs/testing.md', slug: 'testing', label: 'Testing',
               summary: 'Unit, integration and GUI tests, sanitizers and static analysis.' },
+            { src: 'docs/testing/subtitle-workflow.md', slug: 'subtitle-acceptance',
+              label: 'Subtitle acceptance', summary: 'SRT, cue editing, exact timing and encoded subtitle checks.' },
             { src: 'CONTRIBUTING.md', slug: 'contributing', label: 'Contributing',
               summary: 'How to report bugs, propose changes and send pull requests.' },
             { src: 'CODE_OF_CONDUCT.md', slug: 'code-of-conduct', label: 'Code of conduct',

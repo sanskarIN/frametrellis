@@ -18,6 +18,10 @@ ctest --preset linux -R engine  # tests whose name matches "engine"
 
 ## Test media
 
+Subtitle regressions cover exact SRT roundtrips, format-v6 persistence, undo/redo,
+atomic rejection, rational frame sampling, preview layout, encoded burn-in and
+real editor draft protection. See the [subtitle acceptance matrix](testing/subtitle-workflow.md).
+
 No media files are stored in the repository. `tests/support/media_fixtures.cpp` generates them
 with MLT at test time: MP4 files with one solid colour per second and a sine tone, WAV files and
 PNG stills. Because the colours and tones are known, tests assert on real pixel colours and

@@ -3,7 +3,8 @@
 A project is a UTF-8 JSON document. The **v2 development format** adds optional
 sequence-level markers; this abridged example shows that shape. The **v3 development
 format** additionally preserves clip volume automation. **v4** adds opacity curves,
-and **v5** adds position/scale/rotation curves. The reader supports all five versions.
+**v5** adds position/scale/rotation curves, and **v6** adds sequence subtitles.
+The reader supports v1 through v6.
 
 ```json
 {
@@ -97,7 +98,27 @@ and **v5** adds position/scale/rotation curves. The reader supports all five ver
   moved to audio tracks. Audio-only sources cannot contain transform curves.
   Attribute paste retains destination curves. Clearing transforms restores identity;
   Reset Picture clears all picture curves atomically and preserves audio/fades.
-* The writer chooses the minimum required development format: v5 if any clip has
+* A `project.subtitles` object in **format v6** contains required `burnIn` (boolean),
+  `fontPercent` (integer 2–10), `background` (boolean), and `cues` (array) fields.
+  Example: `{"burnIn":true,"fontPercent":5,"background":true,"cues":[{"id":"cue1","startMs":123,"endMs":1987,"text":"Hello\nworld"}]}`.
+  Cue times are exact integer **milliseconds**, within `[0, 3599999999]`, with
+  `startMs < endMs`. The end is exclusive. Cue identifiers are unique; cues are
+  ordered by start and may touch but may not overlap. At most 10,000 cues,
+  2,000 UTF-16 code units per text, and 1,000,000 units in total are accepted.
+  Text must be nonblank valid Unicode, with LF/tab as the only permitted control
+  characters and no blank lines (SRT separators). HTML-like text stays literal.
+* Subtitles are sequence-level and do not follow clip edits or extend sequence
+  duration. A video frame samples its exact rational time, rounded down to whole
+  milliseconds, and shows the cue whose half-open interval contains that time.
+  A cue's first sampled frame is `ceil(startMs * fps / 1000)`; a very short cue can
+  have no sampled frame. Such cues and cues beyond the video remain in the file
+  and SRT exports. Changing an empty sequence's frame rate preserves milliseconds.
+  `burnIn` controls preview and rendered video together; appearance does not enter SRT.
+* The writer chooses v6 whenever cues exist or appearance differs from the defaults
+  (`burnIn=true`, `fontPercent=5`, `background=true`). Clearing cues and resetting
+  style permits a lower format. A `subtitles` field before v6 is rejected, even
+  if empty, so older formats cannot silently lose captions.
+* Otherwise the writer chooses the minimum required development format: v5 if any clip has
   transform points, otherwise v4 if it has opacity points, otherwise v3 if it has
   volume points, otherwise v2. Clearing curves can lower the next save's version.
   Older readers refuse unsupported versions rather than losing automation.

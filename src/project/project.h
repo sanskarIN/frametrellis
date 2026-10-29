@@ -5,6 +5,7 @@
 #include "core/result.h"
 #include "project/media_asset.h"
 #include "project/project_settings.h"
+#include "project/subtitles.h"
 #include "timeline/timeline.h"
 
 #include <QDateTime>
@@ -62,6 +63,9 @@ public:
     [[nodiscard]] const std::vector<TimelineMarker>& markers() const { return m_markers; }
     /// Atomically replaces the marker collection after validating bounds, names and unique ids.
     Status setMarkers(std::vector<TimelineMarker> markers);
+    [[nodiscard]] const SubtitleTrack& subtitles() const { return m_subtitles; }
+    /// Canonicalises order and atomically validates the entire sequence subtitle track.
+    Status setSubtitles(SubtitleTrack subtitles);
 
     [[nodiscard]] const Timeline& timeline() const { return m_timeline; }
     Timeline& timeline() { return m_timeline; }
@@ -85,6 +89,7 @@ private:
     ProjectSettings m_settings;
     std::vector<MediaAsset> m_media;
     std::vector<TimelineMarker> m_markers;
+    SubtitleTrack m_subtitles;
     Timeline m_timeline;
 };
 

@@ -17,10 +17,11 @@ struct ChangeSet
     bool media = false;          ///< media list or media metadata changed
     bool settings = false;       ///< project settings or name changed
     bool markers = false;        ///< sequence review markers changed
+    bool subtitles = false;      ///< sequence subtitle text, timing or appearance changed
 
     [[nodiscard]] bool isEmpty() const
     {
-        return !trackStructure && tracks.isEmpty() && !media && !settings && !markers;
+        return !trackStructure && tracks.isEmpty() && !media && !settings && !markers && !subtitles;
     }
 
     void merge(const ChangeSet& other)
@@ -30,6 +31,7 @@ struct ChangeSet
         media = media || other.media;
         settings = settings || other.settings;
         markers = markers || other.markers;
+        subtitles = subtitles || other.subtitles;
     }
 
     static ChangeSet everything()
@@ -39,6 +41,7 @@ struct ChangeSet
         c.media = true;
         c.settings = true;
         c.markers = true;
+        c.subtitles = true;
         return c;
     }
 };

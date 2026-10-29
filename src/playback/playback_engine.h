@@ -70,7 +70,6 @@ private:
 
     void deliverFromWorker();
 
-    std::unique_ptr<Worker> m_worker;
     std::atomic<FrameCount> m_position{0};
     std::atomic<FrameCount> m_duration{0};
     std::atomic<bool> m_playing{false};
@@ -80,6 +79,9 @@ private:
     FrameCount m_lastEmittedDuration = -1;
     bool m_lastEmittedPlaying = false;
     QImage m_displayed;
+    // Construct last: Worker starts its thread in its constructor and can immediately
+    // publish audio/position state. All shared owner members must already be alive.
+    std::unique_ptr<Worker> m_worker;
 };
 
 } // namespace ft::playback

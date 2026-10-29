@@ -68,6 +68,10 @@ std::unique_ptr<EditCommand> setOpacityKeyframe(const Id& clipId, FrameCount sou
                                                 double opacity);
 std::unique_ptr<EditCommand> removeOpacityKeyframe(const Id& clipId, FrameCount sourceFrame);
 std::unique_ptr<EditCommand> clearOpacityKeyframes(const Id& clipId);
+std::unique_ptr<EditCommand> setTransformKeyframe(const Id& clipId, FrameCount sourceFrame,
+                                                  const VideoTransform& value);
+std::unique_ptr<EditCommand> removeTransformKeyframe(const Id& clipId, FrameCount sourceFrame);
+std::unique_ptr<EditCommand> clearTransformKeyframes(const Id& clipId);
 
 /// Adds a transition at the cut after the clip. The id lets callers select the new transition.
 std::unique_ptr<EditCommand> addTransition(const Id& fromClipId, FrameCount duration,

@@ -440,6 +440,49 @@ private slots:
         QCOMPARE(m_app->project()->project().timeline(), before.timeline());
     }
 
+    void selectWholeClipsBeforeOrAfterPlayheadWithoutEditing()
+    {
+        auto* timeline = m_app->timeline();
+        const Project before = m_app->project()->project();
+        QVERIFY(!before.timeline().tracks().front().clips.empty());
+        const Clip anchor = before.timeline().tracks().front().clips.front();
+        const FrameCount boundary = anchor.end();
+        m_app->playback()->seek(static_cast<double>(boundary));
+        QSet<Id> earlier;
+        QSet<Id> later;
+        for (const Track& track : before.timeline().tracks()) {
+            for (const Clip& clip : track.clips) {
+                if (clip.end() <= boundary) {
+                    earlier.insert(clip.id);
+                }
+                if (clip.start >= boundary) {
+                    later.insert(clip.id);
+                }
+            }
+        }
+        QVERIFY(!earlier.isEmpty());
+        QVERIFY(timeline->selectClipsBeforePlayhead());
+        QCOMPARE(QSet<Id>(timeline->selection().cbegin(), timeline->selection().cend()),
+                 earlier);
+
+        // At the beginning no complete clip can have ended.
+        m_app->playback()->goToStart();
+        const QString undoBefore = m_app->project()->undoText();
+        const QStringList selectedBefore = timeline->selection();
+        QVERIFY(!timeline->selectClipsBeforePlayhead());
+        QCOMPARE(timeline->selection(), selectedBefore);
+
+        if (!later.isEmpty()) {
+            m_app->playback()->seek(static_cast<double>(boundary));
+            QVERIFY(timeline->selectClipsAfterPlayhead());
+            QCOMPARE(QSet<Id>(timeline->selection().cbegin(), timeline->selection().cend()),
+                     later);
+        }
+        QCOMPARE(m_app->project()->project(), before);
+        QCOMPARE(m_app->project()->undoText(), undoBefore);
+        timeline->clearSelection();
+    }
+
     void invalidFloatingPointTimelinePositionsLeaveEditUnchanged()
     {
         auto* timeline = m_app->timeline();

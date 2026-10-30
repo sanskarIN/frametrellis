@@ -69,6 +69,9 @@ std::unique_ptr<EditCommand> pasteClipProperties(const QList<Id>& clipIds,
                                                  const ClipProperties& properties);
 /// Toggle audio muting for all selected clips without altering their other adjustments.
 std::unique_ptr<EditCommand> muteClips(const QList<Id>& clipIds, bool muted);
+/// Batch fade one end of every selected clip, clamped to its remaining duration.
+/// Reject missing, duplicated and locked clips atomically; preserve other properties.
+std::unique_ptr<EditCommand> setClipFades(const QList<Id>& clipIds, FrameCount frames, bool fadeOut);
 /// Reset picture adjustments and opacity curves without changing sound or fades.
 std::unique_ptr<EditCommand> resetClipPictures(const QList<Id>& clipIds);
 std::unique_ptr<EditCommand> resetClipPicture(const Id& clipId);

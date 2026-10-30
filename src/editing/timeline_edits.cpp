@@ -599,6 +599,68 @@ std::unique_ptr<EditCommand> muteClips(const QList<Id>& clipIds, bool muted)
         });
 }
 
+std::unique_ptr<EditCommand> setClipFades(const QList<Id>& clipIds, FrameCount frames,
+                                           bool fadeOut)
+{
+    return command(
+        frames == 0 ? (fadeOut ? QStringLiteral("Clear Selected Fade Outs")
+                               : QStringLiteral("Clear Selected Fade Ins"))
+                    : (fadeOut ? QStringLiteral("Set Selected Fade Outs")
+                               : QStringLiteral("Set Selected Fade Ins")),
+        [clipIds, frames, fadeOut](Timeline& timeline, const SourceLookup&) -> Status {
+            if (clipIds.isEmpty() || frames < 0 || frames > kMaxTimelineFrames) {
+                return makeError(ErrorCode::InvalidArgument,
+                                 QStringLiteral("Select clips and a nonnegative fade duration."));
+            }
+
+            QSet<Id> visited;
+            bool changed = false;
+            for (const Id& id : clipIds) {
+                if (visited.contains(id)) {
+                    return makeError(ErrorCode::InvalidArgument,
+                                     QStringLiteral("A clip was selected twice."));
+                }
+                visited.insert(id);
+                const Clip* clip = timeline.clip(id);
+                const Track* track = timeline.trackOfClip(id);
+                if (!clip || !track) {
+                    return makeError(ErrorCode::NotFound,
+                                     QStringLiteral("A selected clip was not found."));
+                }
+                if (track->locked) {
+                    return makeError(ErrorCode::Conflict,
+                                     QStringLiteral("Unlock affected tracks before editing fades."));
+                }
+                const FrameCount opposite =
+                    fadeOut ? clip->properties.fadeIn : clip->properties.fadeOut;
+                const FrameCount next = std::min(frames, clip->duration - opposite);
+                const FrameCount current =
+                    fadeOut ? clip->properties.fadeOut : clip->properties.fadeIn;
+                changed |= current != next;
+            }
+            if (!changed) {
+                return makeError(ErrorCode::InvalidArgument,
+                                 QStringLiteral("The selected fades are already set."));
+            }
+
+            for (const Id& id : clipIds) {
+                const Clip* clip = timeline.clip(id);
+                ClipProperties properties = clip->properties;
+                const FrameCount opposite = fadeOut ? properties.fadeIn : properties.fadeOut;
+                const FrameCount next = std::min(frames, clip->duration - opposite);
+                if (fadeOut) {
+                    properties.fadeOut = next;
+                } else {
+                    properties.fadeIn = next;
+                }
+                if (const Status updated = timeline.setClipProperties(id, properties); !updated) {
+                    return updated;
+                }
+            }
+            return {};
+        });
+}
+
 std::unique_ptr<EditCommand> resetClipPictures(const QList<Id>& clipIds)
 {
     return command(QStringLiteral("Reset Selected Pictures"),

@@ -62,3 +62,17 @@ be undone or redone with **Ctrl+Z / Ctrl+Shift+Z**.
 ## Frame-accurate group nudging
 
 Select any combination of video or audio clips. Use **Alt+Left / Alt+Right** to move them one project frame, or **Alt+Shift+Left / Alt+Shift+Right** to move ten frames. Edits retain source trims and synchronized spacing; all clips move together in one undo step. Moves are refused if a track is locked, the move overlaps an unselected clip, exceeds timeline boundaries, or would invalidate a transition. Undo restores every clip and transition.
+
+## Align one clip edge to the playhead (v1.4 development)
+
+Select **one** timeline clip and position the playhead on the exact destination
+frame. Under **Edit → Align Selected Clip to Playhead**, choose **Align Start** to
+place the selected clip's start at the playhead, or **Align End** to place its
+exclusive end at that frame. The clip remains on its current track and keeps
+its source in/out, duration, volume, picture adjustments and fades.
+
+This command moves the complete clip; it does **not** trim, ripple neighboring
+clips, change source media or seek the playhead. An overlap, locked track,
+negative start or invalid transition rejects the operation atomically without
+changing the edit. A successful move is one undoable command. The feature is
+only in development builds, not the published v1.3.1 stable release.

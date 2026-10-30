@@ -121,3 +121,14 @@ Locked clips, a playhead outside the selected clip, or clips participating
 in a transition are rejected instead of silently changing adjacent edits.
 No original media files are modified. This command is development-only
 and does not appear in the v1.3.1 stable release.
+
+## Align a group of clips to the playhead (v1.4 development)
+
+Select one or more clips on video and/or audio tracks, then choose **Edit →
+Align Selection Start to Playhead**. The earliest selected clip start moves
+exactly to the playhead. Every selected clip shifts by the same signed number
+of frames, preserving track assignment, relative offsets, source In/Out, fades
+and automation. This is an atomic **Nudge Clips** undo step. A locked track,
+collision with an unselected clip, timeline overflow or an unsafe transition
+rejects the whole edit. Empty selections and no-op alignment create no undo
+entry. This does not ripple, trim or move unselected clips.

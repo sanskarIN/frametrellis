@@ -65,8 +65,10 @@ Volume keyframes are integrated, and development source adds opacity keyframes w
 inspector controls, timeline curves and shared preview/export automation. Position, scale
 and rotation keyframes add inspector editing and direct monitor handles. Development
 source also adds a subtitle editor, exact SRT import/export, a caption timeline strip
-and matching preview/video burn-in. These are
-separate from the stable Windows downloads; see the
+and matching preview/video burn-in. Development builds also include folder import,
+read-only media audits, undoable unused-media cleanup, live media-bin usage/health
+filters, creator upload export profiles, CLI preset discovery and preview PNG snapshots.
+These development features are separate from the stable Windows downloads; see the
 [current-state assessment](docs/development/pro-editor-assessment.md) and
 [unreleased notes](docs/releases/unreleased.md).
 

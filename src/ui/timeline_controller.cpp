@@ -556,6 +556,34 @@ bool TimelineController::moveClip(const QString& clipId, const QString& trackId,
         edits::moveClip(clipId, trackId, static_cast<FrameCount>(std::llround(start))));
 }
 
+bool TimelineController::alignSelectionToPlayhead(bool alignEnd)
+{
+    if (m_selection.size() != 1) {
+        emit statusMessage(QStringLiteral("Select one clip to align to the playhead."));
+        return false;
+    }
+
+    const Id clipId = *m_selection.cbegin();
+    const Timeline& timeline = project().timeline();
+    const Clip* clip = timeline.clip(clipId);
+    const Track* track = timeline.trackOfClip(clipId);
+    if (!clip || !track) {
+        return false;
+    }
+
+    const FrameCount frame = m_playback->positionFrames();
+    if (alignEnd && frame < clip->duration) {
+        emit statusMessage(QStringLiteral("The clip cannot end before its own duration."));
+        return false;
+    }
+    const FrameCount newStart = alignEnd ? frame - clip->duration : frame;
+    if (newStart == clip->start) {
+        return false;
+    }
+
+    return m_project->execute(edits::moveClip(clipId, track->id, newStart));
+}
+
 bool TimelineController::trimStart(const QString& clipId, double newStart)
 {
     return m_project->execute(

@@ -82,6 +82,10 @@ public:
 
     // Placing media
     Q_INVOKABLE bool appendAsset(const QString& assetId);
+    /// Append a bounded source excerpt in project frames without changing the source.
+    /// The out-frame is exclusive; still images and invalid excerpts are refused.
+    Q_INVOKABLE bool appendAssetRange(const QString& assetId, int sourceInFrame,
+                                     int sourceOutFrame);
     /// Whether at least one unlocked video track can receive a new title.
     [[nodiscard]] bool canAppendTitle() const;
     /// Append a title still to the uppermost unlocked video track.

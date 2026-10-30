@@ -154,8 +154,7 @@ QString csvValue(QString field)
 
 } // namespace
 
-Status saveCsvReport(const Project& project, const QString& path,
-                     const QString& projectFilePath)
+Status saveCsvReport(const Project& project, const QString& path, const QString& projectFilePath)
 {
     if (path.trimmed().isEmpty() ||
         QFileInfo(path).suffix().compare(QLatin1String("csv"), Qt::CaseInsensitive) != 0) {

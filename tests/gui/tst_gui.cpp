@@ -420,7 +420,8 @@ private slots:
         // A duplicated use of a source must be included across the timeline.
         const Id assetId = video.clips.front().assetId;
         QVERIFY(timeline->appendAsset(assetId));
-        const std::vector<Id> uses = m_app->project()->project().timeline().clipsUsingAsset(assetId);
+        const std::vector<Id> uses =
+            m_app->project()->project().timeline().clipsUsingAsset(assetId);
         QVERIFY(uses.size() >= size_t{2});
         timeline->select(video.clips.front().id, false);
         QTest::keyClick(m_window, Qt::Key_R, Qt::ControlModifier | Qt::AltModifier);

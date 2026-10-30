@@ -462,8 +462,8 @@ private slots:
         }
         QVERIFY(!earlier.isEmpty());
         QVERIFY(timeline->selectClipsBeforePlayhead());
-        QCOMPARE(QSet<Id>(timeline->selection().cbegin(), timeline->selection().cend()),
-                 earlier);
+        const QStringList earlierSelection = timeline->selection();
+        QCOMPARE(QSet<Id>(earlierSelection.cbegin(), earlierSelection.cend()), earlier);
 
         // At the beginning no complete clip can have ended.
         m_app->playback()->goToStart();
@@ -475,8 +475,8 @@ private slots:
         if (!later.isEmpty()) {
             m_app->playback()->seek(static_cast<double>(boundary));
             QVERIFY(timeline->selectClipsAfterPlayhead());
-            QCOMPARE(QSet<Id>(timeline->selection().cbegin(), timeline->selection().cend()),
-                     later);
+            const QStringList laterSelection = timeline->selection();
+            QCOMPARE(QSet<Id>(laterSelection.cbegin(), laterSelection.cend()), later);
         }
         QCOMPARE(m_app->project()->project(), before);
         QCOMPARE(m_app->project()->undoText(), undoBefore);

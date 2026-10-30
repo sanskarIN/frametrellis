@@ -1023,7 +1023,9 @@ private slots:
         QVERIFY(m_app->project()->project().assetByPath(still));
         QVERIFY(stateChanges.count() >= 2); // scanning and probing status transitions
         QVERIFY(m_app->media()->importFolder(root));
-        QTest::qWait(250);
+        // A duplicate scan still completes asynchronously. Do not remove an asset
+        // while its scan can race with the resulting duplicate check.
+        QTRY_VERIFY(!m_app->media()->importing());
         QCOMPARE(m_app->media()->model()->rowCount(), before + 1);
         const MediaAsset* added = m_app->project()->project().assetByPath(still);
         QVERIFY(added);

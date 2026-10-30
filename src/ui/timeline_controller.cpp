@@ -1418,6 +1418,35 @@ bool TimelineController::addTrack(const QString& kind)
         edits::addTrack(trackKind, project().nextTrackName(trackKind), index));
 }
 
+bool TimelineController::canMoveTrack(const QString& trackId, int direction) const
+{
+    if (direction != -1 && direction != 1) {
+        return false;
+    }
+    const Timeline& timeline = project().timeline();
+    const int current = timeline.trackIndex(trackId);
+    if (current < 0) {
+        return false;
+    }
+    const int next = current + direction;
+    if (next < 0 || next >= timeline.trackCount()) {
+        return false;
+    }
+    const Track* source = timeline.track(trackId);
+    const Track& target = timeline.tracks()[static_cast<size_t>(next)];
+    return source && source->kind == target.kind;
+}
+
+bool TimelineController::moveTrack(const QString& trackId, int direction)
+{
+    if (!canMoveTrack(trackId, direction)) {
+        emit statusMessage(QStringLiteral("Cannot move the track in that direction."));
+        return false;
+    }
+    return m_project->execute(
+        edits::moveTrack(trackId, project().timeline().trackIndex(trackId) + direction));
+}
+
 bool TimelineController::removeTrack(const QString& trackId)
 {
     return m_project->execute(edits::removeTrack(trackId));

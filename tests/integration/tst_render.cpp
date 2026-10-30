@@ -88,7 +88,8 @@ private slots:
         QCOMPARE(helper.exitStatus(), QProcess::NormalExit);
         QCOMPARE(helper.exitCode(), 0);
         QJsonParseError error;
-        const QJsonDocument parsed = QJsonDocument::fromJson(helper.readAllStandardOutput(), &error);
+        const QJsonDocument parsed =
+            QJsonDocument::fromJson(helper.readAllStandardOutput(), &error);
         QCOMPARE(error.error, QJsonParseError::NoError);
         QVERIFY(parsed.isObject());
         const QJsonArray profiles = parsed.object().value(QStringLiteral("presets")).toArray();

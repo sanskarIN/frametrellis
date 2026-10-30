@@ -276,8 +276,12 @@ PanelFrame {
                 ToolTip.delay: 900
                 ToolTip.text: tile.tooltip
                 onPressed: mouse => {
-                    grid.currentIndex = tile.index
-                    grid.forceActiveFocus()
+                    // Resolve the owning view through the delegate attachment, not a lexical id.
+                    const view = tile.GridView.view
+                    if (view) {
+                        view.currentIndex = tile.index
+                        view.forceActiveFocus()
+                    }
                     dragProxy.x = mouse.x
                     dragProxy.y = mouse.y
                 }
@@ -299,7 +303,12 @@ PanelFrame {
                 }
             }
 
-            Keys.onReturnPressed: panel.app.timeline.appendAsset(tile.assetId)
+            Keys.onReturnPressed: {
+                if (tile.status === "missing")
+                    panel.relinkRequested(tile.assetId, tile.name)
+                else
+                    panel.app.timeline.appendAsset(tile.assetId)
+            }
 
             Menu {
                 id: contextMenu

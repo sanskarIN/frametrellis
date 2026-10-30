@@ -55,6 +55,9 @@ below. No v1.4 release is declared by these notes.
   list CSV export with SMPTE timecodes, source paths, UTF-8 encoding, formula-safe cells,
   protected atomic writes and unchanged undo/modified state.
 
+- Batch **Lock All Tracks** / **Unlock All Tracks** commands are under review;
+  they keep other track flags and create one undoable edit per action.
+
 ## Volume automation
 
 - Source-anchored volume keyframes from -60 to +12 dB, with linear interpolation

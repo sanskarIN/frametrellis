@@ -239,8 +239,8 @@ bool ProjectController::exportClipListCsv(const QString& pathOrUrl)
     const QByteArray header =
         "track,track_type,clip_id,source_name,source_path,"
         "start_frame,end_frame_exclusive,duration_frames,source_in_frame,"
-        "source_out_frame_exclusive,start_timecode,end_timecode_exclusive\\r\\n";
-    if (file.write("\\xEF\\xBB\\xBF", 3) != 3 || file.write(header) != header.size()) {
+        "source_out_frame_exclusive,start_timecode,end_timecode_exclusive\r\n";
+    if (file.write("\xEF\xBB\xBF", 3) != 3 || file.write(header) != header.size()) {
         file.cancelWriting();
         emit errorOccurred(QStringLiteral("Could not export the clip list"),
                            QStringLiteral("Could not write the report header."));
@@ -272,7 +272,7 @@ bool ProjectController::exportClipListCsv(const QString& pathOrUrl)
                 }
                 row.append(csvCell(columns.at(i)));
             }
-            row.append("\\r\\n");
+            row.append("\r\n");
             if (file.write(row) != row.size()) {
                 file.cancelWriting();
                 emit errorOccurred(QStringLiteral("Could not export the clip list"),

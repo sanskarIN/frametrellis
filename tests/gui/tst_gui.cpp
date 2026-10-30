@@ -1402,6 +1402,48 @@ private slots:
         QMetaObject::invokeMethod(dialog, "close");
     }
 
+    void exportClipListCsvPreservesProjectAndProtectsUnsafePaths()
+    {
+        const Project before = m_app->project()->project();
+        QVERIFY(before.timeline().clipCount() > 0);
+        const QString undoLabel = m_app->project()->undoText();
+        const bool dirty = m_app->project()->isModified();
+        const QString path = m_dir.filePath(QStringLiteral("clip-list.csv"));
+        QVERIFY(m_app->project()->exportClipListCsv(path));
+
+        QFile report(path);
+        QVERIFY(report.open(QIODevice::ReadOnly));
+        const QByteArray data = report.readAll();
+        QVERIFY(data.startsWith("\xEF\xBB\xBF"));
+        QVERIFY(data.contains("source_name,source_path"));
+        QVERIFY(data.contains("start_timecode,end_timecode_exclusive\r\n"));
+        QVERIFY(data.contains(m_media.front().toUtf8()));
+        QCOMPARE(data.count('\n'), before.timeline().clipCount() + 1);
+        QVERIFY(!data.contains("\r\r\n"));
+        report.close();
+
+        // A misnamed report must be rejected without modifying a source file.
+        const QString original = m_media.front();
+        QFile footage(original);
+        QVERIFY(footage.open(QIODevice::ReadOnly));
+        const QByteArray sourceBytes = footage.readAll();
+        footage.close();
+        QSignalSpy errors(m_app->project(), &ui::ProjectController::errorOccurred);
+        QVERIFY(!m_app->project()->exportClipListCsv(original));
+        QTRY_COMPARE(errors.count(), 1);
+        QVERIFY(footage.open(QIODevice::ReadOnly));
+        QCOMPARE(footage.readAll(), sourceBytes);
+        footage.close();
+
+        // The application displays errors modally; dismiss before subsequent GUI tests.
+        QTRY_VERIFY(m_window->property("dialogOpen").toBool());
+        QTest::keyClick(m_window, Qt::Key_Escape);
+        QTRY_VERIFY(!m_window->property("dialogOpen").toBool());
+        QCOMPARE(m_app->project()->project(), before);
+        QCOMPARE(m_app->project()->isModified(), dirty);
+        QCOMPARE(m_app->project()->undoText(), undoLabel);
+    }
+
     void saveAndReopenRoundTrip()
     {
         const QString file = m_dir.filePath(QStringLiteral("gui-project.ftproj"));

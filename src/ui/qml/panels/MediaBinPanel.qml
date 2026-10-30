@@ -19,7 +19,7 @@ PanelFrame {
         id: filteredMedia
         sourceModel: panel.app.media.model
         searchText: searchBox.text
-        category: ["all", "video", "audio", "image", "offline"][kindBox.currentIndex] || "all"
+        category: ["all", "video", "audio", "image", "offline", "changed", "used", "unused"][kindBox.currentIndex] || "all"
     }
 
     title: qsTr("Media") + (app.media.model.count > 0 ? "  ·  " + app.media.model.count : "")
@@ -81,8 +81,9 @@ PanelFrame {
         ComboBox {
             id: kindBox
             objectName: "mediaKindFilter"
-            Layout.preferredWidth: 108
-            model: [qsTr("All"), qsTr("Video"), qsTr("Audio"), qsTr("Images"), qsTr("Offline")]
+            Layout.preferredWidth: 124
+            model: [qsTr("All"), qsTr("Video"), qsTr("Audio"), qsTr("Images"), qsTr("Offline"),
+                    qsTr("Changed"), qsTr("Used"), qsTr("Unused")]
             Accessible.name: qsTr("Media kind filter")
         }
     }
@@ -304,7 +305,13 @@ PanelFrame {
                 }
             }
 
-            Keys.onReturnPressed: panel.app.timeline.appendAsset(tile.assetId)
+            Keys.onReturnPressed: {
+                // Keep keyboard activation consistent with double-click for offline media.
+                if (tile.status === "missing")
+                    panel.relinkRequested(tile.assetId, tile.name)
+                else
+                    panel.app.timeline.appendAsset(tile.assetId)
+            }
 
             Menu {
                 id: contextMenu

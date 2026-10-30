@@ -191,9 +191,8 @@ int main(int argc, char** argv)
                             {QStringLiteral("audioBitrateKbps"), preset.audioBitrateKbps},
                             {QStringLiteral("avoidUpscaling"), preset.avoidUpscaling}});
         }
-        const QByteArray json =
-            QJsonDocument(QJsonObject{{QStringLiteral("presets"), profiles}})
-                .toJson(QJsonDocument::Indented);
+        const QByteArray json = QJsonDocument(QJsonObject{{QStringLiteral("presets"), profiles}})
+                                    .toJson(QJsonDocument::Indented);
         std::fwrite(json.constData(), 1, static_cast<size_t>(json.size()), stdout);
         std::fflush(stdout);
         return protocol::Success;

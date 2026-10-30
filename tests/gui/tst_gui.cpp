@@ -471,6 +471,46 @@ private slots:
         QCOMPARE(m_app->project()->undoText(), undoBefore);
     }
 
+    void insertTimelineGapAtPlayheadPreservesSourcesAndUndo()
+    {
+        auto* timeline = m_app->timeline();
+        const Project before = m_app->project()->project();
+        QVERIFY(before.timeline().clipCount() > 0);
+        QVERIFY(!before.timeline().tracks().front().clips.empty());
+        const Clip first = before.timeline().tracks().front().clips.front();
+        QVERIFY(first.duration > 3);
+
+        // A split-free edit at frame zero shifts every clip consistently.
+        m_app->playback()->goToStart();
+        QVERIFY(timeline->insertGapAtPlayhead(10));
+        const Project after = m_app->project()->project();
+        QCOMPARE(after.timeline().clipCount(), before.timeline().clipCount());
+        for (const Track& track : before.timeline().tracks()) {
+            for (const Clip& clip : track.clips) {
+                const Clip* shifted = after.timeline().clip(clip.id);
+                QVERIFY(shifted);
+                QCOMPARE(shifted->start, clip.start + FrameCount{10});
+                QCOMPARE(shifted->sourceIn, clip.sourceIn);
+                QCOMPARE(shifted->duration, clip.duration);
+                QCOMPARE(shifted->properties, clip.properties);
+            }
+        }
+        QCOMPARE(m_app->project()->undoText(), QStringLiteral("Insert Timeline Gap"));
+        m_app->project()->undo();
+        QCOMPARE(m_app->project()->project(), before);
+        m_app->project()->redo();
+        QCOMPARE(m_app->project()->project(), after);
+        m_app->project()->undo();
+        QCOMPARE(m_app->project()->project(), before);
+
+        // A playhead inside a clip must not create a partial gap or undo entry.
+        m_app->playback()->seek(static_cast<double>(first.start + 2));
+        const QString undoText = m_app->project()->undoText();
+        QVERIFY(!timeline->insertGapAtPlayhead(10));
+        QCOMPARE(m_app->project()->project(), before);
+        QCOMPARE(m_app->project()->undoText(), undoText);
+    }
+
     void reorderAdjacentTracksWithoutChangingClipData()
     {
         const Timeline original = m_app->project()->project().timeline();

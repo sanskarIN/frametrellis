@@ -220,6 +220,61 @@ std::unique_ptr<EditCommand> duplicateClips(const QList<Id>& clipIds, const QLis
         });
 }
 
+std::unique_ptr<EditCommand> insertGap(FrameCount frame, FrameCount duration)
+{
+    return command(
+        QStringLiteral("Insert Timeline Gap"),
+        [frame, duration](Timeline& timeline, const SourceLookup& sources) -> Status {
+            if (frame < 0 || frame >= kMaxTimelineFrames || duration <= 0 ||
+                duration > kMaxTimelineFrames - frame) {
+                return makeError(ErrorCode::OutOfRange,
+                                 QStringLiteral("The gap is outside the timeline limits."));
+            }
+
+            std::vector<Track> tracks = timeline.tracks();
+            bool moved = false;
+            for (Track& track : tracks) {
+                bool affectsTrack = false;
+                for (const Clip& clip : track.clips) {
+                    if (clip.start < frame && clip.end() > frame) {
+                        return makeError(
+                            ErrorCode::Conflict,
+                            QStringLiteral("Split clips crossing the playhead first."));
+                    }
+                    affectsTrack |= clip.start >= frame;
+                }
+                if (!affectsTrack) {
+                    continue;
+                }
+                if (track.locked) {
+                    return makeError(
+                        ErrorCode::Conflict,
+                        QStringLiteral("Unlock affected tracks before inserting a gap."));
+                }
+                for (Clip& clip : track.clips) {
+                    if (clip.start >= frame) {
+                        if (clip.end() > kMaxTimelineFrames - duration) {
+                            return makeError(
+                                ErrorCode::OutOfRange,
+                                QStringLiteral("The gap would exceed the timeline limit."));
+                        }
+                        clip.start += duration;
+                        moved = true;
+                    }
+                }
+            }
+            if (!moved) {
+                return makeError(ErrorCode::InvalidArgument,
+                                 QStringLiteral("No clips follow the playhead."));
+            }
+
+            // A transition across this boundary is rejected by validation;
+            // transitions shifted on both sides keep their original identities.
+            timeline.restoreTracks(std::move(tracks));
+            return timeline.validate(sources);
+        });
+}
+
 std::unique_ptr<EditCommand> removeClips(const QList<Id>& clipIds)
 {
     const QString text = clipIds.size() == 1

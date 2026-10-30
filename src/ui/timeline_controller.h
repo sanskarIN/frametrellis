@@ -105,6 +105,8 @@ public:
     Q_INVOKABLE bool trimStart(const QString& clipId, double newStart);
     Q_INVOKABLE bool trimEnd(const QString& clipId, double newEnd);
     Q_INVOKABLE bool splitAtPlayhead();
+    /// Insert an undoable empty interval at a cut across video and audio tracks.
+    Q_INVOKABLE bool insertGapAtPlayhead(int durationFrames);
     /// Duplicates a single selected clip, or a time-aligned block of several selected clips.
     Q_INVOKABLE bool duplicateSelection();
     /// Shift all selected clips by signed project frames without changing their source trims.

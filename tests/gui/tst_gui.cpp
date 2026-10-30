@@ -339,7 +339,9 @@ private slots:
         const Project before = m_app->project()->project();
         QVERIFY(!track(0).clips.empty());
         QVERIFY(!track(2).clips.empty());
-        const Clip video = track(0).clips.front();
+        // Choose the last picture clip: moving the first would collide with
+        // the still image already appended immediately after it.
+        const Clip video = track(0).clips.back();
         const Clip audio = track(2).clips.front();
         const FrameCount first = std::min(video.start, audio.start);
         timeline->clearSelection();

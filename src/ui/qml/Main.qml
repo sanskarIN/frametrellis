@@ -213,6 +213,11 @@ ApplicationWindow {
                 Action { text: qsTr("Align Start"); onTriggered: window.app.timeline.alignSelectionToPlayhead(false) }
                 Action { text: qsTr("Align End"); onTriggered: window.app.timeline.alignSelectionToPlayhead(true) }
             }
+            Action {
+                text: qsTr("Align Selection Start to Playhead")
+                enabled: window.editKeys && window.app.timeline.selection.length > 0
+                onTriggered: window.app.timeline.alignSelectionStartToPlayhead()
+            }
             Menu {
                 title: qsTr("Trim Selected Clip to Playhead")
                 enabled: window.editKeys && window.app.timeline.selection.length === 1

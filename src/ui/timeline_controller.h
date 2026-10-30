@@ -106,6 +106,9 @@ public:
     /// Move one selected clip so its start or exclusive end meets the current playhead.
     /// Reject overlaps, locked tracks and negative starts using the undoable edit engine.
     Q_INVOKABLE bool alignSelectionToPlayhead(bool alignEnd);
+    /// Move a whole selection so its earliest start meets the playhead.
+    /// Source trims, relative spacing, track ownership and undo are preserved.
+    Q_INVOKABLE bool alignSelectionStartToPlayhead();
     /// Trim the selected clip's start or exclusive end to the playhead.
     /// Rejects unsafe transition edits rather than silently removing a transition.
     Q_INVOKABLE bool trimSelectionToPlayhead(bool trimEnd);

@@ -8,6 +8,7 @@
 #include <QJsonArray>
 #include <QJsonDocument>
 #include <QSaveFile>
+#include <QStringList>
 
 namespace ft::media_audit {
 
@@ -132,6 +133,83 @@ Status saveReport(const Project& project, const QString& path, const QString& pr
     }
     if (!output.commit()) {
         return makeError(ErrorCode::Io, QStringLiteral("Cannot finish media audit report."),
+                         output.errorString());
+    }
+    return {};
+}
+
+namespace {
+
+QString csvValue(QString field)
+{
+    // Spreadsheets can interpret untrusted names/paths as formulas, even when
+    // a field is CSV-quoted. Prefix risky values with a literal apostrophe.
+    const QString stripped = field.trimmed();
+    if (!stripped.isEmpty() && QStringLiteral("=+-@").contains(stripped.front())) {
+        field.prepend(QLatin1Char('\''));
+    }
+    field.replace(QLatin1Char('"'), QStringLiteral("\"\""));
+    return QLatin1Char('"') + field + QLatin1Char('"');
+}
+
+} // namespace
+
+Status saveCsvReport(const Project& project, const QString& path,
+                     const QString& projectFilePath)
+{
+    if (path.trimmed().isEmpty() ||
+        QFileInfo(path).suffix().compare(QLatin1String("csv"), Qt::CaseInsensitive) != 0) {
+        return makeError(ErrorCode::InvalidArgument,
+                         QStringLiteral("The media audit filename must end in .csv."));
+    }
+    const QString destination = canonicalMediaKey(path);
+    if ((!projectFilePath.isEmpty() && destination == canonicalMediaKey(projectFilePath)) ||
+        project.assetByPath(path)) {
+        return makeError(
+            ErrorCode::Conflict,
+            QStringLiteral("A media audit cannot overwrite the project or source media."));
+    }
+
+    QString csv = QStringLiteral(
+        "assetId,name,kind,status,clipUses,storedBytes,currentBytes,sourcePath,changeReasons\r\n");
+    const QJsonArray assets = buildReport(project).value(QStringLiteral("assets")).toArray();
+    for (const QJsonValue& value : assets) {
+        const QJsonObject asset = value.toObject();
+        QStringList reasons;
+        for (const QJsonValue& reason : asset.value(QStringLiteral("changeReasons")).toArray()) {
+            reasons.append(reason.toString());
+        }
+        const QStringList fields = {
+            asset.value(QStringLiteral("assetId")).toString(),
+            asset.value(QStringLiteral("name")).toString(),
+            asset.value(QStringLiteral("kind")).toString(),
+            asset.value(QStringLiteral("status")).toString(),
+            QString::number(asset.value(QStringLiteral("clipUses")).toInt()),
+            asset.value(QStringLiteral("storedBytes")).toString(),
+            asset.value(QStringLiteral("currentBytes")).toString(),
+            asset.value(QStringLiteral("sourcePath")).toString(),
+            reasons.join(QLatin1Char('|'))};
+        QStringList escaped;
+        escaped.reserve(fields.size());
+        for (const QString& field : fields) {
+            escaped.append(csvValue(field));
+        }
+        csv += escaped.join(QLatin1Char(',')) + QStringLiteral("\r\n");
+    }
+
+    QSaveFile output(path);
+    if (!output.open(QIODevice::WriteOnly)) {
+        return makeError(ErrorCode::Io, QStringLiteral("Cannot open CSV audit destination."),
+                         output.errorString());
+    }
+    const QByteArray bytes = QByteArray("\xef\xbb\xbf", 3) + csv.toUtf8();
+    if (output.write(bytes) != bytes.size()) {
+        output.cancelWriting();
+        return makeError(ErrorCode::Io, QStringLiteral("Cannot write CSV media audit."),
+                         output.errorString());
+    }
+    if (!output.commit()) {
+        return makeError(ErrorCode::Io, QStringLiteral("Cannot finish CSV media audit."),
                          output.errorString());
     }
     return {};

@@ -209,6 +209,86 @@ bool ProjectController::saveAs(const QString& pathOrUrl)
     return true;
 }
 
+
+bool ProjectController::exportClipListCsv(const QString& pathOrUrl)
+{
+    const QString path = localPath(pathOrUrl);
+    if (path.trimmed().isEmpty() ||
+        QFileInfo(path).suffix().compare(QLatin1String("csv"), Qt::CaseInsensitive) != 0) {
+        emit errorOccurred(QStringLiteral("Could not export the clip list"),
+                           QStringLiteral("Choose a filename ending in .csv."));
+        return false;
+    }
+
+    const QString destination = canonicalMediaKey(path);
+    if ((m_document->hasFilePath() &&
+         destination == canonicalMediaKey(m_document->filePath())) ||
+        project().assetByPath(path)) {
+        emit errorOccurred(QStringLiteral("Could not export the clip list"),
+                           QStringLiteral("The report cannot overwrite project or source media."));
+        return false;
+    }
+
+    QSaveFile file(path);
+    if (!file.open(QIODevice::WriteOnly)) {
+        emit errorOccurred(QStringLiteral("Could not export the clip list"), file.errorString());
+        return false;
+    }
+
+    // UTF-8 BOM helps spreadsheet programs recognize names from non-Latin scripts.
+    const QByteArray header =
+        "track,track_type,clip_id,source_name,source_path,"
+        "start_frame,end_frame_exclusive,duration_frames,source_in_frame,"
+        "source_out_frame_exclusive,start_timecode,end_timecode_exclusive\\r\\n";
+    if (file.write("\\xEF\\xBB\\xBF", 3) != 3 || file.write(header) != header.size()) {
+        file.cancelWriting();
+        emit errorOccurred(QStringLiteral("Could not export the clip list"),
+                           QStringLiteral("Could not write the report header."));
+        return false;
+    }
+
+    const auto rate = project().settings().frameRate;
+    for (const Track& track : project().timeline().tracks()) {
+        for (const Clip& clip : track.clips) {
+            const MediaAsset* source = project().asset(clip.assetId);
+            const QStringList columns{
+                track.name,
+                track.kind == TrackKind::Video ? QStringLiteral("video")
+                                               : QStringLiteral("audio"),
+                clip.id,
+                source ? source->name : QString(),
+                source ? source->filePath : QString(),
+                QString::number(clip.start),
+                QString::number(clip.end()),
+                QString::number(clip.duration),
+                QString::number(clip.sourceIn),
+                QString::number(clip.sourceOut()),
+                timecode::format(clip.start, rate),
+                timecode::format(clip.end(), rate)};
+            QByteArray row;
+            for (qsizetype i = 0; i < columns.size(); ++i) {
+                if (i != 0) {
+                    row.append(',');
+                }
+                row.append(csvCell(columns.at(i)));
+            }
+            row.append("\\r\\n");
+            if (file.write(row) != row.size()) {
+                file.cancelWriting();
+                emit errorOccurred(QStringLiteral("Could not export the clip list"),
+                                   QStringLiteral("Could not write the clip list."));
+                return false;
+            }
+        }
+    }
+    if (!file.commit()) {
+        emit errorOccurred(QStringLiteral("Could not export the clip list"), file.errorString());
+        return false;
+    }
+    emit statusMessage(QStringLiteral("Saved timeline clip list as CSV."));
+    return true;
+}
+
 void ProjectController::undo()
 {
     if (const Status done = m_document->undo(); !done) {

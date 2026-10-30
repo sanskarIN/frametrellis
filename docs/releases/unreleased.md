@@ -55,11 +55,13 @@ below. No v1.4 release is declared by these notes.
   list CSV export with SMPTE timecodes, source paths, UTF-8 encoding, formula-safe cells,
   protected atomic writes and unchanged undo/modified state.
 
-- Batch **Lock All Tracks** / **Unlock All Tracks** commands are under review;
-  they keep other track flags and create one undoable edit per action.
-
-- Advanced multi-track clip selection (playhead, repeated source media and a
-  track-header select-all action) is under review for the next milestone.
+- [#99](https://github.com/sanskarIN/frametrellis/pull/99): Lock All Tracks and
+  Unlock All Tracks protect every lane in one undoable operation without changing
+  mute, visibility, clip timing or source references.
+- [#98](https://github.com/sanskarIN/frametrellis/pull/98): select clips beneath
+  the playhead, every use of a source, or all clips on a selected track.
+- [#100](https://github.com/sanskarIN/frametrellis/pull/100): undoable same-kind
+  adjacent track reordering from track headers, preserving clip contents and media.
 
 ## Volume automation
 

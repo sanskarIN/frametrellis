@@ -142,6 +142,14 @@ every imported file again. Filtering never removes files from the project.
   delete) removes one clip and moves the following clips on that track left to close the gap.
 * **Snapping** (N) aligns clip edges with other clips and the playhead.
 * **Zoom** with + and −, Ctrl+mouse wheel, the zoom slider, or *Fit* to see the whole sequence.
+* **Zoom to Selection (v1.4 development):** select one or more clips and use
+  *View → Zoom to Selection* (Ctrl+Shift+0), or the selection-fit toolbar button.
+  FrameTrellis fits the selected clips' earliest start through their latest end,
+  with a margin for trim handles. It never moves clips or changes project state.
+* **Center on Playhead (v1.4 development):** use *View → Center on Playhead*
+  (Ctrl+Shift+L) to return the horizontal timeline viewport to the current frame
+  without seeking, stopping playback, or adding an undo entry. These view actions
+  are not present in the published v1.3.1 stable release.
 * **Go to timecode** with Ctrl+G (Playback menu): enter a frame-accurate timecode, such as
   `00:00:12:08`. Invalid or out-of-sequence positions are rejected without moving the playhead.
 * **Tracks:** add tracks with *+ Video* / *+ Audio*; each track can be hidden (video), muted or

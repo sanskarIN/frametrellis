@@ -120,6 +120,9 @@ public:
     Q_INVOKABLE void select(const QString& clipId, bool toggle);
     Q_INVOKABLE void clearSelection();
     Q_INVOKABLE void selectAll();
+    /// Bounds of all currently selected clips, [start, end) in timeline frames.
+    /// Returns an empty map when no valid clip is selected; this is read-only.
+    Q_INVOKABLE QVariantMap selectedFrameRange() const;
     /// Sets one clip property ("gain", "muted", "fadeIn", "fadeOut", "brightness", "contrast",
     /// "saturation" or "opacity"). Repeated changes merge into one undo step until endEdit().
     Q_INVOKABLE bool setClipProperty(const QString& clipId, const QString& name,

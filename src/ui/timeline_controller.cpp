@@ -232,6 +232,10 @@ bool TimelineController::copyPictureAsEdl()
 
 void TimelineController::setPixelsPerFrame(double value)
 {
+    // Invalid QML or plugin-supplied numbers must not corrupt timeline geometry.
+    if (!std::isfinite(value)) {
+        return;
+    }
     value = std::clamp(value, minPixelsPerFrame(), maxPixelsPerFrame());
     if (!qFuzzyCompare(value, m_pixelsPerFrame)) {
         m_pixelsPerFrame = value;
@@ -803,6 +807,25 @@ void TimelineController::selectAll()
     m_model.updateSelection(m_selection);
     emit selectionChanged();
     emit selectedClipChanged();
+}
+
+QVariantMap TimelineController::selectedFrameRange() const
+{
+    FrameCount first = kMaxTimelineFrames;
+    FrameCount last = 0;
+    for (const Id& id : m_selection) {
+        const Clip* clip = project().timeline().clip(id);
+        if (!clip) {
+            continue;
+        }
+        first = std::min(first, clip->start);
+        last = std::max(last, clip->end());
+    }
+    if (last <= first) {
+        return {};
+    }
+    return {{QStringLiteral("start"), static_cast<double>(first)},
+            {QStringLiteral("end"), static_cast<double>(last)}};
 }
 
 bool TimelineController::setClipProperty(const QString& clipId, const QString& name,

@@ -38,6 +38,25 @@ or below it. The options are the export settings of the editor:
 The output is H.264 video with AAC audio, the same as an export from the editor, and it is
 checked before it is kept. If rendering fails or is cancelled, no partial file is left behind.
 
+## Discovering export presets (v1.4 development)
+
+To inspect the editor's available export profiles from scripts without opening a
+project or starting a render:
+
+```sh
+frametrellis-render --list-presets
+```
+
+The command writes a JSON object with a `presets` array. Each entry includes
+`id`, `name`, `description`, `shortSide`, `crf`, `speedPreset`,
+`audioBitrateKbps` and `avoidUpscaling`. The list includes the new
+1080p and 4K creator-quality profiles. This command only reports preset
+metadata; it does **not** start a render or apply a preset automatically.
+Use the ordinary export options for actual rendering.
+
+This feature is part of the next development milestone, not the published
+v1.3.1 stable binaries.
+
 ## Inspecting a project (unreleased development builds)
 
 Development builds after v1.2.2 also support a **read-only**, headless inspection command:

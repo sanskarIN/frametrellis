@@ -13,6 +13,9 @@
 
 #include <QDir>
 #include <QFile>
+#include <QJsonArray>
+#include <QJsonDocument>
+#include <QJsonObject>
 #include <QProcess>
 #include <QSignalSpy>
 #include <QTemporaryDir>
@@ -75,6 +78,44 @@ private:
     }
 
 private slots:
+
+    void helperListsExportPresetsAsJson()
+    {
+        // Works without an input project, output path, video decoding or an active render.
+        QProcess helper;
+        helper.start(QStringLiteral(FT_RENDER_HELPER), {QStringLiteral("--list-presets")});
+        QVERIFY(helper.waitForFinished(10000));
+        QCOMPARE(helper.exitStatus(), QProcess::NormalExit);
+        QCOMPARE(helper.exitCode(), 0);
+        QJsonParseError error;
+        const QJsonDocument parsed =
+            QJsonDocument::fromJson(helper.readAllStandardOutput(), &error);
+        QCOMPARE(error.error, QJsonParseError::NoError);
+        QVERIFY(parsed.isObject());
+        const QJsonArray profiles = parsed.object().value(QStringLiteral("presets")).toArray();
+        QVERIFY(profiles.size() >= 4);
+        QStringList identifiers;
+        for (const QJsonValue& value : profiles) {
+            QVERIFY(value.isObject());
+            const QJsonObject item = value.toObject();
+            const QString id = item.value(QStringLiteral("id")).toString();
+            QVERIFY(!id.isEmpty());
+            QVERIFY(!identifiers.contains(id));
+            identifiers.append(id);
+            QVERIFY(item.value(QStringLiteral("name")).isString());
+            QVERIFY(item.value(QStringLiteral("shortSide")).isDouble());
+            QVERIFY(item.value(QStringLiteral("crf")).isDouble());
+            QVERIFY(item.value(QStringLiteral("speedPreset")).isString());
+            QVERIFY(item.value(QStringLiteral("audioBitrateKbps")).isDouble());
+            QVERIFY(item.value(QStringLiteral("avoidUpscaling")).isBool());
+        }
+        QVERIFY(identifiers.contains(QStringLiteral("quick")));
+        QVERIFY(identifiers.contains(QStringLiteral("quick1080p")));
+        QVERIFY(identifiers.contains(QStringLiteral("turbo")));
+        QVERIFY(identifiers.contains(QStringLiteral("youtube1080p")));
+        QVERIFY(identifiers.contains(QStringLiteral("youtube4k")));
+    }
+
     void initTestCase()
     {
         QVERIFY(m_dir.isValid());

@@ -47,6 +47,9 @@ below. No v1.4 release is declared by these notes.
 - [#92](https://github.com/sanskarIN/frametrellis/pull/92): protected PNG
   snapshots of the currently displayed preview frame with atomic writes.
 
+- Read-only timeline clip-list CSV report is under review, including SMPTE timecodes,
+  local source paths, UTF-8 encoding, formula-safe quoted cells and atomic file saves.
+
 ## Volume automation
 
 - Source-anchored volume keyframes from -60 to +12 dB, with linear interpolation

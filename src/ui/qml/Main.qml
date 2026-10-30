@@ -233,6 +233,8 @@ ApplicationWindow {
             MenuSeparator {}
             Action { text: qsTr("Select &All Clips"); shortcut: StandardKey.SelectAll; enabled: window.editKeys; onTriggered: window.app.timeline.selectAll() }
             Action { text: qsTr("Select Clips at &Playhead"); shortcut: "Ctrl+Shift+J"; enabled: window.editKeys && !window.app.timeline.empty; onTriggered: window.app.timeline.selectClipsAtPlayhead() }
+            Action { text: qsTr("Select Entire Clips Before Playhead"); enabled: window.editKeys && !window.app.timeline.empty; onTriggered: window.app.timeline.selectClipsBeforePlayhead() }
+            Action { text: qsTr("Select Entire Clips After Playhead"); enabled: window.editKeys && !window.app.timeline.empty; onTriggered: window.app.timeline.selectClipsAfterPlayhead() }
             Action { text: qsTr("Select All Occurrences of &Media"); shortcut: "Ctrl+Alt+R"; enabled: window.editKeys && window.app.timeline.selection.length === 1; onTriggered: window.app.timeline.selectAllMediaOccurrences() }
             Action { text: qsTr("Clear Selection"); onTriggered: window.app.timeline.clearSelection() }
             MenuSeparator {}

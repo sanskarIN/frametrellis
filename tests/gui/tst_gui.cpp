@@ -297,6 +297,83 @@ private slots:
         screenshot(QStringLiteral("03-timeline"));
     }
 
+    void selectionZoomAndPlayheadCenterPreserveProject()
+    {
+        auto* timeline = m_app->timeline();
+        QQuickItem* lanes = findItem(m_window->contentItem(), QStringLiteral("timelineLanes"));
+        QVERIFY(lanes);
+        QVERIFY(lanes->width() > 0);
+        timeline->clearSelection();
+        QVERIFY(timeline->selectedFrameRange().isEmpty());
+
+        // Pick clips on distinct tracks to exercise whole-selection bounds.
+        QVERIFY(!track(0).clips.empty());
+        QVERIFY(!track(2).clips.empty());
+        const Clip video = track(0).clips.back();
+        const Clip audio = track(2).clips.front();
+        timeline->select(video.id, false);
+        timeline->select(audio.id, true);
+        const QVariantMap selected = timeline->selectedFrameRange();
+        QVERIFY(!selected.isEmpty());
+        QCOMPARE(selected.value(QStringLiteral("start")).toDouble(),
+                 static_cast<double>(std::min(video.start, audio.start)));
+        QCOMPARE(selected.value(QStringLiteral("end")).toDouble(),
+                 static_cast<double>(std::max(video.end(), audio.end())));
+
+        const Project before = m_app->project()->project();
+        const QString undoBefore = m_app->project()->undoText();
+        const bool modifiedBefore = m_app->project()->isModified();
+        timeline->setPixelsPerFrame(timeline->minPixelsPerFrame());
+        const double minimum = timeline->pixelsPerFrame();
+        timeline->setPixelsPerFrame(std::numeric_limits<double>::quiet_NaN());
+        QCOMPARE(timeline->pixelsPerFrame(), minimum);
+        timeline->setPixelsPerFrame(std::numeric_limits<double>::infinity());
+        QCOMPARE(timeline->pixelsPerFrame(), minimum);
+        timeline->setPixelsPerFrame(-std::numeric_limits<double>::infinity());
+        QCOMPARE(timeline->pixelsPerFrame(), minimum);
+
+        m_window->requestActivate();
+        QTest::keyClick(m_window, Qt::Key_0, Qt::ControlModifier | Qt::ShiftModifier);
+        QVERIFY(QTest::qWaitFor([&] { return timeline->pixelsPerFrame() > minimum; }, 2000));
+
+        const double ppf = timeline->pixelsPerFrame();
+        const double offset = lanes->property("contentX").toDouble();
+        const double left = selected.value(QStringLiteral("start")).toDouble() * ppf - offset;
+        const double right = selected.value(QStringLiteral("end")).toDouble() * ppf - offset;
+        QVERIFY2(left >= -2.0, qPrintable(QStringLiteral("selection begins at %1 px").arg(left)));
+        QVERIFY2(right <= lanes->width() + 2.0,
+                 qPrintable(QStringLiteral("selection ends at %1 px").arg(right)));
+        QCOMPARE(m_app->project()->project(), before);
+        QCOMPARE(m_app->project()->undoText(), undoBefore);
+        QCOMPARE(m_app->project()->isModified(), modifiedBefore);
+
+        timeline->clearSelection();
+        QVERIFY(timeline->selectedFrameRange().isEmpty());
+        const double zoomBefore = timeline->pixelsPerFrame();
+        QTest::keyClick(m_window, Qt::Key_0, Qt::ControlModifier | Qt::ShiftModifier);
+        QCOMPARE(timeline->pixelsPerFrame(), zoomBefore);
+
+        // Centering is a viewport action: it must not seek or create an undo entry.
+        timeline->setPixelsPerFrame(timeline->maxPixelsPerFrame());
+        m_app->playback()->seek(40);
+        const double frameBefore = m_app->playback()->position();
+        lanes->setProperty("contentX", 0);
+        QTest::keyClick(m_window, Qt::Key_L, Qt::ControlModifier | Qt::ShiftModifier);
+        const double expectedX =
+            std::max(0.0, std::min(lanes->property("contentWidth").toDouble() - lanes->width(),
+                                   frameBefore * timeline->pixelsPerFrame() - lanes->width() * 0.5));
+        QVERIFY(QTest::qWaitFor(
+            [&] { return std::abs(lanes->property("contentX").toDouble() - expectedX) < 2.0; },
+            2000));
+        QCOMPARE(m_app->playback()->position(), frameBefore);
+        QCOMPARE(m_app->project()->project(), before);
+        QCOMPARE(m_app->project()->undoText(), undoBefore);
+        QCOMPARE(m_app->project()->isModified(), modifiedBefore);
+
+        timeline->zoomToFit(1200);
+        lanes->setProperty("contentX", 0);
+    }
+
     void slipSelectedClipKeepsPlacementAndIsUndoable()
     {
         // The imported video has no spare source at first; trim its end to make

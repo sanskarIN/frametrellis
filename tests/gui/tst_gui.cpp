@@ -243,8 +243,7 @@ private slots:
         QTRY_COMPARE(grid->property("count").toInt(), 0);
         search->setProperty("text", QString());
         QTRY_COMPARE(grid->property("count").toInt(), total);
-        QQuickItem* kind =
-            findItem(m_window->contentItem(), QStringLiteral("mediaKindFilter"));
+        QQuickItem* kind = findItem(m_window->contentItem(), QStringLiteral("mediaKindFilter"));
         QVERIFY(kind);
         kind->setProperty("currentIndex", 7); // Unused
         QTRY_COMPARE(grid->property("count").toInt(), total);

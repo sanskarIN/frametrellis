@@ -16,10 +16,10 @@ account, no cloud processing, no telemetry and no advertising.
 
 ![The FrameTrellis workspace with media bin, program monitor, clip inspector and a three-track timeline](docs/images/workspace.png)
 
-> **Latest stable release: 1.3.0.** Safer project saves and media identity,
-> searchable media bin, Go to Timecode (Ctrl+G), and read-only project inspection.
+> **Latest stable release: 1.3.1.** Includes the v1.3.0 safety and media search
+> improvements, plus media-bin selection and offline keyboard relink fixes.
 > Download the verified Windows installer or portable ZIP from the
-> [v1.3.0 release](https://github.com/sanskarIN/frametrellis/releases/tag/v1.3.0).
+> [v1.3.1 release](https://github.com/sanskarIN/frametrellis/releases/tag/v1.3.1).
 > On Linux, build from source. Back up important projects.
 
 

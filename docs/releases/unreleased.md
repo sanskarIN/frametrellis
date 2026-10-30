@@ -1,9 +1,10 @@
-# Unreleased (after FrameTrellis 1.3.0)
+# Unreleased (after FrameTrellis 1.3.1)
 
-The latest published stable release is [FrameTrellis 1.3.0](v1.3.0.md).
-The [v1.3.0 GitHub release](https://github.com/sanskarIN/frametrellis/releases/tag/v1.3.0)
-provides Windows installer and portable ZIP downloads. Development features below
-are not included in those downloads. No v1.4 release is declared by these notes.
+The latest published stable release is [FrameTrellis 1.3.1](v1.3.1.md).
+The [v1.3.1 GitHub release](https://github.com/sanskarIN/frametrellis/releases/tag/v1.3.1)
+provides verified Windows installer and portable ZIP downloads. It is a narrow
+maintenance patch based on v1.3.0 and does not include the development features
+below. No v1.4 release is declared by these notes.
 
 ## Integrated on main for the next milestone
 

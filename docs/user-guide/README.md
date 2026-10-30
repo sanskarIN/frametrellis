@@ -64,9 +64,12 @@ after 10,000 scanned files, and large folders are reported as truncated.
 No files are moved, copied, renamed or deleted. If the folder contains more
 than the safety limit, split your import into smaller subfolders.
 
-This is a **future v1.4 candidate**, not included in the v1.3.1 stable
-release. Folder discovery is currently a bounded, synchronous step, so prefer
-small batches on slow network drives.
+This is a **v1.4 development feature**, not included in the v1.3.1 stable
+release. Folder discovery runs on a worker thread, keeping the editing workspace
+responsive while scanning large or slow directories. The media-panel busy indicator
+covers both folder discovery and background media probing. The scan result is
+ignored if another project is opened before it finishes. Invalid or unreadable
+folder errors appear when background discovery completes.
 
 
 Use *File → Import Media…* (Ctrl+I), the import button on the media panel, or drop files from your

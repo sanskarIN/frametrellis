@@ -162,6 +162,15 @@ every imported file again. Filtering never removes files from the project.
   Both are single-step undoable changes and preserve each track's mute and
   visibility settings. Not available in stable v1.3.1.
 
+* **Advanced selections (v1.4 development):** **Ctrl+Shift+J** selects clips
+  overlapping the playhead across all video and audio tracks; **Ctrl+Alt+R**
+  selects every use of the single selected media source. Right-click a track
+  header and choose **Select all clips on track** to select that track's clips.
+  These commands can select locked tracks for inspection, but do not bypass
+  lock protection on editing. If no clips match, the existing selection remains.
+  Selection actions never change project edits or undo history and are not in
+  the published v1.3.1 stable release.
+
 Every change can be undone (Ctrl+Z) and redone (Ctrl+Shift+Z).
 
 Clips on audio tracks show the waveform of their sound, scaled by the clip's volume. The first

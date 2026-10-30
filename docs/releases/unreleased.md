@@ -58,6 +58,9 @@ below. No v1.4 release is declared by these notes.
 - Batch **Lock All Tracks** / **Unlock All Tracks** commands are under review;
   they keep other track flags and create one undoable edit per action.
 
+- Advanced multi-track clip selection (playhead, repeated source media and a
+  track-header select-all action) is under review for the next milestone.
+
 ## Volume automation
 
 - Source-anchored volume keyframes from -60 to +12 dB, with linear interpolation

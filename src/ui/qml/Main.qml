@@ -218,6 +218,8 @@ ApplicationWindow {
             Action { text: qsTr("Ripple De&lete"); shortcut: "Shift+Delete"; enabled: window.editKeys; onTriggered: window.app.timeline.deleteSelection(true) }
             MenuSeparator {}
             Action { text: qsTr("Select &All Clips"); shortcut: StandardKey.SelectAll; enabled: window.editKeys; onTriggered: window.app.timeline.selectAll() }
+            Action { text: qsTr("Select Clips at &Playhead"); shortcut: "Ctrl+Shift+J"; enabled: window.editKeys && !window.app.timeline.empty; onTriggered: window.app.timeline.selectClipsAtPlayhead() }
+            Action { text: qsTr("Select All Occurrences of &Media"); shortcut: "Ctrl+Alt+R"; enabled: window.editKeys && window.app.timeline.selection.length === 1; onTriggered: window.app.timeline.selectAllMediaOccurrences() }
             Action { text: qsTr("Clear Selection"); onTriggered: window.app.timeline.clearSelection() }
             MenuSeparator {}
             Action { text: qsTr("Lock All Tracks"); enabled: window.editKeys; onTriggered: window.app.timeline.setAllTracksLocked(true) }

@@ -24,6 +24,8 @@
 | Delete | Delete selected clips or the selected transition |
 | Shift+Delete | Ripple delete |
 | Ctrl+A | Select all clips |
+| Ctrl+Shift+J | Select clips overlapping playhead on all tracks (v1.4 development) |
+| Ctrl+Alt+R | Select all timeline uses of the single selected media source (v1.4 development) |
 | N | Toggle snapping |
 | + / − | Zoom timeline in / out |
 | Ctrl+Shift+0 | Fit all selected clips in the timeline (v1.4 development) |

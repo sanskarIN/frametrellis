@@ -221,6 +221,17 @@ private slots:
         QCOMPARE(filter.count(), expectedAudio);
         filter.setCategory(QStringLiteral("offline"));
         QCOMPARE(filter.count(), 0);
+        filter.setCategory(QStringLiteral("changed"));
+        QCOMPARE(filter.count(), 0);
+        filter.setCategory(QStringLiteral("unused"));
+        QCOMPARE(filter.count(), total);
+        filter.setCategory(QStringLiteral("used"));
+        QCOMPARE(filter.count(), 0);
+        // The category remains combinable with a name search, without editing source rows.
+        filter.setSearchText(firstName);
+        filter.setCategory(QStringLiteral("unused"));
+        QCOMPARE(filter.count(), 1);
+        filter.setSearchText(QString());
         filter.setCategory(QStringLiteral("invalid-category"));
         QCOMPARE(filter.count(), total);
 
@@ -232,6 +243,16 @@ private slots:
         QTRY_COMPARE(grid->property("count").toInt(), 0);
         search->setProperty("text", QString());
         QTRY_COMPARE(grid->property("count").toInt(), total);
+        QQuickItem* kind = findItem(m_window->contentItem(), QStringLiteral("mediaKindFilter"));
+        QVERIFY(kind);
+        kind->setProperty("currentIndex", 7); // Unused
+        QTRY_COMPARE(grid->property("count").toInt(), total);
+        kind->setProperty("currentIndex", 6); // Used
+        QTRY_COMPARE(grid->property("count").toInt(), 0);
+        kind->setProperty("currentIndex", 5); // Changed
+        QTRY_COMPARE(grid->property("count").toInt(), 0);
+        kind->setProperty("currentIndex", 0); // Restore All for following GUI tests.
+        QTRY_COMPARE(grid->property("count").toInt(), total);
         QCOMPARE(m_app->media()->model()->rowCount(), total);
     }
 
@@ -240,6 +261,16 @@ private slots:
         QQuickItem* grid = findItem(m_window->contentItem(), QStringLiteral("mediaGrid"));
         QVERIFY(grid);
         const int before = m_app->project()->project().timeline().clipCount();
+        const int totalMedia = m_app->media()->model()->rowCount();
+        // Filtering must respond to new clip usage without touching actual media entries.
+        ui::MediaBinFilterModel usedFilter;
+        usedFilter.setSourceModel(m_app->media()->model());
+        usedFilter.setCategory(QStringLiteral("used"));
+        ui::MediaBinFilterModel unusedFilter;
+        unusedFilter.setSourceModel(m_app->media()->model());
+        unusedFilter.setCategory(QStringLiteral("unused"));
+        QCOMPARE(usedFilter.count(), 0);
+        QCOMPARE(unusedFilter.count(), totalMedia);
         // Clicking a delegate must not produce a QML ReferenceError from view lookup.
         m_qmlWarnings.clear();
         // The first tile sits at the top-left of the grid.
@@ -249,6 +280,8 @@ private slots:
             [&] { return m_app->project()->project().timeline().clipCount() == before + 1; },
             3000));
         QVERIFY2(m_qmlWarnings.isEmpty(), "Media-bin tile interaction emitted QML warnings");
+        QTRY_COMPARE(usedFilter.count(), 1);
+        QTRY_COMPARE(unusedFilter.count(), totalMedia - 1);
         // Append the remaining media through the same action.
         for (int row = 1; row < m_app->media()->model()->rowCount(); ++row) {
             QVERIFY(m_app->timeline()->appendAsset(
@@ -256,6 +289,8 @@ private slots:
         }
         QCOMPARE(m_app->project()->project().timeline().clipCount(),
                  before + m_app->media()->model()->rowCount());
+        QTRY_COMPARE(usedFilter.count(), totalMedia);
+        QTRY_COMPARE(unusedFilter.count(), 0);
         m_app->timeline()->zoomToFit(1200);
         m_app->playback()->seek(40);
         QTest::qWait(500);

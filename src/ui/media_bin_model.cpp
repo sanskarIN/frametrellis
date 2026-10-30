@@ -193,7 +193,9 @@ void MediaBinFilterModel::setCategory(const QString& category)
     const QString normalized = category.toLower();
     const QString next =
         (normalized == QLatin1String("video") || normalized == QLatin1String("audio") ||
-         normalized == QLatin1String("image") || normalized == QLatin1String("offline"))
+         normalized == QLatin1String("image") || normalized == QLatin1String("offline") ||
+         normalized == QLatin1String("changed") || normalized == QLatin1String("used") ||
+         normalized == QLatin1String("unused"))
             ? normalized
             : QStringLiteral("all");
     if (m_category == next) {
@@ -229,6 +231,16 @@ bool MediaBinFilterModel::filterAcceptsRow(int sourceRow, const QModelIndex& sou
     if (m_category == QLatin1String("offline")) {
         if (model->data(sourceIndex, MediaBinModel::StatusRole).toString() !=
             QLatin1String("missing")) {
+            return false;
+        }
+    } else if (m_category == QLatin1String("changed")) {
+        if (model->data(sourceIndex, MediaBinModel::StatusRole).toString() !=
+            QLatin1String("changed")) {
+            return false;
+        }
+    } else if (m_category == QLatin1String("used") || m_category == QLatin1String("unused")) {
+        const bool isUsed = model->data(sourceIndex, MediaBinModel::UsageRole).toInt() > 0;
+        if (isUsed != (m_category == QLatin1String("used"))) {
             return false;
         }
     } else if (m_category != QLatin1String("all") &&

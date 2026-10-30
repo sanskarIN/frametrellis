@@ -67,6 +67,10 @@ below. No v1.4 release is declared by these notes.
   multi-track gap insertion at the playhead, preserving source trims, automation
   and safe transitions. Under review, not in the published stable release.
 
+- A follow-up to [#103](https://github.com/sanskarIN/frametrellis/pull/103)
+  proposes safe multi-track removal of confirmed empty time; the dependent
+  pull request must pass its own checks before integration.
+
 ## Volume automation
 
 - Source-anchored volume keyframes from -60 to +12 dB, with linear interpolation

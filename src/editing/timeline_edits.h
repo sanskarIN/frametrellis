@@ -45,6 +45,10 @@ std::unique_ptr<EditCommand> nudgeClips(const QList<Id>& clipIds, FrameCount del
 /// without changing their source trims, automation or transition identities.
 /// Affected locked tracks, intersecting clips and invalid cuts reject the operation.
 std::unique_ptr<EditCommand> insertGap(FrameCount frame, FrameCount duration);
+/// Remove an interval that contains no clip frames on any track, moving later
+/// clips earlier as one undoable change. Locked affected tracks and intersecting
+/// clips reject the operation without modifying the project.
+std::unique_ptr<EditCommand> removeEmptyTime(FrameCount frame, FrameCount duration);
 std::unique_ptr<EditCommand> trimClipStart(const Id& clipId, FrameCount newStart);
 std::unique_ptr<EditCommand> trimClipEnd(const Id& clipId, FrameCount newEnd);
 /// Slip selected time-based clips through their source without moving their timeline edges.

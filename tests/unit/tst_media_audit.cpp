@@ -4,6 +4,7 @@
 
 #include <QDir>
 #include <QFile>
+#include <QFileInfo>
 #include <QTemporaryDir>
 #include <QTest>
 
@@ -49,8 +50,8 @@ private slots:
         clip.assetId = source.id;
         clip.start = 0;
         clip.duration = 30;
-        QVERIFY(project.timeline().insertClip(project.timeline().tracks().front().id,
-                                              clip, project.sourceLookup()));
+        QVERIFY(project.timeline().insertClip(project.timeline().tracks().front().id, clip,
+                                              project.sourceLookup()));
 
         MediaAsset missing = source;
         missing.id = QStringLiteral("asset2");
@@ -95,7 +96,7 @@ private slots:
         QVERIFY(!media_audit::saveCsvReport(project, QStringLiteral("")));
         QVERIFY(!media_audit::saveCsvReport(project, asset.filePath));
         QVERIFY(!media_audit::saveCsvReport(project, dir.filePath(QStringLiteral("project.csv")),
-                                           dir.filePath(QStringLiteral("project.csv"))));
+                                            dir.filePath(QStringLiteral("project.csv"))));
         QFile input(asset.filePath);
         QVERIFY(input.open(QIODevice::ReadOnly));
         QCOMPARE(input.readAll(), QByteArray("precious data"));

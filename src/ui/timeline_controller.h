@@ -132,6 +132,8 @@ public:
     Q_INVOKABLE bool pasteSelectionAttributes();
     /// Audio muting and picture-reset batch commands; each operation is a single undo step.
     Q_INVOKABLE bool muteSelection(bool muted);
+    /// Apply or clear a fade at the selected clips' start or end in one undo step.
+    Q_INVOKABLE bool setSelectionFade(bool fadeOut, int durationFrames);
     Q_INVOKABLE bool resetSelectionPictures();
     Q_INVOKABLE bool deleteSelection(bool ripple);
     Q_INVOKABLE void select(const QString& clipId, bool toggle);

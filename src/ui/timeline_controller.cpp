@@ -892,6 +892,22 @@ bool TimelineController::muteSelection(bool muted)
     return true;
 }
 
+bool TimelineController::setSelectionFade(bool fadeOut, int durationFrames)
+{
+    if (m_selection.isEmpty() || durationFrames < 0) {
+        emit statusMessage(QStringLiteral("Select clips and a nonnegative fade duration."));
+        return false;
+    }
+    QList<Id> ids(m_selection.cbegin(), m_selection.cend());
+    std::sort(ids.begin(), ids.end());
+    if (!m_project->execute(
+            edits::setClipFades(ids, static_cast<FrameCount>(durationFrames), fadeOut))) {
+        return false;
+    }
+    emit statusMessage(QStringLiteral("Updated fades on %1 clip(s).").arg(ids.size()));
+    return true;
+}
+
 bool TimelineController::resetSelectionPictures()
 {
     if (m_selection.isEmpty()) {

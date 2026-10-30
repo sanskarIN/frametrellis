@@ -143,6 +143,11 @@ ApplicationWindow {
             Action { text: qsTr("Save &As…"); shortcut: "Ctrl+Shift+S"; onTriggered: { if (subtitleDialog.visible && !subtitleDialog.applyIfDirty()) return; saveDialog.runAfterSave = false; saveDialog.open() } }
             MenuSeparator {}
             Action { text: qsTr("&Import Media…"); shortcut: "Ctrl+I"; onTriggered: importDialog.open() }
+            Action {
+                text: qsTr("Export Media Audit (JSON)…")
+                enabled: window.app.media.model.count > 0
+                onTriggered: mediaAuditDialog.open()
+            }
             Action { text: qsTr("Create &Title…"); onTriggered: titleDialog.open() }
             Action { text: qsTr("&Subtitles…"); shortcut: "Ctrl+Alt+S"; enabled: window.editKeys; onTriggered: subtitleDialog.open() }
             Action { text: qsTr("Copy Picture EDL (CMX3600)"); enabled: window.editKeys && !window.app.timeline.empty; onTriggered: window.app.timeline.copyPictureAsEdl() }
@@ -404,6 +409,15 @@ ApplicationWindow {
             if (window.app.project.saveAs(window.app.localPath(selectedFile)) && runAfterSave)
                 window.runPending()
         }
+    }
+    FileDialog {
+        id: mediaAuditDialog
+        title: qsTr("Export media audit as JSON")
+        fileMode: FileDialog.SaveFile
+        defaultSuffix: "json"
+        nameFilters: [qsTr("JSON reports (*.json)")]
+        currentFolder: window.app.fileUrl(window.app.project.projectFolder())
+        onAccepted: window.app.media.exportMediaAudit(window.app.localPath(selectedFile))
     }
     FileDialog {
         id: importDialog

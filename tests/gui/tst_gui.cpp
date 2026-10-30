@@ -13,7 +13,11 @@
 
 #include <QClipboard>
 #include <QDir>
+#include <QFile>
 #include <QGuiApplication>
+#include <QJsonArray>
+#include <QJsonDocument>
+#include <QJsonObject>
 #include <QQmlApplicationEngine>
 #include <QQuickItem>
 #include <QQuickStyle>
@@ -944,6 +948,27 @@ private slots:
 
         QVERIFY(m_app->timeline()->removeMarker(markers.front().id));
         QCOMPARE(m_app->project()->project().markers(), originalMarkers);
+    }
+
+    void canExportReadOnlyMediaAuditFromController()
+    {
+        const Project before = m_app->project()->project();
+        QVERIFY(!before.media().empty());
+        const bool modified = m_app->project()->isModified();
+        const QString undoLabel = m_app->project()->undoText();
+        const QString reportPath = m_dir.filePath(QStringLiteral("ui-media-audit.json"));
+        QVERIFY(m_app->media()->exportMediaAudit(reportPath));
+        QFile file(reportPath);
+        QVERIFY(file.open(QIODevice::ReadOnly));
+        const QJsonDocument decoded = QJsonDocument::fromJson(file.readAll());
+        QVERIFY(decoded.isObject());
+        const QJsonObject report = decoded.object();
+        QCOMPARE(report.value(QStringLiteral("schemaVersion")).toInt(), 1);
+        QCOMPARE(report.value(QStringLiteral("assets")).toArray().size(),
+                 static_cast<qsizetype>(before.media().size()));
+        QCOMPARE(m_app->project()->project(), before);
+        QCOMPARE(m_app->project()->isModified(), modified);
+        QCOMPARE(m_app->project()->undoText(), undoLabel);
     }
 
     void audioClipsShowTheirWaveform()

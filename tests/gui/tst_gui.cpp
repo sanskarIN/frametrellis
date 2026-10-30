@@ -333,6 +333,47 @@ private slots:
         m_app->project()->undo();
     }
 
+    void alignWholeSelectionToPlayheadKeepsRelativeTimingAndUndo()
+    {
+        auto* timeline = m_app->timeline();
+        const Project before = m_app->project()->project();
+        QVERIFY(!track(0).clips.empty());
+        QVERIFY(!track(2).clips.empty());
+        // Choose the last picture clip: moving the first would collide with
+        // the still image already appended immediately after it.
+        const Clip video = track(0).clips.back();
+        const Clip audio = track(2).clips.front();
+        const FrameCount first = std::min(video.start, audio.start);
+        timeline->clearSelection();
+        QVERIFY(!timeline->alignSelectionStartToPlayhead());
+        timeline->select(video.id, false);
+        timeline->select(audio.id, true);
+        m_app->playback()->seek(static_cast<double>(first + 5));
+        QVERIFY(timeline->alignSelectionStartToPlayhead());
+        const Project moved = m_app->project()->project();
+        const Clip* videoAfter = moved.timeline().clip(video.id);
+        const Clip* audioAfter = moved.timeline().clip(audio.id);
+        QVERIFY(videoAfter);
+        QVERIFY(audioAfter);
+        QCOMPARE(videoAfter->start - video.start, FrameCount{5});
+        QCOMPARE(audioAfter->start - audio.start, FrameCount{5});
+        QCOMPARE(videoAfter->sourceIn, video.sourceIn);
+        QCOMPARE(audioAfter->sourceIn, audio.sourceIn);
+        QCOMPARE(videoAfter->duration, video.duration);
+        QCOMPARE(audioAfter->duration, audio.duration);
+        QCOMPARE(m_app->project()->undoText(), QStringLiteral("Nudge Clips Right"));
+
+        const QString undoBefore = m_app->project()->undoText();
+        QVERIFY(!timeline->alignSelectionStartToPlayhead());
+        QCOMPARE(m_app->project()->undoText(), undoBefore);
+        m_app->project()->undo();
+        QCOMPARE(m_app->project()->project(), before);
+        m_app->project()->redo();
+        QCOMPARE(m_app->project()->project(), moved);
+        m_app->project()->undo();
+        timeline->clearSelection();
+    }
+
     void trimSelectedClipToPlayheadKeepsUndoAndSourceTrims()
     {
         auto* timeline = m_app->timeline();

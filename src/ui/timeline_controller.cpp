@@ -648,6 +648,24 @@ bool TimelineController::alignSelectionToPlayhead(bool alignEnd)
     return m_project->execute(edits::moveClip(clipId, track->id, newStart));
 }
 
+bool TimelineController::alignSelectionStartToPlayhead()
+{
+    const QVariantMap bounds = selectedFrameRange();
+    if (bounds.isEmpty()) {
+        emit statusMessage(QStringLiteral("Select one or more clips to align."));
+        return false;
+    }
+
+    const FrameCount first =
+        static_cast<FrameCount>(bounds.value(QStringLiteral("start")).toDouble());
+    const FrameCount delta = m_playback->positionFrames() - first;
+    if (delta == 0) {
+        return false;
+    }
+    return m_project->execute(
+        edits::nudgeClips(QList<Id>(m_selection.cbegin(), m_selection.cend()), delta));
+}
+
 bool TimelineController::trimSelectionToPlayhead(bool trimEnd)
 {
     if (m_selection.size() != 1) {

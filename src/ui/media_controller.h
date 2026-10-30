@@ -32,13 +32,14 @@ public:
                     QObject* parent = nullptr);
 
     [[nodiscard]] MediaBinModel* model() { return &m_model; }
-    [[nodiscard]] bool importing() const { return m_importer.pendingCount() > 0; }
+    [[nodiscard]] bool importing() const { return m_folderScanActive || m_importer.pendingCount() > 0; }
     [[nodiscard]] int pendingImports() const { return m_importer.pendingCount(); }
     [[nodiscard]] QStringList nameFilters() const;
 
     /// Accepts file URLs or local paths. Folders are not expanded.
     Q_INVOKABLE void importFiles(const QVariantList& urls);
-    /// Recursively import up to 500 supported files from a selected folder.
+    /// Start scanning a folder on a worker thread, then probe up to 500 supported files.
+    /// Returns true if the scan was accepted; completion and failures are signalled later.
     Q_INVOKABLE bool importFolder(const QString& urlOrPath);
     /// Save a transparent PNG alongside the project and import it into the media bin.
     /// Returns the new asset id, or an empty string on failure.
@@ -68,6 +69,8 @@ private:
     std::shared_ptr<ThumbnailRegistry> m_registry;
     MediaBinModel m_model;
     media::MediaImporter m_importer;
+    int m_folderScanGeneration = 0;
+    bool m_folderScanActive = false;
 };
 
 } // namespace ft::ui

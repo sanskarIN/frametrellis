@@ -16,4 +16,9 @@ QJsonObject buildReport(const Project& project);
 /// media source, including symlink and normalized-path aliases.
 Status saveReport(const Project& project, const QString& path, const QString& projectFilePath = {});
 
+/// Atomically export the same inventory as formula-safe, RFC4180-style UTF-8 CSV.
+/// Never overwrite any source file, even through path aliases.
+Status saveCsvReport(const Project& project, const QString& path,
+                     const QString& projectFilePath = {});
+
 } // namespace ft::media_audit

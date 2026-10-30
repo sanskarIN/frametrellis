@@ -636,6 +636,15 @@ bool TimelineController::insertGapAtPlayhead(int durationFrames)
         edits::insertGap(m_playback->positionFrames(), static_cast<FrameCount>(durationFrames)));
 }
 
+bool TimelineController::removeEmptyTimeAtPlayhead(int durationFrames)
+{
+    if (durationFrames <= 0) {
+        return false;
+    }
+    return m_project->execute(edits::removeEmptyTime(
+        m_playback->positionFrames(), static_cast<FrameCount>(durationFrames)));
+}
+
 bool TimelineController::splitAtPlayhead()
 {
     const FrameCount frame = m_playback->positionFrames();

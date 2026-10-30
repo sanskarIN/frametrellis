@@ -107,6 +107,8 @@ public:
     Q_INVOKABLE bool splitAtPlayhead();
     /// Insert an undoable empty interval at a cut across video and audio tracks.
     Q_INVOKABLE bool insertGapAtPlayhead(int durationFrames);
+    /// Close a clip-free time range across tracks as a single undoable edit.
+    Q_INVOKABLE bool removeEmptyTimeAtPlayhead(int durationFrames);
     /// Duplicates a single selected clip, or a time-aligned block of several selected clips.
     Q_INVOKABLE bool duplicateSelection();
     /// Shift all selected clips by signed project frames without changing their source trims.

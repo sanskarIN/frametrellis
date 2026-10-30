@@ -275,6 +275,56 @@ std::unique_ptr<EditCommand> insertGap(FrameCount frame, FrameCount duration)
         });
 }
 
+std::unique_ptr<EditCommand> removeEmptyTime(FrameCount frame, FrameCount duration)
+{
+    return command(
+        QStringLiteral("Remove Empty Timeline Time"),
+        [frame, duration](Timeline& timeline, const SourceLookup& sources) -> Status {
+            if (frame < 0 || frame >= kMaxTimelineFrames || duration <= 0 ||
+                duration > kMaxTimelineFrames - frame) {
+                return makeError(ErrorCode::OutOfRange,
+                                 QStringLiteral("The selected time range is invalid."));
+            }
+
+            const FrameCount end = frame + duration;
+            std::vector<Track> tracks = timeline.tracks();
+            bool moved = false;
+            for (Track& track : tracks) {
+                bool affectsTrack = false;
+                for (const Clip& clip : track.clips) {
+                    if (clip.start < end && clip.end() > frame) {
+                        return makeError(
+                            ErrorCode::Conflict,
+                            QStringLiteral("Remove clips from the time range first."));
+                    }
+                    affectsTrack |= clip.start >= end;
+                }
+                if (!affectsTrack) {
+                    continue;
+                }
+                if (track.locked) {
+                    return makeError(ErrorCode::Conflict,
+                                     QStringLiteral("Unlock affected tracks first."));
+                }
+                for (Clip& clip : track.clips) {
+                    if (clip.start >= end) {
+                        clip.start -= duration;
+                        moved = true;
+                    }
+                }
+            }
+            if (!moved) {
+                return makeError(ErrorCode::InvalidArgument,
+                                 QStringLiteral("No clips follow the selected empty time."));
+            }
+
+            // The removed span is empty, so surviving media and adjacent
+            // transition relationships stay intact.
+            timeline.restoreTracks(std::move(tracks));
+            return timeline.validate(sources);
+        });
+}
+
 std::unique_ptr<EditCommand> removeClips(const QList<Id>& clipIds)
 {
     const QString text = clipIds.size() == 1

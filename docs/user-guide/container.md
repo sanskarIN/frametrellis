@@ -57,9 +57,9 @@ Use the ordinary export options for actual rendering.
 This feature is part of the next development milestone, not the published
 v1.3.1 stable binaries.
 
-## Inspecting a project (unreleased development builds)
+## Inspecting a project (v1.3.0 and later)
 
-Development builds after v1.2.2 also support a **read-only**, headless inspection command:
+FrameTrellis v1.3.0 and later support a **read-only**, headless inspection command:
 
 ```sh
 frametrellis-render --inspect-project --project /work/my-project.ftproj
@@ -92,8 +92,9 @@ use `missingMediaCount` to determine whether relinking may be needed. A malforme
 project returns a nonzero exit status and a structured `error` event. Do not combine
 `--inspect-project` with `--output`.
 
-This is **not** a feature of the existing v1.2.2 release or v1.0.0 container tags. It will
-become available in a future release after required checks and explicit publication.
+The read-only inspection command is included in the v1.3.x stable render helper,
+but not in older v1.2.2 or v1.0.0 binaries. Subtitle-specific fields belong
+to newer format-v6 development builds rather than the v1.3.x stable editor.
 
 ## Input and output safety
 

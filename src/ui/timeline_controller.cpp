@@ -24,6 +24,11 @@ namespace ft::ui {
 namespace {
 constexpr double kZoomStep = 1.4;
 constexpr int kStillSeconds = 5;
+
+bool validTimelineFrame(double frame)
+{
+    return std::isfinite(frame) && frame >= 0.0 && frame <= static_cast<double>(kMaxTimelineFrames);
+}
 } // namespace
 
 TimelineController::TimelineController(ProjectController* project, PlaybackController* playback,
@@ -452,6 +457,11 @@ bool TimelineController::appendAsset(const QString& assetId)
 
 bool TimelineController::dropAsset(const QString& assetId, const QString& trackId, double frame)
 {
+    // Negative drops are clamped to the beginning, but non-finite/huge values
+    // must not reach llround(), which has undefined behaviour out of range.
+    if (!std::isfinite(frame) || frame > static_cast<double>(kMaxTimelineFrames)) {
+        return false;
+    }
     const MediaAsset* asset = project().asset(assetId);
     const Track* track = project().timeline().track(trackId);
     if (!asset || !track) {
@@ -468,7 +478,7 @@ bool TimelineController::dropAsset(const QString& assetId, const QString& trackI
     Clip clip;
     clip.id = createId();
     clip.assetId = assetId;
-    clip.start = std::max<FrameCount>(0, static_cast<FrameCount>(std::llround(frame)));
+    clip.start = static_cast<FrameCount>(std::llround(std::max(0.0, frame)));
     clip.duration = placementLength(*asset).value_or(stillDuration());
     if (!m_project->execute(edits::addClip(trackId, clip))) {
         return false;
@@ -484,7 +494,8 @@ bool TimelineController::canPlace(const QString& trackId, double start, double d
                                   const QString& ignoreClipId) const
 {
     const Track* track = project().timeline().track(trackId);
-    if (!track || track->locked || start < 0) {
+    if (!track || track->locked || !validTimelineFrame(start) || !validTimelineFrame(duration) ||
+        duration <= 0.0) {
         return false;
     }
     if (const Clip* moving = project().timeline().clip(ignoreClipId)) {
@@ -505,6 +516,9 @@ bool TimelineController::canPlace(const QString& trackId, double start, double d
 double TimelineController::snapFrame(double frame, const QString& excludeClipId,
                                      double toleranceFrames) const
 {
+    if (!validTimelineFrame(frame)) {
+        return 0.0;
+    }
     const auto candidate = static_cast<FrameCount>(std::llround(frame));
     if (!m_snapping) {
         return static_cast<double>(candidate);
@@ -515,14 +529,21 @@ double TimelineController::snapFrame(double frame, const QString& excludeClipId,
     }
     points.push_back(m_playback->positionFrames());
     std::sort(points.begin(), points.end());
+    const double tolerance = validTimelineFrame(toleranceFrames) ? toleranceFrames : 0.0;
     const auto snapped =
-        snapToNearest(candidate, static_cast<FrameCount>(std::ceil(toleranceFrames)), points);
+        snapToNearest(candidate, static_cast<FrameCount>(std::ceil(tolerance)), points);
     return static_cast<double>(snapped.value_or(candidate));
 }
 
 double TimelineController::snapClipStart(double start, double duration,
                                          const QString& excludeClipId, double toleranceFrames) const
 {
+    if (!validTimelineFrame(start)) {
+        return 0.0;
+    }
+    if (!validTimelineFrame(duration)) {
+        return start;
+    }
     const auto candidate = static_cast<FrameCount>(std::llround(start));
     const auto length = static_cast<FrameCount>(std::llround(duration));
     if (!m_snapping) {
@@ -534,7 +555,8 @@ double TimelineController::snapClipStart(double start, double duration,
     }
     points.push_back(m_playback->positionFrames());
     std::sort(points.begin(), points.end());
-    const auto tolerance = static_cast<FrameCount>(std::ceil(toleranceFrames));
+    const double safeTolerance = validTimelineFrame(toleranceFrames) ? toleranceFrames : 0.0;
+    const auto tolerance = static_cast<FrameCount>(std::ceil(safeTolerance));
     const auto byStart = snapToNearest(candidate, tolerance, points);
     const auto byEnd = snapToNearest(candidate + length, tolerance, points);
     FrameCount result = candidate;
@@ -552,6 +574,9 @@ double TimelineController::snapClipStart(double start, double duration,
 
 bool TimelineController::moveClip(const QString& clipId, const QString& trackId, double start)
 {
+    if (!validTimelineFrame(start)) {
+        return false;
+    }
     return m_project->execute(
         edits::moveClip(clipId, trackId, static_cast<FrameCount>(std::llround(start))));
 }
@@ -586,12 +611,18 @@ bool TimelineController::alignSelectionToPlayhead(bool alignEnd)
 
 bool TimelineController::trimStart(const QString& clipId, double newStart)
 {
+    if (!validTimelineFrame(newStart)) {
+        return false;
+    }
     return m_project->execute(
         edits::trimClipStart(clipId, static_cast<FrameCount>(std::llround(newStart))));
 }
 
 bool TimelineController::trimEnd(const QString& clipId, double newEnd)
 {
+    if (!validTimelineFrame(newEnd)) {
+        return false;
+    }
     return m_project->execute(
         edits::trimClipEnd(clipId, static_cast<FrameCount>(std::llround(newEnd))));
 }
@@ -1483,7 +1514,7 @@ void TimelineController::selectTransition(const QString& transitionId)
 
 bool TimelineController::setTransitionDuration(const QString& transitionId, double frames)
 {
-    if (!std::isfinite(frames)) {
+    if (!validTimelineFrame(frames)) {
         return false;
     }
     return m_project->execute(

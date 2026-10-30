@@ -440,6 +440,37 @@ private slots:
         QCOMPARE(m_app->project()->project().timeline(), before.timeline());
     }
 
+    void invalidFloatingPointTimelinePositionsLeaveEditUnchanged()
+    {
+        auto* timeline = m_app->timeline();
+        const Timeline before = m_app->project()->project().timeline();
+        const QString undoBefore = m_app->project()->undoText();
+        const Clip clip = track(0).clips.front();
+        const Id trackId = track(0).id;
+        const double nan = std::numeric_limits<double>::quiet_NaN();
+        const double inf = std::numeric_limits<double>::infinity();
+
+        for (double invalid : {nan, inf, -inf, 1.0e100}) {
+            QVERIFY(!timeline->moveClip(clip.id, trackId, invalid));
+            QVERIFY(!timeline->trimStart(clip.id, invalid));
+            QVERIFY(!timeline->trimEnd(clip.id, invalid));
+            QVERIFY(!timeline->dropAsset(clip.assetId, trackId, invalid));
+            QVERIFY(!timeline->canPlace(trackId, invalid, 20.0, clip.id));
+            QCOMPARE(timeline->snapFrame(invalid, clip.id, 2.0), 0.0);
+            QCOMPARE(timeline->snapClipStart(invalid, 20.0, clip.id, 2.0), 0.0);
+        }
+
+        QVERIFY(!timeline->canPlace(trackId, 10.0, nan, clip.id));
+        QVERIFY(!timeline->canPlace(trackId, 10.0, inf, clip.id));
+        QVERIFY(!timeline->canPlace(trackId, 10.0, -inf, clip.id));
+        QVERIFY(!timeline->canPlace(trackId, 10.0, 0.0, clip.id));
+        QCOMPARE(timeline->snapClipStart(10.0, nan, clip.id, 2.0), 10.0);
+        QVERIFY(std::isfinite(timeline->snapFrame(10.0, clip.id, nan)));
+        QVERIFY(std::isfinite(timeline->snapClipStart(10.0, 20.0, clip.id, inf)));
+        QCOMPARE(m_app->project()->project().timeline(), before);
+        QCOMPARE(m_app->project()->undoText(), undoBefore);
+    }
+
     void reorderAdjacentTracksWithoutChangingClipData()
     {
         const Timeline original = m_app->project()->project().timeline();

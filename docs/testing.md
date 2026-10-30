@@ -18,11 +18,30 @@ ctest --preset linux -R engine  # tests whose name matches "engine"
 
 ## Test media
 
+Subtitle regressions cover exact SRT roundtrips, format-v6 persistence, undo/redo,
+atomic rejection, rational frame sampling, preview layout, encoded burn-in and
+real editor draft protection. See the [subtitle acceptance matrix](testing/subtitle-workflow.md).
+
 No media files are stored in the repository. `tests/support/media_fixtures.cpp` generates them
 with MLT at test time: MP4 files with one solid colour per second and a sine tone, WAV files and
 PNG stills. Because the colours and tones are known, tests assert on real pixel colours and
 audio levels (for example, that the clip trimmed to the "green second" really shows green, or
 that a muted clip is silent).
+
+## Concurrent MLT profile initialization
+
+The `tst_engine_threads` integration test opens media on multiple threads
+while video profiles are being prepared. MLT 7.22 may update process-global
+profile normalization settings during `Mlt::Profile` construction; concurrent
+initialization was observed to trigger an AddressSanitizer heap-use-after-free.
+The engine's `createProfile()` factory now serializes construction and
+initial configuration, while normal work on independently owned profiles
+continues on the worker threads.
+
+An additional stress test constructs many profiles in parallel under the
+existing sanitizers. This guards the known profile-construction path but
+does not establish that all third-party MLT services are thread-safe; any
+new direct `Mlt::Profile` constructions from workers should be reviewed.
 
 ## Headless runs
 
@@ -115,6 +134,22 @@ For manual diagnosis on a Windows test machine with the release files available:
 
 Keep the run's full log and screenshots when investigating a failure. A passing
 emulated runner does not replace testing on physical ARM64 machines.
+
+## Signed frame-range boundary regressions (v1.3.0 candidate)
+
+Timeline insertion now checks both source and sequence endpoints **before** adding
+signed frame counts. A clip must have a positive duration and its source and timeline
+ranges must end at or before `kMaxTimelineFrames`. The `isRangeFree` query also
+rejects negative starts, zero durations and endpoints beyond that limit before
+calculating the exclusive end frame.
+
+`tests/unit/tst_timeline.cpp` exercises the maximum signed `FrameCount`, values just
+past the allowed limit, the exact valid endpoint and unknown tracks. These checks
+combine the overlapping changes originally proposed in
+[#31](https://github.com/sanskarIN/frametrellis/pull/31) and
+[#32](https://github.com/sanskarIN/frametrellis/pull/32); they belong together so
+that the compiler and sanitizers validate the same final timeline model. These are
+**unreleased changes** until merged and verified on the integrated branch.
 
 ## What is not covered automatically
 

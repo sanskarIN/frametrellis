@@ -46,6 +46,7 @@ LABEL org.opencontainers.image.title="frametrellis-render" \
 RUN apt-get update \
     && apt-get install --yes --no-install-recommends \
         libmlt++7 libmlt-data libmlt7 libqt6concurrent6 libqt6core6t64 libqt6gui6 \
+        qt6-qpa-plugins fonts-dejavu-core fonts-noto-core \
     && rm -rf /var/lib/apt/lists/* \
     && mkdir -p /usr/lib/frametrellis/mlt-7 \
     && for module in core avformat plus normalize; do \

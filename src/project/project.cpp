@@ -33,15 +33,70 @@ Project Project::createNew(const QString& name, const ProjectSettings& settings)
     return project;
 }
 
+namespace {
+Status checkMarkers(const std::vector<TimelineMarker>& markers)
+{
+    if (markers.size() > static_cast<size_t>(kMaxTimelineMarkers)) {
+        return makeError(ErrorCode::OutOfRange,
+                         QStringLiteral("Too many sequence markers (maximum 1000)."));
+    }
+    QSet<Id> seen;
+    for (const TimelineMarker& marker : markers) {
+        if (!isValidId(marker.id) || seen.contains(marker.id)) {
+            return makeError(ErrorCode::InvalidArgument,
+                             QStringLiteral("A sequence marker has an invalid or duplicate id."));
+        }
+        if (marker.frame < 0 || marker.frame > kMaxTimelineFrames) {
+            return makeError(ErrorCode::OutOfRange,
+                             QStringLiteral("A sequence marker is outside timeline limits."));
+        }
+        if (marker.label.trimmed().isEmpty() || marker.label.size() > kMaxMarkerLabelLength) {
+            return makeError(ErrorCode::InvalidArgument,
+                             QStringLiteral("Marker names must contain 1 to 120 characters."));
+        }
+        seen.insert(marker.id);
+    }
+    return {};
+}
+} // namespace
+
+Status Project::setMarkers(std::vector<TimelineMarker> markers)
+{
+    if (const Status checked = checkMarkers(markers); !checked) {
+        return checked;
+    }
+    std::sort(markers.begin(), markers.end(), [](const TimelineMarker& a, const TimelineMarker& b) {
+        return a.frame == b.frame ? a.id < b.id : a.frame < b.frame;
+    });
+    m_markers = std::move(markers);
+    return {};
+}
+
+Status Project::setSubtitles(SubtitleTrack subtitles)
+{
+    if (subtitles.cues.size() > static_cast<size_t>(kMaxSubtitleCues)) {
+        return validateSubtitles(subtitles);
+    }
+    std::sort(subtitles.cues.begin(), subtitles.cues.end(),
+              [](const SubtitleCue& a, const SubtitleCue& b) { return a.startMs < b.startMs; });
+    if (const Status checked = validateSubtitles(subtitles); !checked) {
+        return checked;
+    }
+    m_subtitles = std::move(subtitles);
+    return {};
+}
+
 Status Project::setSettings(const ProjectSettings& settings)
 {
     if (const Status valid = settings.validate(); !valid) {
         return valid;
     }
-    if (settings.frameRate != m_settings.frameRate && m_timeline.clipCount() > 0) {
+    if (settings.frameRate != m_settings.frameRate &&
+        (m_timeline.clipCount() > 0 || !m_markers.empty())) {
         return makeError(
             ErrorCode::Conflict,
-            QStringLiteral("The frame rate can only be changed while the timeline is empty."));
+            QStringLiteral(
+                "The frame rate can only be changed while clips and markers are absent."));
     }
     m_settings = settings;
     return {};
@@ -81,6 +136,10 @@ Status Project::addAsset(MediaAsset newAsset, int index)
     if (newAsset.filePath.isEmpty()) {
         return makeError(ErrorCode::InvalidArgument, QStringLiteral("The media has no file path."));
     }
+    if (assetByPath(newAsset.filePath)) {
+        return makeError(ErrorCode::Conflict,
+                         QStringLiteral("This file is already present in the media bin."));
+    }
     if (static_cast<int>(m_media.size()) >= kMaxMediaAssets) {
         return makeError(ErrorCode::OutOfRange,
                          QStringLiteral("The project has too many media files."));
@@ -113,6 +172,16 @@ Status Project::replaceAsset(const MediaAsset& updated)
     const int index = assetIndex(updated.id);
     if (index < 0) {
         return makeError(ErrorCode::NotFound, QStringLiteral("The media was not found."));
+    }
+    if (updated.filePath.isEmpty()) {
+        return makeError(ErrorCode::InvalidArgument, QStringLiteral("The media has no file path."));
+    }
+    const QString key = canonicalMediaKey(updated.filePath);
+    for (const MediaAsset& asset : m_media) {
+        if (asset.id != updated.id && canonicalMediaKey(asset.filePath) == key) {
+            return makeError(ErrorCode::Conflict,
+                             QStringLiteral("Another media entry already uses that file."));
+        }
     }
     m_media[static_cast<size_t>(index)] = updated;
     return {};
@@ -168,13 +237,26 @@ Status Project::validate() const
         return makeError(ErrorCode::InvalidDocument, settingsValid.error().message);
     }
     QSet<Id> ids;
+    QSet<QString> paths;
     for (const MediaAsset& a : m_media) {
         if (!isValidId(a.id) || ids.contains(a.id) || a.filePath.isEmpty()) {
             return makeError(
                 ErrorCode::InvalidDocument,
                 QStringLiteral("A media entry has a missing or duplicate id or path."));
         }
+        const QString key = canonicalMediaKey(a.filePath);
+        if (paths.contains(key)) {
+            return makeError(ErrorCode::InvalidDocument,
+                             QStringLiteral("Multiple media entries point to the same file."));
+        }
         ids.insert(a.id);
+        paths.insert(key);
+    }
+    if (const Status checked = checkMarkers(m_markers); !checked) {
+        return makeError(ErrorCode::InvalidDocument, checked.error().message);
+    }
+    if (const Status checked = validateSubtitles(m_subtitles); !checked) {
+        return makeError(ErrorCode::InvalidDocument, checked.error().message);
     }
     return m_timeline.validate(sourceLookup());
 }

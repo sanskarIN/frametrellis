@@ -29,6 +29,11 @@ Rectangle {
     required property string thumbnail
     required property string waveform
     required property real gain
+    required property var audioEnvelope
+    required property int transformPointCount
+    required property var opacityEnvelope
+    required property real viewportLeft
+    required property real viewportWidth
 
     readonly property real ppf: app.timeline.pixelsPerFrame
     readonly property real snapTolerance: 8 / Math.max(ppf, 0.0001)
@@ -96,6 +101,37 @@ Rectangle {
         opacity: clip.muted ? 0.35 : 0.8
     }
 
+    // White diamonds are volume points; accent squares are opacity points.
+    AutomationEnvelope {
+        objectName: "audioEnvelope:" + clip.clipId
+        points: clip.audioEnvelope
+        clipOffset: clip.x
+        clipWidth: clip.width
+        pixelsPerFrame: clip.ppf
+        viewportLeft: clip.viewportLeft
+        viewportWidth: clip.viewportWidth
+        lineColor: Theme.clipText
+        valueField: "decibels"
+        minimum: -60
+        maximum: 12
+        highlighted: clip.selected
+        height: clip.height
+    }
+    AutomationEnvelope {
+        objectName: "opacityEnvelope:" + clip.clipId
+        points: clip.opacityEnvelope
+        clipOffset: clip.x
+        clipWidth: clip.width
+        pixelsPerFrame: clip.ppf
+        viewportLeft: clip.viewportLeft
+        viewportWidth: clip.viewportWidth
+        lineColor: Theme.accent
+        valueField: "opacity"
+        diamonds: false
+        highlighted: clip.selected
+        height: clip.height
+    }
+
     // Fade ramps
     Canvas {
         anchors.fill: parent
@@ -138,10 +174,31 @@ Rectangle {
                 color: Theme.clipText
                 font.pixelSize: Theme.fontSizeSmall
                 elide: Text.ElideRight
-                width: Math.max(0, clip.width - 30)
+                width: Math.max(0, clip.width - 30 - (clip.transformPointCount > 0 ? 50 : 0))
                 anchors.verticalCenter: parent.verticalCenter
             }
         }
+    }
+
+    Rectangle {
+        objectName: "transformBadge:" + clip.clipId
+        visible: clip.transformPointCount > 0 && clip.width > 85
+        anchors.right: parent.right
+        anchors.top: parent.top
+        anchors.margins: 3
+        width: transformLabel.implicitWidth + 8
+        height: 14
+        radius: 3
+        color: Theme.panel
+        Text {
+            id: transformLabel
+            anchors.centerIn: parent
+            text: "T · " + clip.transformPointCount
+            color: Theme.accent
+            font.pixelSize: Theme.fontSizeSmall - 1
+        }
+        Accessible.role: Accessible.StaticText
+        Accessible.name: qsTr("%1 transform keyframes").arg(clip.transformPointCount)
     }
 
     // ---- Interaction ----

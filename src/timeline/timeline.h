@@ -82,9 +82,32 @@ public:
     Status trimClipStart(const Id& clipId, FrameCount newStart, const SourceLookup& sources);
     /// Moves the clip's right edge (exclusive end frame).
     Status trimClipEnd(const Id& clipId, FrameCount newEnd, const SourceLookup& sources);
+    /// Changes source in/out without moving either timeline edge or changing duration.
+    /// Rejects still images, unavailable source handles and invalidated transitions.
+    Status slipClip(const Id& clipId, FrameCount newSourceIn, const SourceLookup& sources);
+    /// Rolls the cut after fromClipId by signed frames. Two adjacent time-based clips
+    /// exchange duration at their shared cut without moving the surrounding timeline edges.
+    /// Rejects unsafe source handles, fades, transitions, locked tracks or invalid neighbours.
+    Status rollCut(const Id& fromClipId, FrameCount delta, const SourceLookup& sources);
     /// Splits a clip at a timeline frame strictly inside it. Returns the id of the right part.
     Result<Id> splitClip(const Id& clipId, FrameCount frame, const Id& newClipId = {});
     Status setClipProperties(const Id& clipId, const ClipProperties& properties);
+    /// Add/update a volume point at an audible source frame inside the clip's current trim.
+    Status setAudioKeyframe(const Id& clipId, FrameCount sourceFrame, double decibels,
+                            const SourceLookup& sources);
+    Status removeAudioKeyframe(const Id& clipId, FrameCount sourceFrame);
+    Status clearAudioKeyframes(const Id& clipId);
+    /// Edit a source-anchored opacity point on an unlocked video track (including stills).
+    Status setOpacityKeyframe(const Id& clipId, FrameCount sourceFrame, double opacity,
+                              const SourceLookup& sources);
+    Status removeOpacityKeyframe(const Id& clipId, FrameCount sourceFrame);
+    Status clearOpacityKeyframes(const Id& clipId);
+    Status setTransformKeyframe(const Id& clipId, FrameCount sourceFrame,
+                                const VideoTransform& value, const SourceLookup& sources);
+    Status removeTransformKeyframe(const Id& clipId, FrameCount sourceFrame);
+    Status clearTransformKeyframes(const Id& clipId);
+    /// Reset scalar picture adjustments, opacity and transforms, preserving audio and fades.
+    Status resetClipPicture(const Id& clipId);
 
     // Transition operations
     /// Adds a transition at the cut between the clip and the clip that starts where it ends.

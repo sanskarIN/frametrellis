@@ -5,6 +5,7 @@
 #include "core/logging.h"
 #include "engine/mlt_runtime.h"
 #include "engine/still_producer.h"
+#include "engine/subtitle_producer.h"
 
 #include <QFile>
 #include <QFileInfo>
@@ -69,6 +70,131 @@ void attachAudioFilters(Mlt::Profile& profile, Mlt::Producer& cut, const Clip& c
         volume.set("level", points.join(QLatin1Char(';')).toUtf8().constData());
     }
     cut.attach(volume);
+}
+
+/// A second gain stage keeps automation independent of the clip's overall volume and fades.
+/// Filter animation positions are relative to filter-in, including transition source handles.
+Status attachAudioKeyframes(Mlt::Profile& profile, Mlt::Producer& cut, const Clip& clip)
+{
+    if (clip.audioKeyframes.empty()) {
+        return {};
+    }
+    if (!MltRuntime::capabilities().volumeFilter) {
+        return makeError(ErrorCode::Engine,
+                         QStringLiteral("Volume keyframes need the audio volume filter."));
+    }
+    Mlt::Filter volume(profile, "volume");
+    if (!volume.is_valid()) {
+        return makeError(ErrorCode::Engine,
+                         QStringLiteral("Could not prepare the volume keyframe filter."));
+    }
+    volume.set_in_and_out(cut.get_in(), cut.get_out());
+    const FrameCount first = cut.get_in();
+    const FrameCount last = cut.get_out();
+    QStringList points;
+    points << keyframes({{0, audioKeyframeDecibels(clip.audioKeyframes, first)}});
+    for (const AudioKeyframe& point : clip.audioKeyframes) {
+        if (point.sourceFrame > first && point.sourceFrame < last) {
+            points << keyframes({{point.sourceFrame - first, point.decibels}});
+        }
+    }
+    if (last > first) {
+        points << keyframes({{last - first, audioKeyframeDecibels(clip.audioKeyframes, last)}});
+    }
+    volume.set("level", points.join(QLatin1Char(';')).toUtf8().constData());
+    cut.attach(volume);
+    return {};
+}
+
+/// Multiply source alpha after scalar opacity/fades; never replace the image's own alpha.
+Status attachOpacityKeyframes(Mlt::Profile& profile, Mlt::Producer& cut, const Clip& clip)
+{
+    if (clip.opacityKeyframes.empty()) {
+        return {};
+    }
+    if (!MltRuntime::capabilities().brightnessFilter) {
+        return makeError(ErrorCode::Engine,
+                         QStringLiteral("Opacity keyframes need the video alpha filter."));
+    }
+    Mlt::Filter alpha(profile, "brightness");
+    if (!alpha.is_valid()) {
+        return makeError(ErrorCode::Engine,
+                         QStringLiteral("Could not prepare the opacity keyframe filter."));
+    }
+    alpha.set_in_and_out(cut.get_in(), cut.get_out());
+    alpha.set("level", 1.0);
+    const FrameCount first = cut.get_in();
+    const FrameCount last = cut.get_out();
+    QStringList points;
+    points << keyframes({{0, opacityKeyframeValue(clip.opacityKeyframes, first)}});
+    for (const OpacityKeyframe& point : clip.opacityKeyframes) {
+        if (point.sourceFrame > first && point.sourceFrame < last) {
+            points << keyframes({{point.sourceFrame - first, point.opacity}});
+        }
+    }
+    if (last > first) {
+        points << keyframes({{last - first, opacityKeyframeValue(clip.opacityKeyframes, last)}});
+    }
+    alpha.set("alpha", points.join(QLatin1Char(';')).toUtf8().constData());
+    cut.attach(alpha);
+    return {};
+}
+
+/// One absolute geometry stage, using the actual cut's source clock including dissolve handles.
+Status attachTransformKeyframes(Mlt::Profile& profile, Mlt::Producer& cut, const Clip& clip)
+{
+    if (clip.transformKeyframes.empty()) {
+        return {};
+    }
+    if (!MltRuntime::capabilities().transformFilter) {
+        return makeError(ErrorCode::Engine,
+                         QStringLiteral("Transform keyframes need the video affine filter."));
+    }
+    Mlt::Filter transform(profile, "affine");
+    if (!transform.is_valid()) {
+        return makeError(ErrorCode::Engine,
+                         QStringLiteral("Could not prepare the transform keyframe filter."));
+    }
+    transform.set_in_and_out(cut.get_in(), cut.get_out());
+    transform.set("background", "color:0x00000000");
+    transform.set("transition.distort", 0);
+    transform.set("transition.fill", 1);
+    transform.set("transition.halign", "center");
+    transform.set("transition.valign", "middle");
+    transform.set("transition.b_alpha", 1);
+    transform.set("transition.repeat_off", 1);
+    const FrameCount first = cut.get_in();
+    const FrameCount last = cut.get_out();
+    QStringList rectangles;
+    QStringList rotations;
+    const auto append = [&](FrameCount sourceFrame) {
+        const VideoTransform value = transformKeyframeValue(clip.transformKeyframes, sourceFrame);
+        const double width = profile.width();
+        const double height = profile.height();
+        // Pixel coordinates use the graph profile; MLT rescales them for smaller previews.
+        rectangles << QStringLiteral("%1=%2 %3 %4 %5 1")
+                          .arg(sourceFrame - first)
+                          .arg((value.x + (1.0 - value.scale) / 2.0) * width, 0, 'g', 15)
+                          .arg((value.y + (1.0 - value.scale) / 2.0) * height, 0, 'g', 15)
+                          .arg(value.scale * width, 0, 'g', 15)
+                          .arg(value.scale * height, 0, 'g', 15);
+        rotations
+            << QStringLiteral("%1=%2").arg(sourceFrame - first).arg(value.rotation, 0, 'g', 15);
+    };
+    append(first);
+    for (const TransformKeyframe& point : clip.transformKeyframes) {
+        if (point.sourceFrame > first && point.sourceFrame < last) {
+            append(point.sourceFrame);
+        }
+    }
+    if (last > first) {
+        append(last);
+    }
+    transform.set("transition.rect", rectangles.join(QLatin1Char(';')).toUtf8().constData());
+    // MLT affine names its in-plane (XY) rotation fix_rotate_x, including in 7.22.
+    transform.set("transition.fix_rotate_x", rotations.join(QLatin1Char(';')).toUtf8().constData());
+    cut.attach(transform);
+    return {};
 }
 
 /// Applies video fades, opacity and picture adjustments (see attachAudioFilters for @p offset).
@@ -304,8 +430,20 @@ Result<GraphBuildResult> TimelineGraphBuilder::build(const Project& project,
                 }
                 cut->set("ft.clip", clip.id.toUtf8().constData());
                 attachAudioFilters(m_profile, *cut, clip, before);
+                if (const Status automation = attachAudioKeyframes(m_profile, *cut, clip);
+                    !automation) {
+                    return automation.error();
+                }
                 if (track.kind == TrackKind::Video) {
                     attachVideoFilters(m_profile, *cut, clip, before);
+                    if (const Status opacity = attachOpacityKeyframes(m_profile, *cut, clip);
+                        !opacity) {
+                        return opacity.error();
+                    }
+                    if (const Status transform = attachTransformKeyframes(m_profile, *cut, clip);
+                        !transform) {
+                        return transform.error();
+                    }
                 }
                 if (before > 0 || after > 0) {
                     // Mixing cuts the clip again from its source; wrapping it keeps the clip's
@@ -373,6 +511,31 @@ Result<GraphBuildResult> TimelineGraphBuilder::build(const Project& project,
             field->plant_transition(composite, 0, mltTrack);
         }
         ++mltTrack;
+    }
+
+    if (timeline.duration() > 0 && project.subtitles().burnIn &&
+        !project.subtitles().cues.empty()) {
+        auto captions =
+            createSubtitleProducer(m_profile, project.subtitles(),
+                                   QSize(project.settings().width, project.settings().height),
+                                   project.settings().frameRate, total);
+        if (!captions || !captions->is_valid()) {
+            return makeError(
+                ErrorCode::Engine,
+                QStringLiteral(
+                    "Could not prepare subtitle fonts. Use the standard GUI-capable renderer."));
+        }
+        tractor->set_track(*captions, mltTrack);
+        Mlt::Transition composite(m_profile, caps.compositor.toUtf8().constData());
+        if (!composite.is_valid()) {
+            return makeError(ErrorCode::Engine,
+                             QStringLiteral("Could not prepare subtitle compositing."));
+        }
+        composite.set("always_active", 1);
+        composite.set("fill", 1);
+        composite.set("distort", 0);
+        composite.set("rect", "0 0 100% 100% 1");
+        field->plant_transition(composite, 0, mltTrack);
     }
 
     // Drop cached producers for clips that no longer exist.

@@ -40,6 +40,7 @@ AppController::AppController(const Status& engineStatus, const QString& renderHe
     m_media = std::make_unique<MediaController>(m_project.get(), m_thumbnails);
     m_playback = std::make_unique<PlaybackController>(m_project.get());
     m_timeline = std::make_unique<TimelineController>(m_project.get(), m_playback.get());
+    m_subtitles = std::make_unique<SubtitleController>(m_project.get(), m_playback.get());
     m_exporter = std::make_unique<ExportController>(m_project.get(), renderHelper);
 
     m_statusTimer.setSingleShot(true);
@@ -51,6 +52,8 @@ AppController::AppController(const Status& engineStatus, const QString& renderHe
     connect(m_project.get(), &ProjectController::statusMessage, this, &AppController::showStatus);
     connect(m_media.get(), &MediaController::statusMessage, this, &AppController::showStatus);
     connect(m_timeline.get(), &TimelineController::statusMessage, this, &AppController::showStatus);
+    connect(m_subtitles.get(), &SubtitleController::statusMessage, this,
+            &AppController::showStatus);
     connect(m_project.get(), &ProjectController::errorOccurred, this,
             &AppController::errorOccurred);
     connect(m_media.get(), &MediaController::importProblems, this, &AppController::errorOccurred);
@@ -67,6 +70,7 @@ AppController::~AppController()
 {
     m_waveforms->shutdown(); // background waveform work stops early
     m_exporter.reset();
+    m_subtitles.reset();
     m_timeline.reset();
     m_playback.reset();
     m_media.reset();

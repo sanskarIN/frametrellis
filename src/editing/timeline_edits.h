@@ -21,6 +21,8 @@ std::unique_ptr<EditCommand> renameTrack(const Id& trackId, const QString& name)
 std::unique_ptr<EditCommand> setTrackMuted(const Id& trackId, bool muted);
 std::unique_ptr<EditCommand> setTrackHidden(const Id& trackId, bool hidden);
 std::unique_ptr<EditCommand> setTrackLocked(const Id& trackId, bool locked);
+/// Lock or unlock the entire sequence in one undo step without changing visibility or mute.
+std::unique_ptr<EditCommand> setAllTracksLocked(bool locked);
 
 /// Places a new clip; fails if the range is occupied.
 std::unique_ptr<EditCommand> addClip(const Id& trackId, const Clip& clip);
@@ -41,6 +43,13 @@ std::unique_ptr<EditCommand> moveClip(const Id& clipId, const Id& targetTrackId,
 std::unique_ptr<EditCommand> nudgeClips(const QList<Id>& clipIds, FrameCount delta);
 std::unique_ptr<EditCommand> trimClipStart(const Id& clipId, FrameCount newStart);
 std::unique_ptr<EditCommand> trimClipEnd(const Id& clipId, FrameCount newEnd);
+/// Slip selected time-based clips through their source without moving their timeline edges.
+/// All clips must fit, keep required transition handles and be on unlocked tracks.
+/// The command is atomic and undoable, even for multi-track selections.
+std::unique_ptr<EditCommand> slipClips(const QList<Id>& clipIds, FrameCount delta);
+/// Rolls the shared cut after the outgoing clip. Source trims, fades and existing
+/// transitions are validated atomically; the edit is one undo/redo step.
+std::unique_ptr<EditCommand> rollCut(const Id& fromClipId, FrameCount delta);
 /// Splits every given clip that spans the frame. Fails when none does.
 std::unique_ptr<EditCommand> splitClips(const QList<Id>& clipIds, FrameCount frame);
 /// Updates clip properties; consecutive updates of the same clip merge into one undo step.
@@ -52,8 +61,23 @@ std::unique_ptr<EditCommand> pasteClipProperties(const QList<Id>& clipIds,
                                                  const ClipProperties& properties);
 /// Toggle audio muting for all selected clips without altering their other adjustments.
 std::unique_ptr<EditCommand> muteClips(const QList<Id>& clipIds, bool muted);
-/// Reset picture adjustments across selected clips without changing sound or fades.
+/// Reset picture adjustments and opacity curves without changing sound or fades.
 std::unique_ptr<EditCommand> resetClipPictures(const QList<Id>& clipIds);
+std::unique_ptr<EditCommand> resetClipPicture(const Id& clipId);
+
+/// Source-anchored audio automation. Changes at the same point merge until breakMerge().
+std::unique_ptr<EditCommand> setAudioKeyframe(const Id& clipId, FrameCount sourceFrame,
+                                              double decibels);
+std::unique_ptr<EditCommand> removeAudioKeyframe(const Id& clipId, FrameCount sourceFrame);
+std::unique_ptr<EditCommand> clearAudioKeyframes(const Id& clipId);
+std::unique_ptr<EditCommand> setOpacityKeyframe(const Id& clipId, FrameCount sourceFrame,
+                                                double opacity);
+std::unique_ptr<EditCommand> removeOpacityKeyframe(const Id& clipId, FrameCount sourceFrame);
+std::unique_ptr<EditCommand> clearOpacityKeyframes(const Id& clipId);
+std::unique_ptr<EditCommand> setTransformKeyframe(const Id& clipId, FrameCount sourceFrame,
+                                                  const VideoTransform& value);
+std::unique_ptr<EditCommand> removeTransformKeyframe(const Id& clipId, FrameCount sourceFrame);
+std::unique_ptr<EditCommand> clearTransformKeyframes(const Id& clipId);
 
 /// Adds a transition at the cut after the clip. The id lets callers select the new transition.
 std::unique_ptr<EditCommand> addTransition(const Id& fromClipId, FrameCount duration,

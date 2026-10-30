@@ -8,6 +8,7 @@
 #include "core/version.h"
 #include "engine/mlt_runtime.h"
 #include "project/project_serializer.h"
+#include "rendering/export_settings.h"
 #include "rendering/render_protocol.h"
 #include "rendering/render_runner.h"
 #include "rendering/self_test.h"
@@ -15,11 +16,16 @@
 #include <QCommandLineParser>
 #include <QCoreApplication>
 #include <QFileInfo>
+#include <QGuiApplication>
+#include <QJsonArray>
+#include <QJsonDocument>
+#include <QJsonObject>
+#include <QSet>
 
 #include <atomic>
 #include <csignal>
 #include <cstdio>
-#include <string>
+#include <string_view>
 #include <thread>
 
 #ifdef Q_OS_WIN
@@ -82,7 +88,7 @@ void watchStdin()
     // the render. Raw OS reads are used instead of std::cin: a thread blocked inside stdio holds
     // the stream lock, which would deadlock the flush that runs when the process exits.
     std::thread([] {
-        std::string pending;
+        protocol::CancelCommandReader commands;
         char buffer[256];
         while (true) {
 #ifdef Q_OS_WIN
@@ -101,12 +107,8 @@ void watchStdin()
                 break;
             }
 #endif
-            pending.append(buffer, static_cast<size_t>(count));
-            if (pending.find("cancel") != std::string::npos) {
+            if (commands.ingest(std::string_view(buffer, static_cast<size_t>(count)))) {
                 break;
-            }
-            if (pending.size() > 4096) {
-                pending.erase(0, pending.size() - 16);
             }
         }
         g_cancel = true;
@@ -117,7 +119,14 @@ void watchStdin()
 
 int main(int argc, char** argv)
 {
-    QCoreApplication app(argc, argv);
+    // Font shaping needs Qt Gui. Use the native Windows font backend to match
+    // the editor; elsewhere offscreen keeps the helper usable without a display.
+#ifndef Q_OS_WIN
+    if (qEnvironmentVariableIsEmpty("QT_QPA_PLATFORM")) {
+        qputenv("QT_QPA_PLATFORM", "offscreen");
+    }
+#endif
+    QGuiApplication app(argc, argv);
     QCoreApplication::setApplicationName(QStringLiteral("frametrellis-render"));
     QCoreApplication::setApplicationVersion(QLatin1String(version::string));
 
@@ -131,6 +140,9 @@ int main(int argc, char** argv)
                                            QStringLiteral("file"));
     const QCommandLineOption outputOption(
         QStringLiteral("output"), QStringLiteral("Output .mp4 file."), QStringLiteral("file"));
+    const QCommandLineOption inspectProjectOption(
+        QStringLiteral("inspect-project"),
+        QStringLiteral("Print a JSON project summary and media availability without rendering."));
     const QCommandLineOption shortSideOption(
         QStringLiteral("short-side"),
         QStringLiteral("Scale so the shorter side has this many pixels (0 = project size)."),
@@ -152,6 +164,9 @@ int main(int argc, char** argv)
     const QCommandLineOption watchStdinOption(
         QStringLiteral("watch-stdin"),
         QStringLiteral("Cancel when stdin receives \"cancel\" or is closed."));
+    const QCommandLineOption listPresetsOption(
+        QStringLiteral("list-presets"),
+        QStringLiteral("Print available export profiles as a JSON object and exit."));
     const QCommandLineOption selfTestOption(
         QStringLiteral("self-test"),
         QStringLiteral("Check the installation: generate sample media in <directory>, edit and "
@@ -159,11 +174,95 @@ int main(int argc, char** argv)
         QStringLiteral("directory"));
     parser.addOptions({projectOption, outputOption, shortSideOption, crfOption, presetOption,
                        audioOption, noAudioOption, noUpscaleOption, watchStdinOption,
-                       selfTestOption});
+                       selfTestOption, inspectProjectOption, listPresetsOption});
     parser.process(app);
+
+    if (parser.isSet(listPresetsOption)) {
+        // Discovery only: no project load, source decoding, output file or MLT startup.
+        QJsonArray profiles;
+        for (const ExportPreset& preset : exportPresets()) {
+            profiles.append(
+                QJsonObject{{QStringLiteral("id"), preset.id},
+                            {QStringLiteral("name"), preset.name},
+                            {QStringLiteral("description"), preset.description},
+                            {QStringLiteral("shortSide"), preset.shortSide},
+                            {QStringLiteral("crf"), preset.crf},
+                            {QStringLiteral("speedPreset"), preset.speedPreset},
+                            {QStringLiteral("audioBitrateKbps"), preset.audioBitrateKbps},
+                            {QStringLiteral("avoidUpscaling"), preset.avoidUpscaling}});
+        }
+        const QByteArray json = QJsonDocument(QJsonObject{{QStringLiteral("presets"), profiles}})
+                                    .toJson(QJsonDocument::Indented);
+        std::fwrite(json.constData(), 1, static_cast<size_t>(json.size()), stdout);
+        std::fflush(stdout);
+        return protocol::Success;
+    }
 
     if (parser.isSet(selfTestOption)) {
         return runSelfTestCommand(QFileInfo(parser.value(selfTestOption)).absoluteFilePath());
+    }
+
+    if (parser.isSet(inspectProjectOption)) {
+        if (!parser.isSet(projectOption) || parser.isSet(outputOption)) {
+            emitError(makeError(
+                ErrorCode::InvalidArgument,
+                QStringLiteral("--inspect-project requires --project and cannot use --output.")));
+            return protocol::BadArguments;
+        }
+        const Result<Project> inspected = project_format::loadFromFile(parser.value(projectOption));
+        if (!inspected) {
+            emitError(inspected.error());
+            return protocol::Failure;
+        }
+        int videoTracks = 0;
+        int audioTracks = 0;
+        QSet<Id> referencedIds;
+        for (const Track& track : inspected->timeline().tracks()) {
+            if (track.kind == TrackKind::Video) {
+                ++videoTracks;
+            } else {
+                ++audioTracks;
+            }
+            for (const Clip& clip : track.clips) {
+                referencedIds.insert(clip.assetId);
+            }
+        }
+        int missingMedia = 0;
+        int missingUsedMedia = 0;
+        int unusedMedia = 0;
+        for (const MediaAsset& asset : inspected->media()) {
+            const QFileInfo file(asset.filePath);
+            const bool missing = !file.exists() || !file.isFile();
+            const bool used = referencedIds.contains(asset.id);
+            if (missing) {
+                ++missingMedia;
+                if (used) {
+                    ++missingUsedMedia;
+                }
+            }
+            if (!used) {
+                ++unusedMedia;
+            }
+        }
+        // Metadata only: no MLT runtime, media decoding, destination files or project edits.
+        // Local source paths are deliberately excluded from the machine-readable summary.
+        emitEvent({{QStringLiteral("event"), QStringLiteral("project_inspection")},
+                   {QStringLiteral("name"), inspected->name()},
+                   {QStringLiteral("trackCount"), inspected->timeline().trackCount()},
+                   {QStringLiteral("videoTrackCount"), videoTracks},
+                   {QStringLiteral("audioTrackCount"), audioTracks},
+                   {QStringLiteral("clipCount"), inspected->timeline().clipCount()},
+                   {QStringLiteral("mediaCount"), static_cast<int>(inspected->media().size())},
+                   {QStringLiteral("subtitleCueCount"),
+                    static_cast<int>(inspected->subtitles().cues.size())},
+                   {QStringLiteral("subtitleBurnIn"), inspected->subtitles().burnIn},
+                   {QStringLiteral("usedMediaCount"), static_cast<int>(referencedIds.size())},
+                   {QStringLiteral("unusedMediaCount"), unusedMedia},
+                   {QStringLiteral("missingMediaCount"), missingMedia},
+                   {QStringLiteral("missingUsedMediaCount"), missingUsedMedia},
+                   {QStringLiteral("durationFrames"),
+                    static_cast<double>(inspected->timeline().duration())}});
+        return protocol::Success;
     }
 
     if (!parser.isSet(projectOption) || !parser.isSet(outputOption)) {
@@ -207,7 +306,8 @@ int main(int argc, char** argv)
 
     Status result;
     {
-        RenderRunner runner(std::move(project).value(), settings);
+        RenderRunner runner(std::move(project).value(), settings,
+                            QFileInfo(projectPath).absoluteFilePath());
         result = runner.run(
             g_cancel,
             [](const QString& encoder, FrameCount total) {

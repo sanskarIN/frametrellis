@@ -32,18 +32,28 @@ public:
                     QObject* parent = nullptr);
 
     [[nodiscard]] MediaBinModel* model() { return &m_model; }
-    [[nodiscard]] bool importing() const { return m_importer.pendingCount() > 0; }
+    [[nodiscard]] bool importing() const
+    {
+        return m_folderScanActive || m_importer.pendingCount() > 0;
+    }
     [[nodiscard]] int pendingImports() const { return m_importer.pendingCount(); }
     [[nodiscard]] QStringList nameFilters() const;
 
     /// Accepts file URLs or local paths. Folders are not expanded.
     Q_INVOKABLE void importFiles(const QVariantList& urls);
+    /// Start scanning a folder on a worker thread, then probe up to 500 supported files.
+    /// Returns true if the scan was accepted; completion and failures are signalled later.
+    Q_INVOKABLE bool importFolder(const QString& urlOrPath);
     /// Save a transparent PNG alongside the project and import it into the media bin.
     /// Returns the new asset id, or an empty string on failure.
     Q_INVOKABLE QString createTitle(const QString& text, int fontPixels, const QString& color);
     Q_INVOKABLE void remove(const QString& assetId);
+    /// Remove unreferenced media from the bin without deleting files on disk.
+    Q_INVOKABLE bool removeUnused();
     Q_INVOKABLE bool relink(const QString& assetId, const QString& urlOrPath);
     Q_INVOKABLE void rescan();
+    /// Save a read-only media inventory JSON without modifying project or source files.
+    Q_INVOKABLE bool exportMediaAudit(const QString& urlOrPath);
     /// Opens the folder that contains the asset's file in the system file manager.
     Q_INVOKABLE void revealInFolder(const QString& assetId) const;
 
@@ -62,6 +72,8 @@ private:
     std::shared_ptr<ThumbnailRegistry> m_registry;
     MediaBinModel m_model;
     media::MediaImporter m_importer;
+    int m_folderScanGeneration = 0;
+    bool m_folderScanActive = false;
 };
 
 } // namespace ft::ui

@@ -7,10 +7,15 @@
 | Shift+Left / Shift+Right | Back / forward one second |
 | Up / Down | Previous / next edit point |
 | Home / End | Go to start / end |
+| Ctrl+G | Jump to a SMPTE timecode within the sequence |
+| Shift+M | Add a named timeline marker |
+| Ctrl+PageUp / Ctrl+PageDown | Jump to previous / next timeline marker |
 | S | Split at playhead |
 | Ctrl+D | Duplicate one clip at the end of its track, or a multi-clip selection after the timeline while preserving relative spacing |
 | Alt+Left / Alt+Right | Move selected clips one frame left / right; rejects overlap or locked tracks |
 | Alt+Shift+Left / Alt+Shift+Right | Move selected clips ten frames left / right as one undoable operation |
+| Ctrl+Alt+Left / Ctrl+Alt+Right | Slip selected video/audio clips one source frame earlier / later without moving their timeline positions |
+| Ctrl+Alt+Shift+Left / Ctrl+Alt+Shift+Right | Slip selected clips ten source frames earlier / later in one undo step |
 | Ctrl+Alt+C | Copy volume, fades, mute and picture adjustments from one selected clip |
 | Ctrl+Alt+V | Paste copied clip attributes to selected clips in one undoable action |
 | Ctrl+Alt+M | Mute audio on the selected clips |
@@ -19,15 +24,23 @@
 | Delete | Delete selected clips or the selected transition |
 | Shift+Delete | Ripple delete |
 | Ctrl+A | Select all clips |
+| Ctrl+Shift+J | Select clips overlapping playhead on all tracks (v1.4 development) |
+| Ctrl+Alt+R | Select all timeline uses of the single selected media source (v1.4 development) |
 | N | Toggle snapping |
 | + / − | Zoom timeline in / out |
+| Ctrl+Shift+0 | Fit all selected clips in the timeline (v1.4 development) |
+| Ctrl+Shift+L | Center timeline viewport on playhead without seeking (v1.4 development) |
 | Ctrl+mouse wheel | Zoom around the pointer |
 | Shift+mouse wheel | Scroll the timeline horizontally |
 | Ctrl+Z / Ctrl+Shift+Z | Undo / redo |
 | Ctrl+N / Ctrl+O | New / open project |
 | Ctrl+S / Ctrl+Shift+S | Save / save as |
 | Ctrl+I | Import media |
+| Ctrl+Alt+S | Open the subtitle editor (development source) |
+| Ctrl+Return | Apply the current subtitle draft while its editor is open |
 | Ctrl+E | Export |
 | F1 | Show keyboard shortcuts |
 
 Single-key shortcuts are disabled while a dialog is open. On macOS, Ctrl is Cmd.
+Within the subtitle text field, undo/redo edits the text draft. The editor's
+**Undo** and **Redo** buttons operate on project history and protect unapplied drafts.

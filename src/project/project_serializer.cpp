@@ -40,7 +40,7 @@ QJsonObject mediaInfoToJson(const MediaInfo& info)
     o[QLatin1String("audioCodec")] = info.audioCodec;
     o[QLatin1String("fileSize")] = static_cast<double>(info.fileSize);
     if (info.lastModified.isValid()) {
-        o[QLatin1String("lastModified")] = info.lastModified.toUTC().toString(Qt::ISODate);
+        o[QLatin1String("lastModified")] = info.lastModified.toUTC().toString(Qt::ISODateWithMs);
     }
     return o;
 }
@@ -62,6 +62,36 @@ QJsonObject clipToJson(const Clip& c)
     o[QLatin1String("contrast")] = p.video.contrast;
     o[QLatin1String("saturation")] = p.video.saturation;
     o[QLatin1String("opacity")] = p.video.opacity;
+    if (!c.audioKeyframes.empty()) {
+        QJsonArray points;
+        for (const AudioKeyframe& point : c.audioKeyframes) {
+            points.append(
+                QJsonObject{{QStringLiteral("sourceFrame"), static_cast<double>(point.sourceFrame)},
+                            {QStringLiteral("decibels"), point.decibels}});
+        }
+        o[QLatin1String("audioKeyframes")] = points;
+    }
+    if (!c.opacityKeyframes.empty()) {
+        QJsonArray points;
+        for (const OpacityKeyframe& point : c.opacityKeyframes) {
+            points.append(
+                QJsonObject{{QStringLiteral("sourceFrame"), static_cast<double>(point.sourceFrame)},
+                            {QStringLiteral("opacity"), point.opacity}});
+        }
+        o[QLatin1String("opacityKeyframes")] = points;
+    }
+    if (!c.transformKeyframes.empty()) {
+        QJsonArray points;
+        for (const TransformKeyframe& point : c.transformKeyframes) {
+            points.append(
+                QJsonObject{{QStringLiteral("sourceFrame"), static_cast<double>(point.sourceFrame)},
+                            {QStringLiteral("x"), point.value.x},
+                            {QStringLiteral("y"), point.value.y},
+                            {QStringLiteral("scale"), point.value.scale},
+                            {QStringLiteral("rotation"), point.value.rotation}});
+        }
+        o[QLatin1String("transformKeyframes")] = points;
+    }
     return o;
 }
 
@@ -321,10 +351,52 @@ QJsonObject toJson(const Project& project, const QString& projectDir)
     body[QLatin1String("settings")] = settings;
     body[QLatin1String("media")] = media;
     body[QLatin1String("tracks")] = tracks;
+    QJsonArray markers;
+    for (const TimelineMarker& marker : project.markers()) {
+        QJsonObject o;
+        o[QLatin1String("id")] = marker.id;
+        o[QLatin1String("frame")] = static_cast<double>(marker.frame);
+        o[QLatin1String("label")] = marker.label;
+        markers.append(o);
+    }
+    if (!markers.isEmpty()) {
+        body[QLatin1String("markers")] = markers;
+    }
+
+    if (project.subtitles() != SubtitleTrack{}) {
+        const SubtitleTrack& track = project.subtitles();
+        QJsonArray cues;
+        for (const SubtitleCue& cue : track.cues) {
+            cues.append(QJsonObject{{QStringLiteral("id"), cue.id},
+                                    {QStringLiteral("startMs"), static_cast<double>(cue.startMs)},
+                                    {QStringLiteral("endMs"), static_cast<double>(cue.endMs)},
+                                    {QStringLiteral("text"), cue.text}});
+        }
+        body[QStringLiteral("subtitles")] =
+            QJsonObject{{QStringLiteral("burnIn"), track.burnIn},
+                        {QStringLiteral("fontPercent"), track.fontPercent},
+                        {QStringLiteral("background"), track.background},
+                        {QStringLiteral("cues"), cues}};
+    }
 
     QJsonObject root;
     root[QLatin1String("format")] = QLatin1String(kFormatName);
-    root[QLatin1String("version")] = kCurrentVersion;
+    // Choose the oldest development format that can preserve every envelope. Older readers
+    // must reject unsupported automation instead of silently discarding it.
+    bool hasAudioKeyframes = false;
+    bool hasOpacityKeyframes = false;
+    bool hasTransformKeyframes = false;
+    for (const Track& track : project.timeline().tracks()) {
+        for (const Clip& clip : track.clips) {
+            hasAudioKeyframes = hasAudioKeyframes || !clip.audioKeyframes.empty();
+            hasOpacityKeyframes = hasOpacityKeyframes || !clip.opacityKeyframes.empty();
+            hasTransformKeyframes = hasTransformKeyframes || !clip.transformKeyframes.empty();
+        }
+    }
+    root[QLatin1String("version")] =
+        project.subtitles() != SubtitleTrack{}
+            ? 6
+            : (hasTransformKeyframes ? 5 : (hasOpacityKeyframes ? 4 : (hasAudioKeyframes ? 3 : 2)));
     root[QLatin1String("generator")] = QStringLiteral("%1 %2").arg(
         QLatin1String(version::applicationName), QLatin1String(version::string));
     root[QLatin1String("project")] = body;
@@ -458,6 +530,73 @@ Result<Project> fromJson(const QJsonObject& document, const QString& projectDir)
             p.video.contrast = cr.number(co, "contrast", 0.0, 2.0, 1.0);
             p.video.saturation = cr.number(co, "saturation", 0.0, 3.0, 1.0);
             p.video.opacity = cr.number(co, "opacity", 0.0, 1.0, 1.0);
+            const QJsonArray points = cr.array(co, "audioKeyframes", kMaxAudioKeyframes);
+            if (!points.isEmpty() && versionNumber < 3) {
+                cr.fail(QStringLiteral("audioKeyframes"),
+                        QStringLiteral("volume automation requires project format v3"));
+            }
+            for (qsizetype k = 0; k < points.size() && !cr.failed(); ++k) {
+                Reader kr(cr.path() + QStringLiteral(".audioKeyframes[%1]").arg(k));
+                if (!points.at(k).isObject()) {
+                    kr.fail(QStringLiteral("keyframe"), QStringLiteral("expected an object"));
+                }
+                const QJsonObject point = points.at(k).toObject();
+                AudioKeyframe key;
+                key.sourceFrame = kr.integer(point, "sourceFrame", 0, kMaxTimelineFrames);
+                if (!point.contains(QLatin1String("decibels"))) {
+                    kr.fail(QStringLiteral("decibels"), QStringLiteral("required number"));
+                }
+                key.decibels =
+                    kr.number(point, "decibels", kMinAudioKeyframeDb, kMaxAudioKeyframeDb, 0.0);
+                cr.adopt(kr);
+                clip.audioKeyframes.push_back(key);
+            }
+            const QJsonArray opacityPoints = cr.array(co, "opacityKeyframes", kMaxOpacityKeyframes);
+            if (!opacityPoints.isEmpty() && versionNumber < 4) {
+                cr.fail(QStringLiteral("opacityKeyframes"),
+                        QStringLiteral("opacity automation requires project format v4"));
+            }
+            for (qsizetype k = 0; k < opacityPoints.size() && !cr.failed(); ++k) {
+                Reader kr(cr.path() + QStringLiteral(".opacityKeyframes[%1]").arg(k));
+                if (!opacityPoints.at(k).isObject()) {
+                    kr.fail(QStringLiteral("keyframe"), QStringLiteral("expected an object"));
+                }
+                const QJsonObject point = opacityPoints.at(k).toObject();
+                OpacityKeyframe key;
+                key.sourceFrame = kr.integer(point, "sourceFrame", 0, kMaxTimelineFrames);
+                if (!point.contains(QLatin1String("opacity"))) {
+                    kr.fail(QStringLiteral("opacity"), QStringLiteral("required number"));
+                }
+                key.opacity = kr.number(point, "opacity", 0.0, 1.0, 1.0);
+                cr.adopt(kr);
+                clip.opacityKeyframes.push_back(key);
+            }
+            const QJsonArray transformPoints =
+                cr.array(co, "transformKeyframes", kMaxTransformKeyframes);
+            if (!transformPoints.isEmpty() && versionNumber < 5) {
+                cr.fail(QStringLiteral("transformKeyframes"),
+                        QStringLiteral("transform automation requires project format v5"));
+            }
+            for (qsizetype k = 0; k < transformPoints.size() && !cr.failed(); ++k) {
+                Reader kr(cr.path() + QStringLiteral(".transformKeyframes[%1]").arg(k));
+                if (!transformPoints.at(k).isObject()) {
+                    kr.fail(QStringLiteral("keyframe"), QStringLiteral("expected an object"));
+                }
+                const QJsonObject point = transformPoints.at(k).toObject();
+                for (const char* field : {"x", "y", "scale", "rotation"}) {
+                    if (!point.contains(QLatin1String(field))) {
+                        kr.fail(QLatin1String(field), QStringLiteral("required number"));
+                    }
+                }
+                TransformKeyframe key;
+                key.sourceFrame = kr.integer(point, "sourceFrame", 0, kMaxTimelineFrames);
+                key.value.x = kr.number(point, "x", -4.0, 4.0, 0.0);
+                key.value.y = kr.number(point, "y", -4.0, 4.0, 0.0);
+                key.value.scale = kr.number(point, "scale", 0.01, 10.0, 1.0);
+                key.value.rotation = kr.number(point, "rotation", -3600.0, 3600.0, 0.0);
+                cr.adopt(kr);
+                clip.transformKeyframes.push_back(key);
+            }
             tr.adopt(cr);
             track.clips.push_back(std::move(clip));
         }
@@ -482,6 +621,75 @@ Result<Project> fromJson(const QJsonObject& document, const QString& projectDir)
         return r.error();
     }
     project.timeline().restoreTracks(std::move(tracks));
+    // Optional field: legacy v1 projects have no markers. v2 preserves and validates them.
+    const QJsonArray markerArray = r.array(body, "markers", kMaxTimelineMarkers);
+    std::vector<TimelineMarker> markers;
+    for (qsizetype i = 0; i < markerArray.size() && !r.failed(); ++i) {
+        Reader mr(QStringLiteral("$.project.markers[%1]").arg(i));
+        if (!markerArray.at(i).isObject()) {
+            mr.fail(QStringLiteral("marker"), QStringLiteral("expected an object"));
+        }
+        const QJsonObject o = markerArray.at(i).toObject();
+        TimelineMarker marker;
+        marker.id = mr.id(o, "id");
+        marker.frame = mr.integer(o, "frame", 0, kMaxTimelineFrames);
+        marker.label = mr.string(o, "label", true, kMaxMarkerLabelLength);
+        if (marker.label.trimmed().isEmpty() && !mr.failed()) {
+            mr.fail(QStringLiteral("label"), QStringLiteral("must not be blank"));
+        }
+        r.adopt(mr);
+        markers.push_back(std::move(marker));
+    }
+    if (!r.failed()) {
+        if (const Status checked = project.setMarkers(std::move(markers)); !checked) {
+            r.fail(QStringLiteral("markers"), checked.error().message);
+        }
+    }
+    if (r.failed()) {
+        return r.error();
+    }
+
+    if (body.contains(QStringLiteral("subtitles"))) {
+        Reader sr(QStringLiteral("$.project.subtitles"));
+        if (versionNumber < 6) {
+            sr.fail(QStringLiteral("version"),
+                    QStringLiteral("subtitles require project format v6"));
+        }
+        const QJsonObject object = sr.object(body, "subtitles");
+        for (const char* field : {"burnIn", "fontPercent", "background", "cues"}) {
+            if (!object.contains(QLatin1String(field))) {
+                sr.fail(QLatin1String(field), QStringLiteral("required field"));
+            }
+        }
+        SubtitleTrack track;
+        track.burnIn = sr.boolean(object, "burnIn", true);
+        track.fontPercent = static_cast<int>(sr.integer(object, "fontPercent", 2, 10));
+        track.background = sr.boolean(object, "background", true);
+        const QJsonArray cues = sr.array(object, "cues", kMaxSubtitleCues);
+        for (qsizetype i = 0; i < cues.size() && !sr.failed(); ++i) {
+            Reader cr(QStringLiteral("$.project.subtitles.cues[%1]").arg(i));
+            if (!cues.at(i).isObject()) {
+                cr.fail(QStringLiteral("cue"), QStringLiteral("expected an object"));
+            }
+            const QJsonObject cue = cues.at(i).toObject();
+            SubtitleCue value;
+            value.id = cr.id(cue, "id");
+            value.startMs = cr.integer(cue, "startMs", 0, kMaxSubtitleTimeMs);
+            value.endMs = cr.integer(cue, "endMs", 1, kMaxSubtitleTimeMs);
+            value.text = cr.string(cue, "text", true, kMaxSubtitleTextLength);
+            sr.adopt(cr);
+            track.cues.push_back(std::move(value));
+        }
+        if (!sr.failed()) {
+            if (const Status checked = project.setSubtitles(std::move(track)); !checked) {
+                sr.fail(QStringLiteral("cues"), checked.error().message);
+            }
+        }
+        r.adopt(sr);
+    }
+    if (r.failed()) {
+        return r.error();
+    }
 
     if (const Status valid = project.validate(); !valid) {
         Error error = valid.error();
@@ -522,6 +730,16 @@ Result<Project> fromBytes(const QByteArray& data, const QString& projectDir)
 Status saveToFile(const Project& project, const QString& filePath)
 {
     const QFileInfo info(filePath);
+    // Never overwrite a media source with a project document, even when the chosen
+    // target reaches it through a symbolic link or a different spelling of its path.
+    const QString targetKey = canonicalMediaKey(info.absoluteFilePath());
+    for (const MediaAsset& asset : project.media()) {
+        if (canonicalMediaKey(asset.filePath) == targetKey) {
+            return makeError(ErrorCode::Conflict,
+                             QStringLiteral("The project file would overwrite source media."),
+                             asset.filePath);
+        }
+    }
     const QString directory = info.absolutePath();
     QSaveFile file(info.absoluteFilePath());
     if (!file.open(QIODevice::WriteOnly)) {

@@ -87,6 +87,55 @@ private slots:
         QVERIFY(!waitForFrameAt(frames, 70).isNull());
     }
 
+    void aQueuedFrameCannotUndoANewerSeekOrProjectEdit()
+    {
+        playback::PlaybackEngine engine;
+        QSignalSpy frames(&engine, &playback::PlaybackEngine::frameReady);
+        engine.setAudioEnabled(false);
+        engine.setMaximumPreviewSize(QSize(160, 90));
+        Project p = project();
+        const Id clipId = p.timeline().tracks()[0].clips[0].id;
+        QVERIFY(p.timeline().trimClipEnd(clipId, 50, p.sourceLookup()));
+        engine.setProject(p);
+        QVERIFY(!waitForFrameAt(frames, 0).isNull());
+        // Leave a rendered frame queued for delivery without dispatching GUI events.
+        const auto queueFrame = [&](FrameCount target) {
+            const qint64 before = engine.renderedFrameCount();
+            engine.seek(target);
+            QElapsedTimer timer;
+            timer.start();
+            while (engine.renderedFrameCount() == before && timer.elapsed() < 3000) {
+                QThread::msleep(1);
+            }
+            QThread::msleep(10);
+            return engine.renderedFrameCount() > before;
+        };
+        QVERIFY(queueFrame(10));
+        frames.clear();
+        engine.seek(40);
+        QCoreApplication::sendPostedEvents(&engine, QEvent::MetaCall);
+        const QImage green = waitForFrameAt(frames, 40);
+        QVERIFY(!green.isNull());
+        QVERIFY(isCloseTo(averageColor(green), Qt::green));
+        for (const QList<QVariant>& args : std::as_const(frames)) {
+            QCOMPARE(args.at(1).value<FrameCount>(), FrameCount{40});
+        }
+        QCOMPARE(engine.position(), FrameCount{40});
+        QVERIFY(queueFrame(15));
+        const Clip original = p.timeline().tracks()[0].clips[0];
+        // Change source time at the same timeline position: the old red image is stale.
+        QVERIFY(p.timeline().slipClip(original.id, 25, p.sourceLookup()));
+        frames.clear();
+        engine.setProject(p);
+        QCoreApplication::sendPostedEvents(&engine, QEvent::MetaCall);
+        const QImage updated = waitForFrameAt(frames, 15);
+        QVERIFY(!updated.isNull());
+        QVERIFY(isCloseTo(averageColor(updated), Qt::green));
+        for (const QList<QVariant>& args : std::as_const(frames)) {
+            QVERIFY(isCloseTo(averageColor(args.at(0).value<QImage>()), Qt::green));
+        }
+    }
+
     void previewSizeIsBounded()
     {
         playback::PlaybackEngine engine;
@@ -137,6 +186,32 @@ private slots:
         QTest::qWait(400);
         QCOMPARE(engine.position(), stoppedAt);
         QVERIFY(stoppedAt > 0 && stoppedAt < 75);
+    }
+
+    void pauseKeepsThePublishedPositionWithAFrameInFlight()
+    {
+        playback::PlaybackEngine engine;
+        QSignalSpy frames(&engine, &playback::PlaybackEngine::frameReady);
+        engine.setAudioEnabled(false);
+        engine.setMaximumPreviewSize(QSize(160, 90));
+        engine.setProject(project());
+        engine.seek(10);
+        QVERIFY(!waitForFrameAt(frames, 10).isNull());
+        const qint64 before = engine.renderedFrameCount();
+        engine.play();
+        // Do not dispatch GUI events. The first playing frame publishes immediately;
+        // the next renders ahead and waits for its wall-clock deadline.
+        QElapsedTimer timer;
+        timer.start();
+        while (engine.renderedFrameCount() < before + 2 && timer.elapsed() < 3000)
+            QThread::msleep(1);
+        QVERIFY(engine.renderedFrameCount() >= before + 2);
+        const FrameCount published = engine.position();
+        engine.pause();
+        QVERIFY(QTest::qWaitFor([&] { return !engine.isPlaying(); }, 2000));
+        QTest::qWait(100);
+        QCOMPARE(engine.position(), published);
+        QVERIFY(!waitForFrameAt(frames, published).isNull());
     }
 
     void projectUpdatesDuringPlayback()

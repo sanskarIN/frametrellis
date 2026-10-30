@@ -15,9 +15,15 @@ PanelFrame {
     property int trackHeight: 60
     readonly property int headerWidth: 176
     readonly property int rulerHeight: 28
+    readonly property int subtitleHeight: app.subtitles.count > 0 ? 30 : 0
     readonly property alias lanesItem: lanesContent
+    readonly property real viewportLeft: lanes.contentX
+    readonly property real viewportWidth: lanes.width
 
     title: qsTr("Timeline")
+    signal markerAddRequested(real frame)
+    signal markerEditRequested(string markerId, real frame, string label)
+    signal editSubtitlesRequested()
 
     function trackAtY(y) {
         const row = Math.floor(y / trackHeight)
@@ -45,12 +51,32 @@ PanelFrame {
         timeline.pixelsPerFrame = ppf * factor
         lanes.contentX = Math.max(0, frame * timeline.pixelsPerFrame - anchorX)
     }
+    function centerOnPlayhead() {
+        if (lanes.width <= 0)
+            return
+        const target = panel.app.playback.position * panel.ppf - lanes.width * 0.5
+        lanes.contentX = Math.max(0, Math.min(lanes.contentWidth - lanes.width, target))
+    }
+    function zoomToSelection() {
+        const range = timeline.selectedFrameRange()
+        if (range.start === undefined || range.end === undefined || lanes.width <= 0)
+            return
+
+        // Keep trim handles in view, including selections spanning multiple tracks.
+        const span = Math.max(1, range.end - range.start)
+        const margin = Math.min(64, Math.max(24, lanes.width * 0.06))
+        timeline.pixelsPerFrame = Math.max(1, lanes.width - 2 * margin) / span
+        const centerX = (range.start + range.end) * 0.5 * panel.ppf
+        lanes.contentX = Math.max(0, Math.min(lanes.contentWidth - lanes.width,
+                                             centerX - lanes.width * 0.5))
+    }
 
     tools: [
         IconButton { iconName: "track-video"; text: qsTr("+ Video"); tip: qsTr("Add a video track"); onClicked: panel.timeline.addTrack("video") },
         IconButton { iconName: "audio"; text: qsTr("+ Audio"); tip: qsTr("Add an audio track"); onClicked: panel.timeline.addTrack("audio") },
         Rectangle { width: 1; height: 20; color: Theme.border; anchors.verticalCenter: parent ? parent.verticalCenter : undefined },
         IconButton { iconName: "split"; tip: qsTr("Split at playhead (S)"); enabled: !panel.timeline.empty; onClicked: panel.timeline.splitAtPlayhead() },
+        FtButton { text: qsTr("+ Marker"); onClicked: panel.markerAddRequested(panel.app.playback.position) },
         IconButton { iconName: "duplicate"; tip: qsTr("Duplicate selected clip to end of track (Ctrl+D)"); enabled: panel.timeline.selection.length === 1; onClicked: panel.timeline.duplicateSelection() },
         IconButton { iconName: "trash"; tip: qsTr("Delete selected clips (Delete)"); enabled: panel.timeline.selection.length > 0; onClicked: panel.timeline.deleteSelection(false) },
         IconButton { iconName: "ripple"; tip: qsTr("Ripple delete: remove and close the gap (Shift+Delete)"); enabled: panel.timeline.selection.length === 1; onClicked: panel.timeline.deleteSelection(true) },
@@ -68,7 +94,8 @@ PanelFrame {
             Accessible.name: qsTr("Timeline zoom")
         },
         IconButton { iconName: "zoom-in"; tip: qsTr("Zoom in (+)"); onClicked: panel.zoomAround(1.4, lanes.width / 2) },
-        IconButton { iconName: "zoom-fit"; tip: qsTr("Fit the whole sequence"); onClicked: { panel.timeline.zoomToFit(lanes.width); lanes.contentX = 0 } }
+        IconButton { iconName: "zoom-fit"; tip: qsTr("Fit the whole sequence"); onClicked: { panel.timeline.zoomToFit(lanes.width); lanes.contentX = 0 } },
+        IconButton { iconName: "zoom-in"; tip: qsTr("Fit selected clips (Ctrl+Shift+0)"); enabled: panel.timeline.selection.length > 0; onClicked: panel.zoomToSelection() }
     ]
 
     Item {
@@ -102,6 +129,7 @@ PanelFrame {
                 contentX: lanes.contentX
                 pixelsPerFrame: panel.ppf
                 onScrubbed: frame => panel.app.playback.seek(frame)
+                onEditMarker: (id, frame, label) => panel.markerEditRequested(id, frame, label)
             }
             Rectangle { // playhead marker in the ruler
                 x: panel.app.playback.position * panel.ppf - lanes.contentX - 6
@@ -114,11 +142,76 @@ PanelFrame {
             }
         }
 
-        // Track headers follow the vertical scroll of the lanes.
-        Item {
+        // Subtitle spans share the frame scale but stay separate from clip/source edits.
+        Rectangle {
             y: panel.rulerHeight
             width: panel.headerWidth
-            height: parent.height - panel.rulerHeight
+            height: panel.subtitleHeight
+            visible: height > 0
+            color: Theme.panelAlt
+            border.color: Theme.border
+            Text {
+                anchors.fill: parent
+                anchors.leftMargin: Theme.spacingM
+                verticalAlignment: Text.AlignVCenter
+                text: (panel.app.subtitles.burnIn ? qsTr("Subtitles · %1") : qsTr("Sidecar · %1")).arg(panel.app.subtitles.count)
+                color: Theme.textMuted
+                font.pixelSize: Theme.fontSizeSmall
+            }
+            MouseArea { anchors.fill: parent; cursorShape: Qt.PointingHandCursor; onClicked: panel.editSubtitlesRequested() }
+        }
+        Rectangle {
+            id: subtitleLane
+            objectName: "subtitleLane"
+            x: panel.headerWidth
+            y: panel.rulerHeight
+            width: lanes.width
+            height: panel.subtitleHeight
+            visible: height > 0
+            clip: true
+            color: Theme.panelAlt
+            Repeater {
+                model: {
+                    const revision = panel.app.subtitles.revision
+                    return panel.app.subtitles.visibleCues(Math.max(0, lanes.contentX / panel.ppf),
+                                                          Math.min(1000000000, (lanes.contentX + subtitleLane.width) / panel.ppf))
+                }
+                delegate: Rectangle {
+                    id: cueBar
+                    required property var modelData
+                    objectName: "subtitleSpan:" + modelData.id
+                    x: Math.max(modelData.first * panel.ppf, lanes.contentX) - lanes.contentX
+                    y: 4
+                    width: Math.max(1, Math.min(modelData.end * panel.ppf, lanes.contentX + subtitleLane.width) - Math.max(modelData.first * panel.ppf, lanes.contentX))
+                    height: 22
+                    radius: 3
+                    color: modelData.selected ? Theme.accent : Theme.raised
+                    opacity: panel.app.subtitles.burnIn ? 1 : 0.6
+                    Text {
+                        anchors.fill: parent
+                        anchors.margins: 4
+                        text: cueBar.modelData.text.replace(/\n/g, " · ")
+                        textFormat: Text.PlainText
+                        color: cueBar.modelData.selected ? Theme.accentText : Theme.text
+                        font.pixelSize: Theme.fontSizeSmall
+                        verticalAlignment: Text.AlignVCenter
+                        elide: Text.ElideRight
+                    }
+                    MouseArea {
+                        anchors.fill: parent
+                        cursorShape: Qt.PointingHandCursor
+                        onClicked: panel.app.subtitles.selectCue(cueBar.modelData.id)
+                        onDoubleClicked: panel.editSubtitlesRequested()
+                    }
+                }
+            }
+        }
+
+        // Track headers follow the vertical scroll of the lanes.
+        Item {
+            y: panel.rulerHeight + panel.subtitleHeight
+            width: panel.headerWidth
+            height: parent.height - y
             clip: true
             Column {
                 y: -lanes.contentY
@@ -138,9 +231,9 @@ PanelFrame {
             id: lanes
             objectName: "timelineLanes"
             x: panel.headerWidth
-            y: panel.rulerHeight
+            y: panel.rulerHeight + panel.subtitleHeight
             width: parent.width - panel.headerWidth
-            height: parent.height - panel.rulerHeight
+            height: parent.height - y
             clip: true
             interactive: false
             boundsBehavior: Flickable.StopAtBounds
@@ -207,6 +300,8 @@ PanelFrame {
                                     height: panel.trackHeight - 7
                                     app: panel.app
                                     timelinePanel: panel
+                                    viewportLeft: panel.viewportLeft
+                                    viewportWidth: panel.viewportWidth
                                     trackId: lane.trackId
                                     trackLocked: lane.locked
                                     opacity: (lane.hidden || lane.muted) ? 0.55 : (lane.locked ? 0.6 : 1)

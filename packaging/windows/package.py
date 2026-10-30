@@ -386,6 +386,13 @@ class Packager:
         bin_dir = self.prefix / "bin"
         qt_plugins = self.qt_path("QT_INSTALL_PLUGINS")
         qt_qml = self.qt_path("QT_INSTALL_QML")
+        # The renderer can use Qt's offscreen platform for headless caption text.
+        # Keep this explicit even when a windeployqt version only deploys qwindows.
+        offscreen = qt_plugins / "platforms" / "qoffscreen.dll"
+        if not offscreen.is_file():
+            fail("Qt's offscreen platform plugin is required for subtitle rendering")
+        self.copy(offscreen, plugin_dir / "platforms" / offscreen.name)
+
         for path in sorted(self.stage.rglob("*")):
             if not path.is_file() or path.name in APP_EXECUTABLES:
                 continue

@@ -17,8 +17,10 @@ ApplicationWindow {
     // Single-key editing shortcuts are disabled while a dialog is open, so that keys such as
     // Space, Delete or the arrows act on the dialog instead of the timeline.
     readonly property bool dialogOpen: newDialog.visible || titleDialog.visible || exportDialog.visible || aboutDialog.visible
-                                       || shortcutsDialog.visible || welcome.visible || messageBox.visible
+                                       || shortcutsDialog.visible || goToTimecodeDialog.visible || markerDialog.visible || welcome.visible || messageBox.visible
                                        || unsavedDialog.visible || exportRunningDialog.visible || recoveryDialog.visible
+                                       || subtitleDialog.visible || subtitleImportDialog.visible || subtitleExportDialog.visible
+                                       || previewFrameDialog.visible || clipListDialog.visible
     readonly property bool editKeys: !dialogOpen
 
     width: Math.min(1440, Screen.desktopAvailableWidth - 40)
@@ -53,6 +55,12 @@ ApplicationWindow {
 
     // ---------- Unsaved-changes guard ----------
     function guarded(action, verb) {
+        if (subtitleDialog.visible && subtitleDialog.dirty) {
+            subtitleDialog.guarded(() => window.guarded(action, verb))
+            return
+        }
+        if (subtitleDialog.visible)
+            subtitleDialog.close()
         if (!app.project.modified) {
             action()
             return
@@ -68,6 +76,8 @@ ApplicationWindow {
             action()
     }
     function save(thenRun) {
+        if (subtitleDialog.visible && !subtitleDialog.applyIfDirty())
+            return
         if (app.project.hasFilePath) {
             if (app.project.save() && thenRun)
                 runPending()
@@ -131,18 +141,45 @@ ApplicationWindow {
             }
             MenuSeparator {}
             Action { text: qsTr("&Save"); shortcut: StandardKey.Save; onTriggered: window.save(false) }
-            Action { text: qsTr("Save &As…"); shortcut: "Ctrl+Shift+S"; onTriggered: { saveDialog.runAfterSave = false; saveDialog.open() } }
+            Action { text: qsTr("Save &As…"); shortcut: "Ctrl+Shift+S"; onTriggered: { if (subtitleDialog.visible && !subtitleDialog.applyIfDirty()) return; saveDialog.runAfterSave = false; saveDialog.open() } }
             MenuSeparator {}
             Action { text: qsTr("&Import Media…"); shortcut: "Ctrl+I"; onTriggered: importDialog.open() }
+            Action {
+                text: qsTr("Export Media Audit (JSON)…")
+                enabled: window.app.media.model.count > 0
+                onTriggered: mediaAuditDialog.open()
+            }
+            Action {
+                text: qsTr("Import Media &Folder…")
+                enabled: !window.app.media.importing
+                onTriggered: importFolderDialog.open()
+            }
+            Action {
+                text: qsTr("Remove Unused Media from Project")
+                enabled: window.app.media.model.count > 0 && !window.app.media.importing
+                onTriggered: window.app.media.removeUnused()
+            }
             Action { text: qsTr("Create &Title…"); onTriggered: titleDialog.open() }
+            Action {
+                text: qsTr("Save Preview &Frame as PNG…")
+                enabled: window.app.playback.hasFrame
+                onTriggered: previewFrameDialog.open()
+            }
+            Action { text: qsTr("&Subtitles…"); shortcut: "Ctrl+Alt+S"; enabled: window.editKeys; onTriggered: subtitleDialog.open() }
+            Action { text: qsTr("Copy Picture EDL (CMX3600)"); enabled: window.editKeys && !window.app.timeline.empty; onTriggered: window.app.timeline.copyPictureAsEdl() }
             Action { text: qsTr("&Export…"); shortcut: "Ctrl+E"; enabled: !window.app.timeline.empty || window.app.exporter.busy; onTriggered: exportDialog.open() }
+            Action {
+                text: qsTr("Export Clip List (CSV)…")
+                enabled: !window.app.timeline.empty
+                onTriggered: clipListDialog.open()
+            }
             MenuSeparator {}
             Action { text: qsTr("&Quit"); shortcut: StandardKey.Quit; onTriggered: window.close() }
         }
         Menu {
             title: qsTr("&Edit")
-            Action { text: window.app.project.canUndo ? qsTr("&Undo %1").arg(window.app.project.undoText) : qsTr("&Undo"); shortcut: StandardKey.Undo; enabled: window.app.project.canUndo; onTriggered: window.app.project.undo() }
-            Action { text: window.app.project.canRedo ? qsTr("&Redo %1").arg(window.app.project.redoText) : qsTr("&Redo"); shortcut: "Ctrl+Shift+Z"; enabled: window.app.project.canRedo; onTriggered: window.app.project.redo() }
+            Action { text: window.app.project.canUndo ? qsTr("&Undo %1").arg(window.app.project.undoText) : qsTr("&Undo"); shortcut: StandardKey.Undo; enabled: window.editKeys && window.app.project.canUndo; onTriggered: window.app.project.undo() }
+            Action { text: window.app.project.canRedo ? qsTr("&Redo %1").arg(window.app.project.redoText) : qsTr("&Redo"); shortcut: "Ctrl+Shift+Z"; enabled: window.editKeys && window.app.project.canRedo; onTriggered: window.app.project.redo() }
             MenuSeparator {}
             Action { text: qsTr("&Split at Playhead"); shortcut: "S"; enabled: window.editKeys; onTriggered: window.app.timeline.splitAtPlayhead() }
             Action { text: qsTr("D&uplicate Selected Clips"); shortcut: "Ctrl+D"; enabled: window.editKeys && window.app.timeline.selection.length > 0; onTriggered: window.app.timeline.duplicateSelection() }
@@ -153,6 +190,22 @@ ApplicationWindow {
                 Action { text: qsTr("Right 1 Frame"); shortcut: "Alt+Right"; onTriggered: window.app.timeline.nudgeSelection(1) }
                 Action { text: qsTr("Left 10 Frames"); shortcut: "Alt+Shift+Left"; onTriggered: window.app.timeline.nudgeSelection(-10) }
                 Action { text: qsTr("Right 10 Frames"); shortcut: "Alt+Shift+Right"; onTriggered: window.app.timeline.nudgeSelection(10) }
+            }
+            Menu {
+                title: qsTr("Slip Selected Clips (Source)")
+                enabled: window.editKeys && window.app.timeline.selection.length > 0
+                Action { text: qsTr("Earlier 1 Frame"); shortcut: "Ctrl+Alt+Left"; onTriggered: window.app.timeline.slipSelection(-1) }
+                Action { text: qsTr("Later 1 Frame"); shortcut: "Ctrl+Alt+Right"; onTriggered: window.app.timeline.slipSelection(1) }
+                Action { text: qsTr("Earlier 10 Frames"); shortcut: "Ctrl+Alt+Shift+Left"; onTriggered: window.app.timeline.slipSelection(-10) }
+                Action { text: qsTr("Later 10 Frames"); shortcut: "Ctrl+Alt+Shift+Right"; onTriggered: window.app.timeline.slipSelection(10) }
+            }
+            Menu {
+                title: qsTr("Roll Cut After Selected Clip")
+                enabled: window.editKeys && window.app.timeline.selection.length === 1
+                Action { text: qsTr("Earlier 1 Frame"); onTriggered: window.app.timeline.rollSelection(-1) }
+                Action { text: qsTr("Later 1 Frame"); onTriggered: window.app.timeline.rollSelection(1) }
+                Action { text: qsTr("Earlier 10 Frames"); onTriggered: window.app.timeline.rollSelection(-10) }
+                Action { text: qsTr("Later 10 Frames"); onTriggered: window.app.timeline.rollSelection(10) }
             }
             Action { text: qsTr("Copy Clip &Attributes"); shortcut: "Ctrl+Alt+C"; enabled: window.editKeys && window.app.timeline.selection.length === 1; onTriggered: window.app.timeline.copySelectionAttributes() }
             Action { text: qsTr("&Paste Clip Attributes"); shortcut: "Ctrl+Alt+V"; enabled: window.editKeys && window.app.timeline.selection.length > 0 && window.app.timeline.hasCopiedClipAttributes; onTriggered: window.app.timeline.pasteSelectionAttributes() }
@@ -165,7 +218,12 @@ ApplicationWindow {
             Action { text: qsTr("Ripple De&lete"); shortcut: "Shift+Delete"; enabled: window.editKeys; onTriggered: window.app.timeline.deleteSelection(true) }
             MenuSeparator {}
             Action { text: qsTr("Select &All Clips"); shortcut: StandardKey.SelectAll; enabled: window.editKeys; onTriggered: window.app.timeline.selectAll() }
+            Action { text: qsTr("Select Clips at &Playhead"); shortcut: "Ctrl+Shift+J"; enabled: window.editKeys && !window.app.timeline.empty; onTriggered: window.app.timeline.selectClipsAtPlayhead() }
+            Action { text: qsTr("Select All Occurrences of &Media"); shortcut: "Ctrl+Alt+R"; enabled: window.editKeys && window.app.timeline.selection.length === 1; onTriggered: window.app.timeline.selectAllMediaOccurrences() }
             Action { text: qsTr("Clear Selection"); onTriggered: window.app.timeline.clearSelection() }
+            MenuSeparator {}
+            Action { text: qsTr("Lock All Tracks"); enabled: window.editKeys; onTriggered: window.app.timeline.setAllTracksLocked(true) }
+            Action { text: qsTr("Unlock All Tracks"); enabled: window.editKeys; onTriggered: window.app.timeline.setAllTracksLocked(false) }
             MenuSeparator {}
             Action { text: qsTr("Check for Missing Media"); onTriggered: window.app.media.rescan() }
         }
@@ -173,6 +231,8 @@ ApplicationWindow {
             title: qsTr("&View")
             Action { text: qsTr("Zoom &In"); shortcut: "+"; enabled: window.editKeys; onTriggered: window.app.timeline.zoomIn() }
             Action { text: qsTr("Zoom &Out"); shortcut: "-"; enabled: window.editKeys; onTriggered: window.app.timeline.zoomOut() }
+            Action { text: qsTr("Zoom to &Selection"); shortcut: "Ctrl+Shift+0"; enabled: window.editKeys && window.app.timeline.selection.length > 0; onTriggered: timelinePanel.zoomToSelection() }
+            Action { text: qsTr("Center on &Playhead"); shortcut: "Ctrl+Shift+L"; enabled: window.editKeys && !window.app.timeline.empty; onTriggered: timelinePanel.centerOnPlayhead() }
             Action { text: qsTr("&Snapping"); shortcut: "N"; enabled: window.editKeys; checkable: true; checked: window.app.timeline.snapping; onTriggered: window.app.timeline.snapping = checked }
             MenuSeparator {}
             Action { text: qsTr("Compact Tracks"); checkable: true; checked: timelinePanel.trackHeight === 44; onTriggered: timelinePanel.trackHeight = 44 }
@@ -191,6 +251,13 @@ ApplicationWindow {
             Action { text: qsTr("Forward One Second"); shortcut: "Shift+Right"; enabled: window.editKeys; onTriggered: window.app.playback.step(Math.round(window.app.timeline.frameRate)) }
             Action { text: qsTr("Previous Edit Point"); shortcut: "Up"; enabled: window.editKeys; onTriggered: window.app.timeline.previousEditPoint() }
             Action { text: qsTr("Next Edit Point"); shortcut: "Down"; enabled: window.editKeys; onTriggered: window.app.timeline.nextEditPoint() }
+            Action { text: qsTr("&Go to Timecode…"); shortcut: "Ctrl+G"; enabled: window.editKeys && !window.app.timeline.empty; onTriggered: goToTimecodeDialog.open() }
+            MenuSeparator {}
+            Action { text: qsTr("Add Timeline &Marker…"); shortcut: "Shift+M"; enabled: window.editKeys; onTriggered: markerDialog.openNew(window.app.playback.position) }
+            Action { text: qsTr("Previous Marker"); shortcut: "Ctrl+PgUp"; enabled: window.editKeys && window.app.timeline.markers.length > 0; onTriggered: window.app.timeline.previousMarker() }
+            Action { text: qsTr("Next Marker"); shortcut: "Ctrl+PgDown"; enabled: window.editKeys && window.app.timeline.markers.length > 0; onTriggered: window.app.timeline.nextMarker() }
+            Action { text: qsTr("Copy Markers as Video Chapters"); enabled: window.editKeys && window.app.timeline.markers.length > 0; onTriggered: window.app.timeline.copyMarkersAsChapters() }
+            Action { text: qsTr("Copy Markers as WebVTT Chapters"); enabled: window.editKeys && window.app.timeline.markers.length > 0; onTriggered: window.app.timeline.copyMarkersAsWebVtt() }
             Action { text: qsTr("Go to Start"); shortcut: "Home"; enabled: window.editKeys; onTriggered: window.app.playback.goToStart() }
             Action { text: qsTr("Go to End"); shortcut: "End"; enabled: window.editKeys; onTriggered: window.app.playback.goToEnd() }
             MenuSeparator {}
@@ -232,6 +299,7 @@ ApplicationWindow {
             IconButton { iconName: "redo"; tip: window.app.project.canRedo ? qsTr("Redo %1 (Ctrl+Shift+Z)").arg(window.app.project.redoText) : qsTr("Nothing to redo"); enabled: window.app.project.canRedo; onClicked: window.app.project.redo() }
             Rectangle { width: 1; height: 22; color: Theme.border; Layout.leftMargin: 6; Layout.rightMargin: 6 }
             IconButton { iconName: "import"; text: qsTr("Import"); tip: qsTr("Import media (Ctrl+I)"); onClicked: importDialog.open() }
+            IconButton { iconName: "subtitles"; text: qsTr("Subtitles"); objectName: "subtitlesButton"; tip: qsTr("Edit subtitles (Ctrl+Alt+S)"); onClicked: subtitleDialog.open() }
             IconButton { iconName: "export"; text: qsTr("Export"); tip: qsTr("Export video (Ctrl+E)"); enabled: !window.app.timeline.empty || window.app.exporter.busy; onClicked: exportDialog.open() }
             Item { Layout.fillWidth: true }
             Text {
@@ -290,6 +358,9 @@ ApplicationWindow {
         }
 
         TimelinePanel {
+            onEditSubtitlesRequested: subtitleDialog.open()
+            onMarkerAddRequested: frame => markerDialog.openNew(frame)
+            onMarkerEditRequested: (id, frame, label) => markerDialog.openExisting(id, frame, label)
             id: timelinePanel
             app: window.app
             SplitView.fillHeight: true
@@ -311,6 +382,7 @@ ApplicationWindow {
                 Layout.fillWidth: true
                 text: window.app.statusMessage.length > 0 ? window.app.statusMessage
                       : (window.app.media.importing ? qsTr("Importing %1 file(s)…").arg(window.app.media.pendingImports) : qsTr("Ready"))
+                textFormat: Text.PlainText
                 color: Theme.textMuted
                 font.pixelSize: Theme.fontSizeSmall
                 elide: Text.ElideRight
@@ -367,6 +439,42 @@ ApplicationWindow {
         }
     }
     FileDialog {
+        id: mediaAuditDialog
+        title: qsTr("Export media audit as JSON")
+        fileMode: FileDialog.SaveFile
+        defaultSuffix: "json"
+        nameFilters: [qsTr("JSON reports (*.json)")]
+        currentFolder: window.app.fileUrl(window.app.project.projectFolder())
+        onAccepted: window.app.media.exportMediaAudit(window.app.localPath(selectedFile))
+    }
+    FolderDialog {
+        id: importFolderDialog
+        title: qsTr("Import media from folder (including subfolders)")
+        currentFolder: window.app.fileUrl(window.app.project.projectFolder())
+        onAccepted: window.app.media.importFolder(window.app.localPath(selectedFolder))
+    }
+    FileDialog {
+        id: previewFrameDialog
+        title: qsTr("Save current preview frame as PNG")
+        fileMode: FileDialog.SaveFile
+        defaultSuffix: "png"
+        nameFilters: [qsTr("PNG images (*.png)")]
+        currentFolder: window.app.fileUrl(window.app.project.projectFolder())
+        onAccepted: {
+            if (window.app.playback.savePreviewFrame(window.app.localPath(selectedFile)))
+                window.app.showStatus(qsTr("Saved current preview frame as PNG."))
+        }
+    }
+    FileDialog {
+        id: clipListDialog
+        title: qsTr("Export timeline clip list")
+        fileMode: FileDialog.SaveFile
+        defaultSuffix: "csv"
+        nameFilters: [qsTr("CSV clip lists (*.csv)")]
+        currentFolder: window.app.fileUrl(window.app.project.projectFolder())
+        onAccepted: window.app.project.exportClipListCsv(window.app.localPath(selectedFile))
+    }
+    FileDialog {
         id: importDialog
         title: qsTr("Import media")
         fileMode: FileDialog.OpenFiles
@@ -380,12 +488,39 @@ ApplicationWindow {
         nameFilters: window.app.media.nameFilters
         onAccepted: window.app.media.relink(assetId, window.app.localPath(selectedFile))
     }
+    FileDialog {
+        id: subtitleImportDialog
+        title: qsTr("Import subtitles (append cues)")
+        fileMode: FileDialog.OpenFile
+        nameFilters: [qsTr("SubRip subtitles (*.srt *.SRT)")]
+        currentFolder: window.app.fileUrl(window.app.project.projectFolder())
+        onAccepted: window.app.subtitles.importSrt(window.app.localPath(selectedFile))
+    }
+    FileDialog {
+        id: subtitleExportDialog
+        title: qsTr("Export subtitles")
+        fileMode: FileDialog.SaveFile
+        defaultSuffix: "srt"
+        nameFilters: [qsTr("SubRip subtitles (*.srt)")]
+        currentFolder: window.app.fileUrl(window.app.project.projectFolder())
+        selectedFile: window.app.fileUrl(window.app.project.projectFolder() + "/" + window.app.project.suggestedFileName().replace(/\.ftproj$/i, ".srt"))
+        onAccepted: window.app.subtitles.exportSrt(window.app.localPath(selectedFile))
+    }
 
     NewProjectDialog { id: newDialog; app: window.app }
     TitleDialog { id: titleDialog; objectName: "titleDialog"; app: window.app }
     ExportDialog { id: exportDialog; objectName: "exportDialog"; app: window.app }
     AboutDialog { id: aboutDialog; objectName: "aboutDialog"; app: window.app }
     ShortcutsDialog { id: shortcutsDialog }
+    GoToTimecodeDialog { id: goToTimecodeDialog; objectName: "goToTimecodeDialog"; app: window.app }
+    MarkerDialog { id: markerDialog; objectName: "markerDialog"; app: window.app }
+    SubtitleDialog {
+        id: subtitleDialog
+        objectName: "subtitleDialog"
+        app: window.app
+        onImportRequested: subtitleImportDialog.open()
+        onExportRequested: subtitleExportDialog.open()
+    }
     WelcomeOverlay { id: welcome; objectName: "welcome"; app: window.app; onImportRequested: importDialog.open() }
     MessageBox { id: messageBox }
 

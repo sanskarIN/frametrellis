@@ -26,7 +26,7 @@ Status checkProperties(const ClipProperties& p, FrameCount duration)
     if (!inRange(p.gain, 0.0, kMaxClipGain)) {
         return makeError(ErrorCode::OutOfRange, QStringLiteral("Clip volume is out of range."));
     }
-    if (p.fadeIn < 0 || p.fadeOut < 0 || p.fadeIn + p.fadeOut > duration) {
+    if (p.fadeIn < 0 || p.fadeOut < 0 || p.fadeIn > duration || p.fadeOut > duration - p.fadeIn) {
         return makeError(ErrorCode::OutOfRange,
                          QStringLiteral("Fades must fit within the clip duration."));
     }
@@ -140,7 +140,9 @@ bool Timeline::isRangeFree(const Id& trackId, FrameCount start, FrameCount durat
                            const Id& ignoreClipId) const
 {
     const Track* t = track(trackId);
-    if (!t || duration <= 0) {
+    // Validate before adding: callers can probe arbitrary ranges through QML and tests.
+    if (!t || start < 0 || duration <= 0 || start > kMaxTimelineFrames ||
+        duration > kMaxTimelineFrames - start) {
         return false;
     }
     const FrameCount end = start + duration;
@@ -354,9 +356,22 @@ Status Timeline::checkClipShape(const Clip& c)
             ErrorCode::OutOfRange,
             QStringLiteral("Clips cannot start before the beginning of the timeline."));
     }
-    if (c.end() > kMaxTimelineFrames || c.sourceOut() > kMaxTimelineFrames) {
+    // Never calculate c.end()/c.sourceOut() until both signed additions are proven safe.
+    if (c.start > kMaxTimelineFrames || c.duration > kMaxTimelineFrames - c.start ||
+        c.sourceIn > kMaxTimelineFrames || c.duration > kMaxTimelineFrames - c.sourceIn) {
         return makeError(ErrorCode::OutOfRange,
                          QStringLiteral("The clip exceeds the maximum timeline length."));
+    }
+    if (const Status keys = validateAudioKeyframes(c.audioKeyframes, kMaxTimelineFrames); !keys) {
+        return keys;
+    }
+    if (const Status keys = validateOpacityKeyframes(c.opacityKeyframes, kMaxTimelineFrames);
+        !keys) {
+        return keys;
+    }
+    if (const Status keys = validateTransformKeyframes(c.transformKeyframes, kMaxTimelineFrames);
+        !keys) {
+        return keys;
     }
     return checkProperties(c.properties, c.duration);
 }
@@ -376,6 +391,19 @@ Status Timeline::checkSourceRange(const Clip& c, const Track& t, const SourceLoo
         return makeError(
             ErrorCode::InvalidArgument,
             QStringLiteral("This media has no audio, so it cannot go on an audio track."));
+    }
+    if (!c.audioKeyframes.empty() && !limits->hasAudio) {
+        return makeError(ErrorCode::InvalidArgument,
+                         QStringLiteral("Volume keyframes require media with audio."));
+    }
+    // Retain a video source's picture envelope while it is temporarily on an audio track.
+    if (!c.opacityKeyframes.empty() && !limits->hasVideo) {
+        return makeError(ErrorCode::InvalidArgument,
+                         QStringLiteral("Opacity keyframes require video or image media."));
+    }
+    if (!c.transformKeyframes.empty() && !limits->hasVideo) {
+        return makeError(ErrorCode::InvalidArgument,
+                         QStringLiteral("Transform keyframes require video or image media."));
     }
     if (limits->length && c.sourceOut() > *limits->length) {
         return makeError(ErrorCode::OutOfRange,
@@ -664,6 +692,124 @@ Status Timeline::trimClipEnd(const Id& clipId, FrameCount newEnd, const SourceLo
     return {};
 }
 
+Status Timeline::slipClip(const Id& clipId, FrameCount newSourceIn, const SourceLookup& sources)
+{
+    const auto location = findClip(clipId);
+    if (!location) {
+        return notFound(QStringLiteral("The clip"));
+    }
+    const Track& track = m_tracks[static_cast<size_t>(location->track)];
+    if (const Status editable = checkEditable(track); !editable) {
+        return editable;
+    }
+    const Clip& original = track.clips[static_cast<size_t>(location->clip)];
+    // A still image is not time-based media; slipping its source offset has no meaning.
+    const std::optional<SourceLimits> limits = sources ? sources(original.assetId) : std::nullopt;
+    if (!limits) {
+        return makeError(ErrorCode::NotFound,
+                         QStringLiteral("The clip's media is not part of the project."));
+    }
+    if (!limits->length) {
+        return makeError(ErrorCode::InvalidArgument,
+                         QStringLiteral("Still images cannot be slipped."));
+    }
+    Clip changed = original;
+    changed.sourceIn = newSourceIn;
+    if (const Status shape = checkClipShape(changed); !shape) {
+        return shape;
+    }
+    if (const Status source = checkSourceRange(changed, track, sources); !source) {
+        return source;
+    }
+    if (newSourceIn == original.sourceIn) {
+        return {};
+    }
+
+    // Keep every dissolve/crossfade intact: slipping media can consume a handle
+    // that an existing transition still needs. Never silently prune transitions.
+    Timeline candidate = *this;
+    candidate.m_tracks[static_cast<size_t>(location->track)]
+        .clips[static_cast<size_t>(location->clip)] = std::move(changed);
+    if (const Status valid = candidate.validate(sources); !valid) {
+        return makeError(ErrorCode::Conflict,
+                         QStringLiteral("The slip would invalidate a clip transition."),
+                         valid.error().message);
+    }
+    *this = std::move(candidate);
+    return {};
+}
+
+Status Timeline::rollCut(const Id& fromClipId, FrameCount delta, const SourceLookup& sources)
+{
+    if (delta == 0) {
+        return makeError(ErrorCode::InvalidArgument,
+                         QStringLiteral("Choose a nonzero number of frames to roll the cut."));
+    }
+    const auto location = findClip(fromClipId);
+    if (!location) {
+        return notFound(QStringLiteral("The outgoing clip"));
+    }
+    const Track& track = m_tracks[static_cast<size_t>(location->track)];
+    if (const Status editable = checkEditable(track); !editable) {
+        return editable;
+    }
+    const size_t index = static_cast<size_t>(location->clip);
+    if (index + 1 >= track.clips.size() ||
+        track.clips[index].end() != track.clips[index + 1].start) {
+        return makeError(ErrorCode::Conflict,
+                         QStringLiteral("Roll editing requires two clips touching at a cut."));
+    }
+    const Clip& left = track.clips[index];
+    const Clip& right = track.clips[index + 1];
+    // Both durations must stay positive. These comparisons also bound delta before additions.
+    if (delta <= -left.duration || delta >= right.duration) {
+        return makeError(
+            ErrorCode::OutOfRange,
+            QStringLiteral("Each side of a rolled cut must retain at least one frame."));
+    }
+    const auto leftLimits = sources ? sources(left.assetId) : std::nullopt;
+    const auto rightLimits = sources ? sources(right.assetId) : std::nullopt;
+    if (!leftLimits || !rightLimits) {
+        return notFound(QStringLiteral("The media at the cut"));
+    }
+    // Still images have no source-time axis for the right clip's incoming trim.
+    if (!leftLimits->length || !rightLimits->length) {
+        return makeError(ErrorCode::InvalidArgument,
+                         QStringLiteral("Roll editing requires two time-based media clips."));
+    }
+
+    Timeline candidate = *this;
+    Track& changed = candidate.m_tracks[static_cast<size_t>(location->track)];
+    Clip& outgoing = changed.clips[index];
+    Clip& incoming = changed.clips[index + 1];
+    const FrameCount movedCut = outgoing.end() + delta;
+    outgoing.duration += delta;
+    incoming.start = movedCut;
+    incoming.sourceIn += delta;
+    incoming.duration -= delta;
+    // Preserve clip properties and transition objects exactly. Do not silently truncate
+    // a fade or discard a dissolve because a roll consumed a required source handle.
+    if (const Status shape = checkClipShape(outgoing); !shape) {
+        return shape;
+    }
+    if (const Status shape = checkClipShape(incoming); !shape) {
+        return shape;
+    }
+    if (const Status source = checkSourceRange(outgoing, changed, sources); !source) {
+        return source;
+    }
+    if (const Status source = checkSourceRange(incoming, changed, sources); !source) {
+        return source;
+    }
+    if (const Status valid = candidate.validate(sources); !valid) {
+        return makeError(ErrorCode::Conflict,
+                         QStringLiteral("The roll would invalidate the timeline or a transition."),
+                         valid.error().message);
+    }
+    *this = std::move(candidate);
+    return {};
+}
+
 Result<Id> Timeline::splitClip(const Id& clipId, FrameCount frame, const Id& newClipId)
 {
     const auto location = findClip(clipId);
@@ -722,6 +868,241 @@ Status Timeline::setClipProperties(const Id& clipId, const ClipProperties& prope
         return valid;
     }
     c.properties = properties;
+    return {};
+}
+
+Status Timeline::setAudioKeyframe(const Id& clipId, FrameCount sourceFrame, double decibels,
+                                  const SourceLookup& sources)
+{
+    const auto location = findClip(clipId);
+    if (!location) {
+        return notFound(QStringLiteral("The clip"));
+    }
+    Track& track = m_tracks[static_cast<size_t>(location->track)];
+    if (const Status editable = checkEditable(track); !editable) {
+        return editable;
+    }
+    Clip& clip = track.clips[static_cast<size_t>(location->clip)];
+    const auto limits = sources ? sources(clip.assetId) : std::nullopt;
+    if (!limits || !limits->hasAudio) {
+        return makeError(ErrorCode::InvalidArgument,
+                         QStringLiteral("Select a clip with audio to add volume keyframes."));
+    }
+    if (sourceFrame < clip.sourceIn || sourceFrame >= clip.sourceOut()) {
+        return makeError(ErrorCode::OutOfRange,
+                         QStringLiteral("Place the keyframe within the selected clip."));
+    }
+    std::vector<AudioKeyframe> points = clip.audioKeyframes;
+    const auto it = std::lower_bound(
+        points.begin(), points.end(), sourceFrame,
+        [](const AudioKeyframe& point, FrameCount frame) { return point.sourceFrame < frame; });
+    if (it != points.end() && it->sourceFrame == sourceFrame) {
+        it->decibels = decibels;
+    } else {
+        points.insert(it, {sourceFrame, decibels});
+    }
+    if (const Status valid = validateAudioKeyframes(points, kMaxTimelineFrames); !valid) {
+        return valid;
+    }
+    clip.audioKeyframes = std::move(points);
+    return {};
+}
+
+Status Timeline::removeAudioKeyframe(const Id& clipId, FrameCount sourceFrame)
+{
+    const auto location = findClip(clipId);
+    if (!location) {
+        return notFound(QStringLiteral("The clip"));
+    }
+    Track& track = m_tracks[static_cast<size_t>(location->track)];
+    if (const Status editable = checkEditable(track); !editable) {
+        return editable;
+    }
+    auto& points = track.clips[static_cast<size_t>(location->clip)].audioKeyframes;
+    const auto it = std::lower_bound(
+        points.begin(), points.end(), sourceFrame,
+        [](const AudioKeyframe& point, FrameCount frame) { return point.sourceFrame < frame; });
+    if (it == points.end() || it->sourceFrame != sourceFrame) {
+        return notFound(QStringLiteral("The volume keyframe"));
+    }
+    points.erase(it);
+    return {};
+}
+
+Status Timeline::clearAudioKeyframes(const Id& clipId)
+{
+    const auto location = findClip(clipId);
+    if (!location) {
+        return notFound(QStringLiteral("The clip"));
+    }
+    Track& track = m_tracks[static_cast<size_t>(location->track)];
+    if (const Status editable = checkEditable(track); !editable) {
+        return editable;
+    }
+    track.clips[static_cast<size_t>(location->clip)].audioKeyframes.clear();
+    return {};
+}
+
+Status Timeline::setOpacityKeyframe(const Id& clipId, FrameCount sourceFrame, double opacity,
+                                    const SourceLookup& sources)
+{
+    const auto location = findClip(clipId);
+    if (!location) {
+        return notFound(QStringLiteral("The clip"));
+    }
+    Track& track = m_tracks[static_cast<size_t>(location->track)];
+    if (const Status editable = checkEditable(track); !editable) {
+        return editable;
+    }
+    Clip& clip = track.clips[static_cast<size_t>(location->clip)];
+    const auto limits = sources ? sources(clip.assetId) : std::nullopt;
+    if (!limits || !limits->hasVideo || track.kind != TrackKind::Video) {
+        return makeError(ErrorCode::InvalidArgument,
+                         QStringLiteral("Select a video or image clip on a video track to add "
+                                        "opacity keyframes."));
+    }
+    if (sourceFrame < clip.sourceIn || sourceFrame >= clip.sourceOut()) {
+        return makeError(ErrorCode::OutOfRange,
+                         QStringLiteral("Place the keyframe within the selected clip."));
+    }
+    auto points = clip.opacityKeyframes;
+    const auto it = std::lower_bound(
+        points.begin(), points.end(), sourceFrame,
+        [](const OpacityKeyframe& point, FrameCount frame) { return point.sourceFrame < frame; });
+    if (it != points.end() && it->sourceFrame == sourceFrame) {
+        it->opacity = opacity;
+    } else {
+        points.insert(it, {sourceFrame, opacity});
+    }
+    if (const Status valid = validateOpacityKeyframes(points, kMaxTimelineFrames); !valid) {
+        return valid;
+    }
+    clip.opacityKeyframes = std::move(points);
+    return {};
+}
+
+Status Timeline::removeOpacityKeyframe(const Id& clipId, FrameCount sourceFrame)
+{
+    const auto location = findClip(clipId);
+    if (!location) {
+        return notFound(QStringLiteral("The clip"));
+    }
+    Track& track = m_tracks[static_cast<size_t>(location->track)];
+    if (const Status editable = checkEditable(track); !editable) {
+        return editable;
+    }
+    auto& points = track.clips[static_cast<size_t>(location->clip)].opacityKeyframes;
+    const auto it = std::lower_bound(
+        points.begin(), points.end(), sourceFrame,
+        [](const OpacityKeyframe& point, FrameCount frame) { return point.sourceFrame < frame; });
+    if (it == points.end() || it->sourceFrame != sourceFrame) {
+        return notFound(QStringLiteral("The opacity keyframe"));
+    }
+    points.erase(it);
+    return {};
+}
+
+Status Timeline::clearOpacityKeyframes(const Id& clipId)
+{
+    const auto location = findClip(clipId);
+    if (!location) {
+        return notFound(QStringLiteral("The clip"));
+    }
+    Track& track = m_tracks[static_cast<size_t>(location->track)];
+    if (const Status editable = checkEditable(track); !editable) {
+        return editable;
+    }
+    track.clips[static_cast<size_t>(location->clip)].opacityKeyframes.clear();
+    return {};
+}
+
+Status Timeline::setTransformKeyframe(const Id& clipId, FrameCount sourceFrame,
+                                      const VideoTransform& value, const SourceLookup& sources)
+{
+    const auto location = findClip(clipId);
+    if (!location) {
+        return notFound(QStringLiteral("The clip"));
+    }
+    Track& track = m_tracks[static_cast<size_t>(location->track)];
+    if (const Status editable = checkEditable(track); !editable) {
+        return editable;
+    }
+    Clip& clip = track.clips[static_cast<size_t>(location->clip)];
+    const auto limits = sources ? sources(clip.assetId) : std::nullopt;
+    if (!limits || !limits->hasVideo || track.kind != TrackKind::Video) {
+        return makeError(ErrorCode::InvalidArgument,
+                         QStringLiteral("Select a video or image clip on a video track to add "
+                                        "transform keyframes."));
+    }
+    if (sourceFrame < clip.sourceIn || sourceFrame >= clip.sourceOut()) {
+        return makeError(ErrorCode::OutOfRange,
+                         QStringLiteral("Place the keyframe within the selected clip."));
+    }
+    auto points = clip.transformKeyframes;
+    const auto it = std::lower_bound(
+        points.begin(), points.end(), sourceFrame,
+        [](const TransformKeyframe& point, FrameCount frame) { return point.sourceFrame < frame; });
+    if (it != points.end() && it->sourceFrame == sourceFrame) {
+        it->value = value;
+    } else {
+        points.insert(it, {sourceFrame, value});
+    }
+    if (const Status valid = validateTransformKeyframes(points, kMaxTimelineFrames); !valid) {
+        return valid;
+    }
+    clip.transformKeyframes = std::move(points);
+    return {};
+}
+
+Status Timeline::removeTransformKeyframe(const Id& clipId, FrameCount sourceFrame)
+{
+    const auto location = findClip(clipId);
+    if (!location) {
+        return notFound(QStringLiteral("The clip"));
+    }
+    Track& track = m_tracks[static_cast<size_t>(location->track)];
+    if (const Status editable = checkEditable(track); !editable) {
+        return editable;
+    }
+    auto& points = track.clips[static_cast<size_t>(location->clip)].transformKeyframes;
+    const auto it = std::lower_bound(
+        points.begin(), points.end(), sourceFrame,
+        [](const TransformKeyframe& point, FrameCount frame) { return point.sourceFrame < frame; });
+    if (it == points.end() || it->sourceFrame != sourceFrame) {
+        return notFound(QStringLiteral("The transform keyframe"));
+    }
+    points.erase(it);
+    return {};
+}
+
+Status Timeline::clearTransformKeyframes(const Id& clipId)
+{
+    const auto location = findClip(clipId);
+    if (!location) {
+        return notFound(QStringLiteral("The clip"));
+    }
+    Track& track = m_tracks[static_cast<size_t>(location->track)];
+    if (const Status editable = checkEditable(track); !editable) {
+        return editable;
+    }
+    track.clips[static_cast<size_t>(location->clip)].transformKeyframes.clear();
+    return {};
+}
+
+Status Timeline::resetClipPicture(const Id& clipId)
+{
+    const auto location = findClip(clipId);
+    if (!location) {
+        return notFound(QStringLiteral("The clip"));
+    }
+    Track& track = m_tracks[static_cast<size_t>(location->track)];
+    if (const Status editable = checkEditable(track); !editable) {
+        return editable;
+    }
+    Clip& clip = track.clips[static_cast<size_t>(location->clip)];
+    clip.properties.video = {};
+    clip.opacityKeyframes.clear();
+    clip.transformKeyframes.clear();
     return {};
 }
 

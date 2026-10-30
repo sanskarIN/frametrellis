@@ -99,6 +99,41 @@ Acceptance criteria, each checked before the release:
 - ⏳ Evaluate WinGet package identifier, installer metadata and hash-verified manifests;
   do not claim a WinGet listing without confirmed upstream acceptance
 
+## v1.3.0 — Editing safeguards, media search and diagnostics ✅
+- ✅ Reject project saves or exports that overwrite referenced media or the opened project
+- ✅ Detect same-size external media changes and reject duplicate canonical paths
+- ✅ Make timecode, fade and clip-end validation resilient to signed overflow
+- ✅ Protect against concurrent MLT profile initialization and invalid render commands
+- ✅ Search and category-filter the media bin; navigate directly to a SMPTE timecode
+- ✅ Inspect project track/media counts with a read-only render-helper command
+- ✅ Upgrade documentation search, section navigation and code copy controls
+- ✅ Passed integrated Linux/Windows CI and automated clean-machine Windows package checks
+- ✅ Stable v1.3.0 published from the verified `e86cab7d7eef7c287716abedc6721fa1bd76e719` release commit
+- ℹ️ [Automated release verification](releases/v1.3.0-verification.md) is recorded separately
+  from the still-unrecorded manual desktop smoke-test checklist
+
+## v1.4.0 — Professional workflow candidates 🚧
+- Integrated on main: persistent review markers, chapter/WebVTT chapter copy,
+  cuts-only picture EDL export, source slip, roll editing, volume and opacity automation
+  (PRs #75–#79, #82, #83, #84).
+- 🚧 Transform animation: source-anchored position, uniform scale and clockwise
+  rotation; inspector controls and direct monitor handles, matching preview/export,
+  undo/redo and validated format-v5 persistence. Opacity-only projects use v4 and
+  volume-only projects v3. These development features are outside stable v1.3.0.
+- 🚧 Reliable preview delivery: invalidate old in-flight/queued frames after newer
+  seeks and edits, with deterministic playback regression coverage.
+- 🚧 Subtitles: exact millisecond cue editing, UTF-8 SRT import/export, atomic
+  overlap rejection, undo/redo, draft protection, a subtitle timeline strip and
+  shared preview/MP4 burn-in. Format v6 protects captions from older readers.
+  These are development features outside stable v1.3.0.
+- 🚧 Media inventory export, recursive folder imports and removal of unused references
+  (existing separate PRs; unmerged until integrated tests pass)
+- ⏳ Validate Linux, Windows and sanitizer CI and conduct manual editor smoke tests
+  before labeling this milestone a preview or stable release
+
+The [professional-editor assessment](development/pro-editor-assessment.md) records
+the audited source state, concrete capability gaps and the next implementation order.
+
 ## Next milestones
 - ⏳ A Linux package (AppImage or Flatpak), published once it has been verified
 - ⏳ A macOS build in CI, then a `.dmg` package once it has been verified
@@ -110,8 +145,8 @@ Acceptance criteria, each checked before the release:
 - ⏳ Evaluate WinGet, Flathub and Homebrew as additional distribution channels
 
 ## Later
-- Subtitles (import, edit, burn-in and export as SRT)
-- Keyframes for opacity, volume and position
+- Subtitle refinements: multiple tracks/languages, richer styling and additional formats
+- Animation easing, numeric transform entry, custom pivots and crop controls
 - Customisable keyboard shortcuts
 - More export formats (WebM/VP9, ProRes, image sequences, audio-only)
 - Plugin extension points (effects and exporters) with documentation

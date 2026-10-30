@@ -34,8 +34,11 @@ frames are repeated or skipped as needed, and the clip keeps its real-time durat
 | Quality | Constant quality (CRF 0–51) with encoder speed presets from *ultrafast* to *veryslow* |
 
 Presets: *Match project*, *1080p*, *720p*, *2160p (4K)*, *Quick export (project size)*,
-*Quick export (up to 1080p)*, *Fast draft (up to 720p)* and *Turbo preview
-(up to 720p)*. Quick/preview presets avoid enlarging smaller project canvases by default;
+*Quick export (up to 1080p)*, *Fast draft (up to 720p)*, *Turbo preview
+(up to 720p)*, *Creator upload (up to 1080p)* and *Creator upload (up to 4K)*.
+Creator presets prioritize quality (CRF 18, medium speed, AAC 192/256 kbit/s) and do not
+enlarge a smaller project canvas; they are generic upload profiles, not a guarantee of
+any third-party platform's transcoding quality. Quick/preview presets also avoid upscaling;
 see [faster export](faster-export.md). Other containers and codecs (WebM/VP9, ProRes, image sequences, audio only) are
 planned; see the [roadmap](../roadmap.md).
 

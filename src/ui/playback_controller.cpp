@@ -5,6 +5,9 @@
 #include "core/timecode.h"
 #include "ui/project_controller.h"
 
+#include <QFileInfo>
+#include <QSaveFile>
+
 namespace ft::ui {
 
 PlaybackController::PlaybackController(ProjectController* project, QObject* parent)
@@ -113,6 +116,17 @@ void PlaybackController::seek(double frame)
     m_engine.seek(target);
 }
 
+bool PlaybackController::seekToTimecode(const QString& label)
+{
+    const auto frame = timecode::parse(label, m_project->project().settings().frameRate);
+    const FrameCount length = m_project->project().timeline().duration();
+    if (!frame || *frame < 0 || *frame >= length) {
+        return false;
+    }
+    seek(static_cast<double>(*frame));
+    return true;
+}
+
 void PlaybackController::step(int frames)
 {
     seek(static_cast<double>(m_position + frames));
@@ -127,6 +141,44 @@ void PlaybackController::goToEnd()
 {
     seek(static_cast<double>(
         std::max<FrameCount>(m_project->project().timeline().duration() - 1, 0)));
+}
+
+bool PlaybackController::savePreviewFrame(const QString& targetPath)
+{
+    if (m_frame.isNull()) {
+        emit errorOccurred(QStringLiteral("No preview frame is available to save."));
+        return false;
+    }
+    const QFileInfo output(targetPath);
+    if (targetPath.trimmed().isEmpty() ||
+        output.suffix().compare(QLatin1String("png"), Qt::CaseInsensitive) != 0) {
+        emit errorOccurred(QStringLiteral("Choose a filename ending in .png."));
+        return false;
+    }
+    const QString destination = canonicalMediaKey(output.absoluteFilePath());
+    if (!m_project->filePath().isEmpty() &&
+        destination == canonicalMediaKey(m_project->filePath())) {
+        emit errorOccurred(QStringLiteral("The preview cannot replace the project file."));
+        return false;
+    }
+    for (const MediaAsset& asset : m_project->project().media()) {
+        if (destination == canonicalMediaKey(asset.filePath)) {
+            emit errorOccurred(QStringLiteral("The preview cannot overwrite source media."));
+            return false;
+        }
+    }
+    QSaveFile file(output.absoluteFilePath());
+    if (!file.open(QIODevice::WriteOnly)) {
+        emit errorOccurred(
+            QStringLiteral("Could not open the snapshot destination: %1").arg(file.errorString()));
+        return false;
+    }
+    if (!m_frame.save(&file, "PNG") || !file.commit()) {
+        file.cancelWriting();
+        emit errorOccurred(QStringLiteral("Could not save the preview PNG."));
+        return false;
+    }
+    return true;
 }
 
 void PlaybackController::setPreviewSize(int width, int height)

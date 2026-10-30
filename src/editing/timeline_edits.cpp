@@ -119,6 +119,20 @@ std::unique_ptr<EditCommand> setTrackLocked(const Id& trackId, bool locked)
                    });
 }
 
+std::unique_ptr<EditCommand> setAllTracksLocked(bool locked)
+{
+    return command(locked ? QStringLiteral("Lock All Tracks") : QStringLiteral("Unlock All Tracks"),
+                   [locked](Timeline& timeline, const SourceLookup&) -> Status {
+                       for (const Track& track : timeline.tracks()) {
+                           if (const Status changed = timeline.setTrackLocked(track.id, locked);
+                               !changed) {
+                               return changed;
+                           }
+                       }
+                       return {};
+                   });
+}
+
 std::unique_ptr<EditCommand> addClip(const Id& trackId, const Clip& clip)
 {
     return command(QStringLiteral("Add Clip"),
@@ -336,6 +350,52 @@ std::unique_ptr<EditCommand> trimClipEnd(const Id& clipId, FrameCount newEnd)
                    });
 }
 
+std::unique_ptr<EditCommand> slipClips(const QList<Id>& clipIds, FrameCount delta)
+{
+    return command(
+        QStringLiteral("Slip %1 Clip(s)").arg(clipIds.size()),
+        [clipIds, delta](Timeline& timeline, const SourceLookup& sources) -> Status {
+            if (clipIds.isEmpty() || delta == 0 || delta < -kMaxTimelineFrames ||
+                delta > kMaxTimelineFrames) {
+                return makeError(ErrorCode::InvalidArgument,
+                                 QStringLiteral("Select clips and a valid nonzero slip amount."));
+            }
+            QSet<Id> seen;
+            for (const Id& id : clipIds) {
+                if (seen.contains(id)) {
+                    return makeError(ErrorCode::InvalidArgument,
+                                     QStringLiteral("The same clip was selected twice."));
+                }
+                seen.insert(id);
+                const Clip* clip = timeline.clip(id);
+                if (!clip) {
+                    return makeError(ErrorCode::NotFound,
+                                     QStringLiteral("A selected clip was not found."));
+                }
+                // Check signed bounds before addition, including source-out after the shift.
+                if ((delta < 0 && clip->sourceIn < -delta) ||
+                    (delta > 0 && clip->sourceOut() > kMaxTimelineFrames - delta)) {
+                    return makeError(ErrorCode::OutOfRange,
+                                     QStringLiteral("The slip exceeds the source frame limits."));
+                }
+                const FrameCount target = clip->sourceIn + delta;
+                if (const Status moved = timeline.slipClip(id, target, sources); !moved) {
+                    return moved;
+                }
+            }
+            // TimelineCommand operates on a clone and commits only if all clips succeed.
+            return {};
+        });
+}
+
+std::unique_ptr<EditCommand> rollCut(const Id& fromClipId, FrameCount delta)
+{
+    return command(delta < 0 ? QStringLiteral("Roll Cut Left") : QStringLiteral("Roll Cut Right"),
+                   [fromClipId, delta](Timeline& timeline, const SourceLookup& sources) {
+                       return timeline.rollCut(fromClipId, delta, sources);
+                   });
+}
+
 std::unique_ptr<EditCommand> splitClips(const QList<Id>& clipIds, FrameCount frame)
 {
     return command(
@@ -450,19 +510,100 @@ std::unique_ptr<EditCommand> resetClipPictures(const QList<Id>& clipIds)
                                                 QStringLiteral("A clip was selected twice."));
                            }
                            visited.insert(id);
-                           const Clip* clip = timeline.clip(id);
-                           if (!clip) {
-                               return makeError(ErrorCode::NotFound,
-                                                QStringLiteral("A selected clip was not found."));
-                           }
-                           ClipProperties properties = clip->properties;
-                           properties.video = VideoAdjustments{};
-                           if (const Status updated = timeline.setClipProperties(id, properties);
-                               !updated) {
+                           if (const Status updated = timeline.resetClipPicture(id); !updated) {
                                return updated;
                            }
                        }
                        return {};
+                   });
+}
+
+std::unique_ptr<EditCommand> resetClipPicture(const Id& clipId)
+{
+    return command(QStringLiteral("Reset Picture"),
+                   [clipId](Timeline& timeline, const SourceLookup&) {
+                       return timeline.resetClipPicture(clipId);
+                   });
+}
+
+std::unique_ptr<EditCommand> setOpacityKeyframe(const Id& clipId, FrameCount sourceFrame,
+                                                double opacity)
+{
+    return command(
+        QStringLiteral("Set Opacity Keyframe"),
+        [clipId, sourceFrame, opacity](Timeline& timeline, const SourceLookup& sources) {
+            return timeline.setOpacityKeyframe(clipId, sourceFrame, opacity, sources);
+        },
+        QStringLiteral("opacity-keyframe:%1:%2").arg(clipId).arg(sourceFrame));
+}
+
+std::unique_ptr<EditCommand> removeOpacityKeyframe(const Id& clipId, FrameCount sourceFrame)
+{
+    return command(QStringLiteral("Remove Opacity Keyframe"),
+                   [clipId, sourceFrame](Timeline& timeline, const SourceLookup&) {
+                       return timeline.removeOpacityKeyframe(clipId, sourceFrame);
+                   });
+}
+
+std::unique_ptr<EditCommand> clearOpacityKeyframes(const Id& clipId)
+{
+    return command(QStringLiteral("Clear Opacity Keyframes"),
+                   [clipId](Timeline& timeline, const SourceLookup&) {
+                       return timeline.clearOpacityKeyframes(clipId);
+                   });
+}
+
+std::unique_ptr<EditCommand> setTransformKeyframe(const Id& clipId, FrameCount sourceFrame,
+                                                  const VideoTransform& value)
+{
+    return command(
+        QStringLiteral("Set Transform Keyframe"),
+        [clipId, sourceFrame, value](Timeline& timeline, const SourceLookup& sources) {
+            return timeline.setTransformKeyframe(clipId, sourceFrame, value, sources);
+        },
+        QStringLiteral("transform-keyframe:%1:%2").arg(clipId).arg(sourceFrame));
+}
+
+std::unique_ptr<EditCommand> removeTransformKeyframe(const Id& clipId, FrameCount sourceFrame)
+{
+    return command(QStringLiteral("Remove Transform Keyframe"),
+                   [clipId, sourceFrame](Timeline& timeline, const SourceLookup&) {
+                       return timeline.removeTransformKeyframe(clipId, sourceFrame);
+                   });
+}
+
+std::unique_ptr<EditCommand> clearTransformKeyframes(const Id& clipId)
+{
+    return command(QStringLiteral("Clear Transform Keyframes"),
+                   [clipId](Timeline& timeline, const SourceLookup&) {
+                       return timeline.clearTransformKeyframes(clipId);
+                   });
+}
+
+std::unique_ptr<EditCommand> setAudioKeyframe(const Id& clipId, FrameCount sourceFrame,
+                                              double decibels)
+{
+    return command(
+        QStringLiteral("Set Volume Keyframe"),
+        [clipId, sourceFrame, decibels](Timeline& timeline, const SourceLookup& sources) {
+            return timeline.setAudioKeyframe(clipId, sourceFrame, decibels, sources);
+        },
+        QStringLiteral("audio-keyframe:%1:%2").arg(clipId).arg(sourceFrame));
+}
+
+std::unique_ptr<EditCommand> removeAudioKeyframe(const Id& clipId, FrameCount sourceFrame)
+{
+    return command(QStringLiteral("Remove Volume Keyframe"),
+                   [clipId, sourceFrame](Timeline& timeline, const SourceLookup&) {
+                       return timeline.removeAudioKeyframe(clipId, sourceFrame);
+                   });
+}
+
+std::unique_ptr<EditCommand> clearAudioKeyframes(const Id& clipId)
+{
+    return command(QStringLiteral("Clear Volume Keyframes"),
+                   [clipId](Timeline& timeline, const SourceLookup&) {
+                       return timeline.clearAudioKeyframes(clipId);
                    });
 }
 

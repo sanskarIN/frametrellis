@@ -38,6 +38,78 @@ or below it. The options are the export settings of the editor:
 The output is H.264 video with AAC audio, the same as an export from the editor, and it is
 checked before it is kept. If rendering fails or is cancelled, no partial file is left behind.
 
+## Discovering export presets (v1.4 development)
+
+To inspect the editor's available export profiles from scripts without opening a
+project or starting a render:
+
+```sh
+frametrellis-render --list-presets
+```
+
+The command writes a JSON object with a `presets` array. Each entry includes
+`id`, `name`, `description`, `shortSide`, `crf`, `speedPreset`,
+`audioBitrateKbps` and `avoidUpscaling`. The list includes the new
+1080p and 4K creator-quality profiles. This command only reports preset
+metadata; it does **not** start a render or apply a preset automatically.
+Use the ordinary export options for actual rendering.
+
+This feature is part of the next development milestone, not the published
+v1.3.1 stable binaries.
+
+## Inspecting a project (v1.3.0 and later)
+
+FrameTrellis v1.3.0 and later support a **read-only**, headless inspection command:
+
+```sh
+frametrellis-render --inspect-project --project /work/my-project.ftproj
+```
+
+It emits one `@ft {…}` JSON protocol line named `project_inspection`. For example:
+
+```text
+@ft {"event":"project_inspection","name":"My Edit","trackCount":4,"videoTrackCount":2,"audioTrackCount":2,"clipCount":3,"mediaCount":4,"usedMediaCount":3,"unusedMediaCount":1,"missingMediaCount":1,"missingUsedMediaCount":0,"durationFrames":300}
+```
+
+The event's counts have precise meanings:
+
+| Field | Meaning |
+|---|---|
+| `trackCount`, `videoTrackCount`, `audioTrackCount` | Total tracks and counts by track kind |
+| `clipCount` | Total timeline clips across all tracks |
+| `mediaCount` | Total media-bin entries |
+| `usedMediaCount` | Distinct media entries referenced by at least one clip |
+| `unusedMediaCount` | Media entries not referenced by any clip |
+| `missingMediaCount` | Entries whose files are absent or are not regular files |
+| `missingUsedMediaCount` | Missing entries currently referenced by timeline clips |
+| `durationFrames` | Sequence length at the project's frame rate, in frames |
+| `subtitleCueCount`, `subtitleBurnIn` | Number of subtitle cues and whether preview/video burn-in is enabled (format-v6 development builds) |
+
+A missing *unused* file increases `missingMediaCount` but not `missingUsedMediaCount`.
+The command inspects file metadata only. It does **not** start MLT, decode footage, render
+video, write project files or include source-file paths in the successful summary. A structurally valid project returns exit code 0 **even if some media is missing**;
+use `missingMediaCount` to determine whether relinking may be needed. A malformed or missing
+project returns a nonzero exit status and a structured `error` event. Do not combine
+`--inspect-project` with `--output`.
+
+The read-only inspection command is included in the v1.3.x stable render helper,
+but not in older v1.2.2 or v1.0.0 binaries. Subtitle-specific fields belong
+to newer format-v6 development builds rather than the v1.3.x stable editor.
+
+## Input and output safety
+
+Development builds supporting format v6 also render sequence subtitles when
+`burnIn` is enabled. The image includes DejaVu/Noto Core fonts and Qt's offscreen
+platform. Install additional fonts for scripts they do not cover. Use the same
+fonts on editing and rendering machines to keep line wrapping consistent. Captions
+do not extend the video; disabling burn-in produces video suitable for a separate
+SRT sidecar. This is outside the stable image's existing feature set.
+
+For regular exports, the render helper rejects output paths that would replace the opened
+project document or any referenced source media, including canonical-path aliases. When
+`--watch-stdin` is enabled, only a complete `cancel` line (LF or CRLF), or closure
+of stdin, requests cancellation. Partial words and other commands are ignored.
+
 ## Checking the image
 
 ```sh
@@ -46,7 +118,8 @@ docker run --rm ghcr.io/sanskarin/frametrellis-render:1.0.0 --self-test /tmp/sel
 ```
 
 The self-test generates sample media, builds and saves a small project, renders it and checks
-the result. Every line should start with `PASS`. The release workflow runs the same self-test,
+the result. Development self-tests also check that subtitle pixels survive encoding.
+Every line should start with `PASS`. The release workflow runs the same self-test,
 and renders the project it saves from a mounted folder, before an image is published.
 
 ## What is in the image

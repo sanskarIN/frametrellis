@@ -94,10 +94,13 @@ Rectangle {
     Menu {
         id: menu
         MenuItem { text: qsTr("Rename…"); onTriggered: { editor.text = header.name; editor.visible = true; editor.forceActiveFocus(); editor.selectAll() } }
-        MenuItem {
-            text: qsTr("Duplicate track")
-            onTriggered: header.app.timeline.duplicateTrack(header.trackId)
-        }
+        MenuItem { text: qsTr("Select all clips on track"); onTriggered: header.app.timeline.selectTrackClips(header.trackId) }
+        MenuSeparator {}
+        MenuItem { text: qsTr("Move track up"); enabled: header.app.timeline.canMoveTrack(header.trackId, -1); onTriggered: header.app.timeline.moveTrack(header.trackId, -1) }
+        MenuItem { text: qsTr("Move track down"); enabled: header.app.timeline.canMoveTrack(header.trackId, 1); onTriggered: header.app.timeline.moveTrack(header.trackId, 1) }
+        MenuSeparator {}
+        MenuItem { text: qsTr("Duplicate track"); onTriggered: header.app.timeline.duplicateTrack(header.trackId) }
+        MenuSeparator {}
         MenuItem { text: qsTr("Remove track"); enabled: !header.locked; onTriggered: header.app.timeline.removeTrack(header.trackId) }
     }
 }

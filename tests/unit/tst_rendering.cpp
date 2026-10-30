@@ -203,6 +203,36 @@ private slots:
         QVERIFY(identifiers.contains(QStringLiteral("quick1080p")));
         QVERIFY(identifiers.contains(QStringLiteral("turbo")));
         QVERIFY(identifiers.contains(QStringLiteral("draft"))); // existing preset ID retained
+        // Upload profiles must retain creator-friendly quality without enlarging sources.
+        for (const auto& id : {QStringLiteral("youtube1080p"), QStringLiteral("youtube4k")}) {
+            QVERIFY2(identifiers.contains(id), qPrintable(id));
+            const auto it = std::find_if(presets.cbegin(), presets.cend(),
+                                         [&id](const ExportPreset& p) { return p.id == id; });
+            QVERIFY(it != presets.cend());
+            QCOMPARE(it->crf, 18);
+            QVERIFY(it->avoidUpscaling);
+            QCOMPARE(it->speedPreset, QStringLiteral("medium"));
+            const ExportSettings s =
+                applyPreset(*it, m_dir.filePath(QStringLiteral("creator.mp4")));
+            QCOMPARE(outputSize(s, ProjectSettings{}), QSize(1920, 1080));
+            QVERIFY(validateExport(s, projectWithClip()));
+        }
+        const auto creatorHd =
+            std::find_if(presets.cbegin(), presets.cend(), [](const ExportPreset& p) {
+                return p.id == QLatin1String("youtube1080p");
+            });
+        const auto creator4k =
+            std::find_if(presets.cbegin(), presets.cend(),
+                         [](const ExportPreset& p) { return p.id == QLatin1String("youtube4k"); });
+        QCOMPARE(creatorHd->shortSide, 1080);
+        QCOMPARE(creatorHd->audioBitrateKbps, 192);
+        QCOMPARE(creator4k->shortSide, 2160);
+        QCOMPARE(creator4k->audioBitrateKbps, 256);
+        ProjectSettings ultraHd;
+        ultraHd.width = 3840;
+        ultraHd.height = 2160;
+        QCOMPARE(outputSize(applyPreset(*creatorHd, QString()), ultraHd), QSize(1920, 1080));
+        QCOMPARE(outputSize(applyPreset(*creator4k, QString()), ultraHd), QSize(3840, 2160));
         const ExportPreset quick =
             *std::find_if(presets.cbegin(), presets.cend(),
                           [](const ExportPreset& p) { return p.id == QLatin1String("quick"); });
@@ -230,6 +260,47 @@ private slots:
         QVERIFY(!protocol::decode("@ft [1,2,3]"));
         QVERIFY(!protocol::decode("@ft {\"frame\":1}")); // no event name
         QVERIFY(!protocol::decode("@ft {not json"));
+    }
+
+    void protocolRejectsOversizedEvents()
+    {
+        const QByteArray normal = protocol::encode(
+            {{QStringLiteral("event"), QStringLiteral("progress")}, {QStringLiteral("frame"), 12}});
+        QVERIFY(normal.size() < protocol::kMaxEventBytes);
+        QVERIFY(protocol::decode(normal));
+
+        const QJsonObject oversized{
+            {QStringLiteral("event"), QStringLiteral("error")},
+            {QStringLiteral("detail"), QString(protocol::kMaxEventBytes, QLatin1Char('x'))}};
+        const QByteArray longLine = protocol::encode(oversized);
+        QVERIFY(longLine.size() > protocol::kMaxEventBytes);
+        QVERIFY(!protocol::decode(longLine));
+        QVERIFY(!protocol::decode(longLine.chopped(1)));
+        QVERIFY(protocol::decode(normal)); // a rejected event does not poison later events
+    }
+
+    void cancelCommandsRequireCompleteLines()
+    {
+        protocol::CancelCommandReader commands;
+        QVERIFY(!commands.ingest("uncancelled\ncancelled\n"));
+        QVERIFY(!commands.ingest("please cancel\n"));
+        QVERIFY(!commands.ingest("canc"));
+        QVERIFY(commands.ingest("el\n"));
+
+        protocol::CancelCommandReader windows;
+        QVERIFY(!windows.ingest("status\r\ncan"));
+        QVERIFY(windows.ingest("cel\r\n"));
+
+        protocol::CancelCommandReader oversized;
+        QVERIFY(!oversized.ingest(std::string(200'000, 'x')));
+        QVERIFY(!oversized.ingest("cancel\n")); // still part of the discarded long line
+        QVERIFY(!oversized.ingest("\n"));       // newline resets the discard state
+        QVERIFY(oversized.ingest("cancel\n"));
+
+        protocol::CancelCommandReader missingTerminator;
+        QVERIFY(!missingTerminator.ingest("cancel")); // wait for LF or pipe close
+        QVERIFY(!missingTerminator.ingest("led\n"));
+        QVERIFY(missingTerminator.ingest("cancel\n"));
     }
 
     void stateMachine()

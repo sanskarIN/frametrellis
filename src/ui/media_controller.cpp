@@ -4,7 +4,9 @@
 
 #include "core/ids.h"
 #include "core/logging.h"
+#include "media/folder_import.h"
 #include "media/media_probe.h"
+#include "project/media_audit.h"
 #include "ui/project_controller.h"
 #include "ui/title_image.h"
 
@@ -12,8 +14,10 @@
 #include <QDir>
 #include <QFile>
 #include <QFileInfo>
+#include <QFutureWatcher>
 #include <QSaveFile>
 #include <QUrl>
+#include <QtConcurrent/QtConcurrentRun>
 
 namespace ft::ui {
 
@@ -26,8 +30,15 @@ MediaController::MediaController(ProjectController* project,
     connect(&m_importer, &media::MediaImporter::finished, this, &MediaController::onImported);
     connect(&m_importer, &media::MediaImporter::pendingCountChanged, this,
             &MediaController::importingChanged);
-    connect(m_project, &ProjectController::documentReplaced, this,
-            [this] { m_importer.cancelAll(); });
+    connect(m_project, &ProjectController::documentReplaced, this, [this] {
+        m_importer.cancelAll();
+        // Do not import results from a scan started for the previous project.
+        ++m_folderScanGeneration;
+        if (m_folderScanActive) {
+            m_folderScanActive = false;
+            emit importingChanged();
+        }
+    });
     connect(m_project, &ProjectController::projectChanged, this, [this](const ChangeSet& changes) {
         if (changes.media || changes.trackStructure || !changes.tracks.isEmpty()) {
             refresh();
@@ -82,6 +93,60 @@ void MediaController::importFiles(const QVariantList& urls)
         emit statusMessage(QStringLiteral("Importing %1 file(s)…").arg(fresh.size()));
         m_importer.import(fresh);
     }
+}
+
+bool MediaController::importFolder(const QString& urlOrPath)
+{
+    if (importing()) {
+        emit statusMessage(QStringLiteral("Finish the current media import before scanning "
+                                          "another folder."));
+        return false;
+    }
+
+    const QString directory = ProjectController::localPath(urlOrPath);
+    const int generation = ++m_folderScanGeneration;
+    m_folderScanActive = true;
+    emit importingChanged();
+    emit statusMessage(QStringLiteral("Scanning media folder in the background…"));
+
+    // The worker receives only a path, never the controller or live project.
+    // The watcher delivers the result on the GUI thread and is owned by this controller.
+    auto* watcher = new QFutureWatcher<Result<media::FolderImportScan>>(this);
+    connect(watcher, &QFutureWatcherBase::finished, this, [this, watcher, generation] {
+        const Result<media::FolderImportScan> scan = watcher->result();
+        watcher->deleteLater();
+        if (generation != m_folderScanGeneration) {
+            return; // project replaced while discovery was running
+        }
+
+        m_folderScanActive = false;
+        emit importingChanged();
+        if (!scan) {
+            emit importProblems(QStringLiteral("Could not import the folder"),
+                                scan.error().message);
+            return;
+        }
+        if (scan->files.isEmpty()) {
+            emit statusMessage(
+                scan->truncated
+                    ? QStringLiteral("Scan limit reached before any supported media was found.")
+                    : QStringLiteral("No supported media files found in this folder."));
+            return;
+        }
+        QVariantList paths;
+        for (const QString& path : scan->files) {
+            paths.append(path);
+        }
+        importFiles(paths); // Existing duplicate detection and background media probing.
+        if (scan->truncated) {
+            emit statusMessage(
+                QStringLiteral("Folder scan limit reached: only %1 candidates were processed.")
+                    .arg(scan->files.size()));
+        }
+    });
+    watcher->setFuture(
+        QtConcurrent::run([directory] { return media::discoverImportableFiles(directory); }));
+    return true; // async acceptance, not the eventual scan/probe result
 }
 
 void MediaController::onImported(const std::vector<MediaAsset>& assets,
@@ -182,6 +247,27 @@ void MediaController::remove(const QString& assetId)
     }
 }
 
+bool MediaController::removeUnused()
+{
+    int unused = 0;
+    for (const MediaAsset& asset : m_project->project().media()) {
+        if (!m_project->project().timeline().usesAsset(asset.id)) {
+            ++unused;
+        }
+    }
+    if (unused == 0) {
+        emit statusMessage(QStringLiteral("All imported media is used on the timeline."));
+        return false;
+    }
+    if (!m_project->execute(std::make_unique<RemoveUnusedMediaCommand>())) {
+        return false;
+    }
+    emit statusMessage(
+        QStringLiteral("Removed %1 unused media reference(s). Original files were not deleted.")
+            .arg(unused));
+    return true;
+}
+
 bool MediaController::relink(const QString& assetId, const QString& urlOrPath)
 {
     const MediaAsset* current = m_project->project().asset(assetId);
@@ -221,6 +307,19 @@ void MediaController::revealInFolder(const QString& assetId) const
     if (const MediaAsset* asset = m_project->project().asset(assetId)) {
         QDesktopServices::openUrl(QUrl::fromLocalFile(QFileInfo(asset->filePath).absolutePath()));
     }
+}
+
+bool MediaController::exportMediaAudit(const QString& urlOrPath)
+{
+    const QString path = ProjectController::localPath(urlOrPath);
+    const Status saved = media_audit::saveReport(m_project->project(), path, m_project->filePath());
+    if (!saved) {
+        emit importProblems(QStringLiteral("Could not export the media audit"),
+                            saved.error().message);
+        return false;
+    }
+    emit statusMessage(QStringLiteral("Saved read-only media audit JSON report."));
+    return true;
 }
 
 void MediaController::rescan()

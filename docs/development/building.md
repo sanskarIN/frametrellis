@@ -12,6 +12,11 @@ FrameTrellis is a CMake project. It needs:
 | FFmpeg | whatever MLT was built against | must include an H.264 encoder (libx264 preferred) for MP4 export |
 | SDL 2 | 2.0.18 (optional) | audio playback; without it the preview is silent |
 
+Development subtitles use Qt's font engine in the editor and render helper. Install
+fonts for each required script on rendering machines. Headless Linux runs need the
+Qt `offscreen` platform plugin and fonts (for example DejaVu and Noto Core). Windows
+uses installed system fonts; packaging includes both native and offscreen plugins.
+
 Build options (`-D<option>=ON|OFF`):
 
 | Option | Default | Meaning |
@@ -69,7 +74,8 @@ Ubuntu 24.04 ships Qt 6.4, which is older than FrameTrellis needs, so install Qt
 ```sh
 sudo apt install build-essential cmake ninja-build pkg-config git \
   libavformat-dev libavcodec-dev libavutil-dev libavfilter-dev libavdevice-dev \
-  libswscale-dev libswresample-dev libsdl2-dev libgl1-mesa-dev libxkbcommon-x11-0 libxcb-cursor0
+  libswscale-dev libswresample-dev libsdl2-dev libgl1-mesa-dev libxkbcommon-x11-0 libxcb-cursor0 \
+  fonts-dejavu-core fonts-noto-core
 pipx install aqtinstall
 aqt install-qt linux desktop 6.8.3 linux_gcc_64 -O "$HOME/Qt"
 

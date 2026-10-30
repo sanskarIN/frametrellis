@@ -7,11 +7,16 @@
 #include "media_fixtures.h"
 #include "project/project_serializer.h"
 #include "rendering/render_job.h"
+#include "rendering/render_protocol.h"
 #include "rendering/render_runner.h"
 #include "rendering/self_test.h"
 
 #include <QDir>
 #include <QFile>
+#include <QJsonArray>
+#include <QJsonDocument>
+#include <QJsonObject>
+#include <QProcess>
 #include <QSignalSpy>
 #include <QTemporaryDir>
 #include <QTest>
@@ -73,6 +78,44 @@ private:
     }
 
 private slots:
+
+    void helperListsExportPresetsAsJson()
+    {
+        // Works without an input project, output path, video decoding or an active render.
+        QProcess helper;
+        helper.start(QStringLiteral(FT_RENDER_HELPER), {QStringLiteral("--list-presets")});
+        QVERIFY(helper.waitForFinished(10000));
+        QCOMPARE(helper.exitStatus(), QProcess::NormalExit);
+        QCOMPARE(helper.exitCode(), 0);
+        QJsonParseError error;
+        const QJsonDocument parsed =
+            QJsonDocument::fromJson(helper.readAllStandardOutput(), &error);
+        QCOMPARE(error.error, QJsonParseError::NoError);
+        QVERIFY(parsed.isObject());
+        const QJsonArray profiles = parsed.object().value(QStringLiteral("presets")).toArray();
+        QVERIFY(profiles.size() >= 4);
+        QStringList identifiers;
+        for (const QJsonValue& value : profiles) {
+            QVERIFY(value.isObject());
+            const QJsonObject item = value.toObject();
+            const QString id = item.value(QStringLiteral("id")).toString();
+            QVERIFY(!id.isEmpty());
+            QVERIFY(!identifiers.contains(id));
+            identifiers.append(id);
+            QVERIFY(item.value(QStringLiteral("name")).isString());
+            QVERIFY(item.value(QStringLiteral("shortSide")).isDouble());
+            QVERIFY(item.value(QStringLiteral("crf")).isDouble());
+            QVERIFY(item.value(QStringLiteral("speedPreset")).isString());
+            QVERIFY(item.value(QStringLiteral("audioBitrateKbps")).isDouble());
+            QVERIFY(item.value(QStringLiteral("avoidUpscaling")).isBool());
+        }
+        QVERIFY(identifiers.contains(QStringLiteral("quick")));
+        QVERIFY(identifiers.contains(QStringLiteral("quick1080p")));
+        QVERIFY(identifiers.contains(QStringLiteral("turbo")));
+        QVERIFY(identifiers.contains(QStringLiteral("youtube1080p")));
+        QVERIFY(identifiers.contains(QStringLiteral("youtube4k")));
+    }
+
     void initTestCase()
     {
         QVERIFY(m_dir.isValid());
@@ -115,6 +158,29 @@ private slots:
         QVERIFY(isCloseTo(averageColor(frameOf(settings.outputPath, 5)), Qt::green));
         QVERIFY(isCloseTo(averageColor(frameOf(settings.outputPath, 40)), Qt::blue));
         QVERIFY(partFiles().isEmpty());
+    }
+
+    void unicodeExportPathProducesPlayableMedia()
+    {
+        const QString folder = m_dir.filePath(QStringLiteral("चैनल-媒体"));
+        QVERIFY(QDir().mkpath(folder));
+        ExportSettings settings;
+        settings.outputPath = QDir(folder).filePath(QStringLiteral("वीडियो-测试.mp4"));
+        settings.speedPreset = QStringLiteral("ultrafast");
+
+        const std::atomic<bool> cancelled{false};
+        const Status status = RenderRunner(project(25), settings).run(cancelled);
+        QVERIFY2(status, qPrintable(status ? QString() : status.error().toString()));
+        QVERIFY(QFile::exists(settings.outputPath));
+
+        const Result<MediaInfo> info = media::probeMedia(settings.outputPath);
+        QVERIFY(info);
+        QCOMPARE(info->width, 160);
+        QCOMPARE(info->height, 90);
+        QVERIFY(info->hasAudio);
+        QVERIFY(QDir(folder)
+                    .entryList({QStringLiteral("*.part.mp4")}, QDir::Files | QDir::Hidden)
+                    .isEmpty());
     }
 
     void exportPreservesTransparentTitleOverlay()
@@ -310,6 +376,123 @@ private slots:
         QCOMPARE(QFileInfo(m_video).size(), before);
     }
 
+    void helperCannotOverwriteProjectWithMp4Extension()
+    {
+        // The headless CLI accepts a valid project document regardless of its filename.
+        // A .mp4-named project must still be protected from export destination replacement.
+        const QString projectFile = m_dir.filePath(QStringLiteral("source-project.mp4"));
+        QVERIFY(project_format::saveToFile(project(25), projectFile));
+        QFile original(projectFile);
+        QVERIFY(original.open(QIODevice::ReadOnly));
+        const QByteArray before = original.readAll();
+        original.close();
+
+        QProcess helper;
+        helper.start(QStringLiteral(FT_RENDER_HELPER),
+                     {QStringLiteral("--project"), projectFile, QStringLiteral("--output"),
+                      projectFile, QStringLiteral("--preset"), QStringLiteral("ultrafast")});
+        QVERIFY2(helper.waitForStarted(10'000), qPrintable(helper.errorString()));
+        QVERIFY2(helper.waitForFinished(30'000), qPrintable(helper.errorString()));
+        QCOMPARE(helper.exitStatus(), QProcess::NormalExit);
+        QCOMPARE(helper.exitCode(), int(protocol::Failure));
+        QVERIFY(helper.readAllStandardOutput().contains("overwrite the project file"));
+        QFile preserved(projectFile);
+        QVERIFY(preserved.open(QIODevice::ReadOnly));
+        QCOMPARE(preserved.readAll(), before);
+        QVERIFY(partFiles().isEmpty());
+    }
+
+    void helperInspectsProjectWithoutProducingAnExport()
+    {
+        const QString source = m_dir.filePath(QStringLiteral("inspect-source.ftproj"));
+        Project p = project(25);
+        QVERIFY(project_format::saveToFile(p, source));
+        QFile existing(source);
+        QVERIFY(existing.open(QIODevice::ReadOnly));
+        const QByteArray original = existing.readAll();
+        existing.close();
+
+        QProcess helper;
+        helper.start(QStringLiteral(FT_RENDER_HELPER),
+                     {QStringLiteral("--inspect-project"), QStringLiteral("--project"), source});
+        QVERIFY2(helper.waitForStarted(10'000), qPrintable(helper.errorString()));
+        QVERIFY2(helper.waitForFinished(15'000), qPrintable(helper.errorString()));
+        QCOMPARE(helper.exitStatus(), QProcess::NormalExit);
+        QCOMPARE(helper.exitCode(), int(protocol::Success));
+        const auto report = protocol::decode(helper.readAllStandardOutput().trimmed());
+        QVERIFY(report);
+        QCOMPARE(report->value(QStringLiteral("event")).toString(),
+                 QStringLiteral("project_inspection"));
+        QCOMPARE(report->value(QStringLiteral("name")).toString(), QStringLiteral("Render"));
+        QCOMPARE(report->value(QStringLiteral("trackCount")).toInt(), 4);
+        QCOMPARE(report->value(QStringLiteral("videoTrackCount")).toInt(), 2);
+        QCOMPARE(report->value(QStringLiteral("audioTrackCount")).toInt(), 2);
+        QCOMPARE(report->value(QStringLiteral("clipCount")).toInt(), 2);
+        QCOMPARE(report->value(QStringLiteral("mediaCount")).toInt(), 2);
+        QCOMPARE(report->value(QStringLiteral("usedMediaCount")).toInt(), 2);
+        QCOMPARE(report->value(QStringLiteral("unusedMediaCount")).toInt(), 0);
+        QCOMPARE(report->value(QStringLiteral("missingMediaCount")).toInt(), 0);
+        QCOMPARE(report->value(QStringLiteral("missingUsedMediaCount")).toInt(), 0);
+        QCOMPARE(report->value(QStringLiteral("durationFrames")).toInt(), 40);
+        QVERIFY(!report->contains(QStringLiteral("filePath")));
+
+        QFile preserved(source);
+        QVERIFY(preserved.open(QIODevice::ReadOnly));
+        QCOMPARE(preserved.readAll(), original);
+        QVERIFY(partFiles().isEmpty());
+
+        // Unavailable source files are reported without making a structurally valid
+        // project unreadable or causing the inspector to fail.
+        MediaAsset offline = p.media().front();
+        offline.filePath = m_dir.filePath(QStringLiteral("not-present.mp4"));
+        QVERIFY(p.replaceAsset(offline));
+        MediaAsset unused = offline;
+        unused.id = createId();
+        unused.name = QStringLiteral("Unused missing file");
+        unused.filePath = m_dir.filePath(QStringLiteral("unused-not-present.mp4"));
+        QVERIFY(p.addAsset(unused));
+        const QString offlinePath = m_dir.filePath(QStringLiteral("inspect-offline.ftproj"));
+        QVERIFY(project_format::saveToFile(p, offlinePath));
+        QProcess second;
+        second.start(QStringLiteral(FT_RENDER_HELPER), {QStringLiteral("--inspect-project"),
+                                                        QStringLiteral("--project"), offlinePath});
+        QVERIFY2(second.waitForStarted(10'000), qPrintable(second.errorString()));
+        QVERIFY2(second.waitForFinished(15'000), qPrintable(second.errorString()));
+        QCOMPARE(second.exitCode(), int(protocol::Success));
+        const auto unavailable = protocol::decode(second.readAllStandardOutput().trimmed());
+        QVERIFY(unavailable);
+        QCOMPARE(unavailable->value(QStringLiteral("mediaCount")).toInt(), 3);
+        QCOMPARE(unavailable->value(QStringLiteral("usedMediaCount")).toInt(), 2);
+        QCOMPARE(unavailable->value(QStringLiteral("unusedMediaCount")).toInt(), 1);
+        QCOMPARE(unavailable->value(QStringLiteral("missingMediaCount")).toInt(), 2);
+        QCOMPARE(unavailable->value(QStringLiteral("missingUsedMediaCount")).toInt(), 1);
+    }
+
+    void helperInspectionRejectsInvalidArgumentAndMissingProject()
+    {
+        QProcess invalidArguments;
+        invalidArguments.start(QStringLiteral(FT_RENDER_HELPER),
+                               {QStringLiteral("--inspect-project"), QStringLiteral("--project"),
+                                m_dir.filePath(QStringLiteral("missing.ftproj")),
+                                QStringLiteral("--output"),
+                                m_dir.filePath(QStringLiteral("should-not-exist.mp4"))});
+        QVERIFY(invalidArguments.waitForStarted(10'000));
+        QVERIFY(invalidArguments.waitForFinished(15'000));
+        QCOMPARE(invalidArguments.exitCode(), int(protocol::BadArguments));
+
+        QProcess missingProject;
+        missingProject.start(QStringLiteral(FT_RENDER_HELPER),
+                             {QStringLiteral("--inspect-project"), QStringLiteral("--project"),
+                              m_dir.filePath(QStringLiteral("missing.ftproj"))});
+        QVERIFY(missingProject.waitForStarted(10'000));
+        QVERIFY(missingProject.waitForFinished(15'000));
+        QCOMPARE(missingProject.exitCode(), int(protocol::Failure));
+        const auto error = protocol::decode(missingProject.readAllStandardOutput().trimmed());
+        QVERIFY(error);
+        QCOMPARE(error->value(QStringLiteral("event")).toString(), QStringLiteral("error"));
+        QVERIFY(!QFile::exists(m_dir.filePath(QStringLiteral("should-not-exist.mp4"))));
+    }
+
     void helperProcessEndToEnd()
     {
         RenderJob job(QStringLiteral(FT_RENDER_HELPER));
@@ -327,6 +510,188 @@ private slots:
         QVERIFY(!job.encoder().isEmpty());
         QVERIFY(progress.count() >= 2);
         QVERIFY(media::probeMedia(settings.outputPath));
+    }
+
+    void helperProcessPreservesVolumeKeyframesInEncodedAudio()
+    {
+        Project p = project();
+        const Id video = p.timeline().tracks()[0].clips.front().id;
+        const Id audio = p.timeline().tracks()[2].clips.front().id;
+        ClipProperties muted;
+        muted.muted = true;
+        QVERIFY(p.timeline().setClipProperties(video, muted));
+        for (const AudioKeyframe& point :
+             std::vector<AudioKeyframe>{{0, 0}, {10, -20}, {20, -20}, {30, 0}, {39, 0}}) {
+            QVERIFY(p.timeline().setAudioKeyframe(audio, point.sourceFrame, point.decibels,
+                                                  p.sourceLookup()));
+        }
+        RenderJob job(QStringLiteral(FT_RENDER_HELPER));
+        QSignalSpy finished(&job, &RenderJob::finished);
+        ExportSettings settings;
+        settings.outputPath = m_dir.filePath(QStringLiteral("volume-keyframes.mp4"));
+        settings.speedPreset = QStringLiteral("ultrafast");
+        QVERIFY(job.start(p, settings));
+        QVERIFY(finished.wait(60'000));
+        QVERIFY2(job.state() == RenderJob::State::Succeeded,
+                 qPrintable(job.errorMessage() + job.errorDetail()));
+        auto profile = engine::createProfile(160, 90, p.settings().frameRate);
+        const QByteArray resource = QByteArrayLiteral("avformat:") + settings.outputPath.toUtf8();
+        Mlt::Producer output(*profile, resource.constData());
+        QVERIFY(output.is_valid());
+        const auto peakAt = [&](int frame) {
+            output.seek(frame);
+            std::unique_ptr<Mlt::Frame> f(output.get_frame());
+            return peakLevel(engine::frameToAudio(*f, 25.0, 48000, 2, frame).samples);
+        };
+        const int quiet = peakAt(15);
+        const int full = peakAt(35);
+        QVERIFY2(full > 5000 && quiet > full * 0.05 && quiet < full * 0.17,
+                 qPrintable(QStringLiteral("encoded levels %1 / %2").arg(quiet).arg(full)));
+        QVERIFY(partFiles().isEmpty());
+    }
+
+    void helperProcessPreservesOpacityKeyframesInEncodedPicture()
+    {
+        ProjectSettings profileSettings;
+        profileSettings.width = 160;
+        profileSettings.height = 90;
+        profileSettings.frameRate = *FrameRate::create(25, 1);
+        Project p = Project::createNew(QStringLiteral("Opacity export"), profileSettings);
+        const QString blue =
+            makeStill(m_dir.path(), QStringLiteral("opacity-blue.png"), Qt::blue, QSize(160, 90));
+        const QString red =
+            makeStill(m_dir.path(), QStringLiteral("opacity-red.png"), Qt::red, QSize(160, 90));
+        const auto bottom = media::createAsset(blue);
+        const auto top = media::createAsset(red);
+        QVERIFY(bottom && top);
+        QVERIFY(p.addAsset(*bottom));
+        QVERIFY(p.addAsset(*top));
+        Clip lower;
+        lower.id = createId();
+        lower.assetId = bottom->id;
+        lower.duration = 50;
+        Clip upper = lower;
+        upper.id = createId();
+        upper.assetId = top->id;
+        QVERIFY(p.timeline().insertClip(p.timeline().tracks()[0].id, lower, p.sourceLookup()));
+        QVERIFY(p.timeline().insertClip(p.timeline().tracks()[1].id, upper, p.sourceLookup()));
+        for (const OpacityKeyframe& point :
+             std::vector<OpacityKeyframe>{{0, 0}, {10, 0}, {20, 0.5}, {30, 1}, {49, 1}}) {
+            QVERIFY(p.timeline().setOpacityKeyframe(upper.id, point.sourceFrame, point.opacity,
+                                                    p.sourceLookup()));
+        }
+        RenderJob job(QStringLiteral(FT_RENDER_HELPER));
+        QSignalSpy finished(&job, &RenderJob::finished);
+        ExportSettings settings;
+        settings.outputPath = m_dir.filePath(QStringLiteral("opacity-keyframes.mp4"));
+        settings.speedPreset = QStringLiteral("ultrafast");
+        QVERIFY(job.start(p, settings));
+        QVERIFY(finished.wait(60'000));
+        QVERIFY2(job.state() == RenderJob::State::Succeeded,
+                 qPrintable(job.errorMessage() + job.errorDetail()));
+        QVERIFY(isCloseTo(averageColor(frameOf(settings.outputPath, 5)), Qt::blue, 30));
+        QVERIFY(isCloseTo(averageColor(frameOf(settings.outputPath, 20)), QColor(128, 0, 128), 30));
+        QVERIFY(isCloseTo(averageColor(frameOf(settings.outputPath, 35)), Qt::red, 30));
+        QVERIFY(partFiles().isEmpty());
+    }
+
+    void helperProcessExportsPositionScaleAndRotationFromFormatFive()
+    {
+        ProjectSettings profile;
+        profile.width = 160;
+        profile.height = 90;
+        profile.frameRate = *FrameRate::create(25, 1);
+        Project p = Project::createNew(QStringLiteral("Transform export"), profile);
+        const auto bottom = media::createAsset(makeStill(
+            m_dir.path(), QStringLiteral("transform-blue.png"), Qt::blue, QSize(160, 90)));
+        const auto top = media::createAsset(
+            makeStill(m_dir.path(), QStringLiteral("transform-red.png"), Qt::red, QSize(160, 90)));
+        QVERIFY(bottom && top);
+        QVERIFY(p.addAsset(*bottom));
+        QVERIFY(p.addAsset(*top));
+        Clip lower;
+        lower.id = createId();
+        lower.assetId = bottom->id;
+        lower.duration = 50;
+        Clip upper = lower;
+        upper.id = createId();
+        upper.assetId = top->id;
+        upper.sourceIn = 10;
+        upper.properties.video.opacity = 0.5;
+        QVERIFY(p.timeline().insertClip(p.timeline().tracks()[0].id, lower, p.sourceLookup()));
+        QVERIFY(p.timeline().insertClip(p.timeline().tracks()[1].id, upper, p.sourceLookup()));
+        QVERIFY(
+            p.timeline().setTransformKeyframe(upper.id, 10, {-0.25, 0, 0.5, 0}, p.sourceLookup()));
+        QVERIFY(
+            p.timeline().setTransformKeyframe(upper.id, 50, {0.25, 0, 0.5, 90}, p.sourceLookup()));
+        QVERIFY(p.timeline().setOpacityKeyframe(upper.id, 10, 0.5, p.sourceLookup()));
+        QCOMPARE(project_format::toJson(p)[QStringLiteral("version")].toInt(), 5);
+        RenderJob job(QStringLiteral(FT_RENDER_HELPER));
+        QSignalSpy finished(&job, &RenderJob::finished);
+        ExportSettings settings;
+        settings.outputPath = m_dir.filePath(QStringLiteral("transform-keyframes.mp4"));
+        settings.speedPreset = QStringLiteral("ultrafast");
+        QVERIFY(job.start(p, settings));
+        QVERIFY(finished.wait(60'000));
+        QVERIFY2(job.state() == RenderJob::State::Succeeded,
+                 qPrintable(job.errorMessage() + job.errorDetail()));
+        const QImage first = frameOf(settings.outputPath, 0);
+        const QImage middle = frameOf(settings.outputPath, 20);
+        const QImage last = frameOf(settings.outputPath, 40);
+        const QColor blend(64, 0, 191);
+        QVERIFY(isCloseTo(averageColor(first, QRect(35, 40, 10, 10)), blend, 25));
+        QVERIFY(isCloseTo(averageColor(first, QRect(35, 10, 10, 5)), Qt::blue, 25));
+        QVERIFY(isCloseTo(averageColor(middle, QRect(75, 40, 10, 10)), blend, 25));
+        QVERIFY(isCloseTo(averageColor(last, QRect(115, 10, 10, 5)), blend, 25));
+        QVERIFY(isCloseTo(averageColor(last, QRect(85, 40, 5, 10)), Qt::blue, 25));
+        QVERIFY(partFiles().isEmpty());
+    }
+
+    void helperBurnsSubtitlesAtExactBoundariesFromFormatSix()
+    {
+        Project p = project();
+        SubtitleTrack captions;
+        captions.fontPercent = 10;
+        captions.cues = {
+            {QStringLiteral("caption"), 200, 800, QStringLiteral("Caption test")},
+            {QStringLiteral("future"), 100000, 102000, QStringLiteral("Retained outside video")}};
+        QVERIFY(p.setSubtitles(captions));
+        QCOMPARE(project_format::toJson(p)[QStringLiteral("version")].toInt(), 6);
+        RenderJob job(QStringLiteral(FT_RENDER_HELPER));
+        QSignalSpy finished(&job, &RenderJob::finished);
+        ExportSettings settings;
+        settings.outputPath = m_dir.filePath(QStringLiteral("subtitle-burn-in.mp4"));
+        settings.speedPreset = QStringLiteral("ultrafast");
+        QVERIFY(job.start(p, settings));
+        QVERIFY(finished.wait(60000));
+        QVERIFY2(job.state() == RenderJob::State::Succeeded,
+                 qPrintable(job.errorMessage() + job.errorDetail()));
+        const auto whites = [](const QImage& image) {
+            int count = 0;
+            for (int y = 0; y < image.height(); ++y)
+                for (int x = 0; x < image.width(); ++x) {
+                    const QColor pixel = image.pixelColor(x, y);
+                    if (pixel.red() > 140 && pixel.green() > 140 && pixel.blue() > 140)
+                        ++count;
+                }
+            return count;
+        };
+        QCOMPARE(whites(frameOf(settings.outputPath, 4)), 0);
+        QVERIFY(whites(frameOf(settings.outputPath, 5)) > 10);
+        QVERIFY(whites(frameOf(settings.outputPath, 19)) > 10);
+        QCOMPARE(whites(frameOf(settings.outputPath, 20)), 0);
+        const auto media = media::probeMedia(settings.outputPath);
+        QVERIFY(media);
+        QVERIFY(std::abs(media->durationUs - 2000000) < 100000);
+        captions.burnIn = false;
+        QVERIFY(p.setSubtitles(captions));
+        settings.outputPath = m_dir.filePath(QStringLiteral("subtitle-sidecar-only.mp4"));
+        finished.clear();
+        QVERIFY(job.start(p, settings));
+        QVERIFY(finished.wait(60000));
+        QCOMPARE(job.state(), RenderJob::State::Succeeded);
+        QCOMPARE(whites(frameOf(settings.outputPath, 10)), 0);
+        QVERIFY(partFiles().isEmpty());
     }
 
     void helperProcessCancel()
@@ -391,7 +756,7 @@ private slots:
         QCOMPARE(seen, (QStringList{QStringLiteral("engine"), QStringLiteral("encoders"),
                                     QStringLiteral("media"), QStringLiteral("probe"),
                                     QStringLiteral("project"), QStringLiteral("export"),
-                                    QStringLiteral("verify")}));
+                                    QStringLiteral("subtitles"), QStringLiteral("verify")}));
         QVERIFY(QFile::exists(report.projectPath));
         QVERIFY(QFile::exists(report.outputPath));
         // The generated project opens like any other project.
@@ -414,5 +779,5 @@ private slots:
     void cleanupTestCase() { engine::MltRuntime::shutdown(); }
 };
 
-QTEST_GUILESS_MAIN(RenderTest)
+QTEST_MAIN(RenderTest)
 #include "tst_render.moc"

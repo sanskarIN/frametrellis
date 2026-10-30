@@ -8,14 +8,21 @@
 #include "engine/mlt_runtime.h"
 #include "media_fixtures.h"
 #include "ui/app_controller.h"
+#include "ui/media_bin_model.h"
 #include "ui/title_image.h"
 
+#include <QClipboard>
 #include <QDir>
+#include <QFile>
 #include <QGuiApplication>
+#include <QJsonArray>
+#include <QJsonDocument>
+#include <QJsonObject>
 #include <QQmlApplicationEngine>
 #include <QQuickItem>
 #include <QQuickStyle>
 #include <QQuickWindow>
+#include <QScopeGuard>
 #include <QSettings>
 #include <QSignalSpy>
 #include <QStandardPaths>
@@ -23,6 +30,9 @@
 #include <QTest>
 #include <QThreadPool>
 #include <QtQml/qqmlextensionplugin.h>
+
+#include <cmath>
+#include <limits>
 
 Q_IMPORT_QML_PLUGIN(FrameTrellisPlugin)
 
@@ -39,6 +49,8 @@ private:
     std::unique_ptr<ui::AppController> m_app;
     std::unique_ptr<QQmlApplicationEngine> m_engine;
     QQuickWindow* m_window = nullptr;
+    // Remains alive as long as the warning signal connection does.
+    QList<QQmlError> m_qmlWarnings;
 
     void screenshot(const QString& name)
     {
@@ -113,6 +125,8 @@ private slots:
             m_media = demo.split(QLatin1Char(';'), Qt::SkipEmptyParts);
         } else {
             VideoSpec spec;
+            // Match the default sequence rate for exact-timecode interchange smoke tests.
+            spec.fps = 30;
             spec.size = QSize(320, 180);
             spec.segmentColors = {
                 QColor(QStringLiteral("#1f7a8c")), QColor(QStringLiteral("#e09f3e")),
@@ -132,9 +146,9 @@ private slots:
                                    m_app->createThumbnailProvider());
         m_engine->addImageProvider(QStringLiteral("ft-waveform"), m_app->createWaveformProvider());
         m_engine->setInitialProperties({{QStringLiteral("app"), QVariant::fromValue(m_app.get())}});
-        QList<QQmlError> errors;
+        m_qmlWarnings.clear();
         connect(m_engine.get(), &QQmlEngine::warnings, this,
-                [&errors](const QList<QQmlError>& w) { errors << w; });
+                [this](const QList<QQmlError>& w) { m_qmlWarnings << w; });
         m_engine->loadFromModule("FrameTrellis", "Main");
         QVERIFY(!m_engine->rootObjects().isEmpty());
         m_window = qobject_cast<QQuickWindow*>(m_engine->rootObjects().first());
@@ -142,10 +156,10 @@ private slots:
         m_window->resize(1600, 960);
         QVERIFY(QTest::qWaitForWindowExposed(m_window));
         QTest::qWait(200);
-        for (const QQmlError& e : std::as_const(errors)) {
+        for (const QQmlError& e : std::as_const(m_qmlWarnings)) {
             qWarning() << e.toString();
         }
-        QVERIFY2(errors.isEmpty(), "QML produced warnings while loading");
+        QVERIFY2(m_qmlWarnings.isEmpty(), "QML produced warnings while loading");
     }
 
     void firstRunGuideIsShownAndDismissable()
@@ -176,17 +190,98 @@ private slots:
         QCOMPARE(m_app->media()->model()->rowCount(), static_cast<int>(m_media.size()));
     }
 
+    void mediaBinCanFilterWithoutChangingProject()
+    {
+        ui::MediaBinFilterModel filter;
+        filter.setSourceModel(m_app->media()->model());
+        const int total = filter.count();
+        QVERIFY(total > 0);
+        QCOMPARE(total, m_app->media()->model()->rowCount());
+
+        const QString firstName =
+            m_app->media()->model()->get(0).value(QStringLiteral("name")).toString();
+        QVERIFY(!firstName.isEmpty());
+        filter.setSearchText(firstName.toUpper());
+        QVERIFY(filter.count() >= 1);
+        QCOMPARE(filter.data(filter.index(0, 0), ui::MediaBinModel::NameRole).toString(),
+                 firstName);
+        filter.setSearchText(QStringLiteral("NO_MATCH_MEDIA_BIN_12345"));
+        QCOMPARE(filter.count(), 0);
+        filter.setSearchText(QString());
+        QCOMPARE(filter.count(), total);
+
+        int expectedAudio = 0;
+        for (int i = 0; i < total; ++i) {
+            if (m_app->media()->model()->get(i).value(QStringLiteral("kind")).toString() ==
+                QLatin1String("audio")) {
+                ++expectedAudio;
+            }
+        }
+        filter.setCategory(QStringLiteral("audio"));
+        QCOMPARE(filter.count(), expectedAudio);
+        filter.setCategory(QStringLiteral("offline"));
+        QCOMPARE(filter.count(), 0);
+        filter.setCategory(QStringLiteral("changed"));
+        QCOMPARE(filter.count(), 0);
+        filter.setCategory(QStringLiteral("unused"));
+        QCOMPARE(filter.count(), total);
+        filter.setCategory(QStringLiteral("used"));
+        QCOMPARE(filter.count(), 0);
+        // The category remains combinable with a name search, without editing source rows.
+        filter.setSearchText(firstName);
+        filter.setCategory(QStringLiteral("unused"));
+        QCOMPARE(filter.count(), 1);
+        filter.setSearchText(QString());
+        filter.setCategory(QStringLiteral("invalid-category"));
+        QCOMPARE(filter.count(), total);
+
+        QQuickItem* grid = findItem(m_window->contentItem(), QStringLiteral("mediaGrid"));
+        QQuickItem* search = findItem(m_window->contentItem(), QStringLiteral("mediaSearchField"));
+        QVERIFY(grid);
+        QVERIFY(search);
+        search->setProperty("text", QStringLiteral("NO_MATCH_MEDIA_BIN_12345"));
+        QTRY_COMPARE(grid->property("count").toInt(), 0);
+        search->setProperty("text", QString());
+        QTRY_COMPARE(grid->property("count").toInt(), total);
+        QQuickItem* kind = findItem(m_window->contentItem(), QStringLiteral("mediaKindFilter"));
+        QVERIFY(kind);
+        kind->setProperty("currentIndex", 7); // Unused
+        QTRY_COMPARE(grid->property("count").toInt(), total);
+        kind->setProperty("currentIndex", 6); // Used
+        QTRY_COMPARE(grid->property("count").toInt(), 0);
+        kind->setProperty("currentIndex", 5); // Changed
+        QTRY_COMPARE(grid->property("count").toInt(), 0);
+        kind->setProperty("currentIndex", 0); // Restore All for following GUI tests.
+        QTRY_COMPARE(grid->property("count").toInt(), total);
+        QCOMPARE(m_app->media()->model()->rowCount(), total);
+    }
+
     void doubleClickingATileAppendsIt()
     {
         QQuickItem* grid = findItem(m_window->contentItem(), QStringLiteral("mediaGrid"));
         QVERIFY(grid);
         const int before = m_app->project()->project().timeline().clipCount();
+        const int totalMedia = m_app->media()->model()->rowCount();
+        // Filtering must respond to new clip usage without touching actual media entries.
+        ui::MediaBinFilterModel usedFilter;
+        usedFilter.setSourceModel(m_app->media()->model());
+        usedFilter.setCategory(QStringLiteral("used"));
+        ui::MediaBinFilterModel unusedFilter;
+        unusedFilter.setSourceModel(m_app->media()->model());
+        unusedFilter.setCategory(QStringLiteral("unused"));
+        QCOMPARE(usedFilter.count(), 0);
+        QCOMPARE(unusedFilter.count(), totalMedia);
+        // Clicking a delegate must not produce a QML ReferenceError from view lookup.
+        m_qmlWarnings.clear();
         // The first tile sits at the top-left of the grid.
         const QPoint tile = grid->mapToScene(QPointF(60, 60)).toPoint();
         QTest::mouseDClick(m_window, Qt::LeftButton, Qt::NoModifier, tile);
         QVERIFY(QTest::qWaitFor(
             [&] { return m_app->project()->project().timeline().clipCount() == before + 1; },
             3000));
+        QVERIFY2(m_qmlWarnings.isEmpty(), "Media-bin tile interaction emitted QML warnings");
+        QTRY_COMPARE(usedFilter.count(), 1);
+        QTRY_COMPARE(unusedFilter.count(), totalMedia - 1);
         // Append the remaining media through the same action.
         for (int row = 1; row < m_app->media()->model()->rowCount(); ++row) {
             QVERIFY(m_app->timeline()->appendAsset(
@@ -194,10 +289,960 @@ private slots:
         }
         QCOMPARE(m_app->project()->project().timeline().clipCount(),
                  before + m_app->media()->model()->rowCount());
+        QTRY_COMPARE(usedFilter.count(), totalMedia);
+        QTRY_COMPARE(unusedFilter.count(), 0);
         m_app->timeline()->zoomToFit(1200);
         m_app->playback()->seek(40);
         QTest::qWait(500);
         screenshot(QStringLiteral("03-timeline"));
+    }
+
+    void selectionZoomAndPlayheadCenterPreserveProject()
+    {
+        auto* timeline = m_app->timeline();
+        QQuickItem* lanes = findItem(m_window->contentItem(), QStringLiteral("timelineLanes"));
+        QVERIFY(lanes);
+        QVERIFY(lanes->width() > 0);
+        timeline->clearSelection();
+        QVERIFY(timeline->selectedFrameRange().isEmpty());
+
+        // Pick clips on distinct tracks to exercise whole-selection bounds.
+        QVERIFY(!track(0).clips.empty());
+        QVERIFY(!track(2).clips.empty());
+        const Clip video = track(0).clips.back();
+        const Clip audio = track(2).clips.front();
+        timeline->select(video.id, false);
+        timeline->select(audio.id, true);
+        const QVariantMap selected = timeline->selectedFrameRange();
+        QVERIFY(!selected.isEmpty());
+        QCOMPARE(selected.value(QStringLiteral("start")).toDouble(),
+                 static_cast<double>(std::min(video.start, audio.start)));
+        QCOMPARE(selected.value(QStringLiteral("end")).toDouble(),
+                 static_cast<double>(std::max(video.end(), audio.end())));
+
+        const Project before = m_app->project()->project();
+        const QString undoBefore = m_app->project()->undoText();
+        const bool modifiedBefore = m_app->project()->isModified();
+        timeline->setPixelsPerFrame(timeline->minPixelsPerFrame());
+        const double minimum = timeline->pixelsPerFrame();
+        timeline->setPixelsPerFrame(std::numeric_limits<double>::quiet_NaN());
+        QCOMPARE(timeline->pixelsPerFrame(), minimum);
+        timeline->setPixelsPerFrame(std::numeric_limits<double>::infinity());
+        QCOMPARE(timeline->pixelsPerFrame(), minimum);
+        timeline->setPixelsPerFrame(-std::numeric_limits<double>::infinity());
+        QCOMPARE(timeline->pixelsPerFrame(), minimum);
+
+        m_window->requestActivate();
+        QTest::keyClick(m_window, Qt::Key_0, Qt::ControlModifier | Qt::ShiftModifier);
+        QVERIFY(QTest::qWaitFor([&] { return timeline->pixelsPerFrame() > minimum; }, 2000));
+
+        const double ppf = timeline->pixelsPerFrame();
+        const double offset = lanes->property("contentX").toDouble();
+        const double left = selected.value(QStringLiteral("start")).toDouble() * ppf - offset;
+        const double right = selected.value(QStringLiteral("end")).toDouble() * ppf - offset;
+        QVERIFY2(left >= -2.0, qPrintable(QStringLiteral("selection begins at %1 px").arg(left)));
+        QVERIFY2(right <= lanes->width() + 2.0,
+                 qPrintable(QStringLiteral("selection ends at %1 px").arg(right)));
+        QCOMPARE(m_app->project()->project(), before);
+        QCOMPARE(m_app->project()->undoText(), undoBefore);
+        QCOMPARE(m_app->project()->isModified(), modifiedBefore);
+
+        timeline->clearSelection();
+        QVERIFY(timeline->selectedFrameRange().isEmpty());
+        const double zoomBefore = timeline->pixelsPerFrame();
+        QTest::keyClick(m_window, Qt::Key_0, Qt::ControlModifier | Qt::ShiftModifier);
+        QCOMPARE(timeline->pixelsPerFrame(), zoomBefore);
+
+        // Centering is a viewport action: it must not seek or create an undo entry.
+        timeline->setPixelsPerFrame(timeline->maxPixelsPerFrame());
+        m_app->playback()->seek(40);
+        const double frameBefore = m_app->playback()->position();
+        lanes->setProperty("contentX", 0);
+        QTest::keyClick(m_window, Qt::Key_L, Qt::ControlModifier | Qt::ShiftModifier);
+        const double expectedX = std::max(
+            0.0, std::min(lanes->property("contentWidth").toDouble() - lanes->width(),
+                          frameBefore * timeline->pixelsPerFrame() - lanes->width() * 0.5));
+        QVERIFY(QTest::qWaitFor(
+            [&] { return std::abs(lanes->property("contentX").toDouble() - expectedX) < 2.0; },
+            2000));
+        QCOMPARE(m_app->playback()->position(), frameBefore);
+        QCOMPARE(m_app->project()->project(), before);
+        QCOMPARE(m_app->project()->undoText(), undoBefore);
+        QCOMPARE(m_app->project()->isModified(), modifiedBefore);
+
+        timeline->zoomToFit(1200);
+        lanes->setProperty("contentX", 0);
+    }
+
+    void selectRelatedClipsWithoutEditingProject()
+    {
+        auto* timeline = m_app->timeline();
+        const Project before = m_app->project()->project();
+        const QString undoLabel = m_app->project()->undoText();
+        const bool dirty = m_app->project()->isModified();
+        QVERIFY(!track(0).clips.empty());
+
+        // Select clips from all tracks whose half-open ranges cover frame zero.
+        m_app->playback()->goToStart();
+        QStringList expected;
+        for (const Track& trackItem : before.timeline().tracks()) {
+            for (const Clip& clip : trackItem.clips) {
+                if (clip.contains(0)) {
+                    expected.append(clip.id);
+                }
+            }
+        }
+        QVERIFY(!expected.isEmpty());
+        timeline->clearSelection();
+        m_window->requestActivate();
+        QTest::keyClick(m_window, Qt::Key_J, Qt::ControlModifier | Qt::ShiftModifier);
+        QCOMPARE(timeline->selection().size(), expected.size());
+        for (const Id& id : expected) {
+            QVERIFY(timeline->selection().contains(id));
+        }
+
+        // A missing track does not erase the existing selection; locked tracks
+        // remain selectable for inspection without granting permission to edit.
+        QVERIFY(!timeline->selectTrackClips(QStringLiteral("missing-track")));
+        QCOMPARE(timeline->selection().size(), expected.size());
+        const Track& video = before.timeline().tracks().front();
+        QVERIFY(!video.clips.empty());
+        QVERIFY(timeline->selectTrackClips(video.id));
+        QCOMPARE(timeline->selection().size(), static_cast<qsizetype>(video.clips.size()));
+        for (const Clip& clip : video.clips) {
+            QVERIFY(timeline->selection().contains(clip.id));
+        }
+
+        QCOMPARE(m_app->project()->project(), before);
+        QCOMPARE(m_app->project()->undoText(), undoLabel);
+        QCOMPARE(m_app->project()->isModified(), dirty);
+
+        // A duplicated use of a source must be included across the timeline.
+        const Id assetId = video.clips.front().assetId;
+        QVERIFY(timeline->appendAsset(assetId));
+        const std::vector<Id> uses =
+            m_app->project()->project().timeline().clipsUsingAsset(assetId);
+        QVERIFY(uses.size() >= size_t{2});
+        timeline->select(video.clips.front().id, false);
+        QTest::keyClick(m_window, Qt::Key_R, Qt::ControlModifier | Qt::AltModifier);
+        QCOMPARE(timeline->selection().size(), static_cast<qsizetype>(uses.size()));
+        for (const Id& id : uses) {
+            QVERIFY(timeline->selection().contains(id));
+        }
+        const Timeline withDuplicate = m_app->project()->project().timeline();
+        const QString undoAfterAppend = m_app->project()->undoText();
+        QVERIFY(timeline->selectAllMediaOccurrences() == false); // multiple clips selected
+        QCOMPARE(m_app->project()->project().timeline(), withDuplicate);
+        QCOMPARE(m_app->project()->undoText(), undoAfterAppend);
+
+        timeline->clearSelection();
+        m_app->project()->undo();
+        QCOMPARE(m_app->project()->project().timeline(), before.timeline());
+    }
+
+    void reorderAdjacentTracksWithoutChangingClipData()
+    {
+        const Timeline original = m_app->project()->project().timeline();
+        QVERIFY(original.trackCount() >= 3);
+        const Id firstVideo = original.tracks().front().id;
+        const Id secondVideo = original.tracks()[1].id;
+        const Id audio = original.tracks()[2].id;
+        QVERIFY(original.tracks()[0].kind == TrackKind::Video);
+        QVERIFY(original.tracks()[1].kind == TrackKind::Video);
+        QVERIFY(original.tracks()[2].kind == TrackKind::Audio);
+
+        QVERIFY(!m_app->timeline()->canMoveTrack(firstVideo, -1));
+        QVERIFY(m_app->timeline()->canMoveTrack(firstVideo, 1));
+        QVERIFY(!m_app->timeline()->canMoveTrack(secondVideo, 1));
+        QVERIFY(!m_app->timeline()->canMoveTrack(QStringLiteral("missing"), 1));
+        QVERIFY(!m_app->timeline()->canMoveTrack(firstVideo, 2));
+        QVERIFY(!m_app->timeline()->moveTrack(firstVideo, -1));
+        QCOMPARE(m_app->project()->project().timeline(), original);
+
+        QVERIFY(m_app->timeline()->moveTrack(firstVideo, 1));
+        const Timeline reordered = m_app->project()->project().timeline();
+        QCOMPARE(reordered.tracks().front().id, secondVideo);
+        QCOMPARE(reordered.tracks()[1].id, firstVideo);
+        QCOMPARE(reordered.tracks()[2].id, audio);
+        QCOMPARE(reordered.clipCount(), original.clipCount());
+        m_app->project()->undo();
+        QCOMPARE(m_app->project()->project().timeline(), original);
+        m_app->project()->redo();
+        QCOMPARE(m_app->project()->project().timeline(), reordered);
+        m_app->project()->undo();
+        QCOMPARE(m_app->project()->project().timeline(), original);
+    }
+
+    void slipSelectedClipKeepsPlacementAndIsUndoable()
+    {
+        // The imported video has no spare source at first; trim its end to make
+        // room for a real slip while preserving its position in the sequence.
+        const Clip original = track(0).clips.front();
+        const Timeline before = m_app->project()->project().timeline();
+        QVERIFY(original.duration > 20);
+        QVERIFY(m_app->timeline()->trimEnd(original.id, static_cast<double>(original.end() - 10)));
+        m_app->timeline()->select(original.id, false);
+        QQuickItem* controls =
+            findItem(m_window->contentItem(), QStringLiteral("clipSlipControls"));
+        QVERIFY(controls);
+        QVERIFY(controls->isVisible());
+        QVERIFY(m_app->timeline()->slipSelection(5));
+        const Clip* slipped = m_app->project()->project().timeline().clip(original.id);
+        QVERIFY(slipped);
+        QCOMPARE(slipped->start, original.start);
+        QCOMPARE(slipped->duration, original.duration - FrameCount{10});
+        QCOMPARE(slipped->sourceIn, original.sourceIn + FrameCount{5});
+        QCOMPARE(m_app->project()->undoText(), QStringLiteral("Slip 1 Clip(s)"));
+        m_app->project()->undo();
+        QCOMPARE(m_app->project()->project().timeline().clip(original.id)->sourceIn,
+                 original.sourceIn);
+        m_app->project()->redo();
+        QCOMPARE(m_app->project()->project().timeline().clip(original.id)->sourceIn,
+                 original.sourceIn + FrameCount{5});
+        m_app->project()->undo();
+        m_app->project()->undo();
+        QCOMPARE(m_app->project()->project().timeline(), before);
+        m_app->timeline()->clearSelection();
+    }
+
+    void rollSelectedCutShowsInspectorAndRestoresUndoRedo()
+    {
+        const Clip original = track(0).clips.front();
+        QVERIFY(original.duration > 10);
+        const Timeline initial = m_app->project()->project().timeline();
+        m_app->timeline()->select(original.id, false);
+        m_app->playback()->seek(original.start + original.duration / 2);
+        QVERIFY(m_app->timeline()->splitAtPlayhead());
+        const Clip* left = m_app->project()->project().timeline().clip(original.id);
+        QVERIFY(left);
+        const FrameCount cut = left->end();
+        const Track& splitTrack = track(0);
+        Id rightId;
+        for (const Clip& c : splitTrack.clips) {
+            if (c.id != original.id && c.start == cut) {
+                rightId = c.id;
+                break;
+            }
+        }
+        QVERIFY(!rightId.isEmpty());
+        const FrameCount timelineEnd = m_app->project()->project().timeline().duration();
+        m_app->timeline()->select(original.id, false);
+        QVERIFY(
+            m_app->timeline()->selectedClip().value(QStringLiteral("rollCutAvailable")).toBool());
+        QQuickItem* controls =
+            findItem(m_window->contentItem(), QStringLiteral("clipRollControls"));
+        QVERIFY(controls);
+        QTRY_VERIFY(controls->isVisible());
+        QVERIFY(m_app->timeline()->rollSelection(1));
+        QCOMPARE(m_app->project()->undoText(), QStringLiteral("Roll Cut Right"));
+        QCOMPARE(m_app->project()->project().timeline().clip(original.id)->end(),
+                 cut + FrameCount{1});
+        QCOMPARE(m_app->project()->project().timeline().clip(rightId)->start, cut + FrameCount{1});
+        QCOMPARE(m_app->project()->project().timeline().duration(), timelineEnd);
+        m_app->project()->undo();
+        QCOMPARE(m_app->project()->project().timeline().clip(original.id)->end(), cut);
+        m_app->project()->redo();
+        QCOMPARE(m_app->project()->project().timeline().clip(original.id)->end(),
+                 cut + FrameCount{1});
+        m_app->project()->undo(); // roll
+        m_app->project()->undo(); // split
+        QCOMPARE(m_app->project()->project().timeline(), initial);
+        m_app->timeline()->clearSelection();
+    }
+
+    void volumeKeyframeInspectorNavigationAndUndo()
+    {
+        m_app->playback()->pause();
+        const Clip original = track(0).clips.front();
+        const Timeline initial = m_app->project()->project().timeline();
+        QVERIFY(original.duration > 40);
+        m_app->timeline()->select(original.id, false);
+        m_app->playback()->seek(static_cast<double>(original.start + 10));
+        QTRY_VERIFY(m_app->timeline()->audioAutomation().value(QStringLiteral("canEdit")).toBool());
+        QQuickItem* controls =
+            findItem(m_window->contentItem(), QStringLiteral("audioKeyframeControls"));
+        QVERIFY(controls);
+        QVERIFY(controls->isVisible());
+        QQuickItem* add = findItem(m_window->contentItem(), QStringLiteral("addAudioKeyframe"));
+        QVERIFY(add && add->isEnabled());
+        QQuickItem* inspectorScroll =
+            findItem(m_window->contentItem(), QStringLiteral("inspectorScroll"));
+        QVERIFY(inspectorScroll);
+        QObject* inspectorFlick = inspectorScroll->property("contentItem").value<QObject*>();
+        QVERIFY(inspectorFlick);
+        inspectorFlick->setProperty("contentY", std::max(0.0, controls->y() - 15));
+        QTest::qWait(50);
+        m_qmlWarnings.clear();
+        QTest::mouseClick(m_window, Qt::LeftButton, Qt::NoModifier, centreOf(add));
+        QTRY_COMPARE(
+            m_app->project()->project().timeline().clip(original.id)->audioKeyframes.size(),
+            size_t{1});
+        QQuickItem* level = findItem(m_window->contentItem(), QStringLiteral("audioKeyframeLevel"));
+        QVERIFY(level && level->isEnabled());
+        QVERIFY(QMetaObject::invokeMethod(level, "moved", Q_ARG(double, -6.0)));
+        QVERIFY(QMetaObject::invokeMethod(level, "moved", Q_ARG(double, -12.0)));
+        m_app->timeline()->endEdit();
+        QCOMPARE(
+            m_app->project()->project().timeline().clip(original.id)->audioKeyframes[0].decibels,
+            -12.0);
+        m_app->playback()->seek(static_cast<double>(original.start + 30));
+        QVERIFY(m_app->timeline()->setAudioKeyframeAtPlayhead(-24));
+        m_app->timeline()->endEdit();
+        const Timeline automated = m_app->project()->project().timeline();
+        m_app->timeline()->previousAudioKeyframe();
+        QCOMPARE(m_app->playback()->positionFrames(), original.start + 10);
+        m_app->timeline()->nextAudioKeyframe();
+        QCOMPARE(m_app->playback()->positionFrames(), original.start + 30);
+        QCOMPARE(m_app->project()->project().timeline(), automated);
+        QQuickItem* item = clipItem(original.id);
+        QVERIFY(item);
+        QVERIFY(item->property("audioEnvelope").toList().size() >= 4);
+        const double previousZoom = m_app->timeline()->pixelsPerFrame();
+        m_app->timeline()->setPixelsPerFrame(24);
+        QQuickItem* envelope = findItem(item, QStringLiteral("audioEnvelope:") + original.id);
+        QVERIFY(envelope);
+        QQuickItem* lanes = findItem(m_window->contentItem(), QStringLiteral("timelineLanes"));
+        QVERIFY(lanes);
+        QTRY_VERIFY(item->width() > lanes->width());
+        QTRY_VERIFY(envelope->width() > 0 && envelope->width() <= lanes->width());
+        lanes->setProperty("contentX", static_cast<double>(original.start * 24 + 200));
+        QTRY_VERIFY(envelope->x() >= 200);
+        QVERIFY(envelope->width() <= lanes->width());
+        m_app->timeline()->setPixelsPerFrame(previousZoom);
+        lanes->setProperty("contentX", 0);
+        QQuickItem* remove =
+            findItem(m_window->contentItem(), QStringLiteral("removeAudioKeyframe"));
+        QVERIFY(remove && remove->isEnabled());
+        QTest::mouseClick(m_window, Qt::LeftButton, Qt::NoModifier, centreOf(remove));
+        QTRY_COMPARE(
+            m_app->project()->project().timeline().clip(original.id)->audioKeyframes.size(),
+            size_t{1});
+        m_app->project()->undo();
+        QCOMPARE(m_app->project()->project().timeline(), automated);
+        m_app->project()->redo();
+        m_app->project()->undo();
+        QVERIFY(!m_app->timeline()->setAudioKeyframeAtPlayhead(
+            std::numeric_limits<double>::quiet_NaN()));
+        QCOMPARE(m_app->project()->project().timeline(), automated);
+        QTest::qWait(100);
+        QVERIFY2(m_qmlWarnings.isEmpty(), "Volume keyframe controls emitted QML warnings");
+        m_app->showStatus(QString());
+        screenshot(QStringLiteral("09-volume-keyframes"));
+        m_app->project()->undo(); // second point
+        m_app->project()->undo(); // first point slider drag
+        m_app->project()->undo(); // add first point
+        QCOMPARE(m_app->project()->project().timeline(), initial);
+        m_app->timeline()->clearSelection();
+        inspectorFlick->setProperty("contentY", 0);
+    }
+
+    void transformControlsAndMonitorDragsPreserveUndoAndOtherCurves()
+    {
+        m_app->playback()->pause();
+        const Timeline initial = m_app->project()->project().timeline();
+        const Clip original = track(0).clips.front();
+        const QSize previousSize = m_window->size();
+        const QString previousTheme = m_app->theme();
+        const auto restore = qScopeGuard([&] {
+            m_app->playback()->pause();
+            m_app->timeline()->setTransformHandlesVisible(false);
+            m_app->setTheme(previousTheme);
+            for (int i = 0; i < 20 && m_app->project()->project().timeline() != initial; ++i) {
+                m_app->project()->undo();
+            }
+            m_window->resize(previousSize);
+        });
+        m_app->timeline()->select(original.id, false);
+        m_app->playback()->seek(static_cast<double>(original.start + 10));
+        QTRY_VERIFY(
+            m_app->timeline()->transformAutomation().value(QStringLiteral("canEdit")).toBool());
+        QVERIFY(m_app->timeline()->setAudioKeyframeAtPlayhead(-12));
+        m_app->timeline()->endEdit();
+        QVERIFY(m_app->timeline()->setOpacityKeyframeAtPlayhead(0.75));
+        m_app->timeline()->endEdit();
+        QQuickItem* controls =
+            findItem(m_window->contentItem(), QStringLiteral("transformKeyframeControls"));
+        QQuickItem* scroll = findItem(m_window->contentItem(), QStringLiteral("inspectorScroll"));
+        QVERIFY(controls && scroll);
+        QObject* flick = scroll->property("contentItem").value<QObject*>();
+        QVERIFY(flick);
+        const auto reveal = [&](QQuickItem* item) {
+            const qreal y = item->mapToItem(controls, QPointF()).y() + controls->y();
+            flick->setProperty("contentY", std::max(0.0, y - 30));
+            QTest::qWait(60);
+        };
+        const auto click = [&](const QString& name) {
+            QQuickItem* item = findItem(m_window->contentItem(), name);
+            if (!item || !item->isEnabled())
+                return false;
+            reveal(item);
+            QSignalSpy clicks(item, SIGNAL(clicked()));
+            QTest::mouseClick(m_window, Qt::LeftButton, Qt::NoModifier, centreOf(item));
+            return QTest::qWaitFor([&] { return !clicks.isEmpty(); }, 1000);
+        };
+        QVERIFY(click(QStringLiteral("addTransformKeyframe")));
+        QCOMPARE(m_app->timeline()->transformAutomation().value(QStringLiteral("count")).toInt(),
+                 1);
+        QQuickItem* xSlider =
+            findItem(m_window->contentItem(), QStringLiteral("transformPositionX"));
+        QVERIFY(xSlider);
+        QVERIFY(QMetaObject::invokeMethod(xSlider, "moved", Q_ARG(double, 0.1)));
+        QVERIFY(QMetaObject::invokeMethod(xSlider, "moved", Q_ARG(double, 0.2)));
+        m_app->timeline()->endEdit();
+        QCOMPARE(m_app->timeline()->transformAutomation().value(QStringLiteral("x")).toDouble(),
+                 0.2);
+        m_app->project()->undo();
+        QCOMPARE(m_app->timeline()->transformAutomation().value(QStringLiteral("x")).toDouble(),
+                 0.0);
+        QVERIFY(m_app->timeline()->setTransformComponent(QStringLiteral("scale"), 0.5));
+        m_app->timeline()->endEdit();
+        QVERIFY(click(QStringLiteral("showTransformHandles")));
+        QQuickItem* overlay =
+            findItem(m_window->contentItem(), QStringLiteral("monitorTransformOverlay"));
+        QQuickItem* move = findItem(m_window->contentItem(), QStringLiteral("transformMoveArea"));
+        QQuickItem* scale =
+            findItem(m_window->contentItem(), QStringLiteral("transformScaleHandle"));
+        QQuickItem* rotate =
+            findItem(m_window->contentItem(), QStringLiteral("transformRotateHandle"));
+        QVERIFY(overlay && move && scale && rotate);
+        QTRY_VERIFY(overlay->isVisible());
+        const Timeline beforeMove = m_app->project()->project().timeline();
+        const QPoint centre = centreOf(move);
+        drag(centre, centre + QPoint(25, 12));
+        QVERIFY(m_app->timeline()->transformAutomation().value(QStringLiteral("x")).toDouble() >
+                0.02);
+        QVERIFY(m_app->timeline()->transformAutomation().value(QStringLiteral("y")).toDouble() >
+                0.02);
+        const Timeline moved = m_app->project()->project().timeline();
+        m_app->project()->undo();
+        QCOMPARE(m_app->project()->project().timeline(), beforeMove);
+        m_app->project()->redo();
+        QCOMPARE(m_app->project()->project().timeline(), moved);
+        const Timeline beforeScale = m_app->project()->project().timeline();
+        const QPoint fromScale = centreOf(scale);
+        drag(fromScale, fromScale + QPoint(30, 15));
+        QVERIFY(m_app->timeline()->transformAutomation().value(QStringLiteral("scale")).toDouble() >
+                0.55);
+        m_app->project()->undo();
+        QCOMPARE(m_app->project()->project().timeline(), beforeScale);
+        const Timeline beforeRotate = m_app->project()->project().timeline();
+        const QPoint rotationCentre = centreOf(move);
+        const QPoint fromRotation = centreOf(rotate);
+        drag(fromRotation, rotationCentre + QPoint(35, -35));
+        const double angle =
+            m_app->timeline()->transformAutomation().value(QStringLiteral("rotation")).toDouble();
+        QVERIFY2(angle > 15 && angle < 75, qPrintable(QString::number(angle)));
+        m_app->project()->undo();
+        QCOMPARE(m_app->project()->project().timeline(), beforeRotate);
+        m_app->project()->redo();
+        const VideoTransform first = m_app->project()
+                                         ->project()
+                                         .timeline()
+                                         .clip(original.id)
+                                         ->transformKeyframes.front()
+                                         .value;
+        m_app->playback()->seek(static_cast<double>(original.start + 40));
+        QVERIFY(m_app->timeline()->setTransformAtPlayhead(-0.1, 0, 0.75, 720));
+        m_app->timeline()->endEdit();
+        QCOMPARE(m_app->timeline()->transformAutomation().value(QStringLiteral("count")).toInt(),
+                 2);
+        QVERIFY(click(QStringLiteral("previousTransformKeyframe")));
+        QCOMPARE(m_app->playback()->positionFrames(), original.start + 10);
+        QVERIFY(click(QStringLiteral("nextTransformKeyframe")));
+        QTRY_COMPARE(m_app->playback()->positionFrames(), original.start + 40);
+        m_app->playback()->seek(static_cast<double>(original.start + 25));
+        QVERIFY(std::abs(m_app->timeline()
+                             ->transformAutomation()
+                             .value(QStringLiteral("rotation"))
+                             .toDouble() -
+                         (first.rotation + 720) / 2) < 0.001);
+        const Timeline beforeReset = m_app->project()->project().timeline();
+        m_app->playback()->seek(static_cast<double>(original.end() + 1));
+        QVERIFY(!overlay->isVisible());
+        QVERIFY(!m_app->timeline()->setTransformComponent(QStringLiteral("x"), 0.5));
+        QCOMPARE(m_app->project()->project().timeline(), beforeReset);
+        m_app->playback()->seek(static_cast<double>(original.start + 10));
+        QVERIFY(m_app->timeline()->setTrackFlag(track(0).id, QStringLiteral("locked"), true));
+        const Timeline locked = m_app->project()->project().timeline();
+        QVERIFY(!m_app->timeline()->setTransformAtPlayhead(0, 0, 1, 0));
+        QVERIFY(!m_app->timeline()->clearSelectedTransformKeyframes());
+        QCOMPARE(m_app->project()->project().timeline(), locked);
+        m_app->project()->undo();
+        QVERIFY(m_app->timeline()->resetPictureAdjustments(original.id));
+        const Clip* reset = m_app->project()->project().timeline().clip(original.id);
+        QVERIFY(reset->transformKeyframes.empty());
+        QVERIFY(reset->opacityKeyframes.empty());
+        QVERIFY(!reset->audioKeyframes.empty());
+        m_app->project()->undo();
+        QCOMPARE(m_app->project()->project().timeline(), beforeReset);
+        QVERIFY(click(QStringLiteral("removeTransformKeyframe")));
+        QCOMPARE(m_app->timeline()->transformAutomation().value(QStringLiteral("count")).toInt(),
+                 1);
+        m_app->project()->undo();
+        QVERIFY(click(QStringLiteral("clearTransformKeyframes")));
+        QCOMPARE(m_app->timeline()->transformAutomation().value(QStringLiteral("count")).toInt(),
+                 0);
+        m_app->project()->undo();
+        QQuickItem* badge =
+            findItem(clipItem(original.id), QStringLiteral("transformBadge:") + original.id);
+        QVERIFY(badge && badge->isVisible());
+        m_window->resize(1200, 800);
+        QTest::qWait(100);
+        reveal(controls);
+        screenshot(QStringLiteral("11-transform-keyframes"));
+        m_app->setTheme(QStringLiteral("light"));
+        QTest::qWait(100);
+        screenshot(QStringLiteral("12-transform-keyframes-light"));
+        m_app->setTheme(QStringLiteral("dark"));
+        m_app->timeline()->setTransformHandlesVisible(false);
+        for (int i = 0; i < 20 && m_app->project()->project().timeline() != initial; ++i) {
+            m_app->project()->undo();
+        }
+        QCOMPARE(m_app->project()->project().timeline(), initial);
+        m_window->resize(previousSize);
+        flick->setProperty("contentY", 0);
+    }
+
+    void subtitleEditorGuardsDraftsAndUsesSequenceTimes()
+    {
+        m_app->playback()->pause();
+        const Timeline initial = m_app->project()->project().timeline();
+        const SubtitleTrack initialSubtitles = m_app->project()->project().subtitles();
+        const QSize previousSize = m_window->size();
+        const QString previousTheme = m_app->theme();
+        QObject* dialog = m_window->findChild<QObject*>(QStringLiteral("subtitleDialog"));
+        QVERIFY(dialog);
+        const auto restore = qScopeGuard([&] {
+            QMetaObject::invokeMethod(dialog, "close");
+            m_app->setTheme(previousTheme);
+            for (int i = 0; i < 12 && m_app->project()->project().subtitles() != initialSubtitles;
+                 ++i)
+                m_app->project()->undo();
+            m_window->resize(previousSize);
+        });
+        const auto click = [&](const QString& name) {
+            QQuickItem* item = findItem(m_window->contentItem(), name);
+            if (!item || !item->isVisible() || !item->isEnabled())
+                return false;
+            QTest::mouseClick(m_window, Qt::LeftButton, Qt::NoModifier, centreOf(item));
+            return true;
+        };
+        const auto type = [&](const char* value) {
+            for (char c : QByteArray(value))
+                QTest::keyClick(m_window, c);
+        };
+        m_app->playback()->seek(0);
+        m_window->resize(1200, 800);
+        m_app->setTheme(QStringLiteral("dark"));
+        m_qmlWarnings.clear();
+        QVERIFY(click(QStringLiteral("subtitlesButton")));
+        QTRY_VERIFY(dialog->property("visible").toBool());
+        QVERIFY(click(QStringLiteral("subtitleAdd")));
+        QTRY_COMPARE(m_app->subtitles()->rowCount(), 1);
+        QQuickItem* text = findItem(m_window->contentItem(), QStringLiteral("subtitleText"));
+        QQuickItem* start = findItem(m_window->contentItem(), QStringLiteral("subtitleStart"));
+        QQuickItem* end = findItem(m_window->contentItem(), QStringLiteral("subtitleEnd"));
+        QVERIFY(text && start && end);
+        text->forceActiveFocus();
+        QTest::keyClick(m_window, Qt::Key_A, Qt::ControlModifier);
+        type("Welcome to FrameTrellis");
+        QTest::keyClick(m_window, Qt::Key_Return);
+        type("A precise subtitle workflow.");
+        QTest::keyClick(m_window, Qt::Key_Space);
+        QTest::keyClick(m_window, Qt::Key_Left);
+        QTest::keyClick(m_window, Qt::Key_Delete);
+        QVERIFY(dialog->property("dirty").toBool());
+        QCOMPARE(m_app->project()->project().timeline(), initial);
+        QCOMPARE(m_app->subtitles()->rowCount(), 1);
+        QVERIFY(!m_app->playback()->playing());
+        start->forceActiveFocus();
+        QTest::keyClick(m_window, Qt::Key_A, Qt::ControlModifier);
+        type("00:00:00,123");
+        QVERIFY(click(QStringLiteral("subtitleApply")));
+        QTRY_VERIFY(!dialog->property("dirty").toBool());
+        QCOMPARE(m_app->project()->project().subtitles().cues.front().startMs, 123);
+        const SubtitleTrack applied = m_app->project()->project().subtitles();
+        QVERIFY(click(QStringLiteral("subtitleUndo")));
+        QTRY_COMPARE(m_app->project()->project().subtitles().cues.front().startMs, 0);
+        m_app->project()->redo();
+        QTRY_COMPARE(m_app->project()->project().subtitles(), applied);
+        end->forceActiveFocus();
+        QTest::keyClick(m_window, Qt::Key_A, Qt::ControlModifier);
+        type("00:00:00,100");
+        QVERIFY(click(QStringLiteral("subtitleApply")));
+        QVERIFY(dialog->property("dirty").toBool());
+        QVERIFY(!m_app->subtitles()->error().isEmpty());
+        QCOMPARE(m_app->project()->project().subtitles(), applied);
+        QVERIFY(click(QStringLiteral("subtitleClose")));
+        QObject* guard = m_window->findChild<QObject*>(QStringLiteral("subtitleDraftGuard"));
+        QVERIFY(guard);
+        QTRY_VERIFY(guard->property("visible").toBool());
+        QVERIFY(click(QStringLiteral("subtitleDraftGuardCancel")));
+        QTRY_VERIFY(!guard->property("visible").toBool());
+        QVERIFY(dialog->property("visible").toBool());
+        QVERIFY(dialog->property("dirty").toBool());
+        QVERIFY(click(QStringLiteral("subtitleClose")));
+        QTRY_VERIFY(guard->property("visible").toBool());
+        QVERIFY(click(QStringLiteral("subtitleDraftGuardDiscard")));
+        QTRY_VERIFY(!dialog->property("visible").toBool());
+        QCOMPARE(m_app->project()->project().subtitles(), applied);
+        QQuickItem* span = findItem(m_window->contentItem(),
+                                    QStringLiteral("subtitleSpan:") + applied.cues.front().id);
+        QVERIFY(span && span->isVisible());
+        QVERIFY(span->width() > 0 && span->width() <= 1200);
+        QTest::mouseClick(m_window, Qt::LeftButton, Qt::NoModifier, centreOf(span));
+        QCOMPARE(m_app->playback()->positionFrames(), 4);
+        QVERIFY(click(QStringLiteral("subtitlesButton")));
+        QTRY_VERIFY(dialog->property("visible").toBool());
+        screenshot(QStringLiteral("13-subtitles"));
+        m_app->setTheme(QStringLiteral("light"));
+        screenshot(QStringLiteral("14-subtitles-light"));
+        QVERIFY2(m_qmlWarnings.isEmpty(), "Subtitle editor produced QML warnings");
+        QCOMPARE(m_app->project()->project().timeline(), initial);
+    }
+
+    void opacityKeyframesUseRealControlsAndPreserveAudio()
+    {
+        m_app->playback()->pause();
+        const Clip original = track(0).clips.front();
+        const Timeline initial = m_app->project()->project().timeline();
+        const double previousZoom = m_app->timeline()->pixelsPerFrame();
+        m_app->timeline()->select(original.id, false);
+        m_app->playback()->seek(static_cast<double>(original.start + 10));
+        QVERIFY(m_app->timeline()->setAudioKeyframeAtPlayhead(-12));
+        m_app->timeline()->endEdit();
+        QTRY_VERIFY(
+            m_app->timeline()->opacityAutomation().value(QStringLiteral("canEdit")).toBool());
+        QQuickItem* controls =
+            findItem(m_window->contentItem(), QStringLiteral("opacityKeyframeControls"));
+        QQuickItem* scroll = findItem(m_window->contentItem(), QStringLiteral("inspectorScroll"));
+        QVERIFY(controls && controls->isVisible());
+        QVERIFY(scroll);
+        QObject* flick = scroll->property("contentItem").value<QObject*>();
+        QVERIFY(flick);
+        flick->setProperty("contentY", std::max(0.0, controls->y() - 15));
+        QTest::qWait(50);
+        QQuickItem* add = findItem(m_window->contentItem(), QStringLiteral("addOpacityKeyframe"));
+        QQuickItem* level =
+            findItem(m_window->contentItem(), QStringLiteral("opacityKeyframeLevel"));
+        QVERIFY(add && add->isEnabled());
+        QVERIFY(level);
+        m_qmlWarnings.clear();
+        QTest::mouseClick(m_window, Qt::LeftButton, Qt::NoModifier, centreOf(add));
+        QTRY_VERIFY(level->isEnabled());
+        QVERIFY(QMetaObject::invokeMethod(level, "moved", Q_ARG(double, 0.5)));
+        QVERIFY(QMetaObject::invokeMethod(level, "moved", Q_ARG(double, 0.0)));
+        m_app->timeline()->endEdit();
+        QTRY_COMPARE(level->property("value").toDouble(), 0.0);
+        QCOMPARE(
+            m_app->project()->project().timeline().clip(original.id)->opacityKeyframes[0].opacity,
+            0.0);
+        m_app->playback()->seek(static_cast<double>(original.start + 30));
+        QVERIFY(m_app->timeline()->setOpacityKeyframeAtPlayhead(1));
+        m_app->timeline()->endEdit();
+        const Timeline automated = m_app->project()->project().timeline();
+        m_app->playback()->seek(static_cast<double>(original.start + 20));
+        QCOMPARE(m_app->timeline()->opacityAutomation().value(QStringLiteral("opacity")).toDouble(),
+                 0.5);
+        m_app->timeline()->previousOpacityKeyframe();
+        QCOMPARE(m_app->playback()->positionFrames(), original.start + 10);
+        m_app->timeline()->nextOpacityKeyframe();
+        QCOMPARE(m_app->playback()->positionFrames(), original.start + 30);
+        QCOMPARE(m_app->project()->project().timeline(), automated);
+        m_app->playback()->seek(static_cast<double>(original.end()));
+        QVERIFY(!m_app->timeline()->setOpacityKeyframeAtPlayhead(0.5));
+        m_app->playback()->seek(static_cast<double>(original.start + 30));
+        QVERIFY(!m_app->timeline()->setOpacityKeyframeAtPlayhead(
+            std::numeric_limits<double>::quiet_NaN()));
+        QCOMPARE(m_app->project()->project().timeline(), automated);
+        QVERIFY(m_app->timeline()->resetPictureAdjustments(original.id));
+        QVERIFY(m_app->project()->project().timeline().clip(original.id)->opacityKeyframes.empty());
+        QCOMPARE(m_app->project()->project().timeline().clip(original.id)->audioKeyframes.size(),
+                 size_t{1});
+        m_app->project()->undo();
+        QCOMPARE(m_app->project()->project().timeline(), automated);
+        const Id trackId = m_app->project()->project().timeline().trackOfClip(original.id)->id;
+        QVERIFY(m_app->timeline()->setTrackFlag(trackId, QStringLiteral("locked"), true));
+        QVERIFY(!m_app->timeline()->setOpacityKeyframeAtPlayhead(0.5));
+        QVERIFY(!m_app->timeline()->clearSelectedOpacityKeyframes());
+        m_app->project()->undo();
+        QCOMPARE(m_app->project()->project().timeline(), automated);
+        QQuickItem* remove =
+            findItem(m_window->contentItem(), QStringLiteral("removeOpacityKeyframe"));
+        QQuickItem* clear =
+            findItem(m_window->contentItem(), QStringLiteral("clearOpacityKeyframes"));
+        QVERIFY(remove && remove->isEnabled());
+        QVERIFY(clear && clear->isEnabled());
+        QTest::mouseClick(m_window, Qt::LeftButton, Qt::NoModifier, centreOf(remove));
+        QTRY_COMPARE(
+            m_app->project()->project().timeline().clip(original.id)->opacityKeyframes.size(),
+            size_t{1});
+        m_app->project()->undo();
+        QTest::mouseClick(m_window, Qt::LeftButton, Qt::NoModifier, centreOf(clear));
+        QTRY_VERIFY(
+            m_app->project()->project().timeline().clip(original.id)->opacityKeyframes.empty());
+        QCOMPARE(m_app->project()->project().timeline().clip(original.id)->audioKeyframes.size(),
+                 size_t{1});
+        m_app->project()->undo();
+        QCOMPARE(m_app->project()->project().timeline(), automated);
+        m_app->timeline()->setPixelsPerFrame(24);
+        QQuickItem* item = clipItem(original.id);
+        QQuickItem* lanes = findItem(m_window->contentItem(), QStringLiteral("timelineLanes"));
+        QVERIFY(item && lanes);
+        QQuickItem* opacity = findItem(item, QStringLiteral("opacityEnvelope:") + original.id);
+        QQuickItem* audio = findItem(item, QStringLiteral("audioEnvelope:") + original.id);
+        QVERIFY(opacity && audio);
+        QVERIFY(!opacity->property("diamonds").toBool());
+        QVERIFY(audio->property("diamonds").toBool());
+        QTRY_VERIFY(opacity->width() > 0 && opacity->width() <= lanes->width());
+        lanes->setProperty("contentX", static_cast<double>(original.start * 24 + 200));
+        QTRY_VERIFY(opacity->x() >= 200);
+        QVERIFY(opacity->width() <= lanes->width());
+        QVERIFY(audio->width() <= lanes->width());
+        m_app->timeline()->setPixelsPerFrame(previousZoom);
+        lanes->setProperty("contentX", 0);
+        m_window->resize(1200, 800);
+        flick->setProperty("contentY", std::max(0.0, controls->y() - 15));
+        QTest::qWait(100);
+        QVERIFY2(m_qmlWarnings.isEmpty(), "Opacity controls or envelope emitted QML warnings");
+        m_app->showStatus(QString());
+        screenshot(QStringLiteral("10-opacity-keyframes"));
+        m_window->resize(1600, 960);
+        m_app->project()->undo(); // second opacity point
+        m_app->project()->undo(); // opacity slider drag
+        m_app->project()->undo(); // add first opacity point
+        m_app->project()->undo(); // audio point
+        QCOMPARE(m_app->project()->project().timeline(), initial);
+        m_app->timeline()->clearSelection();
+        flick->setProperty("contentY", 0);
+    }
+
+    void opacityKeyframesAlsoWorkForStillImages()
+    {
+        const Timeline initial = m_app->project()->project().timeline();
+        Id imageClip;
+        for (const Track& track : initial.tracks()) {
+            for (const Clip& clip : track.clips) {
+                const MediaAsset* asset = m_app->project()->project().asset(clip.assetId);
+                if (track.kind == TrackKind::Video && asset &&
+                    asset->info.kind == MediaKind::Image) {
+                    imageClip = clip.id;
+                    break;
+                }
+            }
+        }
+        QVERIFY(!imageClip.isEmpty());
+        const Clip* image = initial.clip(imageClip);
+        m_app->timeline()->select(imageClip, false);
+        m_app->playback()->seek(static_cast<double>(image->start + 10));
+        QVERIFY(m_app->timeline()->opacityAutomation().value(QStringLiteral("canEdit")).toBool());
+        QVERIFY(m_app->timeline()->setOpacityKeyframeAtPlayhead(0.5));
+        m_app->timeline()->endEdit();
+        QVERIFY(!m_app->timeline()->audioAutomation().value(QStringLiteral("available")).toBool());
+        QVERIFY(!m_app->timeline()->setAudioKeyframeAtPlayhead(-12));
+        m_app->project()->undo();
+        QCOMPARE(m_app->project()->project().timeline(), initial);
+        QVERIFY(m_app->timeline()->transformAutomation().value(QStringLiteral("canEdit")).toBool());
+        QVERIFY(m_app->timeline()->setTransformAtPlayhead(0.25, -0.25, 0.5, 90));
+        m_app->timeline()->endEdit();
+        const Timeline transformed = m_app->project()->project().timeline();
+        QVERIFY(!m_app->timeline()->setTransformAtPlayhead(0, 0, 0, 0));
+        QVERIFY(!m_app->timeline()->setTransformAtPlayhead(std::numeric_limits<double>::quiet_NaN(),
+                                                           0, 1, 0));
+        QVERIFY(!m_app->timeline()->setTransformComponent(QStringLiteral("unknown"), 1));
+        QCOMPARE(m_app->project()->project().timeline(), transformed);
+        m_app->project()->undo();
+        QCOMPARE(m_app->project()->project().timeline(), initial);
+        m_app->timeline()->clearSelection();
+        m_app->timeline()->setTransformHandlesVisible(true);
+        QQuickItem* overlay =
+            findItem(m_window->contentItem(), QStringLiteral("monitorTransformOverlay"));
+        QVERIFY(overlay && !overlay->isVisible());
+        m_app->timeline()->setTransformHandlesVisible(false);
+    }
+
+    void goToTimecodeSeeksOnlyForValidPositions()
+    {
+        const double before = m_app->playback()->position();
+        QVERIFY(!m_app->playback()->seekToTimecode(QStringLiteral("invalid")));
+        QCOMPARE(m_app->playback()->position(), before);
+        QVERIFY(!m_app->playback()->seekToTimecode(QStringLiteral("99:00:00:00")));
+        QCOMPARE(m_app->playback()->position(), before);
+
+        QTest::keyClick(m_window, Qt::Key_G, Qt::ControlModifier);
+        QObject* dialog = m_window->findChild<QObject*>(QStringLiteral("goToTimecodeDialog"));
+        QVERIFY(dialog);
+        QTRY_VERIFY(dialog->property("visible").toBool());
+
+        QQuickItem* field = findItem(m_window->contentItem(), QStringLiteral("goToTimecodeField"));
+        QVERIFY(field);
+        field->setProperty("text", QStringLiteral("00:00:01:00"));
+        QVERIFY(QMetaObject::invokeMethod(dialog, "trySeek"));
+        QTRY_VERIFY(!dialog->property("visible").toBool());
+        QCOMPARE(static_cast<FrameCount>(m_app->playback()->position()), FrameCount{30});
+    }
+
+    void markerDialogUndoRedoAndFrameNavigation()
+    {
+        const Project before = m_app->project()->project();
+        const int previousMarkerCount = static_cast<int>(before.markers().size());
+
+        // Exercise the keyboard action and the actual QML form.
+        QTest::keyClick(m_window, Qt::Key_M, Qt::ShiftModifier);
+        QObject* dialog = m_window->findChild<QObject*>(QStringLiteral("markerDialog"));
+        QVERIFY(dialog);
+        QTRY_VERIFY(dialog->property("visible").toBool());
+        QQuickItem* label = findItem(m_window->contentItem(), QStringLiteral("markerLabelField"));
+        QQuickItem* frame = findItem(m_window->contentItem(), QStringLiteral("markerFrameField"));
+        QVERIFY(label);
+        QVERIFY(frame);
+        QVERIFY(label->setProperty("text", QStringLiteral("Review the music beat")));
+        QVERIFY(frame->setProperty("text", QStringLiteral("25")));
+        QVERIFY(QMetaObject::invokeMethod(dialog, "applyChanges"));
+        QTRY_VERIFY(!dialog->property("visible").toBool());
+
+        QCOMPARE(static_cast<int>(m_app->project()->project().markers().size()),
+                 previousMarkerCount + 1);
+        const TimelineMarker created = m_app->project()->project().markers().back();
+        QCOMPARE(created.frame, FrameCount{25});
+        QCOMPARE(created.label, QStringLiteral("Review the music beat"));
+        QCOMPARE(m_app->project()->undoText(), QStringLiteral("Add Marker"));
+
+        // Navigation changes transport only: the timeline and undo history stay intact.
+        const Timeline originalTimeline = m_app->project()->project().timeline();
+        m_app->playback()->seek(5);
+        m_app->timeline()->nextMarker();
+        QCOMPARE(m_app->playback()->positionFrames(), FrameCount{25});
+        m_app->playback()->seek(80);
+        m_app->timeline()->previousMarker();
+        QCOMPARE(m_app->playback()->positionFrames(), FrameCount{25});
+        QCOMPARE(m_app->project()->project().timeline(), originalTimeline);
+        QCOMPARE(m_app->project()->undoText(), QStringLiteral("Add Marker"));
+
+        // Invalid marker commands must not mutate project state or push a new edit.
+        QVERIFY(!m_app->timeline()->updateMarker(created.id, -1, QStringLiteral("Invalid")));
+        QVERIFY(!m_app->timeline()->addMarker(-1, QStringLiteral("Invalid")));
+        QCOMPARE(m_app->project()->project().markers().back(), created);
+        QCOMPARE(m_app->project()->undoText(), QStringLiteral("Add Marker"));
+
+        m_app->project()->undo();
+        QCOMPARE(static_cast<int>(m_app->project()->project().markers().size()),
+                 previousMarkerCount);
+        m_app->project()->redo();
+        QCOMPARE(static_cast<int>(m_app->project()->project().markers().size()),
+                 previousMarkerCount + 1);
+        QVERIFY(m_app->timeline()->removeMarker(created.id));
+        QCOMPARE(m_app->project()->project().markers(), before.markers());
+    }
+
+    void copyChaptersToClipboardWithoutChangingTheEdit()
+    {
+        const Timeline originalTimeline = m_app->project()->project().timeline();
+        const auto originalMarkers = m_app->project()->project().markers();
+        QVERIFY(m_app->timeline()->addMarker(0, QStringLiteral("Opening & Review")));
+        const auto markers = m_app->project()->project().markers();
+        QCOMPARE(markers.size(), originalMarkers.size() + size_t{1});
+        const QString undoLabel = m_app->project()->undoText();
+
+        QVERIFY(m_app->timeline()->copyMarkersAsChapters());
+        QClipboard* clipboard = QGuiApplication::clipboard();
+        QVERIFY(clipboard);
+        QCOMPARE(clipboard->text(), QStringLiteral("00:00:00 Opening & Review"));
+        QVERIFY(m_app->timeline()->copyMarkersAsWebVtt());
+        const QString webVtt = clipboard->text();
+        QVERIFY(webVtt.startsWith(QStringLiteral("WEBVTT\n\n"
+                                                 "00:00:00.000 --> ")));
+        QVERIFY(webVtt.contains(QStringLiteral("\nOpening &amp; Review\n")));
+        QCOMPARE(m_app->project()->undoText(), undoLabel);
+        QCOMPARE(m_app->project()->project().timeline(), originalTimeline);
+        QCOMPARE(m_app->project()->project().markers(), markers);
+
+        QVERIFY(m_app->timeline()->removeMarker(markers.front().id));
+        QCOMPARE(m_app->project()->project().markers(), originalMarkers);
+    }
+
+    void canExportReadOnlyMediaAuditFromController()
+    {
+        const Project before = m_app->project()->project();
+        QVERIFY(!before.media().empty());
+        const bool modified = m_app->project()->isModified();
+        const QString undoLabel = m_app->project()->undoText();
+        const QString reportPath = m_dir.filePath(QStringLiteral("ui-media-audit.json"));
+        QVERIFY(m_app->media()->exportMediaAudit(reportPath));
+        QFile file(reportPath);
+        QVERIFY(file.open(QIODevice::ReadOnly));
+        const QJsonDocument decoded = QJsonDocument::fromJson(file.readAll());
+        QVERIFY(decoded.isObject());
+        const QJsonObject report = decoded.object();
+        QCOMPARE(report.value(QStringLiteral("schemaVersion")).toInt(), 1);
+        QCOMPARE(report.value(QStringLiteral("assets")).toArray().size(),
+                 static_cast<qsizetype>(before.media().size()));
+        QCOMPARE(m_app->project()->project(), before);
+        QCOMPARE(m_app->project()->isModified(), modified);
+        QCOMPARE(m_app->project()->undoText(), undoLabel);
+    }
+
+    void canImportFolderRecursively()
+    {
+        const QString root = m_dir.filePath(QStringLiteral("import-folder"));
+        QVERIFY(QDir().mkpath(root + QStringLiteral("/nested")));
+        const QString still =
+            makeStill(root + QStringLiteral("/nested"), QStringLiteral("extra-still.png"),
+                      QColor(QStringLiteral("#446688")), QSize(32, 18));
+        QVERIFY(!still.isEmpty());
+
+        const int before = m_app->media()->model()->rowCount();
+        QSignalSpy stateChanges(m_app->media(), &ui::MediaController::importingChanged);
+        QVERIFY(m_app->media()->importFolder(root));
+        QVERIFY(QTest::qWaitFor([&] { return m_app->media()->model()->rowCount() == before + 1; },
+                                15000));
+        QVERIFY(m_app->project()->project().assetByPath(still));
+        QVERIFY(stateChanges.count() >= 2); // scanning and probing status transitions
+        QVERIFY(m_app->media()->importFolder(root));
+        // A duplicate scan still completes asynchronously. Do not remove an asset
+        // while its scan can race with the resulting duplicate check.
+        QTRY_VERIFY(!m_app->media()->importing());
+        QCOMPARE(m_app->media()->model()->rowCount(), before + 1);
+        const MediaAsset* added = m_app->project()->project().assetByPath(still);
+        QVERIFY(added);
+        const Id addedId = added->id;
+        m_app->media()->remove(addedId);
+        QCOMPARE(m_app->media()->model()->rowCount(), before);
+
+        // Validation errors are delivered asynchronously without altering the project.
+        QSignalSpy problems(m_app->media(), &ui::MediaController::importProblems);
+        QVERIFY(m_app->media()->importFolder(root + QStringLiteral("/missing")));
+        QTRY_COMPARE(problems.count(), 1);
+        QTRY_VERIFY(!m_app->media()->importing());
+        QCOMPARE(m_app->media()->model()->rowCount(), before);
+        // Import errors open the application's modal MessageBox. A GUI regression test
+        // must dismiss it before later mouse/drag tests can interact with the timeline.
+        QTRY_VERIFY(m_window->property("dialogOpen").toBool());
+        QTest::keyClick(m_window, Qt::Key_Escape);
+        QTRY_VERIFY(!m_window->property("dialogOpen").toBool());
+    }
+
+    void previewFrameSnapshotIsSafe()
+    {
+        QTRY_VERIFY(m_app->playback()->hasFrame());
+        const QString output = m_dir.filePath(QStringLiteral("preview-snapshot.png"));
+        QVERIFY(m_app->playback()->savePreviewFrame(output));
+        const QImage snapshot(output);
+        QVERIFY(!snapshot.isNull());
+        QVERIFY(snapshot.width() > 0);
+        QVERIFY(snapshot.height() > 0);
+
+        // A snapshot cannot replace imported footage, even if it is itself a PNG.
+        const QString still = m_media.constLast();
+        QFile source(still);
+        QVERIFY(source.open(QIODevice::ReadOnly));
+        const QByteArray original = source.readAll();
+        source.close();
+        QVERIFY(!m_app->playback()->savePreviewFrame(still));
+        QVERIFY(source.open(QIODevice::ReadOnly));
+        QCOMPARE(source.readAll(), original);
+        QVERIFY(
+            !m_app->playback()->savePreviewFrame(m_dir.filePath(QStringLiteral("not-a-png.jpg"))));
     }
 
     void audioClipsShowTheirWaveform()
@@ -247,6 +1292,24 @@ private slots:
         QVERIFY(std::abs(m_app->project()->project().timeline().clip(original.id)->start -
                          original.start) <= 1);
         m_app->timeline()->setSnapping(true);
+    }
+
+    void copyPictureEdlRejectsLayersAndKeepsEditUnchanged()
+    {
+        // A still on V2 hides part of V1; a flattened-looking EDL would be misleading.
+        QVERIFY(!m_app->timeline()->copyPictureAsEdl());
+        const Id stillTrack = track(1).id;
+        QVERIFY(m_app->timeline()->setTrackFlag(stillTrack, QStringLiteral("hidden"), true));
+        const Project before = m_app->project()->project();
+        const QString undoLabel = m_app->project()->undoText();
+        QVERIFY(m_app->timeline()->copyPictureAsEdl());
+        QClipboard* clipboard = QGuiApplication::clipboard();
+        QVERIFY(clipboard);
+        QVERIFY(clipboard->text().startsWith(QStringLiteral("TITLE: ")));
+        QVERIFY(clipboard->text().contains(QStringLiteral("001  FT000001 V     C")));
+        QCOMPARE(m_app->project()->project(), before);
+        QCOMPARE(m_app->project()->undoText(), undoLabel);
+        QVERIFY(m_app->timeline()->setTrackFlag(stillTrack, QStringLiteral("hidden"), false));
     }
 
     void draggingOntoAnotherClipIsRefused()
@@ -452,6 +1515,48 @@ private slots:
         QTest::qWait(200);
         screenshot(QStringLiteral("06-export-finished"));
         QMetaObject::invokeMethod(dialog, "close");
+    }
+
+    void exportClipListCsvPreservesProjectAndProtectsUnsafePaths()
+    {
+        const Project before = m_app->project()->project();
+        QVERIFY(before.timeline().clipCount() > 0);
+        const QString undoLabel = m_app->project()->undoText();
+        const bool dirty = m_app->project()->isModified();
+        const QString path = m_dir.filePath(QStringLiteral("clip-list.csv"));
+        QVERIFY(m_app->project()->exportClipListCsv(path));
+
+        QFile report(path);
+        QVERIFY(report.open(QIODevice::ReadOnly));
+        const QByteArray data = report.readAll();
+        QVERIFY(data.startsWith("\xEF\xBB\xBF"));
+        QVERIFY(data.contains("source_name,source_path"));
+        QVERIFY(data.contains("start_timecode,end_timecode_exclusive\r\n"));
+        QVERIFY(data.contains(m_media.front().toUtf8()));
+        QCOMPARE(data.count('\n'), before.timeline().clipCount() + 1);
+        QVERIFY(!data.contains("\r\r\n"));
+        report.close();
+
+        // Reject a report path that aliases imported footage without changing bytes.
+        const QString original = m_media.front();
+        QFile footage(original);
+        QVERIFY(footage.open(QIODevice::ReadOnly));
+        const QByteArray sourceBytes = footage.readAll();
+        footage.close();
+        QSignalSpy errors(m_app->project(), &ui::ProjectController::errorOccurred);
+        QVERIFY(!m_app->project()->exportClipListCsv(original));
+        QTRY_COMPARE(errors.count(), 1);
+        QVERIFY(footage.open(QIODevice::ReadOnly));
+        QCOMPARE(footage.readAll(), sourceBytes);
+        footage.close();
+
+        // The application displays errors modally; dismiss before subsequent GUI tests.
+        QTRY_VERIFY(m_window->property("dialogOpen").toBool());
+        QTest::keyClick(m_window, Qt::Key_Escape);
+        QTRY_VERIFY(!m_window->property("dialogOpen").toBool());
+        QCOMPARE(m_app->project()->project(), before);
+        QCOMPARE(m_app->project()->isModified(), dirty);
+        QCOMPARE(m_app->project()->undoText(), undoLabel);
     }
 
     void saveAndReopenRoundTrip()

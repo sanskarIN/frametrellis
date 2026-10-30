@@ -16,6 +16,9 @@ PanelFrame {
     readonly property var transition: app.timeline.selectedTransition
     readonly property bool hasTransition: transition.count === 1
     readonly property real fps: Math.max(1, app.timeline.frameRate)
+    readonly property var automation: app.timeline.audioAutomation
+    readonly property var opacityAutomation: app.timeline.opacityAutomation
+    readonly property var transformAutomation: app.timeline.transformAutomation
 
     title: hasClip ? qsTr("Clip") : (hasTransition ? qsTr("Transition") : qsTr("Project"))
 
@@ -25,6 +28,7 @@ PanelFrame {
 
     ScrollView {
         id: scroll
+        objectName: "inspectorScroll"
         anchors.fill: parent
         anchors.margins: Theme.spacingM
         contentWidth: availableWidth
@@ -159,7 +163,8 @@ PanelFrame {
                             [qsTr("Start"), panel.clip.startText],
                             [qsTr("End"), panel.clip.endText],
                             [qsTr("Duration"), panel.clip.durationText],
-                            [qsTr("Source in"), panel.clip.sourceInText]
+                            [qsTr("Source in"), panel.clip.sourceInText],
+                            [qsTr("Source out"), panel.clip.sourceOutText]
                         ]
                         delegate: RowLayout {
                             required property var modelData
@@ -167,6 +172,82 @@ PanelFrame {
                             Text { text: modelData[0]; color: Theme.textFaint; font.pixelSize: Theme.fontSizeSmall; Layout.preferredWidth: 72 }
                             Text { text: modelData[1] || ""; color: Theme.text; font.pixelSize: Theme.fontSizeSmall; font.family: Theme.monoFamily }
                         }
+                    }
+                }
+            }
+
+            // ---- Source slip ----
+            ColumnLayout {
+                objectName: "clipSlipControls"
+                visible: panel.hasClip && panel.clip.kind !== "image"
+                enabled: !panel.clip.locked
+                Layout.fillWidth: true
+                spacing: Theme.spacingS
+                Rectangle { Layout.fillWidth: true; height: 1; color: Theme.border }
+                Text {
+                    text: qsTr("Slip Source")
+                    color: Theme.text
+                    font.weight: Font.DemiBold
+                    font.pixelSize: Theme.fontSize
+                }
+                Text {
+                    text: qsTr("Change which frames play without moving the clip or changing its duration.")
+                    color: Theme.textMuted
+                    font.pixelSize: Theme.fontSizeSmall
+                    wrapMode: Text.WordWrap
+                    Layout.fillWidth: true
+                }
+                RowLayout {
+                    Layout.fillWidth: true
+                    spacing: Theme.spacingS
+                    FtButton {
+                        text: qsTr("Earlier 1 frame")
+                        enabled: panel.clip.sourceIn > 0
+                        Layout.fillWidth: true
+                        onClicked: panel.app.timeline.slipSelection(-1)
+                    }
+                    FtButton {
+                        text: qsTr("Later 1 frame")
+                        enabled: panel.clip.sourceLength > panel.clip.sourceIn + panel.clip.duration
+                        Layout.fillWidth: true
+                        onClicked: panel.app.timeline.slipSelection(1)
+                    }
+                }
+            }
+
+            // ---- Roll cut after this clip ----
+            ColumnLayout {
+                objectName: "clipRollControls"
+                visible: panel.hasClip && (panel.clip.rollCutAvailable || false)
+                enabled: !panel.clip.locked
+                Layout.fillWidth: true
+                spacing: Theme.spacingS
+                Rectangle { Layout.fillWidth: true; height: 1; color: Theme.border }
+                Text {
+                    text: qsTr("Roll Following Cut")
+                    color: Theme.text
+                    font.weight: Font.DemiBold
+                    font.pixelSize: Theme.fontSize
+                }
+                Text {
+                    text: qsTr("Move this cut while keeping both clips' combined duration fixed. Source handles and transitions must remain valid.")
+                    color: Theme.textMuted
+                    font.pixelSize: Theme.fontSizeSmall
+                    wrapMode: Text.WordWrap
+                    Layout.fillWidth: true
+                }
+                RowLayout {
+                    Layout.fillWidth: true
+                    spacing: Theme.spacingS
+                    FtButton {
+                        text: qsTr("Earlier 1 frame")
+                        Layout.fillWidth: true
+                        onClicked: panel.app.timeline.rollSelection(-1)
+                    }
+                    FtButton {
+                        text: qsTr("Later 1 frame")
+                        Layout.fillWidth: true
+                        onClicked: panel.app.timeline.rollSelection(1)
                     }
                 }
             }
@@ -210,6 +291,101 @@ PanelFrame {
                 }
             }
 
+            // ---- Volume automation ----
+            ColumnLayout {
+                objectName: "audioKeyframeControls"
+                visible: panel.hasClip && panel.clip.hasAudio
+                enabled: !panel.clip.locked && (panel.automation.available || false)
+                Layout.fillWidth: true
+                spacing: Theme.spacingS
+                Rectangle { Layout.fillWidth: true; height: 1; color: Theme.border }
+                Text {
+                    text: qsTr("Volume Keyframes")
+                    color: Theme.text
+                    font.weight: Font.DemiBold
+                    font.pixelSize: Theme.fontSize
+                }
+                Text {
+                    text: qsTr("%1 points (%2 within this trim). Levels blend in dB and combine with Volume and fades.")
+                              .arg(panel.automation.count || 0).arg(panel.automation.visibleCount || 0)
+                    color: Theme.textMuted
+                    font.pixelSize: Theme.fontSizeSmall
+                    wrapMode: Text.WordWrap
+                    Layout.fillWidth: true
+                }
+                Text {
+                    visible: !(panel.automation.canEdit || false)
+                    text: qsTr("Pause with the playhead inside this clip to edit a point.")
+                    color: Theme.textFaint
+                    font.pixelSize: Theme.fontSizeSmall
+                    wrapMode: Text.WordWrap
+                    Layout.fillWidth: true
+                }
+                ValueSlider {
+                    objectName: "audioKeyframeLevel"
+                    label: qsTr("Keyframe level")
+                    from: -60; to: 12; stepSize: 0.1; defaultValue: 0
+                    value: panel.automation.decibels || 0
+                    enabled: (panel.automation.canEdit || false) && (panel.automation.atKeyframe || false)
+                    format: v => (v >= 0 ? "+" : "") + v.toFixed(1) + " dB"
+                    onMoved: v => panel.app.timeline.setAudioKeyframeAtPlayhead(v)
+                    onCommitted: panel.app.timeline.endEdit()
+                }
+                RowLayout {
+                    Layout.fillWidth: true
+                    spacing: Theme.spacingS
+                    FtButton {
+                        objectName: "addAudioKeyframe"
+                        text: qsTr("Add point")
+                        Layout.fillWidth: true
+                        enabled: (panel.automation.canEdit || false) && !(panel.automation.atKeyframe || false)
+                        onClicked: {
+                            panel.app.timeline.endEdit()
+                            panel.app.timeline.setAudioKeyframeAtPlayhead(panel.automation.decibels || 0)
+                            panel.app.timeline.endEdit()
+                        }
+                    }
+                    FtButton {
+                        objectName: "removeAudioKeyframe"
+                        text: qsTr("Remove point")
+                        Layout.fillWidth: true
+                        enabled: (panel.automation.canEdit || false) && (panel.automation.atKeyframe || false)
+                        onClicked: panel.app.timeline.removeAudioKeyframeAtPlayhead()
+                    }
+                }
+                RowLayout {
+                    Layout.fillWidth: true
+                    spacing: Theme.spacingS
+                    FtButton {
+                        objectName: "previousAudioKeyframe"
+                        text: qsTr("Previous point")
+                        Layout.fillWidth: true
+                        enabled: panel.automation.hasPrevious || false
+                        onClicked: panel.app.timeline.previousAudioKeyframe()
+                    }
+                    FtButton {
+                        objectName: "nextAudioKeyframe"
+                        text: qsTr("Next point")
+                        Layout.fillWidth: true
+                        enabled: panel.automation.hasNext || false
+                        onClicked: panel.app.timeline.nextAudioKeyframe()
+                    }
+                }
+                FtButton {
+                    objectName: "clearAudioKeyframes"
+                    text: qsTr("Clear all volume points")
+                    enabled: (panel.automation.count || 0) > 0
+                    onClicked: panel.app.timeline.clearSelectedAudioKeyframes()
+                }
+                Text {
+                    text: qsTr("Projects with volume points require an editor build that supports volume automation.")
+                    color: Theme.textFaint
+                    font.pixelSize: Theme.fontSizeSmall
+                    wrapMode: Text.WordWrap
+                    Layout.fillWidth: true
+                }
+            }
+
             // ---- Fades ----
             ColumnLayout {
                 visible: panel.hasClip
@@ -233,6 +409,234 @@ PanelFrame {
                     format: v => (v / panel.fps).toFixed(2) + " s"
                     onMoved: v => panel.setProp("fadeOut", Math.round(v))
                     onCommitted: panel.app.timeline.endEdit()
+                }
+            }
+
+            // ---- Transform animation ----
+            ColumnLayout {
+                objectName: "transformKeyframeControls"
+                visible: panel.hasClip && panel.clip.hasVideo
+                enabled: !panel.clip.locked
+                Layout.fillWidth: true
+                spacing: Theme.spacingS
+                Rectangle { Layout.fillWidth: true; height: 1; color: Theme.border }
+                Text {
+                    text: qsTr("Transform")
+                    color: Theme.text
+                    font.weight: Font.DemiBold
+                    font.pixelSize: Theme.fontSize
+                }
+                Text {
+                    text: qsTr("%1 points (%2 within this trim). Changes create a point at the playhead.")
+                              .arg(panel.transformAutomation.count || 0).arg(panel.transformAutomation.visibleCount || 0)
+                    color: Theme.textMuted
+                    font.pixelSize: Theme.fontSizeSmall
+                    wrapMode: Text.WordWrap
+                    Layout.fillWidth: true
+                }
+                Text {
+                    visible: !(panel.transformAutomation.canEdit || false)
+                    text: (panel.transformAutomation.available || false)
+                              ? qsTr("Pause with the playhead inside this clip to edit its transform.")
+                              : qsTr("The video transform filter is unavailable. Reset transforms to remove the animation.")
+                    color: Theme.textFaint
+                    font.pixelSize: Theme.fontSizeSmall
+                    wrapMode: Text.WordWrap
+                    Layout.fillWidth: true
+                }
+                ColumnLayout {
+                    enabled: panel.transformAutomation.canEdit || false
+                    Layout.fillWidth: true
+                    spacing: Theme.spacingS
+                    ValueSlider {
+                        objectName: "transformPositionX"
+                        label: qsTr("Horizontal position")
+                        from: -4; to: 4; stepSize: 0.001; defaultValue: 0
+                        value: panel.transformAutomation.x || 0
+                        format: v => (v * 100).toFixed(1) + "%"
+                        onMoved: v => panel.app.timeline.setTransformComponent("x", v)
+                        onCommitted: panel.app.timeline.endEdit()
+                    }
+                    ValueSlider {
+                        objectName: "transformPositionY"
+                        label: qsTr("Vertical position")
+                        from: -4; to: 4; stepSize: 0.001; defaultValue: 0
+                        value: panel.transformAutomation.y || 0
+                        format: v => (v * 100).toFixed(1) + "%"
+                        onMoved: v => panel.app.timeline.setTransformComponent("y", v)
+                        onCommitted: panel.app.timeline.endEdit()
+                    }
+                    ValueSlider {
+                        objectName: "transformScale"
+                        label: qsTr("Scale")
+                        from: 0.01; to: 10; stepSize: 0.01; defaultValue: 1
+                        value: panel.transformAutomation.scale === undefined ? 1 : panel.transformAutomation.scale
+                        format: v => Math.round(v * 100) + "%"
+                        onMoved: v => panel.app.timeline.setTransformComponent("scale", v)
+                        onCommitted: panel.app.timeline.endEdit()
+                    }
+                    ValueSlider {
+                        objectName: "transformRotation"
+                        label: qsTr("Clockwise rotation")
+                        from: -3600; to: 3600; stepSize: 1; defaultValue: 0
+                        value: panel.transformAutomation.rotation || 0
+                        format: v => v.toFixed(0) + "°"
+                        onMoved: v => panel.app.timeline.setTransformComponent("rotation", v)
+                        onCommitted: panel.app.timeline.endEdit()
+                    }
+                }
+                FtCheckBox {
+                    objectName: "showTransformHandles"
+                    text: qsTr("Show monitor handles")
+                    enabled: panel.transformAutomation.available || false
+                    checked: panel.app.timeline.transformHandlesVisible
+                    onToggled: panel.app.timeline.transformHandlesVisible = checked
+                }
+                RowLayout {
+                    Layout.fillWidth: true
+                    spacing: Theme.spacingS
+                    FtButton {
+                        objectName: "addTransformKeyframe"
+                        text: qsTr("Add point")
+                        Layout.fillWidth: true
+                        enabled: (panel.transformAutomation.canEdit || false) && !(panel.transformAutomation.atKeyframe || false)
+                        onClicked: panel.app.timeline.addTransformKeyframeAtPlayhead()
+                    }
+                    FtButton {
+                        objectName: "removeTransformKeyframe"
+                        text: qsTr("Remove point")
+                        Layout.fillWidth: true
+                        enabled: (panel.transformAutomation.canEdit || false) && (panel.transformAutomation.atKeyframe || false)
+                        onClicked: panel.app.timeline.removeTransformKeyframeAtPlayhead()
+                    }
+                }
+                RowLayout {
+                    Layout.fillWidth: true
+                    spacing: Theme.spacingS
+                    FtButton {
+                        objectName: "previousTransformKeyframe"
+                        text: qsTr("Previous point")
+                        Layout.fillWidth: true
+                        enabled: panel.transformAutomation.hasPrevious || false
+                        onClicked: panel.app.timeline.previousTransformKeyframe()
+                    }
+                    FtButton {
+                        objectName: "nextTransformKeyframe"
+                        text: qsTr("Next point")
+                        Layout.fillWidth: true
+                        enabled: panel.transformAutomation.hasNext || false
+                        onClicked: panel.app.timeline.nextTransformKeyframe()
+                    }
+                }
+                FtButton {
+                    objectName: "clearTransformKeyframes"
+                    text: qsTr("Reset all transforms")
+                    enabled: (panel.transformAutomation.count || 0) > 0
+                    onClicked: panel.app.timeline.clearSelectedTransformKeyframes()
+                }
+                Text {
+                    text: qsTr("One point applies to the whole clip; add more to animate. Positive position moves right/down from the canvas centre. Rotation includes full turns.")
+                    color: Theme.textFaint
+                    font.pixelSize: Theme.fontSizeSmall
+                    wrapMode: Text.WordWrap
+                    Layout.fillWidth: true
+                }
+            }
+
+            // ---- Opacity automation ----
+            ColumnLayout {
+                objectName: "opacityKeyframeControls"
+                visible: panel.hasClip && panel.clip.hasVideo
+                enabled: !panel.clip.locked
+                Layout.fillWidth: true
+                spacing: Theme.spacingS
+                Rectangle { Layout.fillWidth: true; height: 1; color: Theme.border }
+                Text {
+                    text: qsTr("Opacity Keyframes")
+                    color: Theme.text
+                    font.weight: Font.DemiBold
+                    font.pixelSize: Theme.fontSize
+                }
+                Text {
+                    text: qsTr("%1 points (%2 within this trim). Opacity combines with clip opacity, source transparency and fades.")
+                              .arg(panel.opacityAutomation.count || 0).arg(panel.opacityAutomation.visibleCount || 0)
+                    color: Theme.textMuted
+                    font.pixelSize: Theme.fontSizeSmall
+                    wrapMode: Text.WordWrap
+                    Layout.fillWidth: true
+                }
+                Text {
+                    visible: !(panel.opacityAutomation.canEdit || false)
+                    text: (panel.opacityAutomation.available || false)
+                              ? qsTr("Pause with the playhead inside this clip to edit a point.")
+                              : qsTr("The video alpha filter is unavailable. Clear opacity points to remove this automation.")
+                    color: Theme.textFaint
+                    font.pixelSize: Theme.fontSizeSmall
+                    wrapMode: Text.WordWrap
+                    Layout.fillWidth: true
+                }
+                ValueSlider {
+                    objectName: "opacityKeyframeLevel"
+                    label: qsTr("Keyframe opacity")
+                    from: 0; to: 1; stepSize: 0.01; defaultValue: 1
+                    value: (panel.opacityAutomation.opacity === undefined ? 1 : panel.opacityAutomation.opacity)
+                    enabled: (panel.opacityAutomation.canEdit || false) && (panel.opacityAutomation.atKeyframe || false)
+                    format: v => Math.round(v * 100) + "%"
+                    onMoved: v => panel.app.timeline.setOpacityKeyframeAtPlayhead(v)
+                    onCommitted: panel.app.timeline.endEdit()
+                }
+                RowLayout {
+                    Layout.fillWidth: true
+                    spacing: Theme.spacingS
+                    FtButton {
+                        objectName: "addOpacityKeyframe"
+                        text: qsTr("Add point")
+                        Layout.fillWidth: true
+                        enabled: (panel.opacityAutomation.canEdit || false) && !(panel.opacityAutomation.atKeyframe || false)
+                        onClicked: {
+                            panel.app.timeline.endEdit()
+                            panel.app.timeline.setOpacityKeyframeAtPlayhead((panel.opacityAutomation.opacity === undefined ? 1 : panel.opacityAutomation.opacity))
+                            panel.app.timeline.endEdit()
+                        }
+                    }
+                    FtButton {
+                        objectName: "removeOpacityKeyframe"
+                        text: qsTr("Remove point")
+                        Layout.fillWidth: true
+                        enabled: (panel.opacityAutomation.canEdit || false) && (panel.opacityAutomation.atKeyframe || false)
+                        onClicked: panel.app.timeline.removeOpacityKeyframeAtPlayhead()
+                    }
+                }
+                RowLayout {
+                    Layout.fillWidth: true
+                    spacing: Theme.spacingS
+                    FtButton {
+                        objectName: "previousOpacityKeyframe"
+                        text: qsTr("Previous point")
+                        Layout.fillWidth: true
+                        enabled: panel.opacityAutomation.hasPrevious || false
+                        onClicked: panel.app.timeline.previousOpacityKeyframe()
+                    }
+                    FtButton {
+                        objectName: "nextOpacityKeyframe"
+                        text: qsTr("Next point")
+                        Layout.fillWidth: true
+                        enabled: panel.opacityAutomation.hasNext || false
+                        onClicked: panel.app.timeline.nextOpacityKeyframe()
+                    }
+                }
+                FtButton {
+                    objectName: "clearOpacityKeyframes"
+                    text: qsTr("Clear all opacity points")
+                    enabled: (panel.opacityAutomation.count || 0) > 0
+                    onClicked: panel.app.timeline.clearSelectedOpacityKeyframes()
+                }
+                Text {
+                    text: qsTr("Accent squares show opacity points; white diamonds show volume points. Projects with opacity points require a compatible editor build.")
+                    color: Theme.textFaint
+                    font.pixelSize: Theme.fontSizeSmall
+                    wrapMode: Text.WordWrap
+                    Layout.fillWidth: true
                 }
             }
 

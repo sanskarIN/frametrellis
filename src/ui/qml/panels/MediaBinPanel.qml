@@ -15,6 +15,13 @@ PanelFrame {
     signal importRequested()
     signal relinkRequested(string assetId, string name)
 
+    MediaBinFilterModel {
+        id: filteredMedia
+        sourceModel: panel.app.media.model
+        searchText: searchBox.text
+        category: ["all", "video", "audio", "image", "offline", "changed", "used", "unused"][kindBox.currentIndex] || "all"
+    }
+
     title: qsTr("Media") + (app.media.model.count > 0 ? "  ·  " + app.media.model.count : "")
 
     tools: [
@@ -54,6 +61,33 @@ PanelFrame {
         visible: fileDrop.containsDrag
     }
 
+    RowLayout {
+        id: filterBar
+        anchors.left: parent.left
+        anchors.right: parent.right
+        anchors.top: parent.top
+        anchors.margins: Theme.spacingS
+        height: 34
+        spacing: Theme.spacingS
+        z: 2
+
+        TextField {
+            id: searchBox
+            objectName: "mediaSearchField"
+            Layout.fillWidth: true
+            placeholderText: qsTr("Search media…")
+            Accessible.name: qsTr("Search imported media by name or path")
+        }
+        ComboBox {
+            id: kindBox
+            objectName: "mediaKindFilter"
+            Layout.preferredWidth: 124
+            model: [qsTr("All"), qsTr("Video"), qsTr("Audio"), qsTr("Images"), qsTr("Offline"),
+                    qsTr("Changed"), qsTr("Used"), qsTr("Unused")]
+            Accessible.name: qsTr("Media kind filter")
+        }
+    }
+
     EmptyState {
         anchors.centerIn: parent
         visible: panel.app.media.model.count === 0
@@ -64,14 +98,28 @@ PanelFrame {
         onActionTriggered: panel.importRequested()
     }
 
+    EmptyState {
+        anchors.centerIn: parent
+        visible: panel.app.media.model.count > 0 && filteredMedia.count === 0
+        iconName: "film"
+        title: qsTr("No matching media")
+        message: qsTr("Try another search or media kind.")
+        actionText: qsTr("Clear filters")
+        onActionTriggered: {
+            searchBox.text = ""
+            kindBox.currentIndex = 0
+        }
+    }
+
     GridView {
         id: grid
         objectName: "mediaGrid"
         anchors.fill: parent
         anchors.margins: Theme.spacingS
+        anchors.topMargin: filterBar.height + 2 * Theme.spacingS
         clip: true
         visible: count > 0
-        model: panel.app.media.model
+        model: filteredMedia
         cellWidth: Math.max(140, Math.floor(width / Math.max(1, Math.floor(width / 150))))
         cellHeight: cellWidth * 9 / 16 + 46
         boundsBehavior: Flickable.StopAtBounds
@@ -229,8 +277,13 @@ PanelFrame {
                 ToolTip.delay: 900
                 ToolTip.text: tile.tooltip
                 onPressed: mouse => {
-                    grid.currentIndex = tile.index
-                    grid.forceActiveFocus()
+                    // Delegates do not inherit a reliable lexical reference to the view.
+                    // The attached view resolves correctly even after delegate reparenting.
+                    const view = tile.GridView.view
+                    if (view) {
+                        view.currentIndex = tile.index
+                        view.forceActiveFocus()
+                    }
                     dragProxy.x = mouse.x
                     dragProxy.y = mouse.y
                 }
@@ -252,7 +305,13 @@ PanelFrame {
                 }
             }
 
-            Keys.onReturnPressed: panel.app.timeline.appendAsset(tile.assetId)
+            Keys.onReturnPressed: {
+                // Keep keyboard activation consistent with double-click for offline media.
+                if (tile.status === "missing")
+                    panel.relinkRequested(tile.assetId, tile.name)
+                else
+                    panel.app.timeline.appendAsset(tile.assetId)
+            }
 
             Menu {
                 id: contextMenu

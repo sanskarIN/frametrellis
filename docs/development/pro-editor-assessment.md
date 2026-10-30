@@ -1,85 +1,123 @@
-# Professional-editor development assessment
+# FrameTrellis professional-editor gap assessment — 30 October 2026
 
-Assessment date: **29 October 2026**. The source baseline is main commit
-`3696293e70532e2f50c0352e7963f6d69795bbca`, after transform-animation PR #85.
-Its post-merge Linux, sanitizer, Windows, package-verification and website checks passed.
-The published stable version remains **v1.3.0**. This assessment separates
-implemented development source and work that still needs building.
+This is a development assessment, **not a release announcement**. The audited
+source baseline is `main` at `df587712851d8061445e8f3f84c7dbe0634f53c7` following the merge of PR #103.
+The published stable release is **v1.3.1**. Do not describe development
+features as shipped in its installer.
 
-## Current state
+## What is integrated on main
 
-FrameTrellis has a usable local-first desktop NLE foundation: a validated C++20
-model, Qt Quick interface, shared MLT preview/render graphs, non-destructive
-multi-track edits, command history, atomic persistence, autosave/recovery, and
-isolated H.264/AAC exports. It does not yet offer the full workflow of a mature
-professional editor.
-
-| Area | Existing foundation | Material gap |
+| Workflow | Verified implementation | Important limits |
 |---|---|---|
-| Timeline editing | Move, edge trim, split, ripple delete, duplicate, batch attributes; slip and roll on main | Source-monitor In/Out workflow, insert/overwrite, linked clips and broader ripple tools |
-| Audio | Waveforms, gain, mute, fades, crossfades and source-anchored volume envelopes | Live meters, channel/pan controls, loudness measurement, limiting and buses |
-| Picture | Brightness, contrast, saturation, scalar opacity, opacity/transform keyframes, direct monitor handles, dissolves and transparent PNG titles | Easing/custom pivots, editable title layers, scopes and richer grading |
-| Media management | Background probing, thumbnails, search, missing-media relink | Proxies, larger-project performance; audit/folder/cleanup PRs need integration |
-| Review/interchange | Markers, chapter/WebVTT chapter copy, cuts-only EDL; this change adds subtitle editing, SRT and burn-in | Multiple subtitle languages/tracks, more subtitle formats and fuller interchange |
-| Delivery | MP4/H.264/AAC, safe output paths, isolated helper, cancellation, output verification | More codecs/containers and measured hardware-encoding options |
-| Distribution | Windows x64 installer/portable builds; Linux from source | Signing, Linux packages and a supported macOS build |
+| Timeline | Non-destructive cut, move, trim, split, roll/slip, group nudge, duplication, same-kind track reordering, whole-track duplication, selection tools and undo/redo | No persistent clip linking, source In/Out monitor, generalized multi-lane insert/overwrite |
+| Gap edits | PR #103 inserts frame-accurate time across affected video/audio tracks as a single atomic command | Requires a cut or empty interval; no clip may cross the insertion frame; markers/subtitle cues do not move |
+| Picture | Transform and opacity keyframes, scalar picture adjustments, fades, picture dissolves and PNG title assets | No editable text title layers, optical flow, color scopes or full color-grade pipeline |
+| Audio | Waveforms, mute, gain, fades/crossfades and source-anchored automation | No real-time program peak meter, pan/mixer buses, LUFS measurement, limiting or surround workflow |
+| Media | Background import/probing, filtered bin, folder discovery, missing-media relinking, media audit and cleanup | No preview proxies, cache lifecycle or source monitor |
+| Review | Timeline markers, chapters, SRT import/edit/export and subtitle burn-in, cuts-only EDL and clip-list CSV | No multicamera sync, OTIO/FCPXML interchange, multiple subtitle tracks or review collaboration |
+| Output | Isolated FFmpeg/MLT rendering, H.264/AAC creator presets, preview-frame PNG export and safe file writes | Wider container/codec matrix and hardware-encoder profiling are unverified |
+| Platforms | Windows verification and release assets, development Linux builds | No verified signed release chain, official macOS build or cross-platform package matrix |
 
-Chapter WebVTT is chapter metadata, not a subtitle editor. Raster titles are not
-editable text layers. Safe encoder presets are not GPU rendering. These distinctions
-must remain clear in documentation and release claims.
+The GUI and renderer share the sequence model. Save/reopen and rendering are
+core acceptance gates for any feature that adds persisted properties. A new
+label in the UI is not evidence of preview/export parity.
 
-## This implementation: subtitles
+## Development PRs awaiting acceptance
 
-The complete path is validated cues → undoable commands → format-v6 persistence
-→ SRT import/edit/export → shared preview/render producer → native cue editor
-and timeline strip. Cues retain exact milliseconds; rational frame sampling
-avoids cumulative rounding at fractional rates. Import appends atomically and
-refuses overlaps. Plain Unicode text remains literal. All cues survive sidecar
-export, even beyond the shortened video or between sampled frames.
+These proposals are **not merged in this assessment baseline**:
 
-The editor protects unapplied drafts, separates text undo from project undo,
-provides navigation and an applied preview, and controls burn-in, size and dark
-background. A canonical text layout is scaled for smaller previews. Captions
-do not change audio, extend video or follow clip edits. A subtitle object in a
-legacy format is refused; nondefault styling alone also requires v6.
+- [#104](https://github.com/sanskarIN/frametrellis/pull/104):
+  remove a confirmed empty interval from all tracks, with exact undo and guards
+  against clips inside the range; it builds on integrated #103.
+- [#105](https://github.com/sanskarIN/frametrellis/pull/105):
+  source excerpt In/Out frame selection from the media bin. The proposal
+  appends on a compatible unlocked track; it does not yet implement a full
+  source preview/player or automatic linked audio/video insertion.
+- [#106](https://github.com/sanskarIN/frametrellis/pull/106):
+  trim one selected clip edge to the playhead while refusing locked-track
+  operations and silently destructive transition changes.
+- [#107](https://github.com/sanskarIN/frametrellis/pull/107):
+  whole-clip selection before or after the playhead without editing the project.
 
-Acceptance covers malformed UTF-8/SRT/JSON, capacity and timing boundaries,
-atomic failures, exact undo/redo, legacy reads, generated preview pixels and
-decoded helper MP4 frames. GUI tests type into real controls, exercise invalid
-timings and draft guards, and capture 1200×800 dark/light layouts. Package and
-container self-tests now verify encoded caption pixels, exercising the font
-runtime as well as the encoder. Fonts remain installed system dependencies;
-cross-platform language shaping needs manual acceptance on target machines.
+Every PR needs all required checks on its final head SHA; mergeable is not
+synonymous with tested. Inspect the integrated `main` CI after successive
+merges, especially changes sharing QML and TimelineController files.
 
-## Next work, in order
+## Highest-value next feature programs
 
-1. **Integrated release acceptance.** Run the complete Linux, sanitizer and Windows
-   checks on combined main, review real footage and audio, and reconcile PR #81's
-   release checklist with project formats v3/v4/v5/v6 before publishing a new version.
-2. **Proxy media.** Generate proxies asynchronously with cancellation and cache
-   identity; switch only preview to proxies and always use originals for export.
-   Cover relinking, stale proxies, unavailable originals and changed source files.
-3. **Audio finishing.** Add peak meters and clipping indicators, then pan/channel
-   controls and measured loudness/limiting. Keep metering independent of gain edits.
-4. **Performance and integration debt.** Establish reproducible long-timeline
-   measurements before optimizing. Integrate media PRs #65 → #66 → #67 separately;
-   reconcile old overlapping PRs against main instead of assuming they shipped.
-5. **Subtitle refinements.** Validate long cue lists and real language/font rendering,
-   then define multiple language tracks, style presets and more import formats.
-6. **Animation refinements.** Add easing/interpolation choices, numeric entry,
-   crop/custom pivots and independent axes after defining project-format and
-   preview/export semantics. Keep today's uniform linear transforms predictable.
-7. **Delivery and platform work.** Add independently tested export formats and
-   hardware encoders, then packaging/signing work. Preserve software fallbacks.
+### 1. Preview-only proxies and cache validation
 
-## Release requirements
+Start with an explicit interface between source assets and optional preview
+media. A proxy must be identified by a canonical source path, source file
+metadata, project rate and transform/proxy settings, not only its filename.
+Generate proxies on a worker with observable progress and cancellation.
+Reject stale outputs when the source is replaced or relinked. Keep original
+media mandatory for final export; a proxy-only project must not render an
+apparently successful final master. Verify seeking, clip trims and audio
+synchronization against both proxy and original at fractional frame rates.
 
-- Each feature must preserve save/reopen, preview/export agreement and undo/redo.
-- Check the final combined source revision, including Linux debug/static analysis,
-  ASan/UBSan, Windows Qt tests, packaging, container and documentation workflows.
-- Record manual real-media checks separately: seek/edit responsiveness, audio
-  listening, missing-media recovery, long exports and clean Windows startup.
-- Keep backup copies when using development project formats v2/v3/v4/v5/v6. Do not overwrite
-  stable release claims with branch-level feature lists.
-- Do not publish a new stable version solely because a feature PR passes. Release
-  rehearsal, package verification and the integrated acceptance matrix still apply.
+### 2. Source-monitor and true three-point editing
+
+Add an independently seekable source viewer with accurate In/Out marks and
+source-frame/timecode controls. Define insert vs overwrite semantics across
+video and audio lanes, locked tracks and linked streams. Avoid silently
+replacing clips; edits spanning several tracks need one atomic undo command.
+Selection, drag previews and persistence must agree on half-open frame ranges.
+The proposed media-bin excerpt workflow in #105 is only a precursor.
+
+### 3. Audio finishing and objective meters
+
+Provide live per-channel peaks after the same gain/fade/keyframe graph used
+for preview; include clip indicators and explicit dBFS reference. Test silence,
+peak at 0 dBFS, muted tracks, long-running playback and exports with differing
+sample rates. Next add channel routing/pan and measured LUFS with reportable
+filter and decoder versions. Do not claim mastering or broadcast compliance
+without measured acceptance.
+
+### 4. Timeline scale and performance
+
+Establish repeatable profiles for 100, 1,000 and 10,000 clips with edits,
+waveforms, transforms, subtitles and long-GOP sources. Measure median/p95
+scrub latency, first-frame preview delay, timeline model updates, memory and
+cold/warm cache effects before optimization. Keep undo/redo exact and bound
+work to changed tracks where safe. Test long timelines on Windows and Linux.
+
+### 5. Delivery, interoperability and platform confidence
+
+Expand export formats one at a time with real decode-and-compare tests,
+audio sync inspection, metadata checks and a safe software fallback.
+Implement interchange only against published schemas with correct
+timebases, track/source references, transition semantics and round-trip
+fixtures. Keep Windows x64/ARM and Linux verification separate from macOS
+until macOS builds have actually run. Signing, installers and distribution
+manifests are independent release gates.
+
+## Release acceptance gates for v1.4.0
+
+- Freeze feature scope and enumerate merged SHAs, project format versions,
+  supported upgrades/downgrades and data-migration limitations.
+- Run Linux warnings-as-errors, unit/GUI tests, ASan/UBSan, Windows MSYS2,
+  clean Windows package verification, website checks, packaging scripts and
+  renderer-container checks **on the final combined commit**.
+- Test with actual imported camera video, variable-frame-rate media, music,
+  silent sources, missing media and long timelines. Distinguish automated
+  fixtures from manual listening/viewing.
+- Confirm that preview and export yield the same frame ordering, transition
+  timing, clip automation and subtitles. Check cancellation, output-path
+  safety, temporary-file cleanup and recovery from a failed export.
+- Validate project save/reopen and undo/redo across all newly integrated
+  operations, including a mixed track sequence with locks and transitions.
+- Confirm release artifacts, SHA256 checksums, SPDX/third-party notices,
+  Windows installation/portable smoke tests and user-facing documentation.
+- Publish a new stable tag **only after** combined CI and release acceptance.
+  Development PR merges alone do not advance the published version.
+
+## Notes on current semantics
+
+Timeline gap editing uses exact integer project frames. Inserting a gap is not
+a ripple split: it refuses any clip intersecting the insertion point. Markers
+and subtitles are sequence-anchored and currently stay at their original
+absolute positions; editors must reposition them intentionally. Frames used
+in source excerpts are project-rate frames, not original timecode from a
+variable-frame-rate recording. Always document these semantics rather than
+promising broader professional workflows that have not been implemented.

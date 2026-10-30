@@ -453,6 +453,14 @@ frames, use video export instead. This is not included in stable v1.3.1.
 
 ## Exporting
 
+**File → Export Clip List (CSV)…** creates a read-only, UTF-8 CSV shot list
+with track, source name/path, clip ID, frame positions, source trims and SMPTE
+start/end timecodes. This report doesn't render video, edit the project or
+change undo history. Save it only to a .csv file; the editor refuses to
+replace imported source media or the project file. Spreadsheet formula-like
+cells are escaped. **The CSV contains local file paths** — review it before
+sharing outside your machine. Available in development source, not stable v1.3.1.
+
 *File → Export…* (Ctrl+E):
 
 1. Choose a preset (*Match project*, *1080p*, *720p*, *2160p*, *Fast draft*).

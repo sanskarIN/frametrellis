@@ -94,6 +94,8 @@ Rectangle {
     Menu {
         id: menu
         MenuItem { text: qsTr("Rename…"); onTriggered: { editor.text = header.name; editor.visible = true; editor.forceActiveFocus(); editor.selectAll() } }
+        MenuItem { text: qsTr("Select all clips on track"); onTriggered: header.app.timeline.selectTrackClips(header.trackId) }
+        MenuSeparator {}
         MenuItem { text: qsTr("Remove track"); enabled: !header.locked; onTriggered: header.app.timeline.removeTrack(header.trackId) }
     }
 }

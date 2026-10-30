@@ -63,8 +63,9 @@ below. No v1.4 release is declared by these notes.
 - [#100](https://github.com/sanskarIN/frametrellis/pull/100): undoable same-kind
   adjacent track reordering from track headers, preserving clip contents and media.
 
-- The next professional editing candidate is atomic multi-track gap insertion at
-  the playhead, preserving source trims and transitions except unsafe cuts.
+- [#103](https://github.com/sanskarIN/frametrellis/pull/103): proposed atomic
+  multi-track gap insertion at the playhead, preserving source trims, automation
+  and safe transitions. Under review, not in the published stable release.
 
 ## Volume automation
 

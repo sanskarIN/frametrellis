@@ -1422,7 +1422,7 @@ private slots:
         QVERIFY(!data.contains("\r\r\n"));
         report.close();
 
-        // A misnamed report must be rejected without modifying a source file.
+        // Reject a report path that aliases imported footage without changing bytes.
         const QString original = m_media.front();
         QFile footage(original);
         QVERIFY(footage.open(QIODevice::ReadOnly));

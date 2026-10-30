@@ -440,6 +440,39 @@ private slots:
         QCOMPARE(m_app->project()->project().timeline(), before.timeline());
     }
 
+    void reorderAdjacentTracksWithoutChangingClipData()
+    {
+        const Timeline original = m_app->project()->project().timeline();
+        QVERIFY(original.trackCount() >= 3);
+        const Id firstVideo = original.tracks().front().id;
+        const Id secondVideo = original.tracks()[1].id;
+        const Id audio = original.tracks()[2].id;
+        QVERIFY(original.tracks()[0].kind == TrackKind::Video);
+        QVERIFY(original.tracks()[1].kind == TrackKind::Video);
+        QVERIFY(original.tracks()[2].kind == TrackKind::Audio);
+
+        QVERIFY(!m_app->timeline()->canMoveTrack(firstVideo, -1));
+        QVERIFY(m_app->timeline()->canMoveTrack(firstVideo, 1));
+        QVERIFY(!m_app->timeline()->canMoveTrack(secondVideo, 1));
+        QVERIFY(!m_app->timeline()->canMoveTrack(QStringLiteral("missing"), 1));
+        QVERIFY(!m_app->timeline()->canMoveTrack(firstVideo, 2));
+        QVERIFY(!m_app->timeline()->moveTrack(firstVideo, -1));
+        QCOMPARE(m_app->project()->project().timeline(), original);
+
+        QVERIFY(m_app->timeline()->moveTrack(firstVideo, 1));
+        const Timeline reordered = m_app->project()->project().timeline();
+        QCOMPARE(reordered.tracks().front().id, secondVideo);
+        QCOMPARE(reordered.tracks()[1].id, firstVideo);
+        QCOMPARE(reordered.tracks()[2].id, audio);
+        QCOMPARE(reordered.clipCount(), original.clipCount());
+        m_app->project()->undo();
+        QCOMPARE(m_app->project()->project().timeline(), original);
+        m_app->project()->redo();
+        QCOMPARE(m_app->project()->project().timeline(), reordered);
+        m_app->project()->undo();
+        QCOMPARE(m_app->project()->project().timeline(), original);
+    }
+
     void alignSelectedClipEdgesToPlayhead()
     {
         auto* timeline = m_app->timeline();

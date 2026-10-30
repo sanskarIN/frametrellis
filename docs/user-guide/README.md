@@ -156,7 +156,11 @@ every imported file again. Filtering never removes files from the project.
 * **Go to timecode** with Ctrl+G (Playback menu): enter a frame-accurate timecode, such as
   `00:00:12:08`. Invalid or out-of-sequence positions are rejected without moving the playhead.
 * **Tracks:** add tracks with *+ Video* / *+ Audio*; each track can be hidden (video), muted or
-  locked. Double-click a track name to rename it; right-click it to remove the track.
+  locked. Double-click a track name to rename it. Right-click the track header
+  to select all clips or remove an unlocked track. Development builds also offer
+  **Move track up/down** in this menu for adjacent tracks of the same kind.
+  Moving video tracks changes layer order; moving audio tracks changes mixer order.
+  The move retains all clips, media and settings and supports undo/redo.
   In development builds, **Edit → Lock All Tracks** protects every track against
   accidental clip edits; **Edit → Unlock All Tracks** restores editability.
   Both are single-step undoable changes and preserve each track's mute and

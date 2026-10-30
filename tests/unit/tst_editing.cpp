@@ -231,8 +231,7 @@ private slots:
         QCOMPARE(moved.clip(sound.id)->start, FrameCount{90});
         QCOMPARE(moved.clip(second.id)->sourceIn, second.sourceIn);
         QCOMPARE(moved.clip(second.id)->properties, second.properties);
-        QVERIFY(moved.track(f.v1)->transitions ==
-                original.timeline().track(f.v1)->transitions);
+        QVERIFY(moved.track(f.v1)->transitions == original.timeline().track(f.v1)->transitions);
         QVERIFY(moved.validate(f.doc.project().sourceLookup()));
         QCOMPARE(f.doc.undoText(), QStringLiteral("Remove Empty Timeline Time"));
         const Project after = f.doc.project();

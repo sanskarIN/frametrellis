@@ -551,3 +551,19 @@ recover that work the next time it starts.
   FFmpeg (for example to H.264 MP4) usually helps.
 * **Logs** — *Help → About → Open log folder*. *Copy diagnostics* copies version information for
   bug reports.
+
+### Append a source excerpt (v1.4 development)
+
+In the media bin, right-click an imported video or audio file and choose
+**Append source excerpt…**. Enter the first source frame (**In**) and the
+exclusive last boundary (**Out**) using the project frame rate. For example,
+In 15 / Out 45 appends exactly 30 frames while retaining the original media
+file, full source duration, and non-destructive project history. FrameTrellis
+appends the excerpt to the first unlocked track compatible with the source and
+selects it for further editing. Invalid ranges, still images, unavailable
+sources and the absence of an editable track are refused.
+
+Source ranges are expressed in **project frames**, not source-file timecode;
+this feature does not yet provide a dedicated source playback monitor, proxy
+generation, or synchronized automatic insertion of separate video/audio lanes.
+It is in development only, not the published v1.3.1 stable release.

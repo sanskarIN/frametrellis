@@ -297,6 +297,42 @@ private slots:
         screenshot(QStringLiteral("03-timeline"));
     }
 
+    void appendSourceExcerptUsesExactSourceFramesAndUndo()
+    {
+        auto* timeline = m_app->timeline();
+        const QString videoId =
+            m_app->media()->model()->get(0).value(QStringLiteral("assetId")).toString();
+        QVERIFY(!videoId.isEmpty());
+        const Project before = m_app->project()->project();
+        const FrameCount length = static_cast<FrameCount>(timeline->assetDuration(videoId));
+        QVERIFY(length > 60);
+        QVERIFY(timeline->appendAssetRange(videoId, 15, 45));
+        const Project changed = m_app->project()->project();
+        QCOMPARE(changed.timeline().clipCount(), before.timeline().clipCount() + 1);
+        const Id id = timeline->selection().first();
+        const Clip* excerpt = changed.timeline().clip(id);
+        QVERIFY(excerpt);
+        QCOMPARE(excerpt->assetId, videoId);
+        QCOMPARE(excerpt->sourceIn, FrameCount{15});
+        QCOMPARE(excerpt->duration, FrameCount{30});
+        QCOMPARE(excerpt->start, before.timeline().tracks().front().end());
+        QCOMPARE(m_app->project()->undoText(), QStringLiteral("Add Clip"));
+
+        const QString previousUndo = m_app->project()->undoText();
+        QVERIFY(!timeline->appendAssetRange(videoId, -1, 5));
+        QVERIFY(!timeline->appendAssetRange(videoId, 10, 10));
+        QVERIFY(!timeline->appendAssetRange(videoId, 10, 9));
+        QVERIFY(!timeline->appendAssetRange(videoId, 0, static_cast<int>(length) + 1));
+        QVERIFY(!timeline->appendAssetRange(QStringLiteral("missing"), 0, 5));
+        QCOMPARE(m_app->project()->project(), changed);
+        QCOMPARE(m_app->project()->undoText(), previousUndo);
+        m_app->project()->undo();
+        QCOMPARE(m_app->project()->project(), before);
+        m_app->project()->redo();
+        QCOMPARE(m_app->project()->project(), changed);
+        m_app->project()->undo();
+    }
+
     void selectionZoomAndPlayheadCenterPreserveProject()
     {
         auto* timeline = m_app->timeline();

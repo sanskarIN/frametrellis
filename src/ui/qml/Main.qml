@@ -20,7 +20,7 @@ ApplicationWindow {
                                        || shortcutsDialog.visible || goToTimecodeDialog.visible || markerDialog.visible || welcome.visible || messageBox.visible
                                        || unsavedDialog.visible || exportRunningDialog.visible || recoveryDialog.visible
                                        || subtitleDialog.visible || subtitleImportDialog.visible || subtitleExportDialog.visible
-                                       || previewFrameDialog.visible || clipListDialog.visible
+                                       || previewFrameDialog.visible || clipListDialog.visible || mediaPanel.excerptDialogOpen
     readonly property bool editKeys: !dialogOpen
 
     width: Math.min(1440, Screen.desktopAvailableWidth - 40)
@@ -361,6 +361,7 @@ ApplicationWindow {
             }
 
             MediaBinPanel {
+                id: mediaPanel
                 app: window.app
                 SplitView.preferredWidth: 330
                 SplitView.minimumWidth: 200

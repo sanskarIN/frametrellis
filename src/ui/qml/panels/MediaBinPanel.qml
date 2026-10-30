@@ -12,6 +12,7 @@ PanelFrame {
     id: panel
 
     required property AppController app
+    readonly property bool excerptDialogOpen: excerptDialog.visible
     signal importRequested()
     signal relinkRequested(string assetId, string name)
 
@@ -108,6 +109,99 @@ PanelFrame {
         onActionTriggered: {
             searchBox.text = ""
             kindBox.currentIndex = 0
+        }
+    }
+
+    FtDialog {
+        id: excerptDialog
+        objectName: "sourceExcerptDialog"
+        property string assetId: ""
+        property string sourceName: ""
+        property int maxFrames: 1
+        property bool failed: false
+
+        title: qsTr("Append source excerpt")
+        implicitWidth: 440
+        closePolicy: Popup.CloseOnEscape
+
+        function openFor(assetId, name) {
+            excerptDialog.assetId = assetId
+            excerptDialog.sourceName = name
+            excerptDialog.maxFrames = Math.max(1, Math.floor(panel.app.timeline.assetDuration(assetId)))
+            excerptDialog.failed = false
+            open()
+            sourceInFrame.value = 0
+            sourceOutFrame.value = excerptDialog.maxFrames
+        }
+
+        contentItem: ColumnLayout {
+            spacing: Theme.spacingS
+            Label {
+                Layout.fillWidth: true
+                text: excerptDialog.sourceName
+                color: Theme.text
+                elide: Text.ElideMiddle
+            }
+            Label {
+                Layout.fillWidth: true
+                text: qsTr("Choose exact project frames. Out is exclusive (the first frame not used).")
+                wrapMode: Text.WordWrap
+                color: Theme.textMuted
+            }
+            RowLayout {
+                Layout.fillWidth: true
+                Label { text: qsTr("In frame"); color: Theme.textMuted }
+                SpinBox {
+                    id: sourceInFrame
+                    objectName: "sourceExcerptIn"
+                    from: 0
+                    to: Math.max(0, excerptDialog.maxFrames - 1)
+                    editable: true
+                    Layout.fillWidth: true
+                    Accessible.name: qsTr("Source In frame")
+                    onValueModified: excerptDialog.failed = false
+                }
+                Label { text: qsTr("Out frame"); color: Theme.textMuted }
+                SpinBox {
+                    id: sourceOutFrame
+                    objectName: "sourceExcerptOut"
+                    from: 1
+                    to: excerptDialog.maxFrames
+                    editable: true
+                    Layout.fillWidth: true
+                    Accessible.name: qsTr("Exclusive source Out frame")
+                    onValueModified: excerptDialog.failed = false
+                }
+            }
+            Label {
+                Layout.fillWidth: true
+                color: excerptDialog.failed || sourceOutFrame.value <= sourceInFrame.value
+                       ? Theme.danger : Theme.textFaint
+                wrapMode: Text.WordWrap
+                text: excerptDialog.failed
+                      ? qsTr("Cannot append this excerpt. Check the range and the destination track.")
+                      : qsTr("%1 frames selected from a %2-frame source.")
+                          .arg(Math.max(0, sourceOutFrame.value - sourceInFrame.value))
+                          .arg(excerptDialog.maxFrames)
+            }
+        }
+
+        footer: DialogButtons {
+            Item { Layout.fillWidth: true }
+            FtButton { text: qsTr("Cancel"); onClicked: excerptDialog.close() }
+            FtButton {
+                objectName: "sourceExcerptAppend"
+                text: qsTr("Append excerpt")
+                primary: true
+                enabled: sourceOutFrame.value > sourceInFrame.value
+                onClicked: {
+                    if (panel.app.timeline.appendAssetRange(excerptDialog.assetId,
+                                                            sourceInFrame.value, sourceOutFrame.value))
+                        excerptDialog.close()
+                    else
+                        excerptDialog.failed = true
+                }
+            }
         }
     }
 
@@ -319,6 +413,11 @@ PanelFrame {
                     text: qsTr("Add to timeline")
                     enabled: tile.status !== "missing"
                     onTriggered: panel.app.timeline.appendAsset(tile.assetId)
+                }
+                MenuItem {
+                    text: qsTr("Append source excerpt…")
+                    enabled: tile.status !== "missing" && tile.kind !== "image" && panel.app.timeline.assetDuration(tile.assetId) > 1
+                    onTriggered: excerptDialog.openFor(tile.assetId, tile.name)
                 }
                 MenuItem {
                     text: tile.status === "missing" ? qsTr("Relink missing file…") : qsTr("Replace file…")

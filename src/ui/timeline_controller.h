@@ -102,6 +102,9 @@ public:
     /// Move one selected clip so its start or exclusive end meets the current playhead.
     /// Reject overlaps, locked tracks and negative starts using the undoable edit engine.
     Q_INVOKABLE bool alignSelectionToPlayhead(bool alignEnd);
+    /// Trim the selected clip's start or exclusive end to the playhead.
+    /// Rejects unsafe transition edits rather than silently removing a transition.
+    Q_INVOKABLE bool trimSelectionToPlayhead(bool trimEnd);
     Q_INVOKABLE bool trimStart(const QString& clipId, double newStart);
     Q_INVOKABLE bool trimEnd(const QString& clipId, double newEnd);
     Q_INVOKABLE bool splitAtPlayhead();

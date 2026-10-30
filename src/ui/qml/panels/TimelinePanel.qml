@@ -94,7 +94,8 @@ PanelFrame {
             Accessible.name: qsTr("Timeline zoom")
         },
         IconButton { iconName: "zoom-in"; tip: qsTr("Zoom in (+)"); onClicked: panel.zoomAround(1.4, lanes.width / 2) },
-        IconButton { iconName: "zoom-fit"; tip: qsTr("Fit the whole sequence"); onClicked: { panel.timeline.zoomToFit(lanes.width); lanes.contentX = 0 } }
+        IconButton { iconName: "zoom-fit"; tip: qsTr("Fit the whole sequence"); onClicked: { panel.timeline.zoomToFit(lanes.width); lanes.contentX = 0 } },
+        IconButton { iconName: "zoom-in"; tip: qsTr("Fit selected clips (Ctrl+Shift+0)"); enabled: panel.timeline.selection.length > 0; onClicked: panel.zoomToSelection() }
     ]
 
     Item {

@@ -359,9 +359,9 @@ private slots:
         const double frameBefore = m_app->playback()->position();
         lanes->setProperty("contentX", 0);
         QTest::keyClick(m_window, Qt::Key_L, Qt::ControlModifier | Qt::ShiftModifier);
-        const double expectedX =
-            std::max(0.0, std::min(lanes->property("contentWidth").toDouble() - lanes->width(),
-                                   frameBefore * timeline->pixelsPerFrame() - lanes->width() * 0.5));
+        const double expectedX = std::max(
+            0.0, std::min(lanes->property("contentWidth").toDouble() - lanes->width(),
+                          frameBefore * timeline->pixelsPerFrame() - lanes->width() * 0.5));
         QVERIFY(QTest::qWaitFor(
             [&] { return std::abs(lanes->property("contentX").toDouble() - expectedX) < 2.0; },
             2000));

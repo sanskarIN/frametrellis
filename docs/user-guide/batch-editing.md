@@ -92,3 +92,16 @@ the timeline limit, nothing changes. Timeline markers and subtitle cues stay at
 their original sequence times; move those separately where necessary. The
 approximate second choices use a rounded number of project frames. The feature
 is not in the published v1.3.1 stable release.
+ 
+## Trim selected clip to the playhead (v1.4 development)
+
+Select one clip, position the playhead **strictly within** that clip, and use
+**Edit → Trim Selected Clip to Playhead → Trim Start** or **Trim End**.
+Trimming the start advances its source In frame while leaving the source Out
+frame fixed. Trimming the end leaves the source In frame fixed. Only the selected
+clip is affected, in one undoable edit. This is not a ripple trim.
+
+Locked clips, a playhead outside the selected clip, or clips participating
+in a transition are rejected instead of silently changing adjacent edits.
+No original media files are modified. This command is development-only
+and does not appear in the v1.3.1 stable release.

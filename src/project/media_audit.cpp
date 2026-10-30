@@ -172,10 +172,10 @@ Status saveCsvReport(const Project& project, const QString& path, const QString&
     QString csv = QStringLiteral(
         "assetId,name,kind,status,clipUses,storedBytes,currentBytes,sourcePath,changeReasons\r\n");
     const QJsonArray assets = buildReport(project).value(QStringLiteral("assets")).toArray();
-    for (const QJsonValue& value : assets) {
+    for (const auto& value : assets) {
         const QJsonObject asset = value.toObject();
         QStringList reasons;
-        for (const QJsonValue& reason : asset.value(QStringLiteral("changeReasons")).toArray()) {
+        for (const auto& reason : asset.value(QStringLiteral("changeReasons")).toArray()) {
             reasons.append(reason.toString());
         }
         const QStringList fields = {

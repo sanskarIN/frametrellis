@@ -144,3 +144,16 @@ and automation. This is an atomic **Nudge Clips** undo step. A locked track,
 collision with an unselected clip, timeline overflow or an unsafe transition
 rejects the whole edit. Empty selections and no-op alignment create no undo
 entry. This does not ripple, trim or move unselected clips.
+
+## Apply fades to multiple selected clips (v1.4 development)
+
+Select several clips across video and audio tracks, then choose **Edit →
+Fade Selected Clips**. Apply **Fade In** or **Fade Out** over ten frames or
+approximately one second, or clear the chosen fade on the whole selection.
+The command preserves gain, muting, picture corrections and source trims,
+and is recorded as **one** undoable step. Each requested fade is shortened to
+fit its clip's duration after retaining the fade at the opposite end; a short
+clip never receives overlapping fades. Clips on locked tracks, invalid or
+duplicated IDs, and selections already at the requested value are rejected
+without modifying any clip. Source media is not altered; the same properties
+apply to playback and the final renderer. This is not in stable v1.3.1.

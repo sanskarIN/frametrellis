@@ -427,6 +427,37 @@ private slots:
         timeline->clearSelection();
     }
 
+    void fadeSelectedClipFromEditMenuIsUndoable()
+    {
+        auto* timeline = m_app->timeline();
+        const Project before = m_app->project()->project();
+        QVERIFY(!track(0).clips.empty());
+        const Clip picture = track(0).clips.back();
+        QVERIFY(picture.duration > 7);
+
+        timeline->clearSelection();
+        const QString undoBefore = m_app->project()->undoText();
+        QVERIFY(!timeline->setSelectionFade(false, 7));
+        QCOMPARE(m_app->project()->undoText(), undoBefore);
+
+        timeline->select(picture.id, false);
+        QVERIFY(timeline->setSelectionFade(false, 7));
+        const Project changed = m_app->project()->project();
+        const Clip* faded = changed.timeline().clip(picture.id);
+        QVERIFY(faded);
+        QCOMPARE(faded->properties.fadeIn, FrameCount{7});
+        QCOMPARE(faded->properties.fadeOut, picture.properties.fadeOut);
+        QCOMPARE(faded->properties.video, picture.properties.video);
+        QCOMPARE(m_app->project()->undoText(), QStringLiteral("Set Selected Fade Ins"));
+        m_app->project()->undo();
+        QCOMPARE(m_app->project()->project(), before);
+        m_app->project()->redo();
+        QCOMPARE(m_app->project()->project(), changed);
+        m_app->project()->undo();
+        QCOMPARE(m_app->project()->project(), before);
+        timeline->clearSelection();
+    }
+
     void selectionZoomAndPlayheadCenterPreserveProject()
     {
         auto* timeline = m_app->timeline();

@@ -76,3 +76,19 @@ clips, change source media or seek the playhead. An overlap, locked track,
 negative start or invalid transition rejects the operation atomically without
 changing the edit. A successful move is one undoable command. The feature is
 only in development builds, not the published v1.3.1 stable release.
+
+## Insert time across tracks (v1.4 development)
+
+Move the playhead to a safe boundary or empty interval, then use **Edit →
+Insert Gap at Playhead** and choose **1 Frame**, **10 Frames**, **About 1 Second**
+or **About 5 Seconds**. Every clip starting at or after that frame moves later by
+that duration, across video and audio tracks. Existing source trims, clip
+adjustments, automation points and fully shifted transitions remain unchanged.
+The command is one undoable operation.
+
+This operation does not split a clip. If any clip spans the playhead, an affected
+track is locked, a transition would be disconnected, or the new positions exceed
+the timeline limit, nothing changes. Timeline markers and subtitle cues stay at
+their original sequence times; move those separately where necessary. The
+approximate second choices use a rounded number of project frames. The feature
+is not in the published v1.3.1 stable release.

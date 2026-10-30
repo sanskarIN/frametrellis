@@ -144,9 +144,8 @@ bool MediaController::importFolder(const QString& urlOrPath)
                     .arg(scan->files.size()));
         }
     });
-    watcher->setFuture(QtConcurrent::run([directory] {
-        return media::discoverImportableFiles(directory);
-    }));
+    watcher->setFuture(
+        QtConcurrent::run([directory] { return media::discoverImportableFiles(directory); }));
     return true; // async acceptance, not the eventual scan/probe result
 }
 

@@ -27,8 +27,7 @@ constexpr int kStillSeconds = 5;
 
 bool validTimelineFrame(double frame)
 {
-    return std::isfinite(frame) && frame >= 0.0 &&
-           frame <= static_cast<double>(kMaxTimelineFrames);
+    return std::isfinite(frame) && frame >= 0.0 && frame <= static_cast<double>(kMaxTimelineFrames);
 }
 } // namespace
 
@@ -495,8 +494,8 @@ bool TimelineController::canPlace(const QString& trackId, double start, double d
                                   const QString& ignoreClipId) const
 {
     const Track* track = project().timeline().track(trackId);
-    if (!track || track->locked || !validTimelineFrame(start) ||
-        !validTimelineFrame(duration) || duration <= 0.0) {
+    if (!track || track->locked || !validTimelineFrame(start) || !validTimelineFrame(duration) ||
+        duration <= 0.0) {
         return false;
     }
     if (const Clip* moving = project().timeline().clip(ignoreClipId)) {
@@ -530,8 +529,7 @@ double TimelineController::snapFrame(double frame, const QString& excludeClipId,
     }
     points.push_back(m_playback->positionFrames());
     std::sort(points.begin(), points.end());
-    const double tolerance =
-        validTimelineFrame(toleranceFrames) ? toleranceFrames : 0.0;
+    const double tolerance = validTimelineFrame(toleranceFrames) ? toleranceFrames : 0.0;
     const auto snapped =
         snapToNearest(candidate, static_cast<FrameCount>(std::ceil(tolerance)), points);
     return static_cast<double>(snapped.value_or(candidate));
@@ -557,8 +555,7 @@ double TimelineController::snapClipStart(double start, double duration,
     }
     points.push_back(m_playback->positionFrames());
     std::sort(points.begin(), points.end());
-    const double safeTolerance =
-        validTimelineFrame(toleranceFrames) ? toleranceFrames : 0.0;
+    const double safeTolerance = validTimelineFrame(toleranceFrames) ? toleranceFrames : 0.0;
     const auto tolerance = static_cast<FrameCount>(std::ceil(safeTolerance));
     const auto byStart = snapToNearest(candidate, tolerance, points);
     const auto byEnd = snapToNearest(candidate + length, tolerance, points);

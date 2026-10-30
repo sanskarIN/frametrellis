@@ -38,8 +38,14 @@ below. No v1.4 release is declared by these notes.
   import with symlink avoidance, duplicate filtering and background decoder checks.
 - [#67](https://github.com/sanskarIN/frametrellis/pull/67): remove unused media references in
   one undoable change; disk files remain untouched.
-- Media-bin usage and changed-source filters complement the integrated audit and cleanup
-  workflows; all category filtering is read-only and responds to timeline edits.
+- [#90](https://github.com/sanskarIN/frametrellis/pull/90): live Used, Unused and Changed
+  media-bin filters, combined with name/path search and offline-media keyboard relinking.
+- [#15](https://github.com/sanskarIN/frametrellis/pull/15): 1080p/4K creator-quality
+  H.264/AAC upload profiles with no-upscale safeguards.
+- [#91](https://github.com/sanskarIN/frametrellis/pull/91): read-only renderer
+  `--list-presets` JSON discovery, including the creator upload profiles.
+- [#92](https://github.com/sanskarIN/frametrellis/pull/92): protected PNG
+  snapshots of the currently displayed preview frame with atomic writes.
 
 ## Volume automation
 
@@ -124,8 +130,8 @@ These are development features after v1.3.0, not a new stable release or version
 ## Separate open proposals
 
 - Timeline navigation and Zoom to Selection: PR #70.
-- Preview-frame PNG snapshots and other bulk track/export workflows remain subject
-  to their own PR review; open PRs are not released features.
+- Additional bulk track operations and export workflows remain under review;
+  open PRs are not released features.
 
 See the [professional-editor assessment](../development/pro-editor-assessment.md),
 [roadmap](../roadmap.md) and [v1.3.0 verification report](v1.3.0-verification.md).

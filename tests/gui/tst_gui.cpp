@@ -1039,6 +1039,11 @@ private slots:
         QTRY_COMPARE(problems.count(), 1);
         QTRY_VERIFY(!m_app->media()->importing());
         QCOMPARE(m_app->media()->model()->rowCount(), before);
+        // Import errors open the application's modal MessageBox. A GUI regression test
+        // must dismiss it before later mouse/drag tests can interact with the timeline.
+        QTRY_VERIFY(m_window->property("dialogOpen").toBool());
+        QTest::keyClick(m_window, Qt::Key_Escape);
+        QTRY_VERIFY(!m_window->property("dialogOpen").toBool());
     }
 
     void previewFrameSnapshotIsSafe()

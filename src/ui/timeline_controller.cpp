@@ -232,6 +232,10 @@ bool TimelineController::copyPictureAsEdl()
 
 void TimelineController::setPixelsPerFrame(double value)
 {
+    // Invalid QML or plugin-supplied numbers must not corrupt timeline geometry.
+    if (!std::isfinite(value)) {
+        return;
+    }
     value = std::clamp(value, minPixelsPerFrame(), maxPixelsPerFrame());
     if (!qFuzzyCompare(value, m_pixelsPerFrame)) {
         m_pixelsPerFrame = value;

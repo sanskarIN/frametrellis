@@ -8,6 +8,7 @@
 #include "core/version.h"
 #include "engine/mlt_runtime.h"
 #include "project/project_serializer.h"
+#include "rendering/export_settings.h"
 #include "rendering/render_protocol.h"
 #include "rendering/render_runner.h"
 #include "rendering/self_test.h"
@@ -16,6 +17,9 @@
 #include <QCoreApplication>
 #include <QFileInfo>
 #include <QGuiApplication>
+#include <QJsonArray>
+#include <QJsonDocument>
+#include <QJsonObject>
 #include <QSet>
 
 #include <atomic>
@@ -160,6 +164,9 @@ int main(int argc, char** argv)
     const QCommandLineOption watchStdinOption(
         QStringLiteral("watch-stdin"),
         QStringLiteral("Cancel when stdin receives \"cancel\" or is closed."));
+    const QCommandLineOption listPresetsOption(
+        QStringLiteral("list-presets"),
+        QStringLiteral("Print available export profiles as a JSON object and exit."));
     const QCommandLineOption selfTestOption(
         QStringLiteral("self-test"),
         QStringLiteral("Check the installation: generate sample media in <directory>, edit and "
@@ -167,8 +174,30 @@ int main(int argc, char** argv)
         QStringLiteral("directory"));
     parser.addOptions({projectOption, outputOption, shortSideOption, crfOption, presetOption,
                        audioOption, noAudioOption, noUpscaleOption, watchStdinOption,
-                       selfTestOption, inspectProjectOption});
+                       selfTestOption, inspectProjectOption, listPresetsOption});
     parser.process(app);
+
+    if (parser.isSet(listPresetsOption)) {
+        // Discovery only: no project load, source decoding, output file or MLT startup.
+        QJsonArray profiles;
+        for (const ExportPreset& preset : exportPresets()) {
+            profiles.append(
+                QJsonObject{{QStringLiteral("id"), preset.id},
+                            {QStringLiteral("name"), preset.name},
+                            {QStringLiteral("description"), preset.description},
+                            {QStringLiteral("shortSide"), preset.shortSide},
+                            {QStringLiteral("crf"), preset.crf},
+                            {QStringLiteral("speedPreset"), preset.speedPreset},
+                            {QStringLiteral("audioBitrateKbps"), preset.audioBitrateKbps},
+                            {QStringLiteral("avoidUpscaling"), preset.avoidUpscaling}});
+        }
+        const QByteArray json =
+            QJsonDocument(QJsonObject{{QStringLiteral("presets"), profiles}})
+                .toJson(QJsonDocument::Indented);
+        std::fwrite(json.constData(), 1, static_cast<size_t>(json.size()), stdout);
+        std::fflush(stdout);
+        return protocol::Success;
+    }
 
     if (parser.isSet(selfTestOption)) {
         return runSelfTestCommand(QFileInfo(parser.value(selfTestOption)).absoluteFilePath());

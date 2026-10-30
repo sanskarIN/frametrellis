@@ -599,8 +599,7 @@ std::unique_ptr<EditCommand> muteClips(const QList<Id>& clipIds, bool muted)
         });
 }
 
-std::unique_ptr<EditCommand> setClipFades(const QList<Id>& clipIds, FrameCount frames,
-                                           bool fadeOut)
+std::unique_ptr<EditCommand> setClipFades(const QList<Id>& clipIds, FrameCount frames, bool fadeOut)
 {
     return command(
         frames == 0 ? (fadeOut ? QStringLiteral("Clear Selected Fade Outs")
@@ -628,8 +627,9 @@ std::unique_ptr<EditCommand> setClipFades(const QList<Id>& clipIds, FrameCount f
                                      QStringLiteral("A selected clip was not found."));
                 }
                 if (track->locked) {
-                    return makeError(ErrorCode::Conflict,
-                                     QStringLiteral("Unlock affected tracks before editing fades."));
+                    return makeError(
+                        ErrorCode::Conflict,
+                        QStringLiteral("Unlock affected tracks before editing fades."));
                 }
                 const FrameCount opposite =
                     fadeOut ? clip->properties.fadeIn : clip->properties.fadeOut;

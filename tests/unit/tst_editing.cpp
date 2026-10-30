@@ -341,8 +341,8 @@ private slots:
         const QString undo = f.doc.undoText();
         QVERIFY(!f.doc.execute(edits::setClipFades({}, 10, false)));
         QVERIFY(!f.doc.execute(edits::setClipFades({picture.id, picture.id}, 10, false)));
-        QVERIFY(!f.doc.execute(edits::setClipFades({picture.id, QStringLiteral("missing")}, 10,
-                                                  false)));
+        QVERIFY(!f.doc.execute(
+            edits::setClipFades({picture.id, QStringLiteral("missing")}, 10, false)));
         QVERIFY(!f.doc.execute(edits::setClipFades({picture.id}, -1, false)));
         QVERIFY(!f.doc.execute(edits::setClipFades({picture.id}, kMaxTimelineFrames + 1, false)));
         QVERIFY(!f.doc.execute(edits::setClipFades({picture.id, audio.id}, 0, false)));

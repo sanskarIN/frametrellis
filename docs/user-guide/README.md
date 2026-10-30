@@ -64,7 +64,7 @@ after 10,000 scanned files, and large folders are reported as truncated.
 No files are moved, copied, renamed or deleted. If the folder contains more
 than the safety limit, split your import into smaller subfolders.
 
-This is a **future v1.4 candidate**, not included in the v1.3.0 stable
+This is a **future v1.4 candidate**, not included in the v1.3.1 stable
 release. Folder discovery is currently a bounded, synchronous step, so prefer
 small batches on slow network drives.
 
@@ -88,13 +88,18 @@ For a cleaner media bin, **File → Remove Unused Media from Project** removes
 imported media references that are not used by any timeline clip. Original
 files remain unchanged on disk, and **Ctrl+Z** restores the removed references
 in their original order. Media in use is always preserved. This is a
-**proposed v1.4 feature**, not included in the v1.3.0 stable download.
+**v1.4 development feature**, not included in the v1.3.1 stable download.
 
 
 Use the **Search media** field at the top of the media bin to find files by name or path,
-without changing the project. The adjacent filter shows all assets, just videos, audio,
-still images or offline files. Search is case-insensitive, combines with the chosen kind,
-and updates the visible tiles immediately. Select **All** and clear the search box to see
+without changing the project. The adjacent filter shows all assets, videos, audio,
+still images or offline files. In development builds it also offers **Changed**
+(sources modified since import), **Used** (referenced by timeline clips), and
+**Unused** (not referenced by any timeline clip). Search is case-insensitive,
+combines with the chosen category, and updates visible tiles when clip usage
+changes. The **Unused** view lets you review media before choosing
+**File → Remove Unused Media from Project**; filtering itself never removes
+media or touches source files. Select **All** and clear the search box to see
 every imported file again. Filtering never removes files from the project.
 
 ## Editing on the timeline

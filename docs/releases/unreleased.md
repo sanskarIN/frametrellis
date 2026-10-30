@@ -55,6 +55,9 @@ below. No v1.4 release is declared by these notes.
   list CSV export with SMPTE timecodes, source paths, UTF-8 encoding, formula-safe cells,
   protected atomic writes and unchanged undo/modified state.
 
+- Batch **Lock All Tracks** / **Unlock All Tracks** commands are under review;
+  they keep other track flags and create one undoable edit per action.
+
 - Advanced multi-track clip selection (playhead, repeated source media and a
   track-header select-all action) is under review for the next milestone.
 

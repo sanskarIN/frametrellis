@@ -29,6 +29,8 @@ FtDialog {
         ["Delete", qsTr("Delete selected clips or transition")],
         ["Shift+Delete", qsTr("Ripple delete")],
         ["Ctrl+A", qsTr("Select all clips")],
+        ["Ctrl+Shift+J", qsTr("Select all clips beneath the playhead")],
+        ["Ctrl+Alt+R", qsTr("Select every timeline use of one media source")],
         ["N", qsTr("Toggle snapping")],
         ["+ / −", qsTr("Zoom timeline in / out")],
         ["Ctrl+Shift+0", qsTr("Fit all selected clips in the timeline")],

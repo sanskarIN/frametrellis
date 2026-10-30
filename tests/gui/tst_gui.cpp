@@ -1016,10 +1016,12 @@ private slots:
         QVERIFY(!still.isEmpty());
 
         const int before = m_app->media()->model()->rowCount();
+        QSignalSpy stateChanges(m_app->media(), &ui::MediaController::importingChanged);
         QVERIFY(m_app->media()->importFolder(root));
         QVERIFY(QTest::qWaitFor([&] { return m_app->media()->model()->rowCount() == before + 1; },
                                 15000));
         QVERIFY(m_app->project()->project().assetByPath(still));
+        QVERIFY(stateChanges.count() >= 2); // scanning and probing status transitions
         QVERIFY(m_app->media()->importFolder(root));
         QTest::qWait(250);
         QCOMPARE(m_app->media()->model()->rowCount(), before + 1);
@@ -1027,6 +1029,13 @@ private slots:
         QVERIFY(added);
         const Id addedId = added->id;
         m_app->media()->remove(addedId);
+        QCOMPARE(m_app->media()->model()->rowCount(), before);
+
+        // Validation errors are delivered asynchronously without altering the project.
+        QSignalSpy problems(m_app->media(), &ui::MediaController::importProblems);
+        QVERIFY(m_app->media()->importFolder(root + QStringLiteral("/missing")));
+        QTRY_COMPARE(problems.count(), 1);
+        QTRY_VERIFY(!m_app->media()->importing());
         QCOMPARE(m_app->media()->model()->rowCount(), before);
     }
 

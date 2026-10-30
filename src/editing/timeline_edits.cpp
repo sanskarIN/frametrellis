@@ -293,9 +293,8 @@ std::unique_ptr<EditCommand> removeEmptyTime(FrameCount frame, FrameCount durati
                 bool affectsTrack = false;
                 for (const Clip& clip : track.clips) {
                     if (clip.start < end && clip.end() > frame) {
-                        return makeError(
-                            ErrorCode::Conflict,
-                            QStringLiteral("Remove clips from the time range first."));
+                        return makeError(ErrorCode::Conflict,
+                                         QStringLiteral("Remove clips from the time range first."));
                     }
                     affectsTrack |= clip.start >= end;
                 }

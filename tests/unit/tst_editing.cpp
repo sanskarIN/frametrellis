@@ -112,6 +112,99 @@ private slots:
         QCOMPARE(f.doc.undoText(), priorUndo);
     }
 
+    void insertGapMovesMultipleTracksAndPreservesTransitions()
+    {
+        Fixture f;
+        Clip first = clipOf(QStringLiteral("m1"), 0, 40, QStringLiteral("first"));
+        Clip second = clipOf(QStringLiteral("m1"), 80, 40, QStringLiteral("second"));
+        Clip third = clipOf(QStringLiteral("m1"), 120, 40, QStringLiteral("third"));
+        Clip sound = clipOf(QStringLiteral("m1"), 100, 40, QStringLiteral("sound"));
+        second.sourceIn = 60;
+        second.properties.gain = 0.7;
+        third.sourceIn = 120;
+        sound.sourceIn = 200;
+        QVERIFY(f.doc.execute(edits::addClip(f.v1, first)));
+        QVERIFY(f.doc.execute(edits::addClip(f.v1, second)));
+        QVERIFY(f.doc.execute(edits::addClip(f.v1, third)));
+        QVERIFY(f.doc.execute(edits::addClip(f.a1, sound)));
+        QVERIFY(f.doc.execute(edits::addTransition(second.id, 10, QStringLiteral("crossfade"))));
+        const Project before = f.doc.project();
+
+        QVERIFY(f.doc.execute(edits::insertGap(60, 15)));
+        const Timeline& changed = f.doc.project().timeline();
+        QCOMPARE(changed.clip(first.id)->start, FrameCount{0});
+        QCOMPARE(changed.clip(second.id)->start, FrameCount{95});
+        QCOMPARE(changed.clip(third.id)->start, FrameCount{135});
+        QCOMPARE(changed.clip(sound.id)->start, FrameCount{115});
+        QCOMPARE(changed.clip(second.id)->sourceIn, second.sourceIn);
+        QCOMPARE(changed.clip(second.id)->properties, second.properties);
+        QCOMPARE(changed.clip(third.id)->sourceIn, third.sourceIn);
+        QVERIFY(changed.track(f.v1)->transitions == before.timeline().track(f.v1)->transitions);
+        QVERIFY(changed.validate(f.doc.project().sourceLookup()));
+        QCOMPARE(f.doc.undoText(), QStringLiteral("Insert Timeline Gap"));
+        const Project after = f.doc.project();
+        QVERIFY(f.doc.undo());
+        QCOMPARE(f.doc.project(), before);
+        QVERIFY(f.doc.redo());
+        QCOMPARE(f.doc.project(), after);
+    }
+
+    void insertGapRefusesClipIntersectionsAndLockedAffectedTracks()
+    {
+        Fixture f;
+        Clip existing = clipOf(QStringLiteral("m1"), 10, 70, QStringLiteral("existing"));
+        QVERIFY(f.doc.execute(edits::addClip(f.v1, existing)));
+        const Project before = f.doc.project();
+        const QString undo = f.doc.undoText();
+        QVERIFY(!f.doc.execute(edits::insertGap(50, 10)));
+        QCOMPARE(f.doc.project(), before);
+        QCOMPARE(f.doc.undoText(), undo);
+
+        QVERIFY(f.doc.execute(edits::setTrackLocked(f.v1, true)));
+        const Project locked = f.doc.project();
+        const QString lockedUndo = f.doc.undoText();
+        QVERIFY(!f.doc.execute(edits::insertGap(10, 10)));
+        QCOMPARE(f.doc.project(), locked);
+        QCOMPARE(f.doc.undoText(), lockedUndo);
+        QVERIFY(!f.doc.execute(edits::insertGap(100, 10)));
+        QCOMPARE(f.doc.project(), locked);
+        QCOMPARE(f.doc.undoText(), lockedUndo);
+    }
+
+    void insertGapRejectsTransitionsAcrossTheInsertionCut()
+    {
+        Fixture f;
+        Clip left = clipOf(QStringLiteral("m1"), 0, 60, QStringLiteral("left"));
+        Clip right = clipOf(QStringLiteral("m1"), 60, 60, QStringLiteral("right"));
+        left.sourceIn = 30;
+        right.sourceIn = 100;
+        QVERIFY(f.doc.execute(edits::addClip(f.v1, left)));
+        QVERIFY(f.doc.execute(edits::addClip(f.v1, right)));
+        QVERIFY(f.doc.execute(edits::addTransition(left.id, 10, QStringLiteral("cut"))));
+        const Project before = f.doc.project();
+        const QString undo = f.doc.undoText();
+        QVERIFY(!f.doc.execute(edits::insertGap(60, 20)));
+        QCOMPARE(f.doc.project(), before);
+        QCOMPARE(f.doc.undoText(), undo);
+    }
+
+    void insertGapChecksBoundsAndLeavesFailedEditsOutOfHistory()
+    {
+        Fixture f;
+        const FrameCount last = kMaxTimelineFrames;
+        Clip late = clipOf(QStringLiteral("m1"), last - 25, 20, QStringLiteral("late"));
+        QVERIFY(f.doc.execute(edits::addClip(f.v1, late)));
+        const Project before = f.doc.project();
+        const QString undo = f.doc.undoText();
+        QVERIFY(!f.doc.execute(edits::insertGap(last - 30, 15)));
+        QVERIFY(!f.doc.execute(edits::insertGap(-1, 1)));
+        QVERIFY(!f.doc.execute(edits::insertGap(0, 0)));
+        QVERIFY(!f.doc.execute(edits::insertGap(last, 1)));
+        QVERIFY(!f.doc.execute(edits::insertGap(0, last)));
+        QCOMPARE(f.doc.project(), before);
+        QCOMPARE(f.doc.undoText(), undo);
+    }
+
     void undoRedoRestoresExactStates()
     {
         Fixture f;

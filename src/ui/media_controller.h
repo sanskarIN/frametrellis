@@ -32,7 +32,10 @@ public:
                     QObject* parent = nullptr);
 
     [[nodiscard]] MediaBinModel* model() { return &m_model; }
-    [[nodiscard]] bool importing() const { return m_folderScanActive || m_importer.pendingCount() > 0; }
+    [[nodiscard]] bool importing() const
+    {
+        return m_folderScanActive || m_importer.pendingCount() > 0;
+    }
     [[nodiscard]] int pendingImports() const { return m_importer.pendingCount(); }
     [[nodiscard]] QStringList nameFilters() const;
 

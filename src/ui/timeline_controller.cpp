@@ -1437,6 +1437,16 @@ bool TimelineController::setTrackFlag(const QString& trackId, const QString& fla
     return false;
 }
 
+bool TimelineController::setAllTracksLocked(bool locked)
+{
+    if (!m_project->execute(edits::setAllTracksLocked(locked))) {
+        return false;
+    }
+    emit statusMessage(locked ? QStringLiteral("Locked all tracks.")
+                              : QStringLiteral("Unlocked all tracks."));
+    return true;
+}
+
 bool TimelineController::renameTrack(const QString& trackId, const QString& name)
 {
     return m_project->execute(edits::renameTrack(trackId, name));

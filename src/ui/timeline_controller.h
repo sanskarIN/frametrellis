@@ -82,6 +82,10 @@ public:
 
     // Placing media
     Q_INVOKABLE bool appendAsset(const QString& assetId);
+    /// Append a bounded source excerpt in project frames without changing the source.
+    /// The out-frame is exclusive; still images and invalid excerpts are refused.
+    Q_INVOKABLE bool appendAssetRange(const QString& assetId, int sourceInFrame,
+                                      int sourceOutFrame);
     /// Whether at least one unlocked video track can receive a new title.
     [[nodiscard]] bool canAppendTitle() const;
     /// Append a title still to the uppermost unlocked video track.
@@ -110,6 +114,8 @@ public:
     Q_INVOKABLE bool splitAtPlayhead();
     /// Insert an undoable empty interval at a cut across video and audio tracks.
     Q_INVOKABLE bool insertGapAtPlayhead(int durationFrames);
+    /// Close a clip-free time range across tracks as a single undoable edit.
+    Q_INVOKABLE bool removeEmptyTimeAtPlayhead(int durationFrames);
     /// Duplicates a single selected clip, or a time-aligned block of several selected clips.
     Q_INVOKABLE bool duplicateSelection();
     /// Shift all selected clips by signed project frames without changing their source trims.

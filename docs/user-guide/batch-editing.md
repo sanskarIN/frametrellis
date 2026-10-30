@@ -92,7 +92,23 @@ the timeline limit, nothing changes. Timeline markers and subtitle cues stay at
 their original sequence times; move those separately where necessary. The
 approximate second choices use a rounded number of project frames. The feature
 is not in the published v1.3.1 stable release.
- 
+
+## Remove known empty time across tracks (v1.4 development)
+
+Choose **Edit → Remove Empty Time at Playhead**, selecting **1 Frame**,
+**10 Frames**, **About 1 Second** or **About 5 Seconds**. FrameTrellis checks that
+the entire time interval is empty on *every* video and audio track, then moves
+all later clips earlier by that many frames in one undoable edit. Existing
+source trims, effects, automation and transitions within the shifted clips
+remain unchanged.
+
+If any clip overlaps the selected time, or a locked track would need to move,
+the command refuses the change without altering the project. It also rejects
+invalid ranges and operations with no later clips. Subtitle cues and review
+markers remain at their original absolute sequence times, so adjust those
+separately. Removing an empty interval does not delete source media or trim a
+clip. This workflow requires the preceding multi-track gap feature, and
+neither feature is in stable v1.3.1.
 ## Trim selected clip to the playhead (v1.4 development)
 
 Select one clip, position the playhead **strictly within** that clip, and use

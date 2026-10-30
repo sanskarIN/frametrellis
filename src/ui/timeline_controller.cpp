@@ -455,6 +455,45 @@ bool TimelineController::appendAsset(const QString& assetId)
     return false;
 }
 
+bool TimelineController::appendAssetRange(const QString& assetId, int sourceInFrame,
+                                          int sourceOutFrame)
+{
+    const MediaAsset* asset = project().asset(assetId);
+    if (!asset || asset->info.kind == MediaKind::Image) {
+        emit statusMessage(QStringLiteral("Choose a video or audio source for an excerpt."));
+        return false;
+    }
+    const std::optional<FrameCount> available = placementLength(*asset);
+    if (!available || sourceInFrame < 0 || sourceOutFrame <= sourceInFrame ||
+        static_cast<FrameCount>(sourceOutFrame) > *available) {
+        emit statusMessage(QStringLiteral("Choose valid In and Out frames within the source."));
+        return false;
+    }
+
+    const TrackKind wanted = asset->info.hasVideo ? TrackKind::Video : TrackKind::Audio;
+    for (const Track& track : project().timeline().tracks()) {
+        if (track.kind != wanted || track.locked) {
+            continue;
+        }
+        Clip clip;
+        clip.id = createId();
+        clip.assetId = assetId;
+        clip.start = track.end();
+        clip.sourceIn = sourceInFrame;
+        clip.duration = sourceOutFrame - sourceInFrame;
+        if (!m_project->execute(edits::addClip(track.id, clip))) {
+            return false;
+        }
+        m_selection = {clip.id};
+        m_model.updateSelection(m_selection);
+        emit selectionChanged();
+        emit selectedClipChanged();
+        return true;
+    }
+    emit statusMessage(QStringLiteral("Add an unlocked track for this media first."));
+    return false;
+}
+
 bool TimelineController::dropAsset(const QString& assetId, const QString& trackId, double frame)
 {
     // Negative drops are clamped to the beginning, but non-finite/huge values
@@ -664,6 +703,15 @@ bool TimelineController::insertGapAtPlayhead(int durationFrames)
     }
     return m_project->execute(
         edits::insertGap(m_playback->positionFrames(), static_cast<FrameCount>(durationFrames)));
+}
+
+bool TimelineController::removeEmptyTimeAtPlayhead(int durationFrames)
+{
+    if (durationFrames <= 0) {
+        return false;
+    }
+    return m_project->execute(edits::removeEmptyTime(m_playback->positionFrames(),
+                                                     static_cast<FrameCount>(durationFrames)));
 }
 
 bool TimelineController::splitAtPlayhead()

@@ -617,6 +617,7 @@ ApplicationWindow {
             Item { Layout.fillWidth: true }
             FtButton { text: qsTr("Cancel"); onClicked: preciseGapDialog.close() }
             FtButton {
+                objectName: "preciseGapConfirm"
                 text: preciseGapDialog.removing ? qsTr("Remove Empty Time") : qsTr("Insert Gap")
                 primary: true
                 onClicked: {

@@ -732,8 +732,19 @@ private slots:
         QCOMPARE(m_app->project()->project(), before);
         QCOMPARE(m_app->project()->undoText(), originalUndo);
 
-        // The custom dialog calls the same frame-exact controller operation.
-        QVERIFY(timeline->insertGapAtPlayhead(37));
+        // Exercise the actual QML form, not just the controller's fast path.
+        QObject* dialog = m_window->findChild<QObject*>(QStringLiteral("preciseGapDialog"));
+        QVERIFY(dialog);
+        QVERIFY(QMetaObject::invokeMethod(dialog, "open"));
+        QTRY_VERIFY(dialog->property("visible").toBool());
+        QQuickItem* frames =
+            findItem(m_window->contentItem(), QStringLiteral("preciseGapFrameCount"));
+        QQuickItem* apply = findItem(m_window->contentItem(), QStringLiteral("preciseGapConfirm"));
+        QVERIFY(frames);
+        QVERIFY(apply);
+        QVERIFY(frames->setProperty("value", 37));
+        QTest::mouseClick(m_window, Qt::LeftButton, Qt::NoModifier, centreOf(apply));
+        QTRY_VERIFY(!dialog->property("visible").toBool());
         const Project withGap = m_app->project()->project();
         for (const Track& originalTrack : before.timeline().tracks()) {
             for (const Clip& clip : originalTrack.clips) {

@@ -1144,8 +1144,7 @@ bool TimelineController::seekToSelectionBoundary(bool lastFrame)
     }
     const FrameCount first =
         static_cast<FrameCount>(range.value(QStringLiteral("start")).toDouble());
-    const FrameCount end =
-        static_cast<FrameCount>(range.value(QStringLiteral("end")).toDouble());
+    const FrameCount end = static_cast<FrameCount>(range.value(QStringLiteral("end")).toDouble());
     // Timeline clips use half-open [start, end) ranges. Seek to the final
     // visible frame, not the one-past-end boundary.
     m_playback->seek(static_cast<double>(lastFrame ? end - 1 : first));

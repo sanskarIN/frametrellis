@@ -237,8 +237,9 @@ std::unique_ptr<EditCommand> insertGap(FrameCount frame, FrameCount duration)
                 bool affectsTrack = false;
                 for (const Clip& clip : track.clips) {
                     if (clip.start < frame && clip.end() > frame) {
-                        return makeError(ErrorCode::Conflict,
-                                         QStringLiteral("Split clips crossing the playhead first."));
+                        return makeError(
+                            ErrorCode::Conflict,
+                            QStringLiteral("Split clips crossing the playhead first."));
                     }
                     affectsTrack |= clip.start >= frame;
                 }

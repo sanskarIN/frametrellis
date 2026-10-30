@@ -156,7 +156,16 @@ every imported file again. Filtering never removes files from the project.
 * **Go to timecode** with Ctrl+G (Playback menu): enter a frame-accurate timecode, such as
   `00:00:12:08`. Invalid or out-of-sequence positions are rejected without moving the playhead.
 * **Tracks:** add tracks with *+ Video* / *+ Audio*; each track can be hidden (video), muted or
-  locked. Double-click a track name to rename it; right-click it to remove the track.
+  locked. Double-click a track name to rename it; right-click to select all
+  clips on that track or remove it.
+* **Advanced selections (v1.4 development):** **Ctrl+Shift+J** selects clips
+  overlapping the playhead across all video and audio tracks; **Ctrl+Alt+R**
+  selects every use of the single selected media source. Right-click a track
+  header and choose **Select all clips on track** to select that track's clips.
+  These commands can select locked tracks for inspection, but do not bypass
+  lock protection on editing. If no clips match, the existing selection remains.
+  Selection actions never change project edits or undo history and are not in
+  the published v1.3.1 stable release.
 
 Every change can be undone (Ctrl+Z) and redone (Ctrl+Shift+Z).
 

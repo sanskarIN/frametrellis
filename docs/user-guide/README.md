@@ -157,6 +157,10 @@ every imported file again. Filtering never removes files from the project.
   `00:00:12:08`. Invalid or out-of-sequence positions are rejected without moving the playhead.
 * **Tracks:** add tracks with *+ Video* / *+ Audio*; each track can be hidden (video), muted or
   locked. Double-click a track name to rename it; right-click it to remove the track.
+  In development builds, **Edit → Lock All Tracks** protects every track against
+  accidental clip edits; **Edit → Unlock All Tracks** restores editability.
+  Both are single-step undoable changes and preserve each track's mute and
+  visibility settings. Not available in stable v1.3.1.
 
 Every change can be undone (Ctrl+Z) and redone (Ctrl+Shift+Z).
 

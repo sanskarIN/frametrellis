@@ -809,6 +809,79 @@ void TimelineController::selectAll()
     emit selectedClipChanged();
 }
 
+bool TimelineController::selectClipsAtPlayhead()
+{
+    const FrameCount frame = m_playback->positionFrames();
+    QSet<Id> matching;
+    for (const Track& track : project().timeline().tracks()) {
+        for (const Clip& clip : track.clips) {
+            if (clip.contains(frame)) {
+                matching.insert(clip.id);
+            }
+        }
+    }
+    if (matching.isEmpty()) {
+        emit statusMessage(QStringLiteral("No clips are under the playhead."));
+        return false;
+    }
+    setTransitionSelection({});
+    m_selection = std::move(matching);
+    m_model.updateSelection(m_selection);
+    emit selectionChanged();
+    emit selectedClipChanged();
+    emit statusMessage(
+        QStringLiteral("Selected %1 clip(s) at the playhead.").arg(m_selection.size()));
+    return true;
+}
+
+bool TimelineController::selectAllMediaOccurrences()
+{
+    if (m_selection.size() != 1) {
+        emit statusMessage(QStringLiteral("Select one clip to find its other occurrences."));
+        return false;
+    }
+    const Clip* source = project().timeline().clip(*m_selection.cbegin());
+    if (!source) {
+        return false;
+    }
+    const std::vector<Id> ids = project().timeline().clipsUsingAsset(source->assetId);
+    if (ids.empty()) {
+        return false;
+    }
+    setTransitionSelection({});
+    m_selection.clear();
+    for (const Id& id : ids) {
+        m_selection.insert(id);
+    }
+    m_model.updateSelection(m_selection);
+    emit selectionChanged();
+    emit selectedClipChanged();
+    emit statusMessage(
+        QStringLiteral("Selected %1 occurrence(s) of this media.").arg(m_selection.size()));
+    return true;
+}
+
+bool TimelineController::selectTrackClips(const QString& trackId)
+{
+    const Track* track = project().timeline().track(trackId);
+    if (!track || track->clips.empty()) {
+        emit statusMessage(QStringLiteral("This track has no clips to select."));
+        return false;
+    }
+    QSet<Id> selected;
+    for (const Clip& clip : track->clips) {
+        selected.insert(clip.id);
+    }
+    setTransitionSelection({});
+    m_selection = std::move(selected);
+    m_model.updateSelection(m_selection);
+    emit selectionChanged();
+    emit selectedClipChanged();
+    emit statusMessage(
+        QStringLiteral("Selected %1 clips on track %2.").arg(m_selection.size()).arg(track->name));
+    return true;
+}
+
 QVariantMap TimelineController::selectedFrameRange() const
 {
     FrameCount first = kMaxTimelineFrames;

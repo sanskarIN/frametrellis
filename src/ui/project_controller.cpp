@@ -3,6 +3,7 @@
 #include "ui/project_controller.h"
 
 #include "core/logging.h"
+#include "core/timecode.h"
 #include "project/project_serializer.h"
 
 #include <QDir>
@@ -20,6 +21,25 @@ namespace {
 constexpr int kMaxRecent = 10;
 constexpr int kAutosaveIntervalMs = 60'000;
 const QString kRecentKey = QStringLiteral("project/recent");
+
+// Quote CSV cells per RFC 4180 and neutralize leading spreadsheet formula syntax
+// for untrusted names, paths and identifiers. Quotes alone do not prevent execution.
+QByteArray csvCell(QString value)
+{
+    const QString leading = value.trimmed();
+    if (!leading.isEmpty() &&
+        (leading.startsWith(QLatin1Char('=')) || leading.startsWith(QLatin1Char('+')) ||
+         leading.startsWith(QLatin1Char('-')) || leading.startsWith(QLatin1Char('@')))) {
+        value.prepend(QLatin1Char('\''));
+    }
+    if (!value.isEmpty() &&
+        (value.startsWith(QLatin1Char('\t')) || value.startsWith(QLatin1Char('\r')) ||
+         value.startsWith(QLatin1Char('\n')))) {
+        value.prepend(QLatin1Char('\''));
+    }
+    value.replace(QLatin1Char('"'), QStringLiteral("\"\""));
+    return (QLatin1Char('"') + value + QLatin1Char('"')).toUtf8();
+}
 } // namespace
 
 ProjectController::ProjectController(QObject* parent)

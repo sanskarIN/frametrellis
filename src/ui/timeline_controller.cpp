@@ -648,6 +648,36 @@ bool TimelineController::alignSelectionToPlayhead(bool alignEnd)
     return m_project->execute(edits::moveClip(clipId, track->id, newStart));
 }
 
+bool TimelineController::trimSelectionToPlayhead(bool trimEnd)
+{
+    if (m_selection.size() != 1) {
+        emit statusMessage(QStringLiteral("Select one clip to trim to the playhead."));
+        return false;
+    }
+    const Id clipId = *m_selection.cbegin();
+    const Timeline& timeline = project().timeline();
+    const Clip* clip = timeline.clip(clipId);
+    const Track* track = timeline.trackOfClip(clipId);
+    if (!clip || !track || track->locked) {
+        return false;
+    }
+
+    const FrameCount frame = m_playback->positionFrames();
+    if (frame <= clip->start || frame >= clip->end()) {
+        emit statusMessage(QStringLiteral("Place the playhead inside the selected clip."));
+        return false;
+    }
+    for (const Transition& transition : track->transitions) {
+        if (transition.fromClip == clipId || transition.toClip == clipId) {
+            emit statusMessage(QStringLiteral("Remove the clip's transition before trimming."));
+            return false;
+        }
+    }
+
+    return trimEnd ? m_project->execute(edits::trimClipEnd(clipId, frame))
+                   : m_project->execute(edits::trimClipStart(clipId, frame));
+}
+
 bool TimelineController::trimStart(const QString& clipId, double newStart)
 {
     if (!validTimelineFrame(newStart)) {

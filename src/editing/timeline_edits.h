@@ -17,6 +17,8 @@ std::unique_ptr<EditCommand> renameTrack(const Id& trackId, const QString& name)
 std::unique_ptr<EditCommand> setTrackMuted(const Id& trackId, bool muted);
 std::unique_ptr<EditCommand> setTrackHidden(const Id& trackId, bool hidden);
 std::unique_ptr<EditCommand> setTrackLocked(const Id& trackId, bool locked);
+/// Lock or unlock the entire sequence in one undo step without changing visibility or mute.
+std::unique_ptr<EditCommand> setAllTracksLocked(bool locked);
 
 /// Places a new clip; fails if the range is occupied.
 std::unique_ptr<EditCommand> addClip(const Id& trackId, const Clip& clip);

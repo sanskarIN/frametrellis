@@ -20,7 +20,7 @@ ApplicationWindow {
                                        || shortcutsDialog.visible || goToTimecodeDialog.visible || markerDialog.visible || welcome.visible || messageBox.visible
                                        || unsavedDialog.visible || exportRunningDialog.visible || recoveryDialog.visible
                                        || subtitleDialog.visible || subtitleImportDialog.visible || subtitleExportDialog.visible
-                                       || previewFrameDialog.visible
+                                       || previewFrameDialog.visible || clipListDialog.visible
     readonly property bool editKeys: !dialogOpen
 
     width: Math.min(1440, Screen.desktopAvailableWidth - 40)
@@ -168,6 +168,11 @@ ApplicationWindow {
             Action { text: qsTr("&Subtitles…"); shortcut: "Ctrl+Alt+S"; enabled: window.editKeys; onTriggered: subtitleDialog.open() }
             Action { text: qsTr("Copy Picture EDL (CMX3600)"); enabled: window.editKeys && !window.app.timeline.empty; onTriggered: window.app.timeline.copyPictureAsEdl() }
             Action { text: qsTr("&Export…"); shortcut: "Ctrl+E"; enabled: !window.app.timeline.empty || window.app.exporter.busy; onTriggered: exportDialog.open() }
+            Action {
+                text: qsTr("Export Clip List (CSV)…")
+                enabled: !window.app.timeline.empty
+                onTriggered: clipListDialog.open()
+            }
             MenuSeparator {}
             Action { text: qsTr("&Quit"); shortcut: StandardKey.Quit; onTriggered: window.close() }
         }
@@ -454,6 +459,15 @@ ApplicationWindow {
             if (window.app.playback.savePreviewFrame(window.app.localPath(selectedFile)))
                 window.app.showStatus(qsTr("Saved current preview frame as PNG."))
         }
+    }
+    FileDialog {
+        id: clipListDialog
+        title: qsTr("Export timeline clip list")
+        fileMode: FileDialog.SaveFile
+        defaultSuffix: "csv"
+        nameFilters: [qsTr("CSV clip lists (*.csv)")]
+        currentFolder: window.app.fileUrl(window.app.project.projectFolder())
+        onAccepted: window.app.project.exportClipListCsv(window.app.localPath(selectedFile))
     }
     FileDialog {
         id: importDialog

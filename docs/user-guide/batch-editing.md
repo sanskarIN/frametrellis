@@ -159,3 +159,13 @@ empty interval. The command refuses an occupied playhead position, a missing
 later clip, a protected track, any intersecting clip or an unsafe transition.
 It never trims or deletes footage. Subtitles and timeline markers stay at their
 absolute sequence frame positions. Neither command is present in v1.3.1.
+
+## Navigate to selected clip edges (v1.4 development)
+
+Select one or more video/audio clips, then use **Playback → Go to Selection
+Start** to seek to the earliest selected start. Use **Playback → Go to
+Selection Last Frame** to seek to the last visible frame before the latest
+selected clip's exclusive end. This respects the timeline's half-open clip
+intervals and prevents an accidental seek one frame past the selection.
+Navigation does not edit clips, alter track locks, clear selections or create
+undo history; empty selections have no effect. This is a development feature.

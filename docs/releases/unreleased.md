@@ -36,6 +36,8 @@ below. No v1.4 release is declared by these notes.
   audit with online/missing/changed status, usage counts and protected atomic output.
 - [#66](https://github.com/sanskarIN/frametrellis/pull/66): bounded recursive media-folder
   import with symlink avoidance, duplicate filtering and background decoder checks.
+- Background folder discovery is under review to keep the UI interactive during
+  directory scans; stale results are discarded on project switches.
 - [#67](https://github.com/sanskarIN/frametrellis/pull/67): remove unused media references in
   one undoable change; disk files remain untouched.
 - [#90](https://github.com/sanskarIN/frametrellis/pull/90): live Used, Unused and Changed

@@ -54,6 +54,8 @@ public:
     Q_INVOKABLE void rescan();
     /// Save a read-only media inventory JSON without modifying project or source files.
     Q_INVOKABLE bool exportMediaAudit(const QString& urlOrPath);
+    /// Save a spreadsheet-friendly read-only media inventory, with formula-safe cells.
+    Q_INVOKABLE bool exportMediaAuditCsv(const QString& urlOrPath);
     /// Opens the folder that contains the asset's file in the system file manager.
     Q_INVOKABLE void revealInFolder(const QString& assetId) const;
 

@@ -20,7 +20,7 @@ ApplicationWindow {
                                        || shortcutsDialog.visible || goToTimecodeDialog.visible || markerDialog.visible || welcome.visible || messageBox.visible
                                        || unsavedDialog.visible || exportRunningDialog.visible || recoveryDialog.visible
                                        || subtitleDialog.visible || subtitleImportDialog.visible || subtitleExportDialog.visible
-                                       || previewFrameDialog.visible || clipListDialog.visible || mediaPanel.excerptDialogOpen
+                                       || previewFrameDialog.visible || clipListDialog.visible || mediaAuditCsvDialog.visible || mediaPanel.excerptDialogOpen
     readonly property bool editKeys: !dialogOpen
 
     width: Math.min(1440, Screen.desktopAvailableWidth - 40)
@@ -148,6 +148,11 @@ ApplicationWindow {
                 text: qsTr("Export Media Audit (JSON)…")
                 enabled: window.app.media.model.count > 0
                 onTriggered: mediaAuditDialog.open()
+            }
+            Action {
+                text: qsTr("Export Media Audit (CSV)…")
+                enabled: window.app.media.model.count > 0
+                onTriggered: mediaAuditCsvDialog.open()
             }
             Action {
                 text: qsTr("Import Media &Folder…")
@@ -469,6 +474,15 @@ ApplicationWindow {
         nameFilters: [qsTr("JSON reports (*.json)")]
         currentFolder: window.app.fileUrl(window.app.project.projectFolder())
         onAccepted: window.app.media.exportMediaAudit(window.app.localPath(selectedFile))
+    }
+    FileDialog {
+        id: mediaAuditCsvDialog
+        title: qsTr("Export media audit as CSV")
+        fileMode: FileDialog.SaveFile
+        defaultSuffix: "csv"
+        nameFilters: [qsTr("CSV reports (*.csv)")]
+        currentFolder: window.app.fileUrl(window.app.project.projectFolder())
+        onAccepted: window.app.media.exportMediaAuditCsv(window.app.localPath(selectedFile))
     }
     FolderDialog {
         id: importFolderDialog

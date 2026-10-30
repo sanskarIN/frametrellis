@@ -322,6 +322,20 @@ bool MediaController::exportMediaAudit(const QString& urlOrPath)
     return true;
 }
 
+bool MediaController::exportMediaAuditCsv(const QString& urlOrPath)
+{
+    const QString path = ProjectController::localPath(urlOrPath);
+    const Status saved =
+        media_audit::saveCsvReport(m_project->project(), path, m_project->filePath());
+    if (!saved) {
+        emit importProblems(QStringLiteral("Could not export the CSV media audit"),
+                            saved.error().message);
+        return false;
+    }
+    emit statusMessage(QStringLiteral("Saved read-only media audit CSV report."));
+    return true;
+}
+
 void MediaController::rescan()
 {
     const QList<Id> missing = m_project->document()->refreshMediaStatus();

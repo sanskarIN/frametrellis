@@ -627,6 +627,15 @@ bool TimelineController::trimEnd(const QString& clipId, double newEnd)
         edits::trimClipEnd(clipId, static_cast<FrameCount>(std::llround(newEnd))));
 }
 
+bool TimelineController::insertGapAtPlayhead(int durationFrames)
+{
+    if (durationFrames <= 0) {
+        return false;
+    }
+    return m_project->execute(
+        edits::insertGap(m_playback->positionFrames(), static_cast<FrameCount>(durationFrames)));
+}
+
 bool TimelineController::splitAtPlayhead()
 {
     const FrameCount frame = m_playback->positionFrames();

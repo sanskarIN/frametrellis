@@ -36,8 +36,8 @@ below. No v1.4 release is declared by these notes.
   audit with online/missing/changed status, usage counts and protected atomic output.
 - [#66](https://github.com/sanskarIN/frametrellis/pull/66): bounded recursive media-folder
   import with symlink avoidance, duplicate filtering and background decoder checks.
-- Background folder discovery is under review to keep the UI interactive during
-  directory scans; stale results are discarded on project switches.
+- [#95](https://github.com/sanskarIN/frametrellis/pull/95): asynchronous folder
+  discovery keeps the GUI responsive; stale results are discarded on project switches.
 - [#67](https://github.com/sanskarIN/frametrellis/pull/67): remove unused media references in
   one undoable change; disk files remain untouched.
 - [#90](https://github.com/sanskarIN/frametrellis/pull/90): live Used, Unused and Changed
@@ -48,9 +48,12 @@ below. No v1.4 release is declared by these notes.
   `--list-presets` JSON discovery, including the creator upload profiles.
 - [#92](https://github.com/sanskarIN/frametrellis/pull/92): protected PNG
   snapshots of the currently displayed preview frame with atomic writes.
+- [#94](https://github.com/sanskarIN/frametrellis/pull/94): Zoom to Selection and
+  Center on Playhead shortcuts with finite zoom guards, without changing timeline edits.
 
-- Read-only timeline clip-list CSV report is under review, including SMPTE timecodes,
-  local source paths, UTF-8 encoding, formula-safe quoted cells and atomic file saves.
+- [#96](https://github.com/sanskarIN/frametrellis/pull/96): read-only timeline clip
+  list CSV export with SMPTE timecodes, source paths, UTF-8 encoding, formula-safe cells,
+  protected atomic writes and unchanged undo/modified state.
 
 ## Volume automation
 
@@ -134,9 +137,6 @@ These are development features after v1.3.0, not a new stable release or version
 
 ## Separate open proposals
 
-- [#94](https://github.com/sanskarIN/frametrellis/pull/94): Zoom to Selection
-  and Center on Playhead are under review for development builds; view actions do
-  not alter project contents, playback position or undo state.
 - Additional bulk track operations and export workflows remain under review;
   open PRs are not released features.
 

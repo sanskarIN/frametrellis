@@ -705,8 +705,7 @@ private slots:
         QTRY_VERIFY(dialog->property("visible").toBool());
         QQuickItem* frames =
             findItem(m_window->contentItem(), QStringLiteral("preciseGapFrameCount"));
-        QQuickItem* apply =
-            findItem(m_window->contentItem(), QStringLiteral("preciseGapConfirm"));
+        QQuickItem* apply = findItem(m_window->contentItem(), QStringLiteral("preciseGapConfirm"));
         QVERIFY(frames);
         QVERIFY(apply);
         QVERIFY(frames->setProperty("value", 37));

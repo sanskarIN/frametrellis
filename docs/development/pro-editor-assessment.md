@@ -1,7 +1,7 @@
 # FrameTrellis professional-editor gap assessment — 30 October 2026
 
 This is a development assessment, **not a release announcement**. The audited
-source baseline is `main` at `df587712851d8061445e8f3f84c7dbe0634f53c7` following the merge of PR #103.
+source baseline is `main` at `eb4eb18a23482f92edfea332af9b768ad6fbed34` following the merge of PRs #103 and #104.
 The published stable release is **v1.3.1**. Do not describe development
 features as shipped in its installer.
 
@@ -10,7 +10,7 @@ features as shipped in its installer.
 | Workflow | Verified implementation | Important limits |
 |---|---|---|
 | Timeline | Non-destructive cut, move, trim, split, roll/slip, group nudge, duplication, same-kind track reordering, whole-track duplication, selection tools and undo/redo | No persistent clip linking, source In/Out monitor, generalized multi-lane insert/overwrite |
-| Gap edits | PR #103 inserts frame-accurate time across affected video/audio tracks as a single atomic command | Requires a cut or empty interval; no clip may cross the insertion frame; markers/subtitle cues do not move |
+| Gap edits | PRs #103 and #104 insert or remove empty time across affected video/audio tracks as one atomic undoable operation | Insertion refuses straddling clips; removal requires a wholly empty interval. Markers/subtitles remain at their original sequence times |
 | Picture | Transform and opacity keyframes, scalar picture adjustments, fades, picture dissolves and PNG title assets | No editable text title layers, optical flow, color scopes or full color-grade pipeline |
 | Audio | Waveforms, mute, gain, fades/crossfades and source-anchored automation | No real-time program peak meter, pan/mixer buses, LUFS measurement, limiting or surround workflow |
 | Media | Background import/probing, filtered bin, folder discovery, missing-media relinking, media audit and cleanup | No preview proxies, cache lifecycle or source monitor |
@@ -26,9 +26,6 @@ label in the UI is not evidence of preview/export parity.
 
 These proposals are **not merged in this assessment baseline**:
 
-- [#104](https://github.com/sanskarIN/frametrellis/pull/104):
-  remove a confirmed empty interval from all tracks, with exact undo and guards
-  against clips inside the range; it builds on integrated #103.
 - [#105](https://github.com/sanskarIN/frametrellis/pull/105):
   source excerpt In/Out frame selection from the media bin. The proposal
   appends on a compatible unlocked track; it does not yet implement a full

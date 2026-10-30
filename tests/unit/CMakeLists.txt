@@ -1,4 +1,7 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
+if(FT_BUILD_ENGINE)
+    ft_add_test(tst_folder_import SOURCES tst_folder_import.cpp LIBS ft_media LABELS unit)
+endif()
 ft_add_test(tst_time SOURCES tst_time.cpp LIBS ft_core LABELS unit)
 ft_add_test(tst_audio_keyframes SOURCES tst_audio_keyframes.cpp LIBS ft_editing LABELS unit)
 ft_add_test(tst_opacity_keyframes SOURCES tst_opacity_keyframes.cpp LIBS ft_editing LABELS unit)

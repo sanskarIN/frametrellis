@@ -54,6 +54,21 @@ If you move the project folder together with the media, FrameTrellis finds them 
 
 ## Importing media
 
+In development builds with the **planned v1.4 folder import feature**, use
+**File → Import Media Folder…** to select a directory. FrameTrellis searches
+its subfolders for up to **500 supported media files** and imports them using
+the normal background decoder checks. Files with unsupported suffixes and
+symbolic-link file entries are ignored; directory symlinks are not traversed.
+Files already in the media bin are skipped. A safety limit also stops discovery
+after 10,000 scanned files, and large folders are reported as truncated.
+No files are moved, copied, renamed or deleted. If the folder contains more
+than the safety limit, split your import into smaller subfolders.
+
+This is a **future v1.4 candidate**, not included in the v1.3.0 stable
+release. Folder discovery is currently a bounded, synchronous step, so prefer
+small batches on slow network drives.
+
+
 Use *File → Import Media…* (Ctrl+I), the import button on the media panel, or drop files from your
 file manager onto the media panel or the timeline. Files are checked in the background: those
 FFmpeg cannot decode are reported and not added. Importing a file that is already in the project

@@ -148,6 +148,11 @@ ApplicationWindow {
                 enabled: window.app.media.model.count > 0
                 onTriggered: mediaAuditDialog.open()
             }
+            Action {
+                text: qsTr("Import Media &Folder…")
+                enabled: !window.app.media.importing
+                onTriggered: importFolderDialog.open()
+            }
             Action { text: qsTr("Create &Title…"); onTriggered: titleDialog.open() }
             Action { text: qsTr("&Subtitles…"); shortcut: "Ctrl+Alt+S"; enabled: window.editKeys; onTriggered: subtitleDialog.open() }
             Action { text: qsTr("Copy Picture EDL (CMX3600)"); enabled: window.editKeys && !window.app.timeline.empty; onTriggered: window.app.timeline.copyPictureAsEdl() }
@@ -418,6 +423,12 @@ ApplicationWindow {
         nameFilters: [qsTr("JSON reports (*.json)")]
         currentFolder: window.app.fileUrl(window.app.project.projectFolder())
         onAccepted: window.app.media.exportMediaAudit(window.app.localPath(selectedFile))
+    }
+    FolderDialog {
+        id: importFolderDialog
+        title: qsTr("Import media from folder (including subfolders)")
+        currentFolder: window.app.fileUrl(window.app.project.projectFolder())
+        onAccepted: window.app.media.importFolder(window.app.localPath(selectedFolder))
     }
     FileDialog {
         id: importDialog

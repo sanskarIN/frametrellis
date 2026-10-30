@@ -58,6 +58,9 @@ public:
     Q_INVOKABLE void step(int frames);
     Q_INVOKABLE void goToStart();
     Q_INVOKABLE void goToEnd();
+    /// Saves the decoded preview image, which may be lower resolution than final export.
+    /// Refuses to overwrite the project or any referenced source media.
+    Q_INVOKABLE bool savePreviewFrame(const QString& targetPath);
     Q_INVOKABLE void setPreviewSize(int width, int height);
     /// Pushes the latest project snapshot to the engine immediately.
     Q_INVOKABLE void syncNow();

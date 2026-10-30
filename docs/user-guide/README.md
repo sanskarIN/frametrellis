@@ -156,7 +156,11 @@ every imported file again. Filtering never removes files from the project.
 * **Go to timecode** with Ctrl+G (Playback menu): enter a frame-accurate timecode, such as
   `00:00:12:08`. Invalid or out-of-sequence positions are rejected without moving the playhead.
 * **Tracks:** add tracks with *+ Video* / *+ Audio*; each track can be hidden (video), muted or
-  locked. Double-click a track name to rename it; right-click it to remove the track.
+  locked. Double-click a track name to rename it. In development builds,
+  right-click the track header for **Move track up/down** controls (only within
+  adjacent video or audio tracks). Moving video tracks changes layer order;
+  moving audio tracks changes their mixer order. Tracks, clips and media are
+  preserved and the move can be undone. Not available in stable v1.3.1.
 
 Every change can be undone (Ctrl+Z) and redone (Ctrl+Shift+Z).
 

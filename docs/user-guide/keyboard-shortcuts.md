@@ -26,6 +26,8 @@
 | Ctrl+A | Select all clips |
 | N | Toggle snapping |
 | + / − | Zoom timeline in / out |
+| Ctrl+Shift+0 | Fit all selected clips in the timeline (v1.4 development) |
+| Ctrl+Shift+L | Center timeline viewport on playhead without seeking (v1.4 development) |
 | Ctrl+mouse wheel | Zoom around the pointer |
 | Shift+mouse wheel | Scroll the timeline horizontally |
 | Ctrl+Z / Ctrl+Shift+Z | Undo / redo |

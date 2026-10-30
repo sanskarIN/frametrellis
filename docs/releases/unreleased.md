@@ -129,7 +129,9 @@ These are development features after v1.3.0, not a new stable release or version
 
 ## Separate open proposals
 
-- Timeline navigation and Zoom to Selection: PR #70.
+- [Timeline navigation PR](https://github.com/sanskarIN/frametrellis/pulls): Zoom to Selection
+  and Center on Playhead are under review for development builds; view actions do
+  not alter project contents, playback position or undo state.
 - Additional bulk track operations and export workflows remain under review;
   open PRs are not released features.
 

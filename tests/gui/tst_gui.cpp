@@ -229,12 +229,15 @@ private slots:
         QQuickItem* grid = findItem(m_window->contentItem(), QStringLiteral("mediaGrid"));
         QVERIFY(grid);
         const int before = m_app->project()->project().timeline().clipCount();
+        // Delegate view access must not emit ReferenceError on press or double-click.
+        m_qmlWarnings.clear();
         // The first tile sits at the top-left of the grid.
         const QPoint tile = grid->mapToScene(QPointF(60, 60)).toPoint();
         QTest::mouseDClick(m_window, Qt::LeftButton, Qt::NoModifier, tile);
         QVERIFY(QTest::qWaitFor(
             [&] { return m_app->project()->project().timeline().clipCount() == before + 1; },
             3000));
+        QVERIFY2(m_qmlWarnings.isEmpty(), "Media-bin tile interaction emitted QML warnings");
         // Append the remaining media through the same action.
         for (int row = 1; row < m_app->media()->model()->rowCount(); ++row) {
             QVERIFY(m_app->timeline()->appendAsset(

@@ -427,6 +427,14 @@ inspect or redact the JSON before sharing it publicly.
 This is a **proposed v1.4 feature**, not available in the current v1.3.0
 stable download.
 
+## Saving a preview snapshot (v1.4 development)
+
+Use **File → Save Preview Frame as PNG…** when the program monitor has a decoded
+frame. The snapshot uses the monitor's current preview resolution, which can be
+smaller than the source or final video. The editor saves atomically and refuses
+to replace a referenced source file or the open project. For full-quality
+frames, use video export instead. This is not included in stable v1.3.1.
+
 ## Exporting
 
 *File → Export…* (Ctrl+E):

@@ -156,11 +156,24 @@ every imported file again. Filtering never removes files from the project.
 * **Go to timecode** with Ctrl+G (Playback menu): enter a frame-accurate timecode, such as
   `00:00:12:08`. Invalid or out-of-sequence positions are rejected without moving the playhead.
 * **Tracks:** add tracks with *+ Video* / *+ Audio*; each track can be hidden (video), muted or
-  locked. Double-click a track name to rename it. In development builds,
-  right-click the track header for **Move track up/down** controls (only within
-  adjacent video or audio tracks). Moving video tracks changes layer order;
-  moving audio tracks changes their mixer order. Tracks, clips and media are
-  preserved and the move can be undone. Not available in stable v1.3.1.
+  locked. Double-click a track name to rename it. Right-click the track header
+  to select all clips or remove an unlocked track. Development builds also offer
+  **Move track up/down** in this menu for adjacent tracks of the same kind.
+  Moving video tracks changes layer order; moving audio tracks changes mixer order.
+  The move retains all clips, media and settings and supports undo/redo.
+  In development builds, **Edit → Lock All Tracks** protects every track against
+  accidental clip edits; **Edit → Unlock All Tracks** restores editability.
+  Both are single-step undoable changes and preserve each track's mute and
+  visibility settings. Not available in stable v1.3.1.
+
+* **Advanced selections (v1.4 development):** **Ctrl+Shift+J** selects clips
+  overlapping the playhead across all video and audio tracks; **Ctrl+Alt+R**
+  selects every use of the single selected media source. Right-click a track
+  header and choose **Select all clips on track** to select that track's clips.
+  These commands can select locked tracks for inspection, but do not bypass
+  lock protection on editing. If no clips match, the existing selection remains.
+  Selection actions never change project edits or undo history and are not in
+  the published v1.3.1 stable release.
 
 Every change can be undone (Ctrl+Z) and redone (Ctrl+Shift+Z).
 

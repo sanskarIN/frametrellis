@@ -120,6 +120,13 @@ public:
     Q_INVOKABLE void select(const QString& clipId, bool toggle);
     Q_INVOKABLE void clearSelection();
     Q_INVOKABLE void selectAll();
+    /// Select all timeline clips covering the playhead, across video and audio tracks.
+    /// An empty match leaves the current selection unchanged.
+    Q_INVOKABLE bool selectClipsAtPlayhead();
+    /// Select every clip using the same media asset as the single selected clip.
+    Q_INVOKABLE bool selectAllMediaOccurrences();
+    /// Select all clips on the given track, including locked tracks (inspection only).
+    Q_INVOKABLE bool selectTrackClips(const QString& trackId);
     /// Bounds of all currently selected clips, [start, end) in timeline frames.
     /// Returns an empty map when no valid clip is selected; this is read-only.
     Q_INVOKABLE QVariantMap selectedFrameRange() const;
@@ -165,6 +172,8 @@ public:
     Q_INVOKABLE bool canMoveTrack(const QString& trackId, int direction) const;
     Q_INVOKABLE bool moveTrack(const QString& trackId, int direction);
     Q_INVOKABLE bool setTrackFlag(const QString& trackId, const QString& flag, bool value);
+    /// Lock/unlock all tracks as one undoable edit; unaffected flags remain unchanged.
+    Q_INVOKABLE bool setAllTracksLocked(bool locked);
     Q_INVOKABLE bool renameTrack(const QString& trackId, const QString& name);
 
     // Persistent timeline review markers, independent of clip and media edits.

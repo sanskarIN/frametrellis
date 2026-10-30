@@ -374,6 +374,72 @@ private slots:
         lanes->setProperty("contentX", 0);
     }
 
+    void selectRelatedClipsWithoutEditingProject()
+    {
+        auto* timeline = m_app->timeline();
+        const Project before = m_app->project()->project();
+        const QString undoLabel = m_app->project()->undoText();
+        const bool dirty = m_app->project()->isModified();
+        QVERIFY(!track(0).clips.empty());
+
+        // Select clips from all tracks whose half-open ranges cover frame zero.
+        m_app->playback()->goToStart();
+        QStringList expected;
+        for (const Track& trackItem : before.timeline().tracks()) {
+            for (const Clip& clip : trackItem.clips) {
+                if (clip.contains(0)) {
+                    expected.append(clip.id);
+                }
+            }
+        }
+        QVERIFY(!expected.isEmpty());
+        timeline->clearSelection();
+        m_window->requestActivate();
+        QTest::keyClick(m_window, Qt::Key_J, Qt::ControlModifier | Qt::ShiftModifier);
+        QCOMPARE(timeline->selection().size(), expected.size());
+        for (const Id& id : expected) {
+            QVERIFY(timeline->selection().contains(id));
+        }
+
+        // A missing track does not erase the existing selection; locked tracks
+        // remain selectable for inspection without granting permission to edit.
+        QVERIFY(!timeline->selectTrackClips(QStringLiteral("missing-track")));
+        QCOMPARE(timeline->selection().size(), expected.size());
+        const Track& video = before.timeline().tracks().front();
+        QVERIFY(!video.clips.empty());
+        QVERIFY(timeline->selectTrackClips(video.id));
+        QCOMPARE(timeline->selection().size(), static_cast<qsizetype>(video.clips.size()));
+        for (const Clip& clip : video.clips) {
+            QVERIFY(timeline->selection().contains(clip.id));
+        }
+
+        QCOMPARE(m_app->project()->project(), before);
+        QCOMPARE(m_app->project()->undoText(), undoLabel);
+        QCOMPARE(m_app->project()->isModified(), dirty);
+
+        // A duplicated use of a source must be included across the timeline.
+        const Id assetId = video.clips.front().assetId;
+        QVERIFY(timeline->appendAsset(assetId));
+        const std::vector<Id> uses =
+            m_app->project()->project().timeline().clipsUsingAsset(assetId);
+        QVERIFY(uses.size() >= size_t{2});
+        timeline->select(video.clips.front().id, false);
+        QTest::keyClick(m_window, Qt::Key_R, Qt::ControlModifier | Qt::AltModifier);
+        QCOMPARE(timeline->selection().size(), static_cast<qsizetype>(uses.size()));
+        for (const Id& id : uses) {
+            QVERIFY(timeline->selection().contains(id));
+        }
+        const Timeline withDuplicate = m_app->project()->project().timeline();
+        const QString undoAfterAppend = m_app->project()->undoText();
+        QVERIFY(timeline->selectAllMediaOccurrences() == false); // multiple clips selected
+        QCOMPARE(m_app->project()->project().timeline(), withDuplicate);
+        QCOMPARE(m_app->project()->undoText(), undoAfterAppend);
+
+        timeline->clearSelection();
+        m_app->project()->undo();
+        QCOMPARE(m_app->project()->project().timeline(), before.timeline());
+    }
+
     void reorderAdjacentTracksWithoutChangingClipData()
     {
         const Timeline original = m_app->project()->project().timeline();

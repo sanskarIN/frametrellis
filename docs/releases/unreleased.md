@@ -55,6 +55,9 @@ below. No v1.4 release is declared by these notes.
   list CSV export with SMPTE timecodes, source paths, UTF-8 encoding, formula-safe cells,
   protected atomic writes and unchanged undo/modified state.
 
+- Undoable adjacent track reordering within video or audio lanes is under review;
+  clips and source references remain unchanged.
+
 ## Volume automation
 
 - Source-anchored volume keyframes from -60 to +12 dB, with linear interpolation

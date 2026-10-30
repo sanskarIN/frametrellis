@@ -998,6 +998,54 @@ bool TimelineController::selectClipsAtPlayhead()
     return true;
 }
 
+bool TimelineController::selectClipsBeforePlayhead()
+{
+    const FrameCount frame = m_playback->positionFrames();
+    QSet<Id> matching;
+    for (const Track& track : project().timeline().tracks()) {
+        for (const Clip& clip : track.clips) {
+            if (clip.end() <= frame) {
+                matching.insert(clip.id);
+            }
+        }
+    }
+    if (matching.isEmpty()) {
+        emit statusMessage(QStringLiteral("No complete clips end before the playhead."));
+        return false;
+    }
+    setTransitionSelection({});
+    m_selection = std::move(matching);
+    m_model.updateSelection(m_selection);
+    emit selectionChanged();
+    emit selectedClipChanged();
+    emit statusMessage(QStringLiteral("Selected %1 earlier clip(s).").arg(m_selection.size()));
+    return true;
+}
+
+bool TimelineController::selectClipsAfterPlayhead()
+{
+    const FrameCount frame = m_playback->positionFrames();
+    QSet<Id> matching;
+    for (const Track& track : project().timeline().tracks()) {
+        for (const Clip& clip : track.clips) {
+            if (clip.start >= frame) {
+                matching.insert(clip.id);
+            }
+        }
+    }
+    if (matching.isEmpty()) {
+        emit statusMessage(QStringLiteral("No complete clips start after the playhead."));
+        return false;
+    }
+    setTransitionSelection({});
+    m_selection = std::move(matching);
+    m_model.updateSelection(m_selection);
+    emit selectionChanged();
+    emit selectedClipChanged();
+    emit statusMessage(QStringLiteral("Selected %1 later clip(s).").arg(m_selection.size()));
+    return true;
+}
+
 bool TimelineController::selectAllMediaOccurrences()
 {
     if (m_selection.size() != 1) {

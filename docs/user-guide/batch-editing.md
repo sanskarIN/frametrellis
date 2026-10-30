@@ -109,6 +109,17 @@ markers remain at their original absolute sequence times, so adjust those
 separately. Removing an empty interval does not delete source media or trim a
 clip. This workflow requires the preceding multi-track gap feature, and
 neither feature is in stable v1.3.1.
+
+## Select complete clips before or after the playhead (v1.4 development)
+
+Use **Edit → Select Entire Clips Before Playhead** or **Select Entire Clips
+After Playhead** to select complete clips across all audio/video tracks. An
+earlier clip must end at or before the playhead; a later clip must start at or
+after it. Clips that straddle the playhead are intentionally excluded. Locked
+tracks remain selectable for inspection, but their edits are still protected.
+An empty match leaves your existing selection intact. These commands never
+modify the project, media files or undo history. They are development-only.
+
 ## Trim selected clip to the playhead (v1.4 development)
 
 Select one clip, position the playhead **strictly within** that clip, and use
@@ -121,6 +132,7 @@ Locked clips, a playhead outside the selected clip, or clips participating
 in a transition are rejected instead of silently changing adjacent edits.
 No original media files are modified. This command is development-only
 and does not appear in the v1.3.1 stable release.
+
 
 ## Align a group of clips to the playhead (v1.4 development)
 

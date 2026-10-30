@@ -238,8 +238,7 @@ bool MediaBinFilterModel::filterAcceptsRow(int sourceRow, const QModelIndex& sou
             QLatin1String("changed")) {
             return false;
         }
-    } else if (m_category == QLatin1String("used") ||
-               m_category == QLatin1String("unused")) {
+    } else if (m_category == QLatin1String("used") || m_category == QLatin1String("unused")) {
         const bool isUsed = model->data(sourceIndex, MediaBinModel::UsageRole).toInt() > 0;
         if (isUsed != (m_category == QLatin1String("used"))) {
             return false;

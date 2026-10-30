@@ -137,6 +137,10 @@ public:
     /// Select all timeline clips covering the playhead, across video and audio tracks.
     /// An empty match leaves the current selection unchanged.
     Q_INVOKABLE bool selectClipsAtPlayhead();
+    /// Select only whole clips ending at or before / starting at or after the playhead.
+    /// Clips intersecting the playhead are excluded; empty results keep the old selection.
+    Q_INVOKABLE bool selectClipsBeforePlayhead();
+    Q_INVOKABLE bool selectClipsAfterPlayhead();
     /// Select every clip using the same media asset as the single selected clip.
     Q_INVOKABLE bool selectAllMediaOccurrences();
     /// Select all clips on the given track, including locked tracks (inspection only).

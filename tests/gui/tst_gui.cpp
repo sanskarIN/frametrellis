@@ -334,6 +334,20 @@ private slots:
         QVERIFY(!timeline->trimSelectionToPlayhead(true));
         QCOMPARE(m_app->project()->project(), before);
         QCOMPARE(m_app->project()->undoText(), undoBefore);
+
+        // A locked track rejects trimming without recording or applying changes.
+        const Id trackId = track(0).id;
+        timeline->select(clip.id, false);
+        QVERIFY(timeline->setTrackFlag(trackId, QStringLiteral("locked"), true));
+        const Project locked = m_app->project()->project();
+        const QString lockedUndo = m_app->project()->undoText();
+        m_app->playback()->seek(static_cast<double>(clip.start + 10));
+        QVERIFY(!timeline->trimSelectionToPlayhead(false));
+        QCOMPARE(m_app->project()->project(), locked);
+        QCOMPARE(m_app->project()->undoText(), lockedUndo);
+        m_app->project()->undo();
+        QCOMPARE(m_app->project()->project(), before);
+        timeline->clearSelection();
     }
 
     void selectionZoomAndPlayheadCenterPreserveProject()

@@ -14,8 +14,10 @@
 #include <QDir>
 #include <QFile>
 #include <QFileInfo>
+#include <QFutureWatcher>
 #include <QSaveFile>
 #include <QUrl>
+#include <QtConcurrent/QtConcurrentRun>
 
 namespace ft::ui {
 
@@ -28,8 +30,15 @@ MediaController::MediaController(ProjectController* project,
     connect(&m_importer, &media::MediaImporter::finished, this, &MediaController::onImported);
     connect(&m_importer, &media::MediaImporter::pendingCountChanged, this,
             &MediaController::importingChanged);
-    connect(m_project, &ProjectController::documentReplaced, this,
-            [this] { m_importer.cancelAll(); });
+    connect(m_project, &ProjectController::documentReplaced, this, [this] {
+        m_importer.cancelAll();
+        // Do not import results from a scan started for the previous project.
+        ++m_folderScanGeneration;
+        if (m_folderScanActive) {
+            m_folderScanActive = false;
+            emit importingChanged();
+        }
+    });
     connect(m_project, &ProjectController::projectChanged, this, [this](const ChangeSet& changes) {
         if (changes.media || changes.trackStructure || !changes.tracks.isEmpty()) {
             refresh();

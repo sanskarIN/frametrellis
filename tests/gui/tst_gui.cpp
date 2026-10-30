@@ -1014,8 +1014,8 @@ private slots:
         QVERIFY(!m_app->playback()->savePreviewFrame(still));
         QVERIFY(source.open(QIODevice::ReadOnly));
         QCOMPARE(source.readAll(), original);
-        QVERIFY(!m_app->playback()->savePreviewFrame(
-            m_dir.filePath(QStringLiteral("not-a-png.jpg"))));
+        QVERIFY(
+            !m_app->playback()->savePreviewFrame(m_dir.filePath(QStringLiteral("not-a-png.jpg"))));
     }
 
     void audioClipsShowTheirWaveform()

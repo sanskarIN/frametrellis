@@ -209,7 +209,6 @@ bool ProjectController::saveAs(const QString& pathOrUrl)
     return true;
 }
 
-
 bool ProjectController::exportClipListCsv(const QString& pathOrUrl)
 {
     const QString path = localPath(pathOrUrl);
@@ -221,8 +220,7 @@ bool ProjectController::exportClipListCsv(const QString& pathOrUrl)
     }
 
     const QString destination = canonicalMediaKey(path);
-    if ((m_document->hasFilePath() &&
-         destination == canonicalMediaKey(m_document->filePath())) ||
+    if ((m_document->hasFilePath() && destination == canonicalMediaKey(m_document->filePath())) ||
         project().assetByPath(path)) {
         emit errorOccurred(QStringLiteral("Could not export the clip list"),
                            QStringLiteral("The report cannot overwrite project or source media."));
@@ -251,20 +249,19 @@ bool ProjectController::exportClipListCsv(const QString& pathOrUrl)
     for (const Track& track : project().timeline().tracks()) {
         for (const Clip& clip : track.clips) {
             const MediaAsset* source = project().asset(clip.assetId);
-            const QStringList columns{
-                track.name,
-                track.kind == TrackKind::Video ? QStringLiteral("video")
-                                               : QStringLiteral("audio"),
-                clip.id,
-                source ? source->name : QString(),
-                source ? source->filePath : QString(),
-                QString::number(clip.start),
-                QString::number(clip.end()),
-                QString::number(clip.duration),
-                QString::number(clip.sourceIn),
-                QString::number(clip.sourceOut()),
-                timecode::format(clip.start, rate),
-                timecode::format(clip.end(), rate)};
+            const QStringList columns{track.name,
+                                      track.kind == TrackKind::Video ? QStringLiteral("video")
+                                                                     : QStringLiteral("audio"),
+                                      clip.id,
+                                      source ? source->name : QString(),
+                                      source ? source->filePath : QString(),
+                                      QString::number(clip.start),
+                                      QString::number(clip.end()),
+                                      QString::number(clip.duration),
+                                      QString::number(clip.sourceIn),
+                                      QString::number(clip.sourceOut()),
+                                      timecode::format(clip.start, rate),
+                                      timecode::format(clip.end(), rate)};
             QByteArray row;
             for (qsizetype i = 0; i < columns.size(); ++i) {
                 if (i != 0) {

@@ -153,6 +153,11 @@ ApplicationWindow {
                 enabled: !window.app.media.importing
                 onTriggered: importFolderDialog.open()
             }
+            Action {
+                text: qsTr("Remove Unused Media from Project")
+                enabled: window.app.media.model.count > 0 && !window.app.media.importing
+                onTriggered: window.app.media.removeUnused()
+            }
             Action { text: qsTr("Create &Title…"); onTriggered: titleDialog.open() }
             Action { text: qsTr("&Subtitles…"); shortcut: "Ctrl+Alt+S"; enabled: window.editKeys; onTriggered: subtitleDialog.open() }
             Action { text: qsTr("Copy Picture EDL (CMX3600)"); enabled: window.editKeys && !window.app.timeline.empty; onTriggered: window.app.timeline.copyPictureAsEdl() }

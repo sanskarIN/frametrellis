@@ -84,6 +84,13 @@ for the full list.
 Right-click a tile to add it to the timeline, show it in its folder, relink it or remove it from
 the project (removing never deletes the file; media in use must be removed from the timeline first).
 
+For a cleaner media bin, **File → Remove Unused Media from Project** removes
+imported media references that are not used by any timeline clip. Original
+files remain unchanged on disk, and **Ctrl+Z** restores the removed references
+in their original order. Media in use is always preserved. This is a
+**proposed v1.4 feature**, not included in the v1.3.0 stable download.
+
+
 Use the **Search media** field at the top of the media bin to find files by name or path,
 without changing the project. The adjacent filter shows all assets, just videos, audio,
 still images or offline files. Search is case-insensitive, combines with the chosen kind,

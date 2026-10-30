@@ -169,6 +169,51 @@ ChangeSet RemoveMediaCommand::undo(Project& project)
     return changes;
 }
 
+Result<ChangeSet> RemoveUnusedMediaCommand::redo(Project& project)
+{
+    if (m_removed.empty()) {
+        const auto& assets = project.media();
+        for (int index = 0; index < static_cast<int>(assets.size()); ++index) {
+            const MediaAsset& asset = assets[static_cast<size_t>(index)];
+            if (!project.timeline().usesAsset(asset.id)) {
+                m_removed.push_back({index, asset});
+            }
+        }
+    }
+    if (m_removed.empty()) {
+        return makeError(ErrorCode::Conflict,
+                         QStringLiteral("No unused media was found in this project."));
+    }
+
+    // Work on a copy: any validation failure leaves the live project unchanged.
+    Project updated = project;
+    for (auto it = m_removed.rbegin(); it != m_removed.rend(); ++it) {
+        if (updated.assetIndex(it->asset.id) != it->index ||
+            updated.timeline().usesAsset(it->asset.id)) {
+            return makeError(ErrorCode::Conflict,
+                             QStringLiteral("An unused media reference changed."));
+        }
+        if (const Result<MediaAsset> removed = updated.removeAsset(it->asset.id); !removed) {
+            return removed.error();
+        }
+    }
+    project = std::move(updated);
+    ChangeSet changes;
+    changes.media = true;
+    return changes;
+}
+
+ChangeSet RemoveUnusedMediaCommand::undo(Project& project)
+{
+    // Original ascending indices preserve exact media-bin order on undo.
+    for (const RemovedAsset& item : m_removed) {
+        (void)project.addAsset(item.asset, item.index);
+    }
+    ChangeSet changes;
+    changes.media = true;
+    return changes;
+}
+
 UpdateMediaCommand::UpdateMediaCommand(MediaAsset updated, QString text)
     : m_after(std::move(updated))
     , m_text(std::move(text))

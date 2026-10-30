@@ -567,3 +567,15 @@ Source ranges are expressed in **project frames**, not source-file timecode;
 this feature does not yet provide a dedicated source playback monitor, proxy
 generation, or synchronized automatic insertion of separate video/audio lanes.
 It is in development only, not the published v1.3.1 stable release.
+
+### Export a media audit as CSV (v1.4 development)
+
+Choose **File → Export Media Audit (CSV)…** to save a read-only UTF-8 CSV
+inventory of imported media. It includes asset IDs, names, media kind, online/
+missing/changed status, timeline usage counts, stored/current file sizes,
+original source paths and change reasons. It shares the JSON audit's status
+calculation, uses CRLF records and escapes quotes, newlines and cells that
+could otherwise be interpreted as spreadsheet formulas. The export is atomic
+and refuses to overwrite a source file or the current project. It does not
+probe or re-encode media, change clips or record an undo step. This feature is
+in development, not in stable v1.3.1.

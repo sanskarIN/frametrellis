@@ -1548,6 +1548,21 @@ bool TimelineController::moveTrack(const QString& trackId, int direction)
         edits::moveTrack(trackId, project().timeline().trackIndex(trackId) + direction));
 }
 
+bool TimelineController::duplicateTrack(const QString& trackId)
+{
+    const Track* original = project().timeline().track(trackId);
+    if (!original) {
+        emit statusMessage(QStringLiteral("Choose an existing track to duplicate."));
+        return false;
+    }
+    if (!m_project->execute(
+            edits::duplicateTrack(trackId, project().nextTrackName(original->kind)))) {
+        return false;
+    }
+    emit statusMessage(QStringLiteral("Duplicated track with its clips and transitions."));
+    return true;
+}
+
 bool TimelineController::removeTrack(const QString& trackId)
 {
     return m_project->execute(edits::removeTrack(trackId));

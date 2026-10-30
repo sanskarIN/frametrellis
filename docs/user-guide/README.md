@@ -155,6 +155,10 @@ every imported file again. Filtering never removes files from the project.
   are not present in the published v1.3.1 stable release.
 * **Go to timecode** with Ctrl+G (Playback menu): enter a frame-accurate timecode, such as
   `00:00:12:08`. Invalid or out-of-sequence positions are rejected without moving the playhead.
+* **Duplicate a track (v1.4 development):** right-click a track header and choose
+  *Duplicate track*. A separate track appears immediately after the original, keeping clip
+  timing, source trims, settings and transitions but assigning new clip/transition IDs.
+  Undo or redo this as a single edit. Not included in stable v1.3.1.
 * **Tracks:** add tracks with *+ Video* / *+ Audio*; each track can be hidden (video), muted or
   locked. Double-click a track name to rename it. Right-click the track header
   to select all clips or remove an unlocked track. Development builds also offer

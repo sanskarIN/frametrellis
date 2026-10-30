@@ -170,6 +170,8 @@ public:
 
     // Tracks
     Q_INVOKABLE bool addTrack(const QString& kind);
+    /// Copy a track immediately after its source, retaining edits and transitions.
+    Q_INVOKABLE bool duplicateTrack(const QString& trackId);
     Q_INVOKABLE bool removeTrack(const QString& trackId);
     /// Reorder adjacent same-kind tracks (one step up/down), preserving edit data.
     Q_INVOKABLE bool canMoveTrack(const QString& trackId, int direction) const;

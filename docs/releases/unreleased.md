@@ -32,6 +32,15 @@ below. No v1.4 release is declared by these notes.
 - [#85](https://github.com/sanskarIN/frametrellis/pull/85): transform animation,
   direct monitor handles, format v5 and generation-checked preview delivery.
 
+- [#65](https://github.com/sanskarIN/frametrellis/pull/65): read-only, local JSON media
+  audit with online/missing/changed status, usage counts and protected atomic output.
+- [#66](https://github.com/sanskarIN/frametrellis/pull/66): bounded recursive media-folder
+  import with symlink avoidance, duplicate filtering and background decoder checks.
+- [#67](https://github.com/sanskarIN/frametrellis/pull/67): remove unused media references in
+  one undoable change; disk files remain untouched.
+- Media-bin usage and changed-source filters complement the integrated audit and cleanup
+  workflows; all category filtering is read-only and responds to timeline edits.
+
 ## Volume automation
 
 - Source-anchored volume keyframes from -60 to +12 dB, with linear interpolation
@@ -114,8 +123,6 @@ These are development features after v1.3.0, not a new stable release or version
 
 ## Separate open proposals
 
-- Media audit, recursive folder import and unused-media cleanup: PRs #65, #66, #67,
-  with their documented integration order and separate validation requirements.
 - Timeline navigation and Zoom to Selection: PR #70.
 - Preview-frame PNG snapshots and other bulk track/export workflows remain subject
   to their own PR review; open PRs are not released features.

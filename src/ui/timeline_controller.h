@@ -99,6 +99,9 @@ public:
     Q_INVOKABLE double snapClipStart(double start, double duration, const QString& excludeClipId,
                                      double toleranceFrames) const;
     Q_INVOKABLE bool moveClip(const QString& clipId, const QString& trackId, double start);
+    /// Move one selected clip so its start or exclusive end meets the current playhead.
+    /// Reject overlaps, locked tracks and negative starts using the undoable edit engine.
+    Q_INVOKABLE bool alignSelectionToPlayhead(bool alignEnd);
     Q_INVOKABLE bool trimStart(const QString& clipId, double newStart);
     Q_INVOKABLE bool trimEnd(const QString& clipId, double newEnd);
     Q_INVOKABLE bool splitAtPlayhead();

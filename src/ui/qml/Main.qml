@@ -192,6 +192,12 @@ ApplicationWindow {
                 Action { text: qsTr("Right 10 Frames"); shortcut: "Alt+Shift+Right"; onTriggered: window.app.timeline.nudgeSelection(10) }
             }
             Menu {
+                title: qsTr("Align Selected Clip to Playhead")
+                enabled: window.editKeys && window.app.timeline.selection.length === 1
+                Action { text: qsTr("Align Start"); onTriggered: window.app.timeline.alignSelectionToPlayhead(false) }
+                Action { text: qsTr("Align End"); onTriggered: window.app.timeline.alignSelectionToPlayhead(true) }
+            }
+            Menu {
                 title: qsTr("Slip Selected Clips (Source)")
                 enabled: window.editKeys && window.app.timeline.selection.length > 0
                 Action { text: qsTr("Earlier 1 Frame"); shortcut: "Ctrl+Alt+Left"; onTriggered: window.app.timeline.slipSelection(-1) }

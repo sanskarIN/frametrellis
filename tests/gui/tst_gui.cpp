@@ -473,6 +473,50 @@ private slots:
         QCOMPARE(m_app->project()->project().timeline(), original);
     }
 
+    void alignSelectedClipEdgesToPlayhead()
+    {
+        auto* timeline = m_app->timeline();
+        const Timeline original = m_app->project()->project().timeline();
+        const Clip clip = track(0).clips.back();
+        QVERIFY(clip.duration > 5);
+        timeline->select(clip.id, false);
+
+        // Move the start by five frames. The last clip on this track has space
+        // to its right, so its duration and source trims must not change.
+        m_app->playback()->seek(static_cast<double>(clip.start + 5));
+        QVERIFY(timeline->alignSelectionToPlayhead(false));
+        const Clip* moved = m_app->project()->project().timeline().clip(clip.id);
+        QVERIFY(moved);
+        QCOMPARE(moved->start, clip.start + FrameCount{5});
+        QCOMPARE(moved->duration, clip.duration);
+        QCOMPARE(moved->sourceIn, clip.sourceIn);
+        m_app->project()->undo();
+        QCOMPARE(m_app->project()->project().timeline(), original);
+        m_app->project()->redo();
+        QCOMPARE(m_app->project()->project().timeline().clip(clip.id)->start,
+                 clip.start + FrameCount{5});
+
+        // Align the exclusive end back to the old end, restoring placement.
+        m_app->playback()->seek(static_cast<double>(clip.end()));
+        QVERIFY(timeline->alignSelectionToPlayhead(true));
+        QCOMPARE(m_app->project()->project().timeline(), original);
+
+        // Invalid end alignment is non-destructive and adds no undo command.
+        const QString undoText = m_app->project()->undoText();
+        m_app->playback()->goToStart();
+        QVERIFY(!timeline->alignSelectionToPlayhead(true));
+        QCOMPARE(m_app->project()->project().timeline(), original);
+        QCOMPARE(m_app->project()->undoText(), undoText);
+
+        // Undo both movements and leave the next GUI test with its original edit.
+        m_app->project()->undo();
+        QCOMPARE(m_app->project()->project().timeline().clip(clip.id)->start,
+                 clip.start + FrameCount{5});
+        m_app->project()->undo();
+        QCOMPARE(m_app->project()->project().timeline(), original);
+        timeline->clearSelection();
+    }
+
     void slipSelectedClipKeepsPlacementAndIsUndoable()
     {
         // The imported video has no spare source at first; trim its end to make

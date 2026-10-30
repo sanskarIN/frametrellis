@@ -1135,6 +1135,21 @@ QVariantMap TimelineController::selectedFrameRange() const
             {QStringLiteral("end"), static_cast<double>(last)}};
 }
 
+bool TimelineController::seekToSelectionBoundary(bool lastFrame)
+{
+    const QVariantMap range = selectedFrameRange();
+    if (range.isEmpty()) {
+        emit statusMessage(QStringLiteral("Select at least one clip to navigate."));
+        return false;
+    }
+    const FrameCount first = static_cast<FrameCount>(range.value(QStringLiteral("start")).toDouble());
+    const FrameCount end = static_cast<FrameCount>(range.value(QStringLiteral("end")).toDouble());
+    // Timeline clips use half-open [start, end) ranges. Seek to the final
+    // visible frame, not the one-past-end boundary.
+    m_playback->seek(static_cast<double>(lastFrame ? end - 1 : first));
+    return true;
+}
+
 bool TimelineController::setClipProperty(const QString& clipId, const QString& name,
                                          const QVariant& value)
 {

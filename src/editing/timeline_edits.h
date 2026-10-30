@@ -41,6 +41,10 @@ std::unique_ptr<EditCommand> moveClip(const Id& clipId, const Id& targetTrackId,
 /// Move a selection together by a signed number of frames. Keeps relative spacing, refuses
 /// collisions and invalid transitions, and commits as one atomic undoable edit.
 std::unique_ptr<EditCommand> nudgeClips(const QList<Id>& clipIds, FrameCount delta);
+/// Make space across all tracks at a common boundary, shifting following clips
+/// without changing their source trims, automation or transition identities.
+/// Affected locked tracks, intersecting clips and invalid cuts reject the operation.
+std::unique_ptr<EditCommand> insertGap(FrameCount frame, FrameCount duration);
 std::unique_ptr<EditCommand> trimClipStart(const Id& clipId, FrameCount newStart);
 std::unique_ptr<EditCommand> trimClipEnd(const Id& clipId, FrameCount newEnd);
 /// Slip selected time-based clips through their source without moving their timeline edges.

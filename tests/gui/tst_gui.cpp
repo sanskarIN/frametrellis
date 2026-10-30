@@ -511,6 +511,21 @@ private slots:
         QCOMPARE(m_app->project()->undoText(), undoText);
     }
 
+    void removingEmptyTimeRestoresClipsAfterGapInsertion()
+    {
+        const Project before = m_app->project()->project();
+        QVERIFY(before.timeline().clipCount() > 0);
+        m_app->playback()->goToStart();
+        QVERIFY(m_app->timeline()->insertGapAtPlayhead(10));
+        const Project withGap = m_app->project()->project();
+        QVERIFY(m_app->timeline()->removeEmptyTimeAtPlayhead(10));
+        QCOMPARE(m_app->project()->project(), before);
+        m_app->project()->undo();
+        QCOMPARE(m_app->project()->project(), withGap);
+        m_app->project()->undo();
+        QCOMPARE(m_app->project()->project(), before);
+    }
+
     void reorderAdjacentTracksWithoutChangingClipData()
     {
         const Timeline original = m_app->project()->project().timeline();

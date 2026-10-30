@@ -200,6 +200,14 @@ ApplicationWindow {
                 Action { text: qsTr("About 5 Seconds"); onTriggered: window.app.timeline.insertGapAtPlayhead(Math.max(1, Math.round(window.app.timeline.frameRate)) * 5) }
             }
             Menu {
+                title: qsTr("Remove Empty Time at Playhead")
+                enabled: window.editKeys && !window.app.timeline.empty
+                Action { text: qsTr("1 Frame"); onTriggered: window.app.timeline.removeEmptyTimeAtPlayhead(1) }
+                Action { text: qsTr("10 Frames"); onTriggered: window.app.timeline.removeEmptyTimeAtPlayhead(10) }
+                Action { text: qsTr("About 1 Second"); onTriggered: window.app.timeline.removeEmptyTimeAtPlayhead(Math.max(1, Math.round(window.app.timeline.frameRate))) }
+                Action { text: qsTr("About 5 Seconds"); onTriggered: window.app.timeline.removeEmptyTimeAtPlayhead(Math.max(1, Math.round(window.app.timeline.frameRate)) * 5) }
+            }
+            Menu {
                 title: qsTr("Align Selected Clip to Playhead")
                 enabled: window.editKeys && window.app.timeline.selection.length === 1
                 Action { text: qsTr("Align Start"); onTriggered: window.app.timeline.alignSelectionToPlayhead(false) }

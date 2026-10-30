@@ -205,6 +205,96 @@ private slots:
         QCOMPARE(f.doc.undoText(), undo);
     }
 
+    void removeEmptyTimeShiftsTracksAndPreservesClipData()
+    {
+        Fixture f;
+        Clip before = clipOf(QStringLiteral("m1"), 0, 40, QStringLiteral("before"));
+        Clip second = clipOf(QStringLiteral("m1"), 80, 40, QStringLiteral("second"));
+        Clip third = clipOf(QStringLiteral("m1"), 120, 40, QStringLiteral("third"));
+        Clip sound = clipOf(QStringLiteral("m1"), 100, 40, QStringLiteral("sound"));
+        second.sourceIn = 70;
+        second.properties.video.opacity = 0.5;
+        third.sourceIn = 120;
+        sound.sourceIn = 200;
+        QVERIFY(f.doc.execute(edits::addClip(f.v1, before)));
+        QVERIFY(f.doc.execute(edits::addClip(f.v1, second)));
+        QVERIFY(f.doc.execute(edits::addClip(f.v1, third)));
+        QVERIFY(f.doc.execute(edits::addClip(f.a1, sound)));
+        QVERIFY(f.doc.execute(edits::addTransition(second.id, 10, QStringLiteral("blend"))));
+        const Project original = f.doc.project();
+
+        QVERIFY(f.doc.execute(edits::removeEmptyTime(60, 10)));
+        const Timeline& moved = f.doc.project().timeline();
+        QCOMPARE(moved.clip(before.id)->start, FrameCount{0});
+        QCOMPARE(moved.clip(second.id)->start, FrameCount{70});
+        QCOMPARE(moved.clip(third.id)->start, FrameCount{110});
+        QCOMPARE(moved.clip(sound.id)->start, FrameCount{90});
+        QCOMPARE(moved.clip(second.id)->sourceIn, second.sourceIn);
+        QCOMPARE(moved.clip(second.id)->properties, second.properties);
+        QVERIFY(moved.track(f.v1)->transitions == original.timeline().track(f.v1)->transitions);
+        QVERIFY(moved.validate(f.doc.project().sourceLookup()));
+        QCOMPARE(f.doc.undoText(), QStringLiteral("Remove Empty Timeline Time"));
+        const Project after = f.doc.project();
+        QVERIFY(f.doc.undo());
+        QCOMPARE(f.doc.project(), original);
+        QVERIFY(f.doc.redo());
+        QCOMPARE(f.doc.project(), after);
+    }
+
+    void removingEmptyTimeRejectsClipIntersectionsAndLockedTracks()
+    {
+        Fixture f;
+        QVERIFY(f.doc.execute(
+            edits::addClip(f.v1, clipOf(QStringLiteral("m1"), 20, 60, QStringLiteral("clip")))));
+        const Project original = f.doc.project();
+        const QString undo = f.doc.undoText();
+        QVERIFY(!f.doc.execute(edits::removeEmptyTime(50, 10)));
+        QVERIFY(!f.doc.execute(edits::removeEmptyTime(10, 20)));
+        QCOMPARE(f.doc.project(), original);
+        QCOMPARE(f.doc.undoText(), undo);
+
+        QVERIFY(f.doc.execute(edits::setTrackLocked(f.v1, true)));
+        const Project locked = f.doc.project();
+        const QString lockedUndo = f.doc.undoText();
+        QVERIFY(!f.doc.execute(edits::removeEmptyTime(10, 5)));
+        QCOMPARE(f.doc.project(), locked);
+        QCOMPARE(f.doc.undoText(), lockedUndo);
+    }
+
+    void removingEmptyTimeValidatesRangeAndNoOp()
+    {
+        Fixture f;
+        QVERIFY(f.doc.execute(
+            edits::addClip(f.v1, clipOf(QStringLiteral("m1"), 100, 20, QStringLiteral("clip")))));
+        const Project original = f.doc.project();
+        const QString undo = f.doc.undoText();
+        QVERIFY(!f.doc.execute(edits::removeEmptyTime(-1, 10)));
+        QVERIFY(!f.doc.execute(edits::removeEmptyTime(0, 0)));
+        QVERIFY(!f.doc.execute(edits::removeEmptyTime(kMaxTimelineFrames, 1)));
+        QVERIFY(!f.doc.execute(edits::removeEmptyTime(kMaxTimelineFrames - 1, 10)));
+        QVERIFY(!f.doc.execute(edits::removeEmptyTime(120, 10)));
+        QCOMPARE(f.doc.project(), original);
+        QCOMPARE(f.doc.undoText(), undo);
+    }
+
+    void insertingThenRemovingSameEmptyGapRestoresWholeProject()
+    {
+        Fixture f;
+        QVERIFY(f.doc.execute(
+            edits::addClip(f.v1, clipOf(QStringLiteral("m1"), 50, 50, QStringLiteral("picture")))));
+        QVERIFY(f.doc.execute(
+            edits::addClip(f.a1, clipOf(QStringLiteral("m1"), 65, 40, QStringLiteral("sound")))));
+        const Project before = f.doc.project();
+        QVERIFY(f.doc.execute(edits::insertGap(0, 10)));
+        const Project withGap = f.doc.project();
+        QVERIFY(f.doc.execute(edits::removeEmptyTime(0, 10)));
+        QCOMPARE(f.doc.project(), before);
+        QVERIFY(f.doc.undo());
+        QCOMPARE(f.doc.project(), withGap);
+        QVERIFY(f.doc.undo());
+        QCOMPARE(f.doc.project(), before);
+    }
+
     void undoRedoRestoresExactStates()
     {
         Fixture f;

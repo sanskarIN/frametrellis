@@ -643,8 +643,8 @@ private slots:
         QVERIFY2(isCloseTo(redBefore, Qt::red), qPrintable(redBefore.name()));
         QVERIFY2(isCloseTo(blueBefore, Qt::blue), qPrintable(blueBefore.name()));
 
-        QVERIFY(doc.execute(edits::setClipVideoAdjustment(
-            {red.id, blue.id}, QStringLiteral("saturation"), 0.0)));
+        QVERIFY(doc.execute(
+            edits::setClipVideoAdjustment({red.id, blue.id}, QStringLiteral("saturation"), 0.0)));
         const QColor redAfter = averageColor(renderAt(doc.project(), 5));
         const QColor blueAfter = averageColor(renderAt(doc.project(), 35));
         const auto grey = [](const QColor& color) {

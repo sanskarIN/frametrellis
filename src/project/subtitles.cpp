@@ -246,9 +246,8 @@ Result<QByteArray> toBytes(const SubtitleTrack& track)
         end.replace(QLatin1Char(','), QLatin1Char('.'));
         // WebVTT supports cue markup, but FrameTrellis captions are plain text.
         // Escape it so a literal "<b>" or "-->" never changes the cue structure.
-        bytes += QStringLiteral("%1 --> %2\n%3\n\n")
-                     .arg(start, end, cue.text.toHtmlEscaped())
-                     .toUtf8();
+        bytes +=
+            QStringLiteral("%1 --> %2\n%3\n\n").arg(start, end, cue.text.toHtmlEscaped()).toUtf8();
     }
     return bytes;
 }

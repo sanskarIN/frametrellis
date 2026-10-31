@@ -242,6 +242,51 @@ private slots:
         QVERIFY(doc.execute(edits::setSubtitleAppearance(true, 5, true)));
         QVERIFY(!doc.canUndo());
     }
+    void wholeTrackTimingShiftPreservesSpacingAndUndo()
+    {
+        Project p = project();
+        SubtitleTrack track;
+        track.cues = {cue(QStringLiteral("first"), 0, 500, QStringLiteral("नमस्ते")),
+                      cue(QStringLiteral("second"), 2000, 3000, QStringLiteral("Hello"))};
+        QVERIFY(p.setSubtitles(track));
+        ProjectDocument doc(p);
+        const Project before = doc.project();
+        QVERIFY(doc.execute(edits::shiftSubtitles(100)));
+        QCOMPARE(doc.project().subtitles().cues[0].startMs, std::int64_t{100});
+        QCOMPARE(doc.project().subtitles().cues[0].endMs, std::int64_t{600});
+        QCOMPARE(doc.project().subtitles().cues[1].startMs, std::int64_t{2100});
+        QCOMPARE(doc.project().subtitles().cues[1].endMs, std::int64_t{3100});
+        QCOMPARE(doc.project().subtitles().cues[0].text, QStringLiteral("नमस्ते"));
+        QCOMPARE(doc.project().subtitles().cues[1].id, QStringLiteral("second"));
+        QCOMPARE(doc.project().timeline(), before.timeline());
+        const Project shifted = doc.project();
+        for (const std::int64_t invalid :
+             {std::int64_t{-101}, std::int64_t{0}, kMaxSubtitleTimeMs}) {
+            QVERIFY(!doc.execute(edits::shiftSubtitles(invalid)));
+            QCOMPARE(doc.project(), shifted);
+        }
+        QVERIFY(doc.undo());
+        QCOMPARE(doc.project(), before);
+        QVERIFY(doc.redo());
+        QCOMPARE(doc.project(), shifted);
+        QVERIFY(doc.execute(edits::shiftSubtitles(-100)));
+        QCOMPARE(doc.project(), before);
+
+        SubtitleTrack nearEnd = track;
+        nearEnd.cues[0].startMs = kMaxSubtitleTimeMs - 5000;
+        nearEnd.cues[0].endMs = kMaxSubtitleTimeMs - 4500;
+        nearEnd.cues[1].startMs = kMaxSubtitleTimeMs - 1000;
+        nearEnd.cues[1].endMs = kMaxSubtitleTimeMs;
+        QVERIFY(p.setSubtitles(nearEnd));
+        ProjectDocument boundary(p);
+        QVERIFY(!boundary.execute(edits::shiftSubtitles(1)));
+        QCOMPARE(boundary.project().subtitles(), nearEnd);
+        QVERIFY(!boundary.canUndo());
+        ProjectDocument empty(project());
+        QVERIFY(!empty.execute(edits::shiftSubtitles(100)));
+        QVERIFY(!empty.canUndo());
+    }
+
     void formatSixPreservesCuesOptionsAndLegacyLoads()
     {
         Project p = project();

@@ -187,6 +187,28 @@ private slots:
         QVERIFY(!m_project->isModified());
     }
 
+    void shiftControlsPreserveCuesAndRejectInvalidOffsets()
+    {
+        QVERIFY(m_subtitles->addAtPlayhead());
+        const SubtitleTrack before = m_project->project().subtitles();
+        QVERIFY(m_subtitles->shiftAll(100));
+        const SubtitleTrack shifted = m_project->project().subtitles();
+        QCOMPARE(shifted.cues.front().startMs, std::int64_t{100});
+        QCOMPARE(shifted.cues.front().endMs - shifted.cues.front().startMs,
+                 before.cues.front().endMs - before.cues.front().startMs);
+        QCOMPARE(m_subtitles->selectedCue().value(QStringLiteral("start")).toString(),
+                 QStringLiteral("00:00:00,100"));
+        QVERIFY(!m_subtitles->shiftAll(-101));
+        QCOMPARE(m_project->project().subtitles(), shifted);
+        QVERIFY(m_project->undo());
+        QCOMPARE(m_project->project().subtitles(), before);
+        QVERIFY(m_project->redo());
+        QCOMPARE(m_project->project().subtitles(), shifted);
+        QVERIFY(m_subtitles->shiftAll(-100));
+        QCOMPARE(m_project->project().subtitles(), before);
+        QCOMPARE(m_project->project().timeline(), m_base.timeline());
+    }
+
     void badFilesAndProtectedPathsLeaveExistingContentIntact()
     {
         const QString invalid = m_dir.filePath(QStringLiteral("invalid.srt"));

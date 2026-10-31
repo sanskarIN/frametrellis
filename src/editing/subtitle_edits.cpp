@@ -132,6 +132,33 @@ std::unique_ptr<EditCommand> clearSubtitles()
                                              });
 }
 
+std::unique_ptr<EditCommand> shiftSubtitles(std::int64_t deltaMilliseconds)
+{
+    return std::make_unique<SubtitleCommand>(
+        QStringLiteral("Shift Subtitle Timing"),
+        [deltaMilliseconds](SubtitleTrack& track) -> Status {
+            if (track.cues.empty() || deltaMilliseconds == 0) {
+                return makeError(ErrorCode::InvalidArgument,
+                                 QStringLiteral("Add subtitles and choose a nonzero time offset."));
+            }
+            // Check the full track before changing any cue. Bounds use subtraction to avoid
+            // signed overflow even for very large user-provided offsets.
+            for (const SubtitleCue& cue : track.cues) {
+                if (deltaMilliseconds < -cue.startMs ||
+                    deltaMilliseconds > kMaxSubtitleTimeMs - cue.endMs) {
+                    return makeError(
+                        ErrorCode::OutOfRange,
+                        QStringLiteral("Moving subtitles would put a cue outside valid time."));
+                }
+            }
+            for (SubtitleCue& cue : track.cues) {
+                cue.startMs += deltaMilliseconds;
+                cue.endMs += deltaMilliseconds;
+            }
+            return {};
+        });
+}
+
 std::unique_ptr<EditCommand> setSubtitleAppearance(bool burnIn, int fontPercent, bool background)
 {
     return std::make_unique<SubtitleCommand>(

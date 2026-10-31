@@ -20,7 +20,7 @@ ApplicationWindow {
                                        || shortcutsDialog.visible || goToTimecodeDialog.visible || markerDialog.visible || welcome.visible || messageBox.visible
                                        || unsavedDialog.visible || exportRunningDialog.visible || recoveryDialog.visible
                                        || subtitleDialog.visible || subtitleImportDialog.visible || subtitleExportDialog.visible
-                                       || previewFrameDialog.visible || clipListDialog.visible || mediaAuditCsvDialog.visible || mediaPanel.excerptDialogOpen
+                                       || previewFrameDialog.visible || clipListDialog.visible || mediaAuditCsvDialog.visible || preciseGapDialog.visible || mediaPanel.excerptDialogOpen
     readonly property bool editKeys: !dialogOpen
 
     width: Math.min(1440, Screen.desktopAvailableWidth - 40)
@@ -203,6 +203,7 @@ ApplicationWindow {
                 Action { text: qsTr("10 Frames"); onTriggered: window.app.timeline.insertGapAtPlayhead(10) }
                 Action { text: qsTr("About 1 Second"); onTriggered: window.app.timeline.insertGapAtPlayhead(Math.max(1, Math.round(window.app.timeline.frameRate))) }
                 Action { text: qsTr("About 5 Seconds"); onTriggered: window.app.timeline.insertGapAtPlayhead(Math.max(1, Math.round(window.app.timeline.frameRate)) * 5) }
+                Action { text: qsTr("Custom Duration…"); onTriggered: preciseGapDialog.openEditor(false) }
             }
             Menu {
                 title: qsTr("Remove Empty Time at Playhead")
@@ -211,6 +212,8 @@ ApplicationWindow {
                 Action { text: qsTr("10 Frames"); onTriggered: window.app.timeline.removeEmptyTimeAtPlayhead(10) }
                 Action { text: qsTr("About 1 Second"); onTriggered: window.app.timeline.removeEmptyTimeAtPlayhead(Math.max(1, Math.round(window.app.timeline.frameRate))) }
                 Action { text: qsTr("About 5 Seconds"); onTriggered: window.app.timeline.removeEmptyTimeAtPlayhead(Math.max(1, Math.round(window.app.timeline.frameRate)) * 5) }
+                Action { text: qsTr("Custom Duration…"); onTriggered: preciseGapDialog.openEditor(true) }
+                Action { text: qsTr("Close Gap to Next Clip"); onTriggered: window.app.timeline.closeEmptyGapToNextClip() }
             }
             Menu {
                 title: qsTr("Align Selected Clip to Playhead")
@@ -555,6 +558,77 @@ ApplicationWindow {
         currentFolder: window.app.fileUrl(window.app.project.projectFolder())
         selectedFile: window.app.fileUrl(window.app.project.projectFolder() + "/" + window.app.project.suggestedFileName().replace(/\.ftproj$/i, ".srt"))
         onAccepted: window.app.subtitles.exportSrt(window.app.localPath(selectedFile))
+    }
+
+    FtDialog {
+        id: preciseGapDialog
+        objectName: "preciseGapDialog"
+        property bool removing: false
+        property bool failed: false
+        title: removing ? qsTr("Remove Empty Time") : qsTr("Insert Timeline Gap")
+        implicitWidth: 440
+        closePolicy: Popup.CloseOnEscape
+
+        function openEditor(removeTime) {
+            removing = removeTime
+            failed = false
+            open()
+        }
+
+        onOpened: {
+            gapFrameCount.value = Math.max(1, Math.round(window.app.timeline.frameRate))
+            gapFrameCount.forceActiveFocus()
+        }
+
+        contentItem: ColumnLayout {
+            spacing: Theme.spacingS
+            Label {
+                Layout.fillWidth: true
+                text: qsTr("Choose an exact duration in project frames.")
+                wrapMode: Text.WordWrap
+                color: Theme.textMuted
+            }
+            SpinBox {
+                id: gapFrameCount
+                objectName: "preciseGapFrameCount"
+                Layout.fillWidth: true
+                editable: true
+                from: 1
+                to: 1000000
+                value: 1
+                onValueModified: preciseGapDialog.failed = false
+                Accessible.name: qsTr("Timeline gap duration in frames")
+            }
+            Label {
+                Layout.fillWidth: true
+                color: preciseGapDialog.failed ? Theme.danger : Theme.textFaint
+                wrapMode: Text.WordWrap
+                text: preciseGapDialog.failed
+                      ? qsTr("Cannot edit that interval. Check clip boundaries, locked tracks, and transitions.")
+                      : qsTr("%1 frames — approximately %2 seconds at the current frame rate.")
+                          .arg(gapFrameCount.value)
+                          .arg((gapFrameCount.value / window.app.timeline.frameRate).toFixed(3))
+            }
+        }
+
+        footer: DialogButtons {
+            Item { Layout.fillWidth: true }
+            FtButton { text: qsTr("Cancel"); onClicked: preciseGapDialog.close() }
+            FtButton {
+                objectName: "preciseGapConfirm"
+                text: preciseGapDialog.removing ? qsTr("Remove Empty Time") : qsTr("Insert Gap")
+                primary: true
+                onClicked: {
+                    const ok = preciseGapDialog.removing
+                               ? window.app.timeline.removeEmptyTimeAtPlayhead(gapFrameCount.value)
+                               : window.app.timeline.insertGapAtPlayhead(gapFrameCount.value)
+                    if (ok)
+                        preciseGapDialog.close()
+                    else
+                        preciseGapDialog.failed = true
+                }
+            }
+        }
     }
 
     NewProjectDialog { id: newDialog; app: window.app }

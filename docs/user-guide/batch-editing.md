@@ -144,3 +144,18 @@ and automation. This is an atomic **Nudge Clips** undo step. A locked track,
 collision with an unselected clip, timeline overflow or an unsafe transition
 rejects the whole edit. Empty selections and no-op alignment create no undo
 entry. This does not ripple, trim or move unselected clips.
+
+## Exact gap duration and automatic gap closure (v1.4 development)
+
+Use **Edit → Insert Gap at Playhead → Custom Duration…** or **Edit →
+Remove Empty Time at Playhead → Custom Duration…** to enter any positive
+duration up to one million project frames. The dialog gives an approximate
+seconds conversion, but the edit uses the exact integer frame count. A failed
+operation keeps the dialog open; undo/redo works as for the preset durations.
+
+Use **Edit → Remove Empty Time at Playhead → Close Gap to Next Clip** to find
+the earliest later clip on *any* video or audio track and close exactly that
+empty interval. The command refuses an occupied playhead position, a missing
+later clip, a protected track, any intersecting clip or an unsafe transition.
+It never trims or deletes footage. Subtitles and timeline markers stay at their
+absolute sequence frame positions. Neither command is present in v1.3.1.

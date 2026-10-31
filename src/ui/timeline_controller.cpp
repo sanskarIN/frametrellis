@@ -732,6 +732,28 @@ bool TimelineController::removeEmptyTimeAtPlayhead(int durationFrames)
                                                      static_cast<FrameCount>(durationFrames)));
 }
 
+bool TimelineController::closeEmptyGapToNextClip()
+{
+    const FrameCount frame = m_playback->positionFrames();
+    FrameCount next = kMaxTimelineFrames;
+    for (const Track& track : project().timeline().tracks()) {
+        for (const Clip& clip : track.clips) {
+            if (clip.start <= frame && clip.end() > frame) {
+                emit statusMessage(QStringLiteral("Move the playhead into empty timeline space."));
+                return false;
+            }
+            if (clip.start > frame) {
+                next = std::min(next, clip.start);
+            }
+        }
+    }
+    if (next == kMaxTimelineFrames) {
+        emit statusMessage(QStringLiteral("No later clip follows the playhead."));
+        return false;
+    }
+    return m_project->execute(edits::removeEmptyTime(frame, next - frame));
+}
+
 bool TimelineController::splitAtPlayhead()
 {
     const FrameCount frame = m_playback->positionFrames();

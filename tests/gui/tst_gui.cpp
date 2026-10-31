@@ -684,6 +684,80 @@ private slots:
         QCOMPARE(m_app->project()->undoText(), undoText);
     }
 
+    void customFrameGapAndAutomaticGapClosureAreUndoable()
+    {
+        auto* timeline = m_app->timeline();
+        const Project before = m_app->project()->project();
+        QVERIFY(before.timeline().clipCount() > 0);
+        QVERIFY(!before.timeline().tracks().front().clips.empty());
+        m_app->playback()->goToStart();
+        const QString originalUndo = m_app->project()->undoText();
+
+        // A clip already occupies frame zero, so there is nothing to close.
+        QVERIFY(!timeline->closeEmptyGapToNextClip());
+        QCOMPARE(m_app->project()->project(), before);
+        QCOMPARE(m_app->project()->undoText(), originalUndo);
+
+        // Exercise the actual QML form, not just the controller's fast path.
+        QObject* dialog = m_window->findChild<QObject*>(QStringLiteral("preciseGapDialog"));
+        QVERIFY(dialog);
+        QVERIFY(QMetaObject::invokeMethod(dialog, "open"));
+        QTRY_VERIFY(dialog->property("visible").toBool());
+        QQuickItem* frames =
+            findItem(m_window->contentItem(), QStringLiteral("preciseGapFrameCount"));
+        QQuickItem* apply = findItem(m_window->contentItem(), QStringLiteral("preciseGapConfirm"));
+        QVERIFY(frames);
+        QVERIFY(apply);
+        QVERIFY(frames->setProperty("value", 37));
+        QTest::mouseClick(m_window, Qt::LeftButton, Qt::NoModifier, centreOf(apply));
+        QTRY_VERIFY(!dialog->property("visible").toBool());
+        const Project withGap = m_app->project()->project();
+        for (const Track& originalTrack : before.timeline().tracks()) {
+            for (const Clip& clip : originalTrack.clips) {
+                const Clip* shifted = withGap.timeline().clip(clip.id);
+                QVERIFY(shifted);
+                QCOMPARE(shifted->start, clip.start + FrameCount{37});
+                QCOMPARE(shifted->sourceIn, clip.sourceIn);
+                QCOMPARE(shifted->duration, clip.duration);
+            }
+        }
+
+        // Locked affected tracks refuse auto-close without touching undo history.
+        const Id videoTrackId = before.timeline().tracks().front().id;
+        QVERIFY(timeline->setTrackFlag(videoTrackId, QStringLiteral("locked"), true));
+        const Project locked = m_app->project()->project();
+        const QString lockedUndo = m_app->project()->undoText();
+        QVERIFY(!timeline->closeEmptyGapToNextClip());
+        QCOMPARE(m_app->project()->project(), locked);
+        QCOMPARE(m_app->project()->undoText(), lockedUndo);
+        m_app->project()->undo();
+        QCOMPARE(m_app->project()->project(), withGap);
+
+        QVERIFY(timeline->closeEmptyGapToNextClip());
+        QCOMPARE(m_app->project()->project(), before);
+        QCOMPARE(m_app->project()->undoText(), QStringLiteral("Remove Empty Timeline Time"));
+        m_app->project()->undo();
+        QCOMPARE(m_app->project()->project(), withGap);
+        m_app->project()->undo();
+        QCOMPARE(m_app->project()->project(), before);
+        m_app->project()->redo();
+        QCOMPARE(m_app->project()->project(), withGap);
+        m_app->project()->redo();
+        QCOMPARE(m_app->project()->project(), before);
+        m_app->project()->undo();
+        m_app->project()->undo();
+        QCOMPARE(m_app->project()->project(), before);
+
+        const Clip first = before.timeline().tracks().front().clips.front();
+        m_app->playback()->seek(static_cast<double>(first.start + 2));
+        const QString undoBefore = m_app->project()->undoText();
+        QVERIFY(!timeline->closeEmptyGapToNextClip());
+        QVERIFY(!timeline->insertGapAtPlayhead(0));
+        QVERIFY(!timeline->removeEmptyTimeAtPlayhead(0));
+        QCOMPARE(m_app->project()->project(), before);
+        QCOMPARE(m_app->project()->undoText(), undoBefore);
+    }
+
     void removingEmptyTimeRestoresClipsAfterGapInsertion()
     {
         const Project before = m_app->project()->project();

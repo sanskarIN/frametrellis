@@ -65,4 +65,3 @@ namespace webvtt {
 } // namespace webvtt
 
 } // namespace ft
-

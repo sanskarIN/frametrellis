@@ -312,8 +312,8 @@ private slots:
         const Project initial = f.doc.project();
         const QList<Id> selected{first.id, second.id};
 
-        QVERIFY(f.doc.execute(edits::setClipVideoAdjustment(
-            selected, QStringLiteral("brightness"), -0.2)));
+        QVERIFY(f.doc.execute(
+            edits::setClipVideoAdjustment(selected, QStringLiteral("brightness"), -0.2)));
         const Project bright = f.doc.project();
         Clip expectedFirst = first;
         Clip expectedSecond = second;
@@ -323,16 +323,16 @@ private slots:
         QCOMPARE(*bright.timeline().clip(second.id), expectedSecond);
         QCOMPARE(f.doc.undoText(), QStringLiteral("Set Selected Video Adjustment"));
 
-        QVERIFY(f.doc.execute(edits::setClipVideoAdjustment(
-            selected, QStringLiteral("contrast"), 1.2)));
+        QVERIFY(f.doc.execute(
+            edits::setClipVideoAdjustment(selected, QStringLiteral("contrast"), 1.2)));
         const Project contrasted = f.doc.project();
         expectedFirst.properties.video.contrast = 1.2;
         expectedSecond.properties.video.contrast = 1.2;
         QCOMPARE(*contrasted.timeline().clip(first.id), expectedFirst);
         QCOMPARE(*contrasted.timeline().clip(second.id), expectedSecond);
 
-        QVERIFY(f.doc.execute(edits::setClipVideoAdjustment(
-            selected, QStringLiteral("saturation"), 0.0)));
+        QVERIFY(f.doc.execute(
+            edits::setClipVideoAdjustment(selected, QStringLiteral("saturation"), 0.0)));
         const Project desaturated = f.doc.project();
         expectedFirst.properties.video.saturation = 0.0;
         expectedSecond.properties.video.saturation = 0.0;
@@ -364,14 +364,14 @@ private slots:
         const QString saturation = QStringLiteral("saturation");
 
         QVERIFY(!f.doc.execute(edits::setClipVideoAdjustment({}, brightness, 0.2)));
-        QVERIFY(!f.doc.execute(edits::setClipVideoAdjustment(
-            {video.id, video.id}, brightness, 0.2)));
-        QVERIFY(!f.doc.execute(edits::setClipVideoAdjustment(
-            {video.id, audio.id}, brightness, 0.2)));
-        QVERIFY(!f.doc.execute(edits::setClipVideoAdjustment(
-            {video.id, QStringLiteral("missing")}, brightness, 0.2)));
-        QVERIFY(!f.doc.execute(edits::setClipVideoAdjustment(
-            {video.id}, QStringLiteral("opacity"), 0.5)));
+        QVERIFY(
+            !f.doc.execute(edits::setClipVideoAdjustment({video.id, video.id}, brightness, 0.2)));
+        QVERIFY(
+            !f.doc.execute(edits::setClipVideoAdjustment({video.id, audio.id}, brightness, 0.2)));
+        QVERIFY(!f.doc.execute(
+            edits::setClipVideoAdjustment({video.id, QStringLiteral("missing")}, brightness, 0.2)));
+        QVERIFY(!f.doc.execute(
+            edits::setClipVideoAdjustment({video.id}, QStringLiteral("opacity"), 0.5)));
         QVERIFY(!f.doc.execute(edits::setClipVideoAdjustment({video.id}, brightness, -1.1)));
         QVERIFY(!f.doc.execute(edits::setClipVideoAdjustment({video.id}, brightness, 1.1)));
         QVERIFY(!f.doc.execute(edits::setClipVideoAdjustment({video.id}, contrast, -0.1)));
@@ -381,16 +381,15 @@ private slots:
             {video.id}, saturation, std::numeric_limits<double>::quiet_NaN())));
         QVERIFY(!f.doc.execute(edits::setClipVideoAdjustment(
             {video.id}, saturation, std::numeric_limits<double>::infinity())));
-        QVERIFY(!f.doc.execute(edits::setClipVideoAdjustment(
-            {video.id}, brightness, video.properties.video.brightness)));
+        QVERIFY(!f.doc.execute(edits::setClipVideoAdjustment({video.id}, brightness,
+                                                             video.properties.video.brightness)));
         QCOMPARE(f.doc.project(), before);
         QCOMPARE(f.doc.undoText(), undoBefore);
 
         QVERIFY(f.doc.execute(edits::setTrackLocked(f.v1, true)));
         const Project locked = f.doc.project();
         const QString lockedUndo = f.doc.undoText();
-        QVERIFY(!f.doc.execute(edits::setClipVideoAdjustment(
-            {video.id}, brightness, 0.2)));
+        QVERIFY(!f.doc.execute(edits::setClipVideoAdjustment({video.id}, brightness, 0.2)));
         QCOMPARE(f.doc.project(), locked);
         QCOMPARE(f.doc.undoText(), lockedUndo);
     }

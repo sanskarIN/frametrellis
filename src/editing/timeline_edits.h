@@ -34,6 +34,11 @@ std::unique_ptr<EditCommand> duplicateClip(const Id& clipId, const Id& newClipId
 /// are not copied. Source ids and destination ids must have the same non-zero count.
 /// A failure (including a locked track or overflow) leaves every clip untouched.
 std::unique_ptr<EditCommand> duplicateClips(const QList<Id>& clipIds, const QList<Id>& newClipIds);
+/// Copy selected clips to the requested timeline frame while preserving inter-clip offsets.
+/// Requires a free interval on each original unlocked track; does not ripple existing clips.
+/// Duplicate IDs, collisions and boundary errors reject the entire undoable operation.
+std::unique_ptr<EditCommand> duplicateClipsAt(const QList<Id>& clipIds,
+                                               const QList<Id>& newClipIds, FrameCount start);
 
 std::unique_ptr<EditCommand> removeClips(const QList<Id>& clipIds);
 std::unique_ptr<EditCommand> rippleRemoveClip(const Id& clipId);

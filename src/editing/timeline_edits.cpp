@@ -714,8 +714,7 @@ std::unique_ptr<EditCommand> setClipOpacities(const QList<Id>& clipIds, double o
     return command(
         QStringLiteral("Set Selected Video Opacity"),
         [clipIds, opacity](Timeline& timeline, const SourceLookup&) -> Status {
-            if (clipIds.isEmpty() || !std::isfinite(opacity) || opacity < 0.0 ||
-                opacity > 1.0) {
+            if (clipIds.isEmpty() || !std::isfinite(opacity) || opacity < 0.0 || opacity > 1.0) {
                 return makeError(ErrorCode::InvalidArgument,
                                  QStringLiteral("Select video clips and a valid opacity."));
             }

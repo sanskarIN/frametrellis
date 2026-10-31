@@ -73,6 +73,9 @@ std::unique_ptr<EditCommand> muteClips(const QList<Id>& clipIds, bool muted);
 /// Reject missing, duplicated and locked clips atomically; preserve other properties.
 std::unique_ptr<EditCommand> setClipFades(const QList<Id>& clipIds, FrameCount frames,
                                           bool fadeOut);
+/// Set an identical linear audio gain (0.0 to 4.0) on selected clips atomically.
+/// Reject invalid inputs, duplicate/missing IDs and locked tracks; preserve all other properties.
+std::unique_ptr<EditCommand> setClipGains(const QList<Id>& clipIds, double gain);
 /// Reset picture adjustments and opacity curves without changing sound or fades.
 std::unique_ptr<EditCommand> resetClipPictures(const QList<Id>& clipIds);
 std::unique_ptr<EditCommand> resetClipPicture(const Id& clipId);

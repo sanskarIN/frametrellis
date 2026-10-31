@@ -557,6 +557,88 @@ private slots:
         timeline->clearSelection();
     }
 
+    void selectClipsBySelectedTimeSpanKeepsProjectAndHistoryUntouched()
+    {
+        auto* timeline = m_app->timeline();
+        const Project before = m_app->project()->project();
+        const QString assetId =
+            m_app->media()->model()->get(0).value(QStringLiteral("assetId")).toString();
+        QVERIFY(!assetId.isEmpty());
+        QVERIFY(!track(0).clips.empty());
+        QVERIFY(!track(2).clips.empty());
+        const Clip first = track(0).clips.front();
+        const Id audioTrackId = track(2).id;
+        const Clip sound = track(2).clips.front();
+
+        timeline->clearSelection();
+        QVERIFY(!timeline->selectClipsInSelectionRange(true));
+        QVERIFY(!timeline->selectClipsInSelectionRange(false));
+
+        // Append three adjacent clips to ensure the one beginning exactly at the
+        // selected range's exclusive end is excluded from both selection modes.
+        QVERIFY(timeline->appendAsset(assetId));
+        QVERIFY(timeline->appendAsset(assetId));
+        QVERIFY(timeline->appendAsset(assetId));
+        const auto& clips = track(0).clips;
+        QVERIFY(clips.size() >= size_t{4});
+        const Clip penultimate = clips.at(clips.size() - 2);
+        const Clip outside = clips.back();
+        QCOMPARE(outside.start, penultimate.end());
+        const FrameCount rangeStart = first.start;
+        const FrameCount rangeEnd = penultimate.end();
+        QVERIFY(rangeEnd > rangeStart);
+        QVERIFY(timeline->setTrackFlag(audioTrackId, QStringLiteral("locked"), true));
+        const Project prepared = m_app->project()->project();
+        const QString undoBefore = m_app->project()->undoText();
+
+        QStringList expectedInside;
+        QStringList expectedOverlapping;
+        for (const Track& track : prepared.timeline().tracks()) {
+            for (const Clip& clip : track.clips) {
+                if (clip.start >= rangeStart && clip.end() <= rangeEnd) {
+                    expectedInside.append(clip.id);
+                }
+                if (clip.start < rangeEnd && clip.end() > rangeStart) {
+                    expectedOverlapping.append(clip.id);
+                }
+            }
+        }
+        QVERIFY(expectedInside.size() > 2);
+        QVERIFY(expectedOverlapping.size() > 2);
+        QVERIFY(expectedOverlapping.contains(sound.id)); // read-only locked tracks included
+        QVERIFY(!expectedInside.contains(outside.id));
+        QVERIFY(!expectedOverlapping.contains(outside.id));
+        expectedInside.sort();
+        expectedOverlapping.sort();
+
+        timeline->select(first.id, false);
+        timeline->select(penultimate.id, true);
+        QVERIFY(timeline->selectClipsInSelectionRange(false));
+        QStringList result = timeline->selection();
+        result.sort();
+        QCOMPARE(result, expectedInside);
+        QVERIFY(!timeline->selectClipsInSelectionRange(false));
+        QCOMPARE(m_app->project()->project(), prepared);
+        QCOMPARE(m_app->project()->undoText(), undoBefore);
+
+        timeline->select(first.id, false);
+        timeline->select(penultimate.id, true);
+        QVERIFY(timeline->selectClipsInSelectionRange(true));
+        result = timeline->selection();
+        result.sort();
+        QCOMPARE(result, expectedOverlapping);
+        QVERIFY(!timeline->selectClipsInSelectionRange(true));
+        QCOMPARE(m_app->project()->project(), prepared);
+        QCOMPARE(m_app->project()->undoText(), undoBefore);
+
+        timeline->clearSelection();
+        m_app->project()->undo(); // unlock audio track
+        m_app->project()->undo(); // remove third appended clip
+        m_app->project()->undo(); // remove second appended clip
+        m_app->project()->undo(); // remove first appended clip
+        QCOMPARE(m_app->project()->project(), before);
+    }
+
     void navigateToSelectedRangeEdgesWithoutEditing()
     {
         auto* timeline = m_app->timeline();

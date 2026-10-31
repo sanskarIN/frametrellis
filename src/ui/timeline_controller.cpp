@@ -1127,6 +1127,51 @@ bool TimelineController::selectClipsAtPlayhead()
     return true;
 }
 
+bool TimelineController::selectClipsInSelectionRange(bool overlapping)
+{
+    if (m_selection.isEmpty()) {
+        emit statusMessage(QStringLiteral("Select clips to define a time range first."));
+        return false;
+    }
+    const Timeline& timeline = project().timeline();
+    FrameCount first = kMaxTimelineFrames;
+    FrameCount end = 0;
+    for (const Id& id : std::as_const(m_selection)) {
+        const Clip* clip = timeline.clip(id);
+        if (!clip) {
+            emit statusMessage(QStringLiteral("The selection contains a missing clip."));
+            return false;
+        }
+        first = std::min(first, clip->start);
+        end = std::max(end, clip->end());
+    }
+    if (end <= first) {
+        return false;
+    }
+
+    QSet<Id> matching;
+    for (const Track& track : timeline.tracks()) {
+        for (const Clip& clip : track.clips) {
+            const bool matches = overlapping ? clip.start < end && clip.end() > first
+                                             : clip.start >= first && clip.end() <= end;
+            if (matches) {
+                matching.insert(clip.id);
+            }
+        }
+    }
+    if (matching == m_selection) {
+        return false;
+    }
+    setTransitionSelection({});
+    m_selection = std::move(matching);
+    m_model.updateSelection(m_selection);
+    emit selectionChanged();
+    emit selectedClipChanged();
+    emit statusMessage(
+        QStringLiteral("Selected %1 clip(s) in the time range.").arg(m_selection.size()));
+    return true;
+}
+
 bool TimelineController::selectClipsBeforePlayhead()
 {
     const FrameCount frame = m_playback->positionFrames();

@@ -461,6 +461,35 @@ private slots:
         timeline->clearSelection();
     }
 
+    void selectedAudioGainIsUndoableWithoutChangingOtherProperties()
+    {
+        auto* timeline = m_app->timeline();
+        const Project before = m_app->project()->project();
+        const QString undoBefore = m_app->project()->undoText();
+        QVERIFY(!track(0).clips.empty());
+        const Clip picture = track(0).clips.back();
+        const double target = picture.properties.gain == 1.5 ? 0.5 : 1.5;
+
+        timeline->clearSelection();
+        QVERIFY(!timeline->setSelectionGain(target));
+        timeline->select(picture.id, false);
+        QVERIFY(!timeline->setSelectionGain(std::numeric_limits<double>::quiet_NaN()));
+        QVERIFY(!timeline->setSelectionGain(4.5));
+        QCOMPARE(m_app->project()->project(), before);
+        QCOMPARE(m_app->project()->undoText(), undoBefore);
+        QVERIFY(timeline->setSelectionGain(target));
+        const Project changed = m_app->project()->project();
+        ClipProperties expected = picture.properties;
+        expected.gain = target;
+        QCOMPARE(changed.timeline().clip(picture.id)->properties, expected);
+        QCOMPARE(m_app->project()->undoText(), QStringLiteral("Set Selected Audio Gain"));
+        m_app->project()->undo();
+        QCOMPARE(m_app->project()->project(), before);
+        m_app->project()->redo();
+        QCOMPARE(m_app->project()->project(), changed);
+        timeline->clearSelection();
+    }
+
     void fadeSelectedClipFromEditMenuIsUndoable()
     {
         auto* timeline = m_app->timeline();

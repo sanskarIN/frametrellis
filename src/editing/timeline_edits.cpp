@@ -6,6 +6,7 @@
 #include <QSet>
 
 #include <algorithm>
+#include <cmath>
 
 namespace ft::edits {
 
@@ -653,6 +654,53 @@ std::unique_ptr<EditCommand> setClipFades(const QList<Id>& clipIds, FrameCount f
                 } else {
                     properties.fadeIn = next;
                 }
+                if (const Status updated = timeline.setClipProperties(id, properties); !updated) {
+                    return updated;
+                }
+            }
+            return {};
+        });
+}
+
+std::unique_ptr<EditCommand> setClipGains(const QList<Id>& clipIds, double gain)
+{
+    return command(
+        QStringLiteral("Set Selected Audio Gain"),
+        [clipIds, gain](Timeline& timeline, const SourceLookup&) -> Status {
+            if (clipIds.isEmpty() || !std::isfinite(gain) || gain < 0.0 || gain > kMaxClipGain) {
+                return makeError(ErrorCode::InvalidArgument,
+                                 QStringLiteral("Select clips and a valid audio gain."));
+            }
+
+            QSet<Id> visited;
+            bool changed = false;
+            for (const Id& id : clipIds) {
+                if (visited.contains(id)) {
+                    return makeError(ErrorCode::InvalidArgument,
+                                     QStringLiteral("A clip was selected twice."));
+                }
+                visited.insert(id);
+                const Clip* clip = timeline.clip(id);
+                const Track* track = timeline.trackOfClip(id);
+                if (!clip || !track) {
+                    return makeError(ErrorCode::NotFound,
+                                     QStringLiteral("A selected clip was not found."));
+                }
+                if (track->locked) {
+                    return makeError(
+                        ErrorCode::Conflict,
+                        QStringLiteral("Unlock affected tracks before editing audio gain."));
+                }
+                changed |= clip->properties.gain != gain;
+            }
+            if (!changed) {
+                return makeError(ErrorCode::InvalidArgument,
+                                 QStringLiteral("The selected clips already have this gain."));
+            }
+
+            for (const Id& id : clipIds) {
+                ClipProperties properties = timeline.clip(id)->properties;
+                properties.gain = gain;
                 if (const Status updated = timeline.setClipProperties(id, properties); !updated) {
                     return updated;
                 }

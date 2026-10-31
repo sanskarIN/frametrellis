@@ -930,6 +930,21 @@ bool TimelineController::setSelectionFade(bool fadeOut, int durationFrames)
     return true;
 }
 
+bool TimelineController::setSelectionGain(double gain)
+{
+    if (m_selection.isEmpty() || !std::isfinite(gain) || gain < 0.0 || gain > kMaxClipGain) {
+        emit statusMessage(QStringLiteral("Select clips and a valid audio gain."));
+        return false;
+    }
+    QList<Id> ids(m_selection.cbegin(), m_selection.cend());
+    std::sort(ids.begin(), ids.end());
+    if (!m_project->execute(edits::setClipGains(ids, gain))) {
+        return false;
+    }
+    emit statusMessage(QStringLiteral("Updated audio gain on %1 clip(s).").arg(ids.size()));
+    return true;
+}
+
 bool TimelineController::resetSelectionPictures()
 {
     if (m_selection.isEmpty()) {

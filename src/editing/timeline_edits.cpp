@@ -761,7 +761,7 @@ std::unique_ptr<EditCommand> setClipOpacities(const QList<Id>& clipIds, double o
 }
 
 std::unique_ptr<EditCommand> setClipVideoAdjustment(const QList<Id>& clipIds,
-                                                     const QString& property, double value)
+                                                    const QString& property, double value)
 {
     return command(
         QStringLiteral("Set Selected Video Adjustment"),
@@ -773,8 +773,9 @@ std::unique_ptr<EditCommand> setClipVideoAdjustment(const QList<Id>& clipIds,
             const double upper = brightness ? 1.0 : (contrast ? 2.0 : 3.0);
             if (clipIds.isEmpty() || (!brightness && !contrast && !saturation) ||
                 !std::isfinite(value) || value < lower || value > upper) {
-                return makeError(ErrorCode::InvalidArgument,
-                                 QStringLiteral("Select video clips and a valid picture adjustment."));
+                return makeError(
+                    ErrorCode::InvalidArgument,
+                    QStringLiteral("Select video clips and a valid picture adjustment."));
             }
 
             QSet<Id> visited;
@@ -792,8 +793,9 @@ std::unique_ptr<EditCommand> setClipVideoAdjustment(const QList<Id>& clipIds,
                                      QStringLiteral("A selected clip was not found."));
                 }
                 if (track->kind != TrackKind::Video) {
-                    return makeError(ErrorCode::InvalidArgument,
-                                     QStringLiteral("Picture adjustments require video-track clips."));
+                    return makeError(
+                        ErrorCode::InvalidArgument,
+                        QStringLiteral("Picture adjustments require video-track clips."));
                 }
                 if (track->locked) {
                     return makeError(ErrorCode::Conflict,

@@ -177,8 +177,8 @@ private slots:
         second.duration = 25;
         ProjectDocument doc{p};
         QVERIFY(doc.execute(edits::addClip(doc.project().timeline().tracks()[1].id, second)));
-        QVERIFY(doc.execute(edits::setClipVideoAdjustment(
-            {first.id, second.id}, QStringLiteral("saturation"), 0.0)));
+        QVERIFY(doc.execute(edits::setClipVideoAdjustment({first.id, second.id},
+                                                          QStringLiteral("saturation"), 0.0)));
 
         RenderJob job(QStringLiteral(FT_RENDER_HELPER));
         QSignalSpy finished(&job, &RenderJob::finished);

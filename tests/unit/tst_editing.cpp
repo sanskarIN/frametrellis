@@ -297,6 +297,104 @@ private slots:
         QCOMPARE(f.doc.project(), before);
     }
 
+    void batchPictureAdjustmentsApplyAllThreePropertiesWithUndo()
+    {
+        Fixture f;
+        Clip first = clipOf(QStringLiteral("m1"), 0, 40, QStringLiteral("picture-first"));
+        first.properties.gain = 0.6;
+        first.properties.fadeIn = 8;
+        first.properties.video.opacity = 0.7;
+        first.properties.video.brightness = 0.2;
+        Clip second = clipOf(QStringLiteral("m1"), 50, 20, QStringLiteral("picture-second"));
+        second.properties.video.saturation = 1.5;
+        QVERIFY(f.doc.execute(edits::addClip(f.v1, first)));
+        QVERIFY(f.doc.execute(edits::addClip(f.v2, second)));
+        const Project initial = f.doc.project();
+        const QList<Id> selected{first.id, second.id};
+
+        QVERIFY(f.doc.execute(edits::setClipVideoAdjustment(
+            selected, QStringLiteral("brightness"), -0.2)));
+        const Project bright = f.doc.project();
+        Clip expectedFirst = first;
+        Clip expectedSecond = second;
+        expectedFirst.properties.video.brightness = -0.2;
+        expectedSecond.properties.video.brightness = -0.2;
+        QCOMPARE(*bright.timeline().clip(first.id), expectedFirst);
+        QCOMPARE(*bright.timeline().clip(second.id), expectedSecond);
+        QCOMPARE(f.doc.undoText(), QStringLiteral("Set Selected Video Adjustment"));
+
+        QVERIFY(f.doc.execute(edits::setClipVideoAdjustment(
+            selected, QStringLiteral("contrast"), 1.2)));
+        const Project contrasted = f.doc.project();
+        expectedFirst.properties.video.contrast = 1.2;
+        expectedSecond.properties.video.contrast = 1.2;
+        QCOMPARE(*contrasted.timeline().clip(first.id), expectedFirst);
+        QCOMPARE(*contrasted.timeline().clip(second.id), expectedSecond);
+
+        QVERIFY(f.doc.execute(edits::setClipVideoAdjustment(
+            selected, QStringLiteral("saturation"), 0.0)));
+        const Project desaturated = f.doc.project();
+        expectedFirst.properties.video.saturation = 0.0;
+        expectedSecond.properties.video.saturation = 0.0;
+        QCOMPARE(*desaturated.timeline().clip(first.id), expectedFirst);
+        QCOMPARE(*desaturated.timeline().clip(second.id), expectedSecond);
+        QVERIFY(f.doc.undo());
+        QCOMPARE(f.doc.project(), contrasted);
+        QVERIFY(f.doc.undo());
+        QCOMPARE(f.doc.project(), bright);
+        QVERIFY(f.doc.undo());
+        QCOMPARE(f.doc.project(), initial);
+        QVERIFY(f.doc.redo());
+        QVERIFY(f.doc.redo());
+        QVERIFY(f.doc.redo());
+        QCOMPARE(f.doc.project(), desaturated);
+    }
+
+    void batchPictureAdjustmentsRejectInvalidAndLockedSelectionsAtomically()
+    {
+        Fixture f;
+        const Clip video = clipOf(QStringLiteral("m1"), 0, 40, QStringLiteral("pic-valid"));
+        const Clip audio = clipOf(QStringLiteral("m1"), 0, 30, QStringLiteral("pic-audio"));
+        QVERIFY(f.doc.execute(edits::addClip(f.v1, video)));
+        QVERIFY(f.doc.execute(edits::addClip(f.a1, audio)));
+        const Project before = f.doc.project();
+        const QString undoBefore = f.doc.undoText();
+        const QString brightness = QStringLiteral("brightness");
+        const QString contrast = QStringLiteral("contrast");
+        const QString saturation = QStringLiteral("saturation");
+
+        QVERIFY(!f.doc.execute(edits::setClipVideoAdjustment({}, brightness, 0.2)));
+        QVERIFY(!f.doc.execute(edits::setClipVideoAdjustment(
+            {video.id, video.id}, brightness, 0.2)));
+        QVERIFY(!f.doc.execute(edits::setClipVideoAdjustment(
+            {video.id, audio.id}, brightness, 0.2)));
+        QVERIFY(!f.doc.execute(edits::setClipVideoAdjustment(
+            {video.id, QStringLiteral("missing")}, brightness, 0.2)));
+        QVERIFY(!f.doc.execute(edits::setClipVideoAdjustment(
+            {video.id}, QStringLiteral("opacity"), 0.5)));
+        QVERIFY(!f.doc.execute(edits::setClipVideoAdjustment({video.id}, brightness, -1.1)));
+        QVERIFY(!f.doc.execute(edits::setClipVideoAdjustment({video.id}, brightness, 1.1)));
+        QVERIFY(!f.doc.execute(edits::setClipVideoAdjustment({video.id}, contrast, -0.1)));
+        QVERIFY(!f.doc.execute(edits::setClipVideoAdjustment({video.id}, contrast, 2.1)));
+        QVERIFY(!f.doc.execute(edits::setClipVideoAdjustment({video.id}, saturation, 3.1)));
+        QVERIFY(!f.doc.execute(edits::setClipVideoAdjustment(
+            {video.id}, saturation, std::numeric_limits<double>::quiet_NaN())));
+        QVERIFY(!f.doc.execute(edits::setClipVideoAdjustment(
+            {video.id}, saturation, std::numeric_limits<double>::infinity())));
+        QVERIFY(!f.doc.execute(edits::setClipVideoAdjustment(
+            {video.id}, brightness, video.properties.video.brightness)));
+        QCOMPARE(f.doc.project(), before);
+        QCOMPARE(f.doc.undoText(), undoBefore);
+
+        QVERIFY(f.doc.execute(edits::setTrackLocked(f.v1, true)));
+        const Project locked = f.doc.project();
+        const QString lockedUndo = f.doc.undoText();
+        QVERIFY(!f.doc.execute(edits::setClipVideoAdjustment(
+            {video.id}, brightness, 0.2)));
+        QCOMPARE(f.doc.project(), locked);
+        QCOMPARE(f.doc.undoText(), lockedUndo);
+    }
+
     void batchVideoOpacityPreservesOtherPropertiesAndUndoRedo()
     {
         Fixture f;

@@ -538,8 +538,8 @@ private slots:
         timeline->clearSelection();
         timeline->select(picture.id, false);
         QVERIFY(!timeline->setSelectionVideoAdjustment(QStringLiteral("gain"), 0.5));
-        QVERIFY(!timeline->setSelectionVideoAdjustment(
-            QStringLiteral("contrast"), std::numeric_limits<double>::quiet_NaN()));
+        QVERIFY(!timeline->setSelectionVideoAdjustment(QStringLiteral("contrast"),
+                                                       std::numeric_limits<double>::quiet_NaN()));
         const double target = picture.properties.video.saturation == 0.0 ? 1.25 : 0.0;
         QVERIFY(timeline->setSelectionVideoAdjustment(QStringLiteral("saturation"), target));
         const Project changed = m_app->project()->project();

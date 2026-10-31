@@ -172,6 +172,21 @@ already identical across the selection are rejected without changing the
 project. Gain above 100% may cause clipping depending on the source audio.
 This is a development feature and is not in stable v1.3.1.
 
+## Set base opacity across video clips (v1.4 development)
+
+Select one or more clips on video tracks and choose **Edit → Video Opacity for
+Selected Clips**. Presets set the selected clips to 0%, 25%, 50%, 75% or
+100% opacity, with one undoable action for the whole selection. Base opacity
+changes without changing trim points, fades, gain, color corrections, source
+media, or source-anchored opacity keyframes. Existing animation still applies.
+
+The command requires an **all-video selection**: a selected audio-track clip,
+locked track, duplicate/missing clip, invalid setting, or a selection already
+at the requested opacity rejects the entire operation without changing the
+project or its undo history. Opacity affects visual compositing; transparent
+clips reveal underlying layers when available. This feature is not included
+in stable v1.3.1.
+
 ## Exact gap duration and automatic gap closure (v1.4 development)
 
 Use **Edit → Insert Gap at Playhead → Custom Duration…** or **Edit →

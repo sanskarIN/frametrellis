@@ -20,7 +20,8 @@ ApplicationWindow {
                                        || shortcutsDialog.visible || goToTimecodeDialog.visible || markerDialog.visible || welcome.visible || messageBox.visible
                                        || unsavedDialog.visible || exportRunningDialog.visible || recoveryDialog.visible
                                        || subtitleDialog.visible || subtitleImportDialog.visible || subtitleExportDialog.visible
-                                       || previewFrameDialog.visible || clipListDialog.visible || mediaAuditCsvDialog.visible || preciseGapDialog.visible || mediaPanel.excerptDialogOpen
+                                       || previewFrameDialog.visible || clipListDialog.visible || mediaAuditCsvDialog.visible || preciseGapDialog.visible
+                                       || customPictureDialog.visible || mediaPanel.excerptDialogOpen
     readonly property bool editKeys: !dialogOpen
 
     width: Math.min(1440, Screen.desktopAvailableWidth - 40)
@@ -315,6 +316,8 @@ ApplicationWindow {
                     Action { text: qsTr("Neutral (100%)"); onTriggered: window.app.timeline.setSelectionVideoAdjustment("saturation", 1.0) }
                     Action { text: qsTr("Vivid (125%)"); onTriggered: window.app.timeline.setSelectionVideoAdjustment("saturation", 1.25) }
                 }
+                MenuSeparator {}
+                Action { text: qsTr("Custom Picture Adjustment…"); onTriggered: customPictureDialog.openEditor() }
             }
             Action { text: qsTr("&Reset Selected Picture Adjustments"); enabled: window.editKeys && window.app.timeline.selection.length > 0; onTriggered: window.app.timeline.resetSelectionPictures() }
             Action { text: qsTr("Add &Transition"); shortcut: "T"; enabled: window.editKeys; onTriggered: window.app.timeline.addTransition() }
@@ -693,6 +696,85 @@ ApplicationWindow {
                         preciseGapDialog.close()
                     else
                         preciseGapDialog.failed = true
+                }
+            }
+        }
+    }
+
+    FtDialog {
+        id: customPictureDialog
+        objectName: "customPictureDialog"
+        property bool failed: false
+        title: qsTr("Custom Picture Adjustment")
+        implicitWidth: 440
+        closePolicy: Popup.CloseOnEscape
+
+        function openEditor() {
+            failed = false
+            pictureAdjustmentProperty.currentIndex = 0
+            pictureAdjustmentPercent.value = 0
+            open()
+        }
+
+        contentItem: ColumnLayout {
+            spacing: Theme.spacingS
+            Label {
+                Layout.fillWidth: true
+                text: qsTr("Set an exact picture adjustment for all selected video clips.")
+                wrapMode: Text.WordWrap
+                color: Theme.textMuted
+            }
+            ComboBox {
+                id: pictureAdjustmentProperty
+                objectName: "customPictureProperty"
+                Layout.fillWidth: true
+                model: [qsTr("Brightness"), qsTr("Contrast"), qsTr("Saturation")]
+                onCurrentIndexChanged: {
+                    customPictureDialog.failed = false
+                    pictureAdjustmentPercent.value = currentIndex === 0 ? 0 : 100
+                }
+                Accessible.name: qsTr("Picture adjustment type")
+            }
+            SpinBox {
+                id: pictureAdjustmentPercent
+                objectName: "customPicturePercent"
+                Layout.fillWidth: true
+                editable: true
+                from: pictureAdjustmentProperty.currentIndex === 0 ? -100 : 0
+                to: pictureAdjustmentProperty.currentIndex === 1 ? 200 :
+                    pictureAdjustmentProperty.currentIndex === 2 ? 300 : 100
+                stepSize: 1
+                value: 0
+                onValueModified: customPictureDialog.failed = false
+                Accessible.name: qsTr("Custom picture adjustment percentage")
+            }
+            Label {
+                Layout.fillWidth: true
+                color: customPictureDialog.failed ? Theme.danger : Theme.textFaint
+                wrapMode: Text.WordWrap
+                text: customPictureDialog.failed
+                      ? qsTr("Cannot apply this adjustment. Select unlocked video clips with a different setting.")
+                      : qsTr("The entire selection receives %1% %2 as one undoable change.")
+                          .arg(pictureAdjustmentPercent.value)
+                          .arg(pictureAdjustmentProperty.currentText.toLowerCase())
+            }
+        }
+
+        footer: DialogButtons {
+            Item { Layout.fillWidth: true }
+            FtButton { text: qsTr("Cancel"); onClicked: customPictureDialog.close() }
+            FtButton {
+                objectName: "customPictureApply"
+                text: qsTr("Apply to Selection")
+                primary: true
+                onClicked: {
+                    const property = ["brightness", "contrast", "saturation"][pictureAdjustmentProperty.currentIndex]
+                    const success = window.app.timeline.setSelectionVideoAdjustment(
+                        property, pictureAdjustmentPercent.value / 100.0)
+                    if (success)
+                        customPictureDialog.close()
+                    else
+                        customPictureDialog.failed = true
                 }
             }
         }

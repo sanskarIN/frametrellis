@@ -232,6 +232,11 @@ ApplicationWindow {
                 enabled: window.editKeys && window.app.timeline.selection.length > 0
                 onTriggered: window.app.timeline.alignSelectionEndToPlayhead()
             }
+            Action {
+                text: qsTr("Center Selection on Playhead")
+                enabled: window.editKeys && window.app.timeline.selection.length > 0
+                onTriggered: window.app.timeline.alignSelectionCenterToPlayhead()
+            }
             Menu {
                 title: qsTr("Trim Selected Clip to Playhead")
                 enabled: window.editKeys && window.app.timeline.selection.length === 1

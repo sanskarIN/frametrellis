@@ -16,6 +16,14 @@ ctest --preset linux -L unit    # only unit tests
 ctest --preset linux -R engine  # tests whose name matches "engine"
 ```
 
+## v1.4 integrated release acceptance
+
+Use the [v1.4 editing acceptance matrix](testing/v1.4-integrated-editing-acceptance.md)
+to record manual multi-track, precision editing, batch properties, preview/export
+parity, project-format migration, media recovery and clean-host package checks.
+This is a **pending manual checklist**, not an assertion that those checks have
+passed. Automated CI and hands-on testing provide different evidence.
+
 ## Test media
 
 Subtitle regressions cover exact SRT roundtrips, format-v6 persistence, undo/redo,

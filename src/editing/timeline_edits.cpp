@@ -221,6 +221,73 @@ std::unique_ptr<EditCommand> duplicateClips(const QList<Id>& clipIds, const QLis
         });
 }
 
+std::unique_ptr<EditCommand> duplicateClipsAt(const QList<Id>& clipIds, const QList<Id>& newClipIds,
+                                              FrameCount start)
+{
+    return command(
+        QStringLiteral("Duplicate Selected Clips at Playhead"),
+        [clipIds, newClipIds, start](Timeline& timeline, const SourceLookup& sources) -> Status {
+            if (clipIds.isEmpty() || clipIds.size() != newClipIds.size() || start < 0 ||
+                start >= kMaxTimelineFrames) {
+                return makeError(ErrorCode::InvalidArgument,
+                                 QStringLiteral("Select clips and a valid destination frame."));
+            }
+            QSet<Id> sourceIds;
+            QSet<Id> destinationIds;
+            struct Original
+            {
+                Id trackId;
+                Clip clip;
+            };
+            std::vector<Original> originals;
+            originals.reserve(static_cast<size_t>(clipIds.size()));
+            FrameCount earliest = kMaxTimelineFrames;
+            for (qsizetype i = 0; i < clipIds.size(); ++i) {
+                const Id& oldId = clipIds.at(i);
+                const Id& newId = newClipIds.at(i);
+                const Clip* clip = timeline.clip(oldId);
+                const Track* track = timeline.trackOfClip(oldId);
+                if (!clip || !track) {
+                    return makeError(ErrorCode::NotFound,
+                                     QStringLiteral("A selected clip was not found."));
+                }
+                if (sourceIds.contains(oldId) || newId.isEmpty() ||
+                    destinationIds.contains(newId) || timeline.clip(newId)) {
+                    return makeError(ErrorCode::Conflict,
+                                     QStringLiteral("Duplicate or existing clip identifiers."));
+                }
+                if (track->locked) {
+                    return makeError(ErrorCode::Conflict,
+                                     QStringLiteral("Unlock all destination tracks first."));
+                }
+                sourceIds.insert(oldId);
+                destinationIds.insert(newId);
+                earliest = std::min(earliest, clip->start);
+                originals.push_back({track->id, *clip});
+            }
+            for (qsizetype i = 0; i < clipIds.size(); ++i) {
+                Clip copy = originals.at(static_cast<size_t>(i)).clip;
+                const FrameCount relative = copy.start - earliest;
+                if (relative > kMaxTimelineFrames - start ||
+                    copy.duration > kMaxTimelineFrames - start - relative) {
+                    return makeError(
+                        ErrorCode::OutOfRange,
+                        QStringLiteral("The copied group exceeds the timeline limit."));
+                }
+                copy.start = start + relative;
+                copy.id = newClipIds.at(i);
+                if (const Status added = timeline.insertClip(
+                        originals.at(static_cast<size_t>(i)).trackId, copy, sources);
+                    !added) {
+                    return added;
+                }
+            }
+            // TimelineCommand applies the whole operation on a copy of the document:
+            // even a collision on the final destination clip cannot partially commit.
+            return {};
+        });
+}
+
 std::unique_ptr<EditCommand> insertGap(FrameCount frame, FrameCount duration)
 {
     return command(

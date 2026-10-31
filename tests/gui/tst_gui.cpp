@@ -333,6 +333,80 @@ private slots:
         m_app->project()->undo();
     }
 
+    void duplicateSelectionAtPlayheadRetainsGroupTimingAndReSelectsCopies()
+    {
+        auto* timeline = m_app->timeline();
+        const Project before = m_app->project()->project();
+        QVERIFY(!track(0).clips.empty());
+        QVERIFY(!track(2).clips.empty());
+        const Clip video = track(0).clips.back();
+        const Clip audio = track(2).clips.front();
+        const FrameCount earliest = std::min(video.start, audio.start);
+        const Id videoTrack = track(0).id;
+        const Id audioTrack = track(2).id;
+        timeline->clearSelection();
+        QVERIFY(!timeline->duplicateSelectionAtPlayhead());
+        timeline->select(video.id, false);
+        timeline->select(audio.id, true);
+
+        // A copy onto the originals must fail without changing selection or history.
+        m_app->playback()->seek(static_cast<double>(earliest));
+        const QStringList selectionBefore = timeline->selection();
+        const QString priorUndo = m_app->project()->undoText();
+        QVERIFY(!timeline->duplicateSelectionAtPlayhead());
+        QCOMPARE(timeline->selection(), selectionBefore);
+        QCOMPARE(m_app->project()->project(), before);
+        QCOMPARE(m_app->project()->undoText(), priorUndo);
+
+        // Insert enough empty space at frame zero to hold the selected group,
+        // keeping the original clips and offsets intact on their own tracks.
+        m_app->playback()->goToStart();
+        const int gap = static_cast<int>(before.timeline().duration() + 10);
+        QVERIFY(timeline->insertGapAtPlayhead(gap));
+        const Project gapped = m_app->project()->project();
+        QCOMPARE(gapped.timeline().clip(video.id)->start, video.start + gap);
+        QCOMPARE(gapped.timeline().clip(audio.id)->start, audio.start + gap);
+        QVERIFY(timeline->duplicateSelectionAtPlayhead());
+        const Project duplicated = m_app->project()->project();
+        QCOMPARE(duplicated.timeline().clipCount(), gapped.timeline().clipCount() + 2);
+        QCOMPARE(timeline->selection().size(), qsizetype{2});
+        QCOMPARE(m_app->project()->undoText(),
+                 QStringLiteral("Duplicate Selected Clips at Playhead"));
+
+        bool foundVideo = false;
+        bool foundAudio = false;
+        for (const Id& id : timeline->selection()) {
+            QVERIFY(id != video.id && id != audio.id);
+            const Clip* copy = duplicated.timeline().clip(id);
+            QVERIFY(copy);
+            const Id trackId = duplicated.timeline().trackOfClip(id)->id;
+            if (trackId == videoTrack) {
+                foundVideo = true;
+                QCOMPARE(copy->start, video.start - earliest);
+                QCOMPARE(copy->duration, video.duration);
+                QCOMPARE(copy->sourceIn, video.sourceIn);
+                QCOMPARE(copy->properties, video.properties);
+            } else if (trackId == audioTrack) {
+                foundAudio = true;
+                QCOMPARE(copy->start, audio.start - earliest);
+                QCOMPARE(copy->duration, audio.duration);
+                QCOMPARE(copy->sourceIn, audio.sourceIn);
+                QCOMPARE(copy->properties, audio.properties);
+            } else {
+                QFAIL("A duplicate was placed on an unexpected track");
+            }
+        }
+        QVERIFY(foundVideo && foundAudio);
+        m_app->project()->undo();
+        QCOMPARE(m_app->project()->project(), gapped);
+        m_app->project()->redo();
+        QCOMPARE(m_app->project()->project(), duplicated);
+        m_app->project()->undo();
+        m_app->project()->undo();
+        QCOMPARE(m_app->project()->project(), before);
+        timeline->clearSelection();
+    }
+
     void alignWholeSelectionToPlayheadKeepsRelativeTimingAndUndo()
     {
         auto* timeline = m_app->timeline();

@@ -188,6 +188,7 @@ ApplicationWindow {
             MenuSeparator {}
             Action { text: qsTr("&Split at Playhead"); shortcut: "S"; enabled: window.editKeys; onTriggered: window.app.timeline.splitAtPlayhead() }
             Action { text: qsTr("D&uplicate Selected Clips"); shortcut: "Ctrl+D"; enabled: window.editKeys && window.app.timeline.selection.length > 0; onTriggered: window.app.timeline.duplicateSelection() }
+            Action { text: qsTr("Duplicate Selection at Playhead"); shortcut: "Ctrl+Shift+D"; enabled: window.editKeys && window.app.timeline.selection.length > 0; onTriggered: window.app.timeline.duplicateSelectionAtPlayhead() }
             Menu {
                 title: qsTr("Nudge Selected Clips")
                 enabled: window.editKeys && window.app.timeline.selection.length > 0

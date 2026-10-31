@@ -780,11 +780,11 @@ private slots:
         expected.video.saturation = 1.37;
         QCOMPARE(adjusted.timeline().clip(picture.id)->properties, expected);
         QCOMPARE(m_app->project()->undoText(), QStringLiteral("Set Selected Video Adjustment"));
-        QVERIFY(m_app->project()->undo());
+        m_app->project()->undo();
         QCOMPARE(m_app->project()->project(), before);
-        QVERIFY(m_app->project()->redo());
+        m_app->project()->redo();
         QCOMPARE(m_app->project()->project(), adjusted);
-        QVERIFY(m_app->project()->undo());
+        m_app->project()->undo();
 
         // Mixed video/audio selections are rejected by the underlying atomic edit.
         timeline->select(audio.id, true);

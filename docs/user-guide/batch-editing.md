@@ -134,6 +134,26 @@ No original media files are modified. This command is development-only
 and does not appear in the v1.3.1 stable release.
 
 
+## Duplicate a selected group at the playhead (v1.4 development)
+
+Select one or several clips across video/audio tracks, then position the
+playhead at the **earliest desired copy start** and choose **Edit → Duplicate
+Selection at Playhead** (`Ctrl+Shift+D`). All copied clips keep their source
+In/Out frames, full picture/audio properties and source-anchored automation.
+Their original track assignments and relative time offsets are preserved.
+The editor selects the new copies so you can move or adjust them together.
+
+The operation is a single Undo/Redo step and **does not ripple or overwrite
+existing clips**. Place the playhead over a genuinely free interval on each
+affected track. Empty selections, duplicate/missing IDs, locked tracks,
+collisions, and copies beyond the project frame limit reject the entire edit
+without partially inserting clips or replacing the previous selection.
+Transitions at cuts are not duplicated: create the new transitions explicitly
+if required. The original **Duplicate Selected Clips** (`Ctrl+D`) action
+continues to append copies to the sequence instead.
+
+This is a development feature and is not included in stable v1.3.1.
+
 ## Align a group of clips to the playhead (v1.4 development)
 
 Select one or more clips on video and/or audio tracks, then choose **Edit →

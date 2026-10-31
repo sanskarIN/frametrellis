@@ -180,6 +180,20 @@ cannot normally move beyond the sequence's last visible frame, so aligning
 the very last clip end can move the group one frame earlier. This action is
 not available in stable v1.3.1.
 
+### Center the selection on the playhead
+
+Choose **Edit → Center Selection on Playhead** to shift the entire selected
+video/audio group until the midpoint of its outer `[start, end)` range
+matches the current playhead frame. The group retains its internal timing,
+tracks, source trims, fades, keyframes and all other clip attributes. For
+odd-length ranges, the center rounds down to the earlier whole frame.
+
+The edit is a single atomic **Nudge Clips** undo step; an empty selection,
+already-centered group, locked track, collision or movement before frame zero
+is refused without affecting the project or its history. As with start/end
+alignment, this does not change media content, markers, subtitles or
+unselected clips. It is not in stable v1.3.1.
+
 ## Apply fades to multiple selected clips (v1.4 development)
 
 Select several clips across video and audio tracks, then choose **Edit →

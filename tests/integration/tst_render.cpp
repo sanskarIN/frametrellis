@@ -1,5 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // SPDX-FileCopyrightText: 2026 Sanskar and FrameTrellis contributors
+#include "editing/project_document.h"
+#include "editing/timeline_edits.h"
 #include "engine/frame_utils.h"
 #include "engine/mlt_profile.h"
 #include "engine/mlt_runtime.h"
@@ -157,6 +159,47 @@ private slots:
         // The picture follows the edit: green first, then blue.
         QVERIFY(isCloseTo(averageColor(frameOf(settings.outputPath, 5)), Qt::green));
         QVERIFY(isCloseTo(averageColor(frameOf(settings.outputPath, 40)), Qt::blue));
+        QVERIFY(partFiles().isEmpty());
+    }
+
+    void helperExportsBatchAdjustedPictureOnBothVideoTracks()
+    {
+        if (!engine::MltRuntime::capabilities().eqFilter) {
+            QSKIP("avfilter.eq is not available in this MLT build");
+        }
+
+        Project p = project(25); // green video, frames [0, 25)
+        const Clip first = p.timeline().tracks()[0].clips.front();
+        Clip second = first;
+        second.id = createId();
+        second.start = 30;
+        second.sourceIn = 50; // blue source segment
+        second.duration = 25;
+        ProjectDocument doc{p};
+        QVERIFY(doc.execute(edits::addClip(doc.project().timeline().tracks()[1].id, second)));
+        QVERIFY(doc.execute(edits::setClipVideoAdjustment({first.id, second.id},
+                                                          QStringLiteral("saturation"), 0.0)));
+
+        RenderJob job(QStringLiteral(FT_RENDER_HELPER));
+        QSignalSpy finished(&job, &RenderJob::finished);
+        ExportSettings settings;
+        settings.outputPath = m_dir.filePath(QStringLiteral("batch-graded.mp4"));
+        settings.includeAudio = false;
+        settings.speedPreset = QStringLiteral("ultrafast");
+        QVERIFY(job.start(doc.project(), settings));
+        QVERIFY(finished.wait(60'000));
+        QVERIFY2(job.state() == RenderJob::State::Succeeded,
+                 qPrintable(job.errorMessage() + job.errorDetail()));
+        const QColor greenAfter = averageColor(frameOf(settings.outputPath, 5));
+        const QColor blueAfter = averageColor(frameOf(settings.outputPath, 35));
+        const auto grey = [](const QColor& color) {
+            return qAbs(color.red() - color.green()) < 35 &&
+                   qAbs(color.green() - color.blue()) < 35;
+        };
+        QVERIFY2(grey(greenAfter), qPrintable(greenAfter.name()));
+        QVERIFY2(grey(blueAfter), qPrintable(blueAfter.name()));
+        QVERIFY(!isCloseTo(greenAfter, Qt::green, 35));
+        QVERIFY(!isCloseTo(blueAfter, Qt::blue, 35));
         QVERIFY(partFiles().isEmpty());
     }
 

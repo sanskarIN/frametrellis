@@ -744,6 +744,65 @@ private slots:
         timeline->clearSelection();
     }
 
+    void customPictureAdjustmentDialogAcceptsExactPercentAndRejectsMixedSelection()
+    {
+        auto* timeline = m_app->timeline();
+        const Project before = m_app->project()->project();
+        const QString previousUndo = m_app->project()->undoText();
+        QVERIFY(!track(0).clips.empty());
+        QVERIFY(!track(2).clips.empty());
+        const Clip picture = track(0).clips.back();
+        const Clip audio = track(2).clips.front();
+
+        QObject* dialog = m_window->findChild<QObject*>(QStringLiteral("customPictureDialog"));
+        QVERIFY(dialog);
+        timeline->clearSelection();
+        timeline->select(picture.id, false);
+        QVERIFY(QMetaObject::invokeMethod(dialog, "openEditor"));
+        QTRY_VERIFY(dialog->property("visible").toBool());
+        QQuickItem* type =
+            findItem(m_window->contentItem(), QStringLiteral("customPictureProperty"));
+        QQuickItem* percent =
+            findItem(m_window->contentItem(), QStringLiteral("customPicturePercent"));
+        QQuickItem* apply =
+            findItem(m_window->contentItem(), QStringLiteral("customPictureApply"));
+        QVERIFY(type);
+        QVERIFY(percent);
+        QVERIFY(apply);
+        QVERIFY(type->setProperty("currentIndex", 2)); // saturation
+        QCOMPARE(percent->property("from").toInt(), 0);
+        QCOMPARE(percent->property("to").toInt(), 300);
+        QVERIFY(percent->setProperty("value", 137));
+        QTest::mouseClick(m_window, Qt::LeftButton, Qt::NoModifier, centreOf(apply));
+        QTRY_VERIFY(!dialog->property("visible").toBool());
+        const Project adjusted = m_app->project()->project();
+        ClipProperties expected = picture.properties;
+        expected.video.saturation = 1.37;
+        QCOMPARE(adjusted.timeline().clip(picture.id)->properties, expected);
+        QCOMPARE(m_app->project()->undoText(), QStringLiteral("Set Selected Video Adjustment"));
+        QVERIFY(m_app->project()->undo());
+        QCOMPARE(m_app->project()->project(), before);
+        QVERIFY(m_app->project()->redo());
+        QCOMPARE(m_app->project()->project(), adjusted);
+        QVERIFY(m_app->project()->undo());
+
+        // Mixed video/audio selections are rejected by the underlying atomic edit.
+        timeline->select(audio.id, true);
+        QVERIFY(QMetaObject::invokeMethod(dialog, "openEditor"));
+        QTRY_VERIFY(dialog->property("visible").toBool());
+        QVERIFY(type->setProperty("currentIndex", 0)); // brightness
+        QCOMPARE(percent->property("from").toInt(), -100);
+        QCOMPARE(percent->property("to").toInt(), 100);
+        QVERIFY(percent->setProperty("value", -17));
+        QTest::mouseClick(m_window, Qt::LeftButton, Qt::NoModifier, centreOf(apply));
+        QVERIFY(dialog->property("visible").toBool());
+        QCOMPARE(m_app->project()->project(), before);
+        QCOMPARE(m_app->project()->undoText(), previousUndo);
+        QVERIFY(QMetaObject::invokeMethod(dialog, "close"));
+        QTRY_VERIFY(!dialog->property("visible").toBool());
+        timeline->clearSelection();
+    }
+
     void selectedPictureAdjustmentPreservesOtherClipAttributes()
     {
         auto* timeline = m_app->timeline();

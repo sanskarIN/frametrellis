@@ -160,6 +160,32 @@ private slots:
         m_project->undo(); // importing every cue was one undo step
         QCOMPARE(m_subtitles->rowCount(), 0);
     }
+    void webVttExportIsProtectedAndDoesNotModifyProject()
+    {
+        QVERIFY(m_subtitles->addAtPlayhead());
+        QVERIFY(m_subtitles->updateSelected(QStringLiteral("00:00:00,001"),
+                                            QStringLiteral("00:00:01,002"),
+                                            QStringLiteral("नमस्ते <b>&</b>")));
+        QVERIFY(m_project->save());
+        const Project before = m_project->project();
+        const QString output = m_dir.filePath(QStringLiteral("captions.vtt"));
+        QVERIFY(m_subtitles->exportWebVtt(QUrl::fromLocalFile(output).toString()));
+        QCOMPARE(read(output), *webvtt::toBytes(before.subtitles()));
+        QCOMPARE(m_project->project(), before);
+        QVERIFY(!m_project->isModified());
+        QVERIFY(!m_project->canUndo() == false); // Export must not erase edit history.
+        QVERIFY(!m_subtitles->exportWebVtt(QStringLiteral("https://example.com/file.vtt")));
+        QVERIFY(!m_subtitles->exportWebVtt(m_dir.filePath(QStringLiteral("wrong.srt"))));
+        QVERIFY(!m_subtitles->exportWebVtt(m_dir.filePath(QStringLiteral("absent/file.vtt"))));
+        QCOMPARE(m_project->project(), before);
+        QVERIFY(open(before, QStringLiteral("project.vtt")));
+        const QByteArray saved = read(m_project->filePath());
+        QVERIFY(!m_subtitles->exportWebVtt(m_project->filePath()));
+        QCOMPARE(read(m_project->filePath()), saved);
+        QCOMPARE(m_project->project(), before);
+        QVERIFY(!m_project->isModified());
+    }
+
     void badFilesAndProtectedPathsLeaveExistingContentIntact()
     {
         const QString invalid = m_dir.filePath(QStringLiteral("invalid.srt"));

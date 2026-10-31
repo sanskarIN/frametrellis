@@ -709,6 +709,58 @@ std::unique_ptr<EditCommand> setClipGains(const QList<Id>& clipIds, double gain)
         });
 }
 
+std::unique_ptr<EditCommand> setClipOpacities(const QList<Id>& clipIds, double opacity)
+{
+    return command(
+        QStringLiteral("Set Selected Video Opacity"),
+        [clipIds, opacity](Timeline& timeline, const SourceLookup&) -> Status {
+            if (clipIds.isEmpty() || !std::isfinite(opacity) || opacity < 0.0 ||
+                opacity > 1.0) {
+                return makeError(ErrorCode::InvalidArgument,
+                                 QStringLiteral("Select video clips and a valid opacity."));
+            }
+
+            QSet<Id> visited;
+            bool changed = false;
+            for (const Id& id : clipIds) {
+                if (visited.contains(id)) {
+                    return makeError(ErrorCode::InvalidArgument,
+                                     QStringLiteral("A clip was selected twice."));
+                }
+                visited.insert(id);
+                const Clip* clip = timeline.clip(id);
+                const Track* track = timeline.trackOfClip(id);
+                if (!clip || !track) {
+                    return makeError(ErrorCode::NotFound,
+                                     QStringLiteral("A selected clip was not found."));
+                }
+                if (track->kind != TrackKind::Video) {
+                    return makeError(ErrorCode::InvalidArgument,
+                                     QStringLiteral("Only video-track clips support opacity."));
+                }
+                if (track->locked) {
+                    return makeError(
+                        ErrorCode::Conflict,
+                        QStringLiteral("Unlock selected tracks before changing video opacity."));
+                }
+                changed |= clip->properties.video.opacity != opacity;
+            }
+            if (!changed) {
+                return makeError(ErrorCode::InvalidArgument,
+                                 QStringLiteral("The selected clips already have this opacity."));
+            }
+
+            for (const Id& id : clipIds) {
+                ClipProperties properties = timeline.clip(id)->properties;
+                properties.video.opacity = opacity;
+                if (const Status updated = timeline.setClipProperties(id, properties); !updated) {
+                    return updated;
+                }
+            }
+            return {};
+        });
+}
+
 std::unique_ptr<EditCommand> resetClipPictures(const QList<Id>& clipIds)
 {
     return command(QStringLiteral("Reset Selected Pictures"),

@@ -112,6 +112,32 @@ private slots:
         QVERIFY(srt::fromBytes({})->cues.empty());
     }
 
+    void webVttExportPreservesTimesUnicodeAndLiteralText()
+    {
+        SubtitleTrack track;
+        track.cues = {
+            cue(QStringLiteral("one"), 1, 1002,
+                QStringLiteral("नमस्ते <b>&</b> 😀\nNext --> line")),
+            cue(QStringLiteral("two"), 3'723'004, 3'724'005, QStringLiteral("End"))};
+        const SubtitleTrack before = track;
+        const auto encoded = webvtt::toBytes(track);
+        QVERIFY(encoded);
+        QCOMPARE(*encoded,
+                 QStringLiteral("WEBVTT\n\n"
+                                "00:00:00.001 --> 00:00:01.002\n"
+                                "नमस्ते &lt;b&gt;&amp;&lt;/b&gt; 😀\nNext --&gt; line\n\n"
+                                "01:02:03.004 --> 01:02:04.005\nEnd\n\n")
+                     .toUtf8());
+        QCOMPARE(track, before); // Sidecar serialization is read-only.
+        QVERIFY(!encoded->contains('\r'));
+        QCOMPARE(*webvtt::toBytes(SubtitleTrack{}), QByteArray("WEBVTT\n\n"));
+        track.cues[1].startMs = 1000; // Overlap must not produce partial output.
+        QVERIFY(!webvtt::toBytes(track));
+        track.cues[1].startMs = 3'723'004;
+        track.cues[0].text = QStringLiteral("Invalid\n\ncaption");
+        QVERIFY(!webvtt::toBytes(track));
+    }
+
     void malformedSrtAndUnicodeAreRefused()
     {
         for (const QByteArray& bytes :

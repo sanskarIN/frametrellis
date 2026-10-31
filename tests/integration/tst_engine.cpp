@@ -1,5 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // SPDX-FileCopyrightText: 2026 Sanskar and FrameTrellis contributors
+#include "editing/project_document.h"
+#include "editing/timeline_edits.h"
 #include "engine/frame_utils.h"
 #include "engine/mlt_profile.h"
 #include "engine/mlt_runtime.h"
@@ -620,6 +622,50 @@ private slots:
         const QColor grey = averageColor(renderAt(p, 5));
         QVERIFY2(qAbs(grey.red() - grey.green()) < 25 && qAbs(grey.green() - grey.blue()) < 25,
                  qPrintable(grey.name()));
+    }
+
+    void batchPictureSaturationChangesTwoRenderedVideoClipsAndSurvivesUndo()
+    {
+        if (!engine::MltRuntime::capabilities().eqFilter) {
+            QSKIP("avfilter.eq is not available in this MLT build");
+        }
+        QList<Id> ids;
+        Project p = projectWith({m_media.red, m_media.blue}, &ids);
+        QCOMPARE(ids.size(), 2);
+        const Clip red = clipOf(ids[0], 0, 0, 25);
+        const Clip blue = clipOf(ids[1], 30, 0, 25);
+        QVERIFY(p.timeline().insertClip(p.timeline().tracks()[0].id, red, p.sourceLookup()));
+        QVERIFY(p.timeline().insertClip(p.timeline().tracks()[1].id, blue, p.sourceLookup()));
+        ProjectDocument doc{p};
+        const Project before = doc.project();
+        const QColor redBefore = averageColor(renderAt(doc.project(), 5));
+        const QColor blueBefore = averageColor(renderAt(doc.project(), 35));
+        QVERIFY2(isCloseTo(redBefore, Qt::red), qPrintable(redBefore.name()));
+        QVERIFY2(isCloseTo(blueBefore, Qt::blue), qPrintable(blueBefore.name()));
+
+        QVERIFY(doc.execute(edits::setClipVideoAdjustment(
+            {red.id, blue.id}, QStringLiteral("saturation"), 0.0)));
+        const QColor redAfter = averageColor(renderAt(doc.project(), 5));
+        const QColor blueAfter = averageColor(renderAt(doc.project(), 35));
+        const auto grey = [](const QColor& color) {
+            return qAbs(color.red() - color.green()) < 25 &&
+                   qAbs(color.green() - color.blue()) < 25;
+        };
+        QVERIFY2(grey(redAfter), qPrintable(redAfter.name()));
+        QVERIFY2(grey(blueAfter), qPrintable(blueAfter.name()));
+        QVERIFY(!isCloseTo(redAfter, redBefore, 25));
+        QVERIFY(!isCloseTo(blueAfter, blueBefore, 25));
+        const Project changed = doc.project();
+        QCOMPARE(doc.undoText(), QStringLiteral("Set Selected Video Adjustment"));
+
+        QVERIFY(doc.undo());
+        QCOMPARE(doc.project(), before);
+        QVERIFY(isCloseTo(averageColor(renderAt(doc.project(), 5)), redBefore, 5));
+        QVERIFY(isCloseTo(averageColor(renderAt(doc.project(), 35)), blueBefore, 5));
+        QVERIFY(doc.redo());
+        QCOMPARE(doc.project(), changed);
+        QVERIFY(isCloseTo(averageColor(renderAt(doc.project(), 5)), redAfter, 5));
+        QVERIFY(isCloseTo(averageColor(renderAt(doc.project(), 35)), blueAfter, 5));
     }
 
     void audioMixMuteAndGain()

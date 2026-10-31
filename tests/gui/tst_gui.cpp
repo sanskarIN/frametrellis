@@ -710,6 +710,47 @@ private slots:
         QCOMPARE(m_app->project()->project(), before);
     }
 
+    void navigateIndividualSelectedClipEdgesWithoutChangingTimeline()
+    {
+        auto* timeline = m_app->timeline();
+        const Project before = m_app->project()->project();
+        const QString undoBefore = m_app->project()->undoText();
+        QVERIFY(!track(0).clips.empty());
+        QVERIFY(!track(2).clips.empty());
+        const Clip picture = track(0).clips.back();
+        const Clip sound = track(2).clips.front();
+
+        timeline->clearSelection();
+        m_app->playback()->goToStart();
+        QVERIFY(!timeline->seekToSelectedClipEdge(true));
+        QVERIFY(!timeline->seekToSelectedClipEdge(false));
+        timeline->select(picture.id, false);
+        timeline->select(sound.id, true);
+        const QStringList selectionBefore = timeline->selection();
+
+        QList<FrameCount> edges{picture.start, picture.end() - 1, sound.start, sound.end() - 1};
+        std::sort(edges.begin(), edges.end());
+        edges.erase(std::unique(edges.begin(), edges.end()), edges.end());
+        QVERIFY(edges.size() >= 2);
+        m_app->playback()->seek(static_cast<double>(edges.front()));
+        for (qsizetype i = 1; i < edges.size(); ++i) {
+            QVERIFY(timeline->seekToSelectedClipEdge(true));
+            QCOMPARE(m_app->playback()->positionFrames(), edges.at(i));
+        }
+        QVERIFY(!timeline->seekToSelectedClipEdge(true));
+        QCOMPARE(m_app->playback()->positionFrames(), edges.back());
+        for (qsizetype i = edges.size() - 1; i > 0; --i) {
+            QVERIFY(timeline->seekToSelectedClipEdge(false));
+            QCOMPARE(m_app->playback()->positionFrames(), edges.at(i - 1));
+        }
+        QVERIFY(!timeline->seekToSelectedClipEdge(false));
+        QCOMPARE(m_app->playback()->positionFrames(), edges.front());
+        QCOMPARE(timeline->selection(), selectionBefore);
+        QCOMPARE(m_app->project()->project(), before);
+        QCOMPARE(m_app->project()->undoText(), undoBefore);
+        timeline->clearSelection();
+    }
+
     void navigateToSelectedRangeEdgesWithoutEditing()
     {
         auto* timeline = m_app->timeline();

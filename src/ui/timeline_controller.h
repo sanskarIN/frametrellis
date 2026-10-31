@@ -177,6 +177,9 @@ public:
     /// Seek to the earliest selected start or the last visible selected frame.
     /// Does not alter selection, project contents, or undo history.
     Q_INVOKABLE bool seekToSelectionBoundary(bool lastFrame);
+    /// Navigate next/previous first or final visible frame of any selected clip.
+    /// Skips duplicate edges; leaves the project and selection unchanged.
+    Q_INVOKABLE bool seekToSelectedClipEdge(bool forward);
     /// Sets one clip property ("gain", "muted", "fadeIn", "fadeOut", "brightness", "contrast",
     /// "saturation" or "opacity"). Repeated changes merge into one undo step until endEdit().
     Q_INVOKABLE bool setClipProperty(const QString& clipId, const QString& name,

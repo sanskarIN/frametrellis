@@ -89,6 +89,24 @@ FtDialog {
         }
         RowLayout {
             Layout.fillWidth: true
+            spacing: Theme.spacingS
+            Label {
+                text: qsTr("Shift all cues")
+                color: Theme.textMuted
+            }
+            FtButton { text: qsTr("−1 s"); enabled: dialog.subtitles.count > 0; onClicked: dialog.guarded(() => dialog.subtitles.shiftAll(-1000)) }
+            FtButton { text: qsTr("−100 ms"); enabled: dialog.subtitles.count > 0; onClicked: dialog.guarded(() => dialog.subtitles.shiftAll(-100)) }
+            FtButton { text: qsTr("+100 ms"); objectName: "subtitleShiftPlus100"; enabled: dialog.subtitles.count > 0; onClicked: dialog.guarded(() => dialog.subtitles.shiftAll(100)) }
+            FtButton { text: qsTr("+1 s"); enabled: dialog.subtitles.count > 0; onClicked: dialog.guarded(() => dialog.subtitles.shiftAll(1000)) }
+            Label {
+                Layout.fillWidth: true
+                text: qsTr("One undo step; original durations stay unchanged.")
+                color: Theme.textFaint
+                wrapMode: Text.WordWrap
+            }
+        }
+        RowLayout {
+            Layout.fillWidth: true
             FtCheckBox {
                 text: qsTr("Burn into preview and video")
                 objectName: "subtitleBurnIn"

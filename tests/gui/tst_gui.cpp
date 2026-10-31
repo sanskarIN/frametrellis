@@ -1696,6 +1696,18 @@ private slots:
         QTRY_VERIFY(!dialog->property("dirty").toBool());
         QCOMPARE(m_app->project()->project().subtitles().cues.front().startMs, 123);
         const SubtitleTrack applied = m_app->project()->project().subtitles();
+        QVERIFY(click(QStringLiteral("subtitleShiftPlus100")));
+        QTRY_COMPARE(m_app->project()->project().subtitles().cues.front().startMs, std::int64_t{223});
+        QVERIFY(click(QStringLiteral("subtitleUndo")));
+        QTRY_COMPARE(m_app->project()->project().subtitles(), applied);
+        QQuickItem* offset = findItem(m_window->contentItem(),
+                                      QStringLiteral("subtitleTimingOffset"));
+        QVERIFY(offset && offset->isVisible());
+        QVERIFY(offset->setProperty("value", 250));
+        QVERIFY(click(QStringLiteral("subtitleApplyTimingOffset")));
+        QTRY_COMPARE(m_app->project()->project().subtitles().cues.front().startMs, std::int64_t{373});
+        QVERIFY(click(QStringLiteral("subtitleUndo")));
+        QTRY_COMPARE(m_app->project()->project().subtitles(), applied);
         QVERIFY(click(QStringLiteral("subtitleUndo")));
         QTRY_COMPARE(m_app->project()->project().subtitles().cues.front().startMs, 0);
         m_app->project()->redo();

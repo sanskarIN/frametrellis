@@ -130,8 +130,8 @@ Acceptance criteria, each checked before the release:
   (PRs #103–#107, #110–#112).
 - ✅ Atomic bulk fade and audio-gain presets with per-clip duration/range checks,
   locked-track guards, unit/GUI regressions and undo/redo (PRs #114–#115).
-- 🚧 New video-opacity presets and selection-end alignment are under review
-  (PRs #116–#117); do not count them as integrated until merged.
+- ✅ Video-opacity presets for multi-clip selections and group selection-end
+  alignment to the playhead, with atomic validation and undo/redo (PRs #116–#117).
 - ⏳ Run final integrated Linux, Windows, sanitizer and package validation,
   complete documented hands-on editing/export checks, and review v1–v6
   project-format migrations before publishing any v1.4 preview or stable release.

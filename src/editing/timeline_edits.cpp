@@ -6,6 +6,7 @@
 #include <QSet>
 
 #include <algorithm>
+#include <cmath>
 
 namespace ft::edits {
 

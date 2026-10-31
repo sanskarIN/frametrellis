@@ -14,6 +14,7 @@ FtDialog {
     property var pendingAction: null
     signal importRequested()
     signal exportRequested()
+    signal exportWebVttRequested()
 
     title: qsTr("Subtitles")
     implicitWidth: 1000
@@ -75,6 +76,7 @@ FtDialog {
             Layout.fillWidth: true
             FtButton { text: qsTr("Import SRT…"); objectName: "subtitleImport"; onClicked: dialog.guarded(() => dialog.importRequested()) }
             FtButton { text: qsTr("Export SRT…"); enabled: dialog.subtitles.count > 0; onClicked: dialog.guarded(() => dialog.exportRequested()) }
+            FtButton { text: qsTr("Export WebVTT…"); objectName: "subtitleExportVtt"; enabled: dialog.subtitles.count > 0; onClicked: dialog.guarded(() => dialog.exportWebVttRequested()) }
             FtButton { text: qsTr("+ At playhead"); objectName: "subtitleAdd"; enabled: dialog.subtitles.canAdd; onClicked: dialog.guarded(() => dialog.subtitles.addAtPlayhead()) }
             Item { Layout.fillWidth: true }
             FtButton { text: qsTr("Undo"); objectName: "subtitleUndo"; enabled: dialog.app.project.canUndo; onClicked: dialog.guarded(() => dialog.app.project.undo()) }

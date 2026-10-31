@@ -461,6 +461,46 @@ private slots:
         timeline->clearSelection();
     }
 
+    void selectedVideoOpacityPreservesOtherClipProperties()
+    {
+        auto* timeline = m_app->timeline();
+        const Project before = m_app->project()->project();
+        const QString undoBefore = m_app->project()->undoText();
+        QVERIFY(!track(0).clips.empty());
+        QVERIFY(!track(2).clips.empty());
+        const Clip picture = track(0).clips.back();
+        const Clip sound = track(2).clips.front();
+        const double target = picture.properties.video.opacity == 0.5 ? 0.25 : 0.5;
+
+        timeline->clearSelection();
+        QVERIFY(!timeline->setSelectionOpacity(target));
+        timeline->select(picture.id, false);
+        timeline->select(sound.id, true);
+        QVERIFY(!timeline->setSelectionOpacity(target));
+        QCOMPARE(m_app->project()->project(), before);
+        QCOMPARE(m_app->project()->undoText(), undoBefore);
+
+        timeline->clearSelection();
+        timeline->select(picture.id, false);
+        QVERIFY(!timeline->setSelectionOpacity(std::numeric_limits<double>::quiet_NaN()));
+        QVERIFY(!timeline->setSelectionOpacity(1.1));
+        QVERIFY(timeline->setSelectionOpacity(target));
+        const Project changed = m_app->project()->project();
+        ClipProperties expected = picture.properties;
+        expected.video.opacity = target;
+        QCOMPARE(changed.timeline().clip(picture.id)->properties, expected);
+        QCOMPARE(m_app->project()->undoText(), QStringLiteral("Set Selected Video Opacity"));
+        QVERIFY(!timeline->setSelectionOpacity(target));
+        QCOMPARE(m_app->project()->project(), changed);
+        m_app->project()->undo();
+        QCOMPARE(m_app->project()->project(), before);
+        m_app->project()->redo();
+        QCOMPARE(m_app->project()->project(), changed);
+        m_app->project()->undo();
+        QCOMPARE(m_app->project()->project(), before);
+        timeline->clearSelection();
+    }
+
     void selectedAudioGainIsUndoableWithoutChangingOtherProperties()
     {
         auto* timeline = m_app->timeline();

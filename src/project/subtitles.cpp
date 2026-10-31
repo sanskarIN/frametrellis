@@ -230,4 +230,28 @@ Result<QByteArray> toBytes(const SubtitleTrack& track)
 }
 
 } // namespace srt
+
+namespace webvtt {
+
+Result<QByteArray> toBytes(const SubtitleTrack& track)
+{
+    if (const Status valid = validateSubtitles(track); !valid) {
+        return valid.error();
+    }
+    QByteArray bytes("WEBVTT\n\n");
+    for (const SubtitleCue& cue : track.cues) {
+        QString start = formatSubtitleTime(cue.startMs);
+        QString end = formatSubtitleTime(cue.endMs);
+        start.replace(QLatin1Char(','), QLatin1Char('.'));
+        end.replace(QLatin1Char(','), QLatin1Char('.'));
+        // WebVTT supports cue markup, but FrameTrellis captions are plain text.
+        // Escape it so a literal "<b>" or "-->" never changes the cue structure.
+        bytes += QStringLiteral("%1 --> %2\n%3\n\n")
+                     .arg(start, end, cue.text.toHtmlEscaped())
+                     .toUtf8();
+    }
+    return bytes;
+}
+
+} // namespace webvtt
 } // namespace ft

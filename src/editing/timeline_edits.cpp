@@ -221,8 +221,8 @@ std::unique_ptr<EditCommand> duplicateClips(const QList<Id>& clipIds, const QLis
         });
 }
 
-std::unique_ptr<EditCommand> duplicateClipsAt(const QList<Id>& clipIds,
-                                               const QList<Id>& newClipIds, FrameCount start)
+std::unique_ptr<EditCommand> duplicateClipsAt(const QList<Id>& clipIds, const QList<Id>& newClipIds,
+                                              FrameCount start)
 {
     return command(
         QStringLiteral("Duplicate Selected Clips at Playhead"),
@@ -270,8 +270,9 @@ std::unique_ptr<EditCommand> duplicateClipsAt(const QList<Id>& clipIds,
                 const FrameCount relative = copy.start - earliest;
                 if (relative > kMaxTimelineFrames - start ||
                     copy.duration > kMaxTimelineFrames - start - relative) {
-                    return makeError(ErrorCode::OutOfRange,
-                                     QStringLiteral("The copied group exceeds the timeline limit."));
+                    return makeError(
+                        ErrorCode::OutOfRange,
+                        QStringLiteral("The copied group exceeds the timeline limit."));
                 }
                 copy.start = start + relative;
                 copy.id = newClipIds.at(i);

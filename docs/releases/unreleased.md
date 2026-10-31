@@ -63,13 +63,32 @@ below. No v1.4 release is declared by these notes.
 - [#100](https://github.com/sanskarIN/frametrellis/pull/100): undoable same-kind
   adjacent track reordering from track headers, preserving clip contents and media.
 
-- [#103](https://github.com/sanskarIN/frametrellis/pull/103): proposed atomic
-  multi-track gap insertion at the playhead, preserving source trims, automation
-  and safe transitions. Under review, not in the published stable release.
+- [#103](https://github.com/sanskarIN/frametrellis/pull/103) and
+  [#104](https://github.com/sanskarIN/frametrellis/pull/104): undoable multi-track
+  insertion of empty time and removal of verified empty intervals, retaining
+  source trims, automation and transition safety.
+- [#105](https://github.com/sanskarIN/frametrellis/pull/105): append frame-accurate
+  media excerpts from a chosen source range.
+- [#106](https://github.com/sanskarIN/frametrellis/pull/106) and
+  [#107](https://github.com/sanskarIN/frametrellis/pull/107): trim a single selected
+  clip to the playhead, and select whole clips before or after the cursor.
+- [#108](https://github.com/sanskarIN/frametrellis/pull/108): v1.4 development
+  acceptance audit and additional manual release gates.
+- [#109](https://github.com/sanskarIN/frametrellis/pull/109): formula-safe CSV
+  media inventory export.
+- [#110](https://github.com/sanskarIN/frametrellis/pull/110): align the earliest
+  selected clip start to the playhead while keeping multi-track offsets.
+- [#111](https://github.com/sanskarIN/frametrellis/pull/111): exact frame-count
+  gap insertion/removal dialog and close-empty-gap-to-next-clip command.
+- [#112](https://github.com/sanskarIN/frametrellis/pull/112): seek to the first or
+  final visible frame of a selected clip range without modifying edit history.
+- [#114](https://github.com/sanskarIN/frametrellis/pull/114): atomic selected
+  video/audio clip fade presets and fade clearing, with per-clip duration clamping.
+- [#115](https://github.com/sanskarIN/frametrellis/pull/115): undoable batch
+  audio-gain presets, with range validation and locked-track safety.
 
-- A follow-up to [#103](https://github.com/sanskarIN/frametrellis/pull/103)
-  proposes safe multi-track removal of confirmed empty time; the dependent
-  pull request must pass its own checks before integration.
+All of these are integrated on the development `main` branch, not included
+in the published stable v1.3.1 binaries.
 
 ## Volume automation
 

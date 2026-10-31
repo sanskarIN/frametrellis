@@ -1258,6 +1258,45 @@ bool TimelineController::seekToSelectionBoundary(bool lastFrame)
     return true;
 }
 
+bool TimelineController::seekToSelectedClipEdge(bool forward)
+{
+    if (m_selection.isEmpty()) {
+        emit statusMessage(QStringLiteral("Select clips to navigate their edges."));
+        return false;
+    }
+    std::vector<FrameCount> edges;
+    edges.reserve(static_cast<size_t>(m_selection.size()) * 2);
+    const Timeline& timeline = project().timeline();
+    for (const Id& id : m_selection) {
+        const Clip* clip = timeline.clip(id);
+        if (!clip) {
+            return false;
+        }
+        edges.push_back(clip->start);
+        edges.push_back(clip->end() - 1);
+    }
+    std::sort(edges.begin(), edges.end());
+    edges.erase(std::unique(edges.begin(), edges.end()), edges.end());
+
+    const FrameCount position = m_playback->positionFrames();
+    FrameCount target = position;
+    if (forward) {
+        const auto next = std::upper_bound(edges.begin(), edges.end(), position);
+        if (next == edges.end()) {
+            return false;
+        }
+        target = *next;
+    } else {
+        const auto previous = std::lower_bound(edges.begin(), edges.end(), position);
+        if (previous == edges.begin()) {
+            return false;
+        }
+        target = *(previous - 1);
+    }
+    m_playback->seek(static_cast<double>(target));
+    return true;
+}
+
 bool TimelineController::setClipProperty(const QString& clipId, const QString& name,
                                          const QVariant& value)
 {

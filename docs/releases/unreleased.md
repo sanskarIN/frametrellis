@@ -90,6 +90,15 @@ below. No v1.4 release is declared by these notes.
   presets across selected video clips, preserving source-anchored automation.
 - [#117](https://github.com/sanskarIN/frametrellis/pull/117): align a multi-track
   selection's latest exclusive end to the playhead with undo/redo.
+- [#119](https://github.com/sanskarIN/frametrellis/pull/119): undoable multi-video
+  brightness, contrast and saturation presets, with atomic validation and
+  preservation of opacity, automation, fades and source trims.
+- [#120](https://github.com/sanskarIN/frametrellis/pull/120): manual v1.4
+  editing, preview/export, format-compatibility and clean-package acceptance
+  checklist. The checklist does **not** assert that manual testing has passed.
+- [#122](https://github.com/sanskarIN/frametrellis/pull/122): duplicate selected
+  video/audio clips at the playhead, preserving inter-clip timing and track
+  assignments with collision-safe atomic undo/redo.
 
 All of these are integrated on the development `main` branch, not included
 in the published stable v1.3.1 binaries.

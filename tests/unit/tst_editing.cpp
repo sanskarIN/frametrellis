@@ -295,6 +295,68 @@ private slots:
         QCOMPARE(f.doc.project(), before);
     }
 
+    void batchFadeClampsToIndividualClipLengthsAndPreservesOtherProperties()
+    {
+        Fixture f;
+        Clip picture = clipOf(QStringLiteral("m1"), 0, 40, QStringLiteral("picture"));
+        picture.properties.fadeOut = 15;
+        picture.properties.gain = 0.6;
+        Clip audio = clipOf(QStringLiteral("m1"), 20, 12, QStringLiteral("audio"));
+        audio.properties.video.saturation = 0.8;
+        QVERIFY(f.doc.execute(edits::addClip(f.v1, picture)));
+        QVERIFY(f.doc.execute(edits::addClip(f.a1, audio)));
+        const Project before = f.doc.project();
+
+        QVERIFY(f.doc.execute(edits::setClipFades({picture.id, audio.id}, 30, false)));
+        const Timeline& changed = f.doc.project().timeline();
+        QCOMPARE(changed.clip(picture.id)->properties.fadeIn, FrameCount{25});
+        QCOMPARE(changed.clip(picture.id)->properties.fadeOut, FrameCount{15});
+        QCOMPARE(changed.clip(audio.id)->properties.fadeIn, FrameCount{12});
+        QCOMPARE(changed.clip(audio.id)->properties.fadeOut, FrameCount{0});
+        QCOMPARE(changed.clip(picture.id)->properties.gain, picture.properties.gain);
+        QCOMPARE(changed.clip(audio.id)->properties.video, audio.properties.video);
+        QCOMPARE(f.doc.undoText(), QStringLiteral("Set Selected Fade Ins"));
+        const Project after = f.doc.project();
+        QVERIFY(f.doc.undo());
+        QCOMPARE(f.doc.project(), before);
+        QVERIFY(f.doc.redo());
+        QCOMPARE(f.doc.project(), after);
+
+        QVERIFY(f.doc.execute(edits::setClipFades({picture.id, audio.id}, 10, true)));
+        const Timeline& withOut = f.doc.project().timeline();
+        QCOMPARE(withOut.clip(picture.id)->properties.fadeOut, FrameCount{10});
+        QCOMPARE(withOut.clip(audio.id)->properties.fadeOut, FrameCount{0});
+        QVERIFY(f.doc.undo());
+        QCOMPARE(f.doc.project(), after);
+    }
+
+    void batchFadeRejectsLockedDuplicateMissingAndNoOpAtomically()
+    {
+        Fixture f;
+        Clip picture = clipOf(QStringLiteral("m1"), 0, 30, QStringLiteral("picture"));
+        Clip audio = clipOf(QStringLiteral("m1"), 0, 20, QStringLiteral("audio"));
+        QVERIFY(f.doc.execute(edits::addClip(f.v1, picture)));
+        QVERIFY(f.doc.execute(edits::addClip(f.a1, audio)));
+        const Project before = f.doc.project();
+        const QString undo = f.doc.undoText();
+        QVERIFY(!f.doc.execute(edits::setClipFades({}, 10, false)));
+        QVERIFY(!f.doc.execute(edits::setClipFades({picture.id, picture.id}, 10, false)));
+        QVERIFY(!f.doc.execute(
+            edits::setClipFades({picture.id, QStringLiteral("missing")}, 10, false)));
+        QVERIFY(!f.doc.execute(edits::setClipFades({picture.id}, -1, false)));
+        QVERIFY(!f.doc.execute(edits::setClipFades({picture.id}, kMaxTimelineFrames + 1, false)));
+        QVERIFY(!f.doc.execute(edits::setClipFades({picture.id, audio.id}, 0, false)));
+        QCOMPARE(f.doc.project(), before);
+        QCOMPARE(f.doc.undoText(), undo);
+
+        QVERIFY(f.doc.execute(edits::setTrackLocked(f.a1, true)));
+        const Project locked = f.doc.project();
+        const QString lockedUndo = f.doc.undoText();
+        QVERIFY(!f.doc.execute(edits::setClipFades({picture.id, audio.id}, 10, false)));
+        QCOMPARE(f.doc.project(), locked);
+        QCOMPARE(f.doc.undoText(), lockedUndo);
+    }
+
     void undoRedoRestoresExactStates()
     {
         Fixture f;

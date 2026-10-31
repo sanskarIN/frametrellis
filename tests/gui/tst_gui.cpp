@@ -427,6 +427,40 @@ private slots:
         timeline->clearSelection();
     }
 
+    void navigateToSelectedRangeEdgesWithoutEditing()
+    {
+        auto* timeline = m_app->timeline();
+        const Project before = m_app->project()->project();
+        const QString undoBefore = m_app->project()->undoText();
+        const bool wasModified = m_app->project()->isModified();
+        QVERIFY(!track(0).clips.empty());
+        QVERIFY(!track(2).clips.empty());
+        const Clip picture = track(0).clips.back();
+        const Clip sound = track(2).clips.front();
+
+        timeline->clearSelection();
+        m_app->playback()->seek(13);
+        const FrameCount emptyPosition = m_app->playback()->positionFrames();
+        QVERIFY(!timeline->seekToSelectionBoundary(false));
+        QVERIFY(!timeline->seekToSelectionBoundary(true));
+        QCOMPARE(m_app->playback()->positionFrames(), emptyPosition);
+
+        timeline->select(picture.id, false);
+        timeline->select(sound.id, true);
+        const QStringList originalSelection = timeline->selection();
+        const FrameCount first = std::min(picture.start, sound.start);
+        const FrameCount last = std::max(picture.end(), sound.end()) - 1;
+        QVERIFY(timeline->seekToSelectionBoundary(false));
+        QCOMPARE(m_app->playback()->positionFrames(), first);
+        QVERIFY(timeline->seekToSelectionBoundary(true));
+        QCOMPARE(m_app->playback()->positionFrames(), last);
+        QCOMPARE(timeline->selection(), originalSelection);
+        QCOMPARE(m_app->project()->project(), before);
+        QCOMPARE(m_app->project()->undoText(), undoBefore);
+        QCOMPARE(m_app->project()->isModified(), wasModified);
+        timeline->clearSelection();
+    }
+
     void selectionZoomAndPlayheadCenterPreserveProject()
     {
         auto* timeline = m_app->timeline();

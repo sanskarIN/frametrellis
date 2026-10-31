@@ -294,6 +294,8 @@ ApplicationWindow {
             Action { text: qsTr("Forward One Second"); shortcut: "Shift+Right"; enabled: window.editKeys; onTriggered: window.app.playback.step(Math.round(window.app.timeline.frameRate)) }
             Action { text: qsTr("Previous Edit Point"); shortcut: "Up"; enabled: window.editKeys; onTriggered: window.app.timeline.previousEditPoint() }
             Action { text: qsTr("Next Edit Point"); shortcut: "Down"; enabled: window.editKeys; onTriggered: window.app.timeline.nextEditPoint() }
+            Action { text: qsTr("Go to Selection Start"); enabled: window.editKeys && window.app.timeline.selection.length > 0; onTriggered: window.app.timeline.seekToSelectionBoundary(false) }
+            Action { text: qsTr("Go to Selection Last Frame"); enabled: window.editKeys && window.app.timeline.selection.length > 0; onTriggered: window.app.timeline.seekToSelectionBoundary(true) }
             Action { text: qsTr("&Go to Timecode…"); shortcut: "Ctrl+G"; enabled: window.editKeys && !window.app.timeline.empty; onTriggered: goToTimecodeDialog.open() }
             MenuSeparator {}
             Action { text: qsTr("Add Timeline &Marker…"); shortcut: "Shift+M"; enabled: window.editKeys; onTriggered: markerDialog.openNew(window.app.playback.position) }

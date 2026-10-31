@@ -112,6 +112,9 @@ public:
     /// Shift the whole selection so its latest exclusive end meets the playhead.
     /// Retains inter-clip offsets and delegates safety validation to the undoable nudge engine.
     Q_INVOKABLE bool alignSelectionEndToPlayhead();
+    /// Move the integer midpoint of the selected [start, end) range to the playhead.
+    /// Uses the same atomic, collision-checked multi-track nudge as start/end alignment.
+    Q_INVOKABLE bool alignSelectionCenterToPlayhead();
     /// Trim the selected clip's start or exclusive end to the playhead.
     /// Rejects unsafe transition edits rather than silently removing a transition.
     Q_INVOKABLE bool trimSelectionToPlayhead(bool trimEnd);

@@ -448,6 +448,77 @@ private slots:
         timeline->clearSelection();
     }
 
+    void centerSelectedRangeOnPlayheadPreservesGroupAndRejectsUnsafeMoves()
+    {
+        auto* timeline = m_app->timeline();
+        const Project original = m_app->project()->project();
+        timeline->clearSelection();
+        QVERIFY(!timeline->alignSelectionCenterToPlayhead());
+
+        // Shift every clip away from zero so a one-frame group move is safe.
+        m_app->playback()->goToStart();
+        QVERIFY(timeline->insertGapAtPlayhead(10));
+        const Project gapped = m_app->project()->project();
+        timeline->selectAll();
+        const QStringList selected = timeline->selection();
+        QVERIFY(!selected.isEmpty());
+        const QVariantMap bounds = timeline->selectedFrameRange();
+        const FrameCount start =
+            static_cast<FrameCount>(bounds.value(QStringLiteral("start")).toDouble());
+        const FrameCount end =
+            static_cast<FrameCount>(bounds.value(QStringLiteral("end")).toDouble());
+        QVERIFY(end > start);
+        QVERIFY(start >= 10);
+        const FrameCount midpoint = start + (end - start) / 2;
+        QVERIFY(midpoint >= 1);
+        m_app->playback()->seek(static_cast<double>(midpoint - 1));
+        QVERIFY(timeline->alignSelectionCenterToPlayhead());
+
+        const Project centered = m_app->project()->project();
+        for (const Id& id : selected) {
+            const Clip* before = gapped.timeline().clip(id);
+            const Clip* after = centered.timeline().clip(id);
+            QVERIFY(before);
+            QVERIFY(after);
+            QCOMPARE(after->start, before->start - FrameCount{1});
+            QCOMPARE(after->sourceIn, before->sourceIn);
+            QCOMPARE(after->duration, before->duration);
+            QCOMPARE(after->properties, before->properties);
+        }
+        QCOMPARE(timeline->selection(), selected);
+        QCOMPARE(m_app->project()->undoText(), QStringLiteral("Nudge Clips Left"));
+        const QVariantMap newBounds = timeline->selectedFrameRange();
+        const FrameCount newStart =
+            static_cast<FrameCount>(newBounds.value(QStringLiteral("start")).toDouble());
+        const FrameCount newEnd =
+            static_cast<FrameCount>(newBounds.value(QStringLiteral("end")).toDouble());
+        QCOMPARE(newStart + (newEnd - newStart) / 2, midpoint - FrameCount{1});
+        const QString undoBefore = m_app->project()->undoText();
+        QVERIFY(!timeline->alignSelectionCenterToPlayhead());
+        QCOMPARE(m_app->project()->undoText(), undoBefore);
+
+        m_app->playback()->goToStart();
+        QVERIFY(!timeline->alignSelectionCenterToPlayhead());
+        QCOMPARE(m_app->project()->project(), centered);
+        QCOMPARE(m_app->project()->undoText(), undoBefore);
+
+        m_app->project()->undo();
+        QCOMPARE(m_app->project()->project(), gapped);
+        const Id firstVideoTrackId = gapped.timeline().tracks().front().id;
+        QVERIFY(timeline->setTrackFlag(firstVideoTrackId, QStringLiteral("locked"), true));
+        const Project locked = m_app->project()->project();
+        const QString lockedUndo = m_app->project()->undoText();
+        m_app->playback()->seek(static_cast<double>(midpoint - 1));
+        QVERIFY(!timeline->alignSelectionCenterToPlayhead());
+        QCOMPARE(m_app->project()->project(), locked);
+        QCOMPARE(m_app->project()->undoText(), lockedUndo);
+        m_app->project()->undo();
+        QCOMPARE(m_app->project()->project(), gapped);
+        m_app->project()->undo();
+        QCOMPARE(m_app->project()->project(), original);
+        timeline->clearSelection();
+    }
+
     void alignWholeSelectionEndToPlayheadPreservesClipTimingAndHistory()
     {
         auto* timeline = m_app->timeline();

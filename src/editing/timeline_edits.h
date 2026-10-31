@@ -82,7 +82,7 @@ std::unique_ptr<EditCommand> setClipOpacities(const QList<Id>& clipIds, double o
 /// Set a shared brightness, contrast or saturation value across video clips.
 /// Validate every clip and track first so a failed batch never partially edits.
 std::unique_ptr<EditCommand> setClipVideoAdjustment(const QList<Id>& clipIds,
-                                                     const QString& property, double value);
+                                                    const QString& property, double value);
 /// Reset picture adjustments and opacity curves without changing sound or fades.
 std::unique_ptr<EditCommand> resetClipPictures(const QList<Id>& clipIds);
 std::unique_ptr<EditCommand> resetClipPicture(const Id& clipId);

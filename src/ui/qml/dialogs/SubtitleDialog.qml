@@ -107,6 +107,32 @@ FtDialog {
         }
         RowLayout {
             Layout.fillWidth: true
+            spacing: Theme.spacingS
+            Label { text: qsTr("Custom timing offset (ms)"); color: Theme.textMuted }
+            SpinBox {
+                id: subtitleOffset
+                objectName: "subtitleTimingOffset"
+                from: -3600000
+                to: 3600000
+                value: 0
+                editable: true
+                Accessible.name: qsTr("Shift all subtitle cues by this many milliseconds")
+            }
+            FtButton {
+                text: qsTr("Apply offset")
+                objectName: "subtitleApplyTimingOffset"
+                enabled: dialog.subtitles.count > 0 && subtitleOffset.value !== 0
+                onClicked: dialog.guarded(() => dialog.subtitles.shiftAll(subtitleOffset.value))
+            }
+            Label {
+                Layout.fillWidth: true
+                text: qsTr("Negative moves earlier; positive moves later.")
+                color: Theme.textFaint
+                wrapMode: Text.WordWrap
+            }
+        }
+        RowLayout {
+            Layout.fillWidth: true
             FtCheckBox {
                 text: qsTr("Burn into preview and video")
                 objectName: "subtitleBurnIn"

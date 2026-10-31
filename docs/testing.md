@@ -101,6 +101,24 @@ confirm that unrelated clip attributes are preserved and that a failed edit make
 no partial changes. A real QML GUI test drives Ctrl+D and the clip attribute
 clipboard shortcuts and inspects the resulting timeline and undo state.
 
+## Batch picture changes: pixels, export and history (v1.4 development)
+
+The batch picture adjustment editing unit tests check that brightness, contrast
+and saturation presets affect exactly the chosen video properties and reject
+invalid selections atomically. The `tst_engine` integration regression also
+renders two separate video clips after a shared saturation preset, checks the
+actual grayscale pixels and confirms that Undo and Redo restore the exact
+rendered images. The `tst_render` integration regression runs the real export
+helper and inspects decoded MP4 frames from two graded video tracks. Together
+these test both the preview-graph path and the exported picture rather than
+relying only on the serialized property values.
+
+These tests need MLT's `avfilter.eq` capability. If that optional filter is
+missing, the targeted tests skip with an explicit reason; that does **not**
+count as positive color-grading verification for a release. The additional
+manual v1.4 matrix remains necessary for interactive performance, GPU
+preview and complete output-quality validation.
+
 ## Windows portable GUI stability checks (v1.2.1 work in progress)
 
 The Windows package workflow builds a portable ZIP and an installer, then opens the editor

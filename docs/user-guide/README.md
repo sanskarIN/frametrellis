@@ -341,7 +341,12 @@ Appearance changes, cue edits, import, removal and clearing are undoable.
 **Export SRT…** saves every cue atomically, including cues beyond the video and
 very short cues with no sampled video frame. It does not alter the project or
 its history; SRT contains text and exact millisecond times, without styling.
-Turn burn-in off for sidecar-only delivery. SRT export is separate from MP4 export;
+Use **Export WebVTT…** for an additional UTF-8 `.vtt` sidecar suitable for web players.
+WebVTT preserves exact millisecond cue boundaries, Unicode, line breaks and literal
+markup characters (`<`, `>` and `&`) as displayed text, not styling. Both exports
+use protected atomic file writes, reject remote URLs and refuse paths that point
+to the project or imported source media. Neither modifies the project or undo history.
+Turn burn-in off for sidecar-only delivery. Sidecar export is separate from MP4 export;
 the MP4 does not contain a switchable subtitle stream.
 
 Times remain exact milliseconds at fractional frame rates; picture frames sample

@@ -16,19 +16,20 @@
 
 namespace ft::ui {
 namespace {
-Result<QString> srtPath(const QString& input)
+Result<QString> subtitlePath(const QString& input, const QString& extension)
 {
     const QUrl url(input);
     const bool drive = input.size() >= 3 && input.at(0).isLetter() &&
                        input.at(1) == QLatin1Char(':') &&
                        (input.at(2) == QLatin1Char('/') || input.at(2) == QLatin1Char('\\'));
     if (input.isEmpty() || (!url.scheme().isEmpty() && !url.isLocalFile() && !drive)) {
-        return makeError(ErrorCode::InvalidArgument, QStringLiteral("Choose a local .srt file."));
+        return makeError(ErrorCode::InvalidArgument,
+                         QStringLiteral("Choose a local .%1 file.").arg(extension));
     }
     const QString path = ProjectController::localPath(input);
-    if (QFileInfo(path).suffix().compare(QLatin1String("srt"), Qt::CaseInsensitive) != 0) {
+    if (QFileInfo(path).suffix().compare(extension, Qt::CaseInsensitive) != 0) {
         return makeError(ErrorCode::InvalidArgument,
-                         QStringLiteral("Choose a file with the .srt extension."));
+                         QStringLiteral("Choose a file with the .%1 extension.").arg(extension));
     }
     return path;
 }
@@ -303,7 +304,7 @@ bool SubtitleController::resetAppearance()
 
 bool SubtitleController::importSrt(const QString& input)
 {
-    const auto path = srtPath(input);
+    const auto path = subtitlePath(input, QStringLiteral("srt"));
     if (!path)
         return fail(path.error().message);
     if (!QFileInfo(*path).isFile())
@@ -328,7 +329,7 @@ bool SubtitleController::importSrt(const QString& input)
 
 bool SubtitleController::exportSrt(const QString& input)
 {
-    const auto path = srtPath(input);
+    const auto path = subtitlePath(input, QStringLiteral("srt"));
     if (!path)
         return fail(path.error().message);
     const auto& project = m_project->project();
@@ -345,6 +346,28 @@ bool SubtitleController::exportSrt(const QString& input)
         return fail(tr("Could not save the SRT file. The previous file was kept."));
     setError({});
     emit statusMessage(tr("Exported %1 subtitle cues.").arg(m_track.cues.size()));
+    return true;
+}
+
+bool SubtitleController::exportWebVtt(const QString& input)
+{
+    const auto path = subtitlePath(input, QStringLiteral("vtt"));
+    if (!path)
+        return fail(path.error().message);
+    const auto& project = m_project->project();
+    if (project.assetByPath(*path) ||
+        (!m_project->filePath().isEmpty() &&
+         canonicalMediaKey(*path) == canonicalMediaKey(m_project->filePath())))
+        return fail(tr("Choose a WebVTT path separate from the project and its source media."));
+    const auto bytes = webvtt::toBytes(project.subtitles());
+    if (!bytes)
+        return fail(bytes.error().message);
+    QSaveFile file(*path);
+    file.setDirectWriteFallback(false);
+    if (!file.open(QIODevice::WriteOnly) || file.write(*bytes) != bytes->size() || !file.commit())
+        return fail(tr("Could not save the WebVTT file. The previous file was kept."));
+    setError({});
+    emit statusMessage(tr("Exported %1 WebVTT subtitle cues.").arg(m_track.cues.size()));
     return true;
 }
 

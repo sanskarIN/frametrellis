@@ -67,6 +67,7 @@ public:
     Q_INVOKABLE void clearError() { setError({}); }
     Q_INVOKABLE bool importSrt(const QString& pathOrUrl);
     Q_INVOKABLE bool exportSrt(const QString& pathOrUrl);
+    Q_INVOKABLE bool exportWebVtt(const QString& pathOrUrl);
     Q_INVOKABLE QString playheadTimestamp() const;
     /// Returns only visible sampled cue spans, keeping timeline item count proportional to the
     /// viewport.

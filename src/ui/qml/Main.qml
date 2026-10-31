@@ -19,7 +19,7 @@ ApplicationWindow {
     readonly property bool dialogOpen: newDialog.visible || titleDialog.visible || exportDialog.visible || aboutDialog.visible
                                        || shortcutsDialog.visible || goToTimecodeDialog.visible || markerDialog.visible || welcome.visible || messageBox.visible
                                        || unsavedDialog.visible || exportRunningDialog.visible || recoveryDialog.visible
-                                       || subtitleDialog.visible || subtitleImportDialog.visible || subtitleExportDialog.visible
+                                       || subtitleDialog.visible || subtitleImportDialog.visible || subtitleExportDialog.visible || subtitleVttExportDialog.visible
                                        || previewFrameDialog.visible || clipListDialog.visible || mediaAuditCsvDialog.visible || preciseGapDialog.visible || mediaPanel.excerptDialogOpen
     readonly property bool editKeys: !dialogOpen
 
@@ -626,6 +626,16 @@ ApplicationWindow {
         selectedFile: window.app.fileUrl(window.app.project.projectFolder() + "/" + window.app.project.suggestedFileName().replace(/\.ftproj$/i, ".srt"))
         onAccepted: window.app.subtitles.exportSrt(window.app.localPath(selectedFile))
     }
+    FileDialog {
+        id: subtitleVttExportDialog
+        title: qsTr("Export WebVTT subtitles")
+        fileMode: FileDialog.SaveFile
+        defaultSuffix: "vtt"
+        nameFilters: [qsTr("WebVTT subtitles (*.vtt)")]
+        currentFolder: window.app.fileUrl(window.app.project.projectFolder())
+        selectedFile: window.app.fileUrl(window.app.project.projectFolder() + "/" + window.app.project.suggestedFileName().replace(/\.ftproj$/i, ".vtt"))
+        onAccepted: window.app.subtitles.exportWebVtt(window.app.localPath(selectedFile))
+    }
 
     FtDialog {
         id: preciseGapDialog
@@ -711,6 +721,7 @@ ApplicationWindow {
         app: window.app
         onImportRequested: subtitleImportDialog.open()
         onExportRequested: subtitleExportDialog.open()
+        onExportWebVttRequested: subtitleVttExportDialog.open()
     }
     WelcomeOverlay { id: welcome; objectName: "welcome"; app: window.app; onImportRequested: importDialog.open() }
     MessageBox { id: messageBox }

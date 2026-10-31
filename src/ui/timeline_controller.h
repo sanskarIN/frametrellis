@@ -127,6 +127,9 @@ public:
     Q_INVOKABLE bool closeEmptyGapToNextClip();
     /// Duplicates a single selected clip, or a time-aligned block of several selected clips.
     Q_INVOKABLE bool duplicateSelection();
+    /// Copy the entire selected group so its earliest clip starts at the playhead.
+    /// Re-select the copies on success; reject collisions without changing selection.
+    Q_INVOKABLE bool duplicateSelectionAtPlayhead();
     /// Shift all selected clips by signed project frames without changing their source trims.
     Q_INVOKABLE bool nudgeSelection(int frames);
     /// Slip source time on every selected clip, keeping track placement and clip duration.

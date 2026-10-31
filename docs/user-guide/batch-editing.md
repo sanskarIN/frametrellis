@@ -145,6 +145,21 @@ collision with an unselected clip, timeline overflow or an unsafe transition
 rejects the whole edit. Empty selections and no-op alignment create no undo
 entry. This does not ripple, trim or move unselected clips.
 
+### Align the selection end to the playhead
+
+Use **Edit → Align Selection End to Playhead** to move the *latest exclusive
+end* of selected video/audio clips to the playhead. All selected clips shift
+by the same number of frames, preserving track assignments, trims, relative
+offsets, fades and automation. One undo step moves the whole selection.
+
+This differs from the single-clip **Align End** action: it works on a
+multi-track group and uses the last ending clip to determine its shift.
+Negative timeline positions, collisions, locked tracks, unsafe transitions
+and selections with no valid clips reject the edit atomically. The playhead
+cannot normally move beyond the sequence's last visible frame, so aligning
+the very last clip end can move the group one frame earlier. This action is
+not available in stable v1.3.1.
+
 ## Apply fades to multiple selected clips (v1.4 development)
 
 Select several clips across video and audio tracks, then choose **Edit →

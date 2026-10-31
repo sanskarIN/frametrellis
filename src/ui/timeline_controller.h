@@ -109,6 +109,9 @@ public:
     /// Move a whole selection so its earliest start meets the playhead.
     /// Source trims, relative spacing, track ownership and undo are preserved.
     Q_INVOKABLE bool alignSelectionStartToPlayhead();
+    /// Shift the whole selection so its latest exclusive end meets the playhead.
+    /// Retains inter-clip offsets and delegates safety validation to the undoable nudge engine.
+    Q_INVOKABLE bool alignSelectionEndToPlayhead();
     /// Trim the selected clip's start or exclusive end to the playhead.
     /// Rejects unsafe transition edits rather than silently removing a transition.
     Q_INVOKABLE bool trimSelectionToPlayhead(bool trimEnd);

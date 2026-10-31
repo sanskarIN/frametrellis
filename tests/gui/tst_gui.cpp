@@ -374,6 +374,62 @@ private slots:
         timeline->clearSelection();
     }
 
+    void alignWholeSelectionEndToPlayheadPreservesClipTimingAndHistory()
+    {
+        auto* timeline = m_app->timeline();
+        const Project before = m_app->project()->project();
+        timeline->clearSelection();
+        QVERIFY(!timeline->alignSelectionEndToPlayhead());
+
+        // Create headroom to allow a one-frame left shift of the complete
+        // selection, including any clips that originally began at frame zero.
+        m_app->playback()->goToStart();
+        QVERIFY(timeline->insertGapAtPlayhead(10));
+        const Project gapped = m_app->project()->project();
+        timeline->selectAll();
+        const QStringList selectionBefore = timeline->selection();
+        QVERIFY(!selectionBefore.isEmpty());
+        const QVariantMap range = timeline->selectedFrameRange();
+        QVERIFY(!range.isEmpty());
+        const FrameCount start =
+            static_cast<FrameCount>(range.value(QStringLiteral("start")).toDouble());
+        const FrameCount end =
+            static_cast<FrameCount>(range.value(QStringLiteral("end")).toDouble());
+        QVERIFY(start >= 10);
+        m_app->playback()->goToEnd();
+        const FrameCount cursor = m_app->playback()->positionFrames();
+        QCOMPARE(cursor, end - FrameCount{1});
+        QVERIFY(timeline->alignSelectionEndToPlayhead());
+        const Project moved = m_app->project()->project();
+        for (const Id& id : selectionBefore) {
+            const Clip* original = gapped.timeline().clip(id);
+            const Clip* shifted = moved.timeline().clip(id);
+            QVERIFY(original);
+            QVERIFY(shifted);
+            QCOMPARE(shifted->start, original->start - FrameCount{1});
+            QCOMPARE(shifted->sourceIn, original->sourceIn);
+            QCOMPARE(shifted->duration, original->duration);
+            QCOMPARE(shifted->properties, original->properties);
+        }
+        QCOMPARE(timeline->selection(), selectionBefore);
+        QCOMPARE(static_cast<FrameCount>(
+                     timeline->selectedFrameRange().value(QStringLiteral("end")).toDouble()),
+                 cursor);
+        QCOMPARE(m_app->project()->undoText(), QStringLiteral("Nudge Clips Left"));
+        const QString undoBefore = m_app->project()->undoText();
+
+        m_app->playback()->goToStart();
+        QVERIFY(!timeline->alignSelectionEndToPlayhead());
+        QCOMPARE(m_app->project()->project(), moved);
+        QCOMPARE(m_app->project()->undoText(), undoBefore);
+
+        m_app->project()->undo();
+        QCOMPARE(m_app->project()->project(), gapped);
+        m_app->project()->undo();
+        QCOMPARE(m_app->project()->project(), before);
+        timeline->clearSelection();
+    }
+
     void trimSelectedClipToPlayheadKeepsUndoAndSourceTrims()
     {
         auto* timeline = m_app->timeline();

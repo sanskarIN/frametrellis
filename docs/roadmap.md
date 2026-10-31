@@ -113,23 +113,29 @@ Acceptance criteria, each checked before the release:
   from the still-unrecorded manual desktop smoke-test checklist
 
 ## v1.4.0 — Professional workflow candidates 🚧
-- Integrated on main: persistent review markers, chapter/WebVTT chapter copy,
-  cuts-only picture EDL export, source slip, roll editing, volume and opacity automation
-  (PRs #75–#79, #82, #83, #84).
-- 🚧 Transform animation: source-anchored position, uniform scale and clockwise
-  rotation; inspector controls and direct monitor handles, matching preview/export,
-  undo/redo and validated format-v5 persistence. Opacity-only projects use v4 and
-  volume-only projects v3. These development features are outside stable v1.3.0.
-- 🚧 Reliable preview delivery: invalidate old in-flight/queued frames after newer
-  seeks and edits, with deterministic playback regression coverage.
-- 🚧 Subtitles: exact millisecond cue editing, UTF-8 SRT import/export, atomic
-  overlap rejection, undo/redo, draft protection, a subtitle timeline strip and
-  shared preview/MP4 burn-in. Format v6 protects captions from older readers.
-  These are development features outside stable v1.3.0.
-- 🚧 Media inventory export, recursive folder imports and removal of unused references
-  (existing separate PRs; unmerged until integrated tests pass)
-- ⏳ Validate Linux, Windows and sanitizer CI and conduct manual editor smoke tests
-  before labeling this milestone a preview or stable release
+- ✅ Integrated on `main`: persistent review markers, WebVTT chapters, cuts-only
+  picture EDL export, source slip, roll editing, source-anchored volume and opacity
+  automation (PRs #75–#79, #82–#84).
+- ✅ Source-anchored position/scale/rotation animation, direct program-monitor
+  handles, format-v5 persistence and preview/export parity (PR #85).
+- ✅ Preview generation guards protect against outdated queued or in-flight frames.
+- ✅ Subtitle cue editing, UTF-8 SRT import/export, timeline display and MP4
+  burn-in, with backward-incompatible format-v6 persistence (PR #86).
+- ✅ Media health/usage JSON and CSV audits, safe recursive/asynchronous folder
+  imports, deletion of unused project references without deleting disk files
+  (PRs #65–#67, #95, #109).
+- ✅ Multi-track gap insertion/removal, exact frame gap dialog, automatic gap
+  closure, selected clip trim, select before/after playhead, start alignment,
+  selection-boundary navigation and protected source-excerpt append
+  (PRs #103–#107, #110–#112).
+- ✅ Atomic bulk fade and audio-gain presets with per-clip duration/range checks,
+  locked-track guards, unit/GUI regressions and undo/redo (PRs #114–#115).
+- ✅ Video-opacity presets for multi-clip selections and group selection-end
+  alignment to the playhead, with atomic validation and undo/redo (PRs #116–#117).
+- ⏳ Run final integrated Linux, Windows, sanitizer and package validation,
+  complete documented hands-on editing/export checks, and review v1–v6
+  project-format migrations before publishing any v1.4 preview or stable release.
+  The published stable remains v1.3.1; development `main` is not a stable build.
 
 The [professional-editor assessment](development/pro-editor-assessment.md) records
 the audited source state, concrete capability gaps and the next implementation order.

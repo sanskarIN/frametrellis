@@ -56,6 +56,5 @@ namespace srt {
 /// Input may be unordered; output is sorted and renumbered. Overlaps fail atomically.
 [[nodiscard]] Result<SubtitleTrack> fromBytes(const QByteArray& bytes);
 [[nodiscard]] Result<QByteArray> toBytes(const SubtitleTrack& track);
-} // namespace srt
+ } // namespace srt
 
-} // namespace ft

@@ -337,8 +337,7 @@ private slots:
         QVERIFY(!f.doc.execute(edits::setClipGains({}, 1.5)));
         QVERIFY(!f.doc.execute(edits::setClipGains({picture.id, picture.id}, 1.5)));
         QVERIFY(!f.doc.execute(edits::setClipGains({QStringLiteral("missing")}, 1.5)));
-        QVERIFY(!f.doc.execute(
-            edits::setClipGains({picture.id, QStringLiteral("missing")}, 1.5)));
+        QVERIFY(!f.doc.execute(edits::setClipGains({picture.id, QStringLiteral("missing")}, 1.5)));
         QVERIFY(!f.doc.execute(edits::setClipGains({picture.id}, -0.1)));
         QVERIFY(!f.doc.execute(edits::setClipGains({picture.id}, kMaxClipGain + 0.1)));
         QVERIFY(!f.doc.execute(

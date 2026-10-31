@@ -287,6 +287,29 @@ ApplicationWindow {
                 Action { text: qsTr("75%"); onTriggered: window.app.timeline.setSelectionOpacity(0.75) }
                 Action { text: qsTr("100% — Opaque"); onTriggered: window.app.timeline.setSelectionOpacity(1.0) }
             }
+            Menu {
+                title: qsTr("Picture Adjustments for Selected Clips")
+                enabled: window.editKeys && window.app.timeline.selection.length > 0
+                Menu {
+                    title: qsTr("Brightness")
+                    Action { text: qsTr("Darker (-20%)"); onTriggered: window.app.timeline.setSelectionVideoAdjustment("brightness", -0.2) }
+                    Action { text: qsTr("Neutral (0%)"); onTriggered: window.app.timeline.setSelectionVideoAdjustment("brightness", 0.0) }
+                    Action { text: qsTr("Brighter (+20%)"); onTriggered: window.app.timeline.setSelectionVideoAdjustment("brightness", 0.2) }
+                }
+                Menu {
+                    title: qsTr("Contrast")
+                    Action { text: qsTr("Soft (80%)"); onTriggered: window.app.timeline.setSelectionVideoAdjustment("contrast", 0.8) }
+                    Action { text: qsTr("Neutral (100%)"); onTriggered: window.app.timeline.setSelectionVideoAdjustment("contrast", 1.0) }
+                    Action { text: qsTr("Strong (120%)"); onTriggered: window.app.timeline.setSelectionVideoAdjustment("contrast", 1.2) }
+                }
+                Menu {
+                    title: qsTr("Saturation")
+                    Action { text: qsTr("Monochrome (0%)"); onTriggered: window.app.timeline.setSelectionVideoAdjustment("saturation", 0.0) }
+                    Action { text: qsTr("Soft (75%)"); onTriggered: window.app.timeline.setSelectionVideoAdjustment("saturation", 0.75) }
+                    Action { text: qsTr("Neutral (100%)"); onTriggered: window.app.timeline.setSelectionVideoAdjustment("saturation", 1.0) }
+                    Action { text: qsTr("Vivid (125%)"); onTriggered: window.app.timeline.setSelectionVideoAdjustment("saturation", 1.25) }
+                }
+            }
             Action { text: qsTr("&Reset Selected Picture Adjustments"); enabled: window.editKeys && window.app.timeline.selection.length > 0; onTriggered: window.app.timeline.resetSelectionPictures() }
             Action { text: qsTr("Add &Transition"); shortcut: "T"; enabled: window.editKeys; onTriggered: window.app.timeline.addTransition() }
             Action { text: qsTr("&Delete"); shortcut: StandardKey.Delete; enabled: window.editKeys; onTriggered: window.app.timeline.deleteSelection(false) }

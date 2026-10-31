@@ -760,6 +760,74 @@ std::unique_ptr<EditCommand> setClipOpacities(const QList<Id>& clipIds, double o
         });
 }
 
+std::unique_ptr<EditCommand> setClipVideoAdjustment(const QList<Id>& clipIds,
+                                                    const QString& property, double value)
+{
+    return command(
+        QStringLiteral("Set Selected Video Adjustment"),
+        [clipIds, property, value](Timeline& timeline, const SourceLookup&) -> Status {
+            const bool brightness = property == QLatin1String("brightness");
+            const bool contrast = property == QLatin1String("contrast");
+            const bool saturation = property == QLatin1String("saturation");
+            const double lower = brightness ? -1.0 : 0.0;
+            const double upper = brightness ? 1.0 : (contrast ? 2.0 : 3.0);
+            if (clipIds.isEmpty() || (!brightness && !contrast && !saturation) ||
+                !std::isfinite(value) || value < lower || value > upper) {
+                return makeError(
+                    ErrorCode::InvalidArgument,
+                    QStringLiteral("Select video clips and a valid picture adjustment."));
+            }
+
+            QSet<Id> visited;
+            bool changed = false;
+            for (const Id& id : clipIds) {
+                if (visited.contains(id)) {
+                    return makeError(ErrorCode::InvalidArgument,
+                                     QStringLiteral("A clip was selected twice."));
+                }
+                visited.insert(id);
+                const Clip* clip = timeline.clip(id);
+                const Track* track = timeline.trackOfClip(id);
+                if (!clip || !track) {
+                    return makeError(ErrorCode::NotFound,
+                                     QStringLiteral("A selected clip was not found."));
+                }
+                if (track->kind != TrackKind::Video) {
+                    return makeError(
+                        ErrorCode::InvalidArgument,
+                        QStringLiteral("Picture adjustments require video-track clips."));
+                }
+                if (track->locked) {
+                    return makeError(ErrorCode::Conflict,
+                                     QStringLiteral("Unlock affected video tracks first."));
+                }
+                const VideoAdjustments& video = clip->properties.video;
+                const double current =
+                    brightness ? video.brightness : (contrast ? video.contrast : video.saturation);
+                changed |= current != value;
+            }
+            if (!changed) {
+                return makeError(ErrorCode::InvalidArgument,
+                                 QStringLiteral("The selected clips already have this value."));
+            }
+
+            for (const Id& id : clipIds) {
+                ClipProperties properties = timeline.clip(id)->properties;
+                if (brightness) {
+                    properties.video.brightness = value;
+                } else if (contrast) {
+                    properties.video.contrast = value;
+                } else {
+                    properties.video.saturation = value;
+                }
+                if (const Status updated = timeline.setClipProperties(id, properties); !updated) {
+                    return updated;
+                }
+            }
+            return {};
+        });
+}
+
 std::unique_ptr<EditCommand> resetClipPictures(const QList<Id>& clipIds)
 {
     return command(QStringLiteral("Reset Selected Pictures"),

@@ -202,6 +202,23 @@ project or its undo history. Opacity affects visual compositing; transparent
 clips reveal underlying layers when available. This feature is not included
 in stable v1.3.1.
 
+## Batch brightness, contrast and saturation (v1.4 development)
+
+Select any number of clips on video tracks and choose **Edit → Picture
+Adjustments for Selected Clips**. Set brightness to darker (-20%), neutral
+(0%) or brighter (+20%); contrast to soft (80%), neutral (100%) or strong
+(120%); and saturation to monochrome (0%), soft (75%), neutral (100%) or
+vivid (125%). Each action changes only that one picture property and records
+one undoable command for the complete selection.
+
+The underlying edit validates brightness in -1.0 to +1.0, contrast in 0.0
+to 2.0 and saturation in 0.0 to 3.0. Clips must be on unlocked video tracks:
+mixed audio/video selections, missing or duplicated clip IDs, non-finite or
+out-of-range settings, and requests that produce no change all fail without
+partially updating the project or its undo history. Existing opacity,
+animation curves, audio gain, fades and source trims are preserved. This
+development feature is not in the published v1.3.1 release.
+
 ## Exact gap duration and automatic gap closure (v1.4 development)
 
 Use **Edit → Insert Gap at Playhead → Custom Duration…** or **Edit →

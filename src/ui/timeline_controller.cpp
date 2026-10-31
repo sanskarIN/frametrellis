@@ -978,6 +978,21 @@ bool TimelineController::setSelectionOpacity(double opacity)
     return true;
 }
 
+bool TimelineController::setSelectionVideoAdjustment(const QString& property, double value)
+{
+    if (m_selection.isEmpty()) {
+        emit statusMessage(QStringLiteral("Select one or more video clips first."));
+        return false;
+    }
+    QList<Id> ids(m_selection.cbegin(), m_selection.cend());
+    std::sort(ids.begin(), ids.end());
+    if (!m_project->execute(edits::setClipVideoAdjustment(ids, property, value))) {
+        return false;
+    }
+    emit statusMessage(QStringLiteral("Updated picture adjustment on %1 clip(s).").arg(ids.size()));
+    return true;
+}
+
 bool TimelineController::resetSelectionPictures()
 {
     if (m_selection.isEmpty()) {

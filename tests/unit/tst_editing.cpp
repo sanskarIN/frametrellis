@@ -297,6 +297,71 @@ private slots:
         QCOMPARE(f.doc.project(), before);
     }
 
+    void batchVideoOpacityPreservesOtherPropertiesAndUndoRedo()
+    {
+        Fixture f;
+        Clip first = clipOf(QStringLiteral("m1"), 0, 40, QStringLiteral("opacity-first"));
+        first.properties.gain = 0.7;
+        first.properties.fadeIn = 6;
+        first.properties.video.brightness = 0.2;
+        first.properties.video.opacity = 0.9;
+        Clip second = clipOf(QStringLiteral("m1"), 50, 20, QStringLiteral("opacity-second"));
+        second.properties.video.opacity = 0.6;
+        second.properties.video.saturation = 1.5;
+        QVERIFY(f.doc.execute(edits::addClip(f.v1, first)));
+        QVERIFY(f.doc.execute(edits::addClip(f.v2, second)));
+        const Project before = f.doc.project();
+
+        QVERIFY(f.doc.execute(edits::setClipOpacities({first.id, second.id}, 0.25)));
+        const Project changed = f.doc.project();
+        Clip expectedFirst = first;
+        Clip expectedSecond = second;
+        expectedFirst.properties.video.opacity = 0.25;
+        expectedSecond.properties.video.opacity = 0.25;
+        QCOMPARE(*changed.timeline().clip(first.id), expectedFirst);
+        QCOMPARE(*changed.timeline().clip(second.id), expectedSecond);
+        QCOMPARE(f.doc.undoText(), QStringLiteral("Set Selected Video Opacity"));
+        QVERIFY(f.doc.undo());
+        QCOMPARE(f.doc.project(), before);
+        QVERIFY(f.doc.redo());
+        QCOMPARE(f.doc.project(), changed);
+    }
+
+    void batchVideoOpacityRejectsAudioInvalidAndLockedSelectionsAtomically()
+    {
+        Fixture f;
+        const Clip first = clipOf(QStringLiteral("m1"), 0, 40, QStringLiteral("opacity-first"));
+        const Clip second = clipOf(QStringLiteral("m1"), 50, 20, QStringLiteral("opacity-second"));
+        const Clip audio = clipOf(QStringLiteral("m1"), 20, 30, QStringLiteral("opacity-audio"));
+        QVERIFY(f.doc.execute(edits::addClip(f.v1, first)));
+        QVERIFY(f.doc.execute(edits::addClip(f.v2, second)));
+        QVERIFY(f.doc.execute(edits::addClip(f.a1, audio)));
+        const Project before = f.doc.project();
+        const QString undoBefore = f.doc.undoText();
+
+        QVERIFY(!f.doc.execute(edits::setClipOpacities({}, 0.5)));
+        QVERIFY(!f.doc.execute(edits::setClipOpacities({first.id, first.id}, 0.5)));
+        QVERIFY(!f.doc.execute(edits::setClipOpacities({first.id, audio.id}, 0.5)));
+        QVERIFY(!f.doc.execute(edits::setClipOpacities({first.id, second.id}, -0.1)));
+        QVERIFY(!f.doc.execute(edits::setClipOpacities({first.id, second.id}, 1.1)));
+        QVERIFY(!f.doc.execute(
+            edits::setClipOpacities({first.id}, std::numeric_limits<double>::quiet_NaN())));
+        QVERIFY(!f.doc.execute(
+            edits::setClipOpacities({first.id}, std::numeric_limits<double>::infinity())));
+        QVERIFY(
+            !f.doc.execute(edits::setClipOpacities({first.id, QStringLiteral("missing")}, 0.5)));
+        QVERIFY(!f.doc.execute(edits::setClipOpacities({first.id, second.id}, 1.0)));
+        QCOMPARE(f.doc.project(), before);
+        QCOMPARE(f.doc.undoText(), undoBefore);
+
+        QVERIFY(f.doc.execute(edits::setTrackLocked(f.v2, true)));
+        const Project locked = f.doc.project();
+        const QString lockedUndo = f.doc.undoText();
+        QVERIFY(!f.doc.execute(edits::setClipOpacities({first.id, second.id}, 0.5)));
+        QCOMPARE(f.doc.project(), locked);
+        QCOMPARE(f.doc.undoText(), lockedUndo);
+    }
+
     void batchGainUpdatesOnlyGainAndSupportsUndoRedo()
     {
         Fixture f;

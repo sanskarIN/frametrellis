@@ -273,6 +273,15 @@ ApplicationWindow {
                 Action { text: qsTr("150%"); onTriggered: window.app.timeline.setSelectionGain(1.5) }
                 Action { text: qsTr("200%"); onTriggered: window.app.timeline.setSelectionGain(2.0) }
             }
+            Menu {
+                title: qsTr("Video Opacity for Selected Clips")
+                enabled: window.editKeys && window.app.timeline.selection.length > 0
+                Action { text: qsTr("0% — Transparent"); onTriggered: window.app.timeline.setSelectionOpacity(0.0) }
+                Action { text: qsTr("25%"); onTriggered: window.app.timeline.setSelectionOpacity(0.25) }
+                Action { text: qsTr("50%"); onTriggered: window.app.timeline.setSelectionOpacity(0.5) }
+                Action { text: qsTr("75%"); onTriggered: window.app.timeline.setSelectionOpacity(0.75) }
+                Action { text: qsTr("100% — Opaque"); onTriggered: window.app.timeline.setSelectionOpacity(1.0) }
+            }
             Action { text: qsTr("&Reset Selected Picture Adjustments"); enabled: window.editKeys && window.app.timeline.selection.length > 0; onTriggered: window.app.timeline.resetSelectionPictures() }
             Action { text: qsTr("Add &Transition"); shortcut: "T"; enabled: window.editKeys; onTriggered: window.app.timeline.addTransition() }
             Action { text: qsTr("&Delete"); shortcut: StandardKey.Delete; enabled: window.editKeys; onTriggered: window.app.timeline.deleteSelection(false) }

@@ -945,6 +945,21 @@ bool TimelineController::setSelectionGain(double gain)
     return true;
 }
 
+bool TimelineController::setSelectionOpacity(double opacity)
+{
+    if (m_selection.isEmpty() || !std::isfinite(opacity) || opacity < 0.0 || opacity > 1.0) {
+        emit statusMessage(QStringLiteral("Select video clips and a valid opacity."));
+        return false;
+    }
+    QList<Id> ids(m_selection.cbegin(), m_selection.cend());
+    std::sort(ids.begin(), ids.end());
+    if (!m_project->execute(edits::setClipOpacities(ids, opacity))) {
+        return false;
+    }
+    emit statusMessage(QStringLiteral("Updated video opacity on %1 clip(s).").arg(ids.size()));
+    return true;
+}
+
 bool TimelineController::resetSelectionPictures()
 {
     if (m_selection.isEmpty()) {

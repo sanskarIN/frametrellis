@@ -76,6 +76,9 @@ std::unique_ptr<EditCommand> setClipFades(const QList<Id>& clipIds, FrameCount f
 /// Set an identical linear audio gain (0.0 to 4.0) on selected clips atomically.
 /// Reject invalid inputs, duplicate/missing IDs and locked tracks; preserve all other properties.
 std::unique_ptr<EditCommand> setClipGains(const QList<Id>& clipIds, double gain);
+/// Set a common base opacity on video-track clips without modifying opacity keyframes.
+/// Mixed audio/video selection, locked tracks and invalid values are rejected atomically.
+std::unique_ptr<EditCommand> setClipOpacities(const QList<Id>& clipIds, double opacity);
 /// Reset picture adjustments and opacity curves without changing sound or fades.
 std::unique_ptr<EditCommand> resetClipPictures(const QList<Id>& clipIds);
 std::unique_ptr<EditCommand> resetClipPicture(const Id& clipId);

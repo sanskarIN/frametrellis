@@ -144,6 +144,8 @@ public:
     Q_INVOKABLE bool setSelectionGain(double gain);
     /// Change base video opacity on an all-video selection as one undoable edit.
     Q_INVOKABLE bool setSelectionOpacity(double opacity);
+    /// Change a base picture adjustment across selected video clips as one undo step.
+    Q_INVOKABLE bool setSelectionVideoAdjustment(const QString& property, double value);
     Q_INVOKABLE bool resetSelectionPictures();
     Q_INVOKABLE bool deleteSelection(bool ripple);
     Q_INVOKABLE void select(const QString& clipId, bool toggle);

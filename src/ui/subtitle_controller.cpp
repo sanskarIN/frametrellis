@@ -288,6 +288,10 @@ bool SubtitleController::clearAll()
 {
     return execute(edits::clearSubtitles());
 }
+bool SubtitleController::shiftAll(int deltaMilliseconds)
+{
+    return execute(edits::shiftSubtitles(deltaMilliseconds));
+}
 bool SubtitleController::setAppearance(bool burn, int percent, bool plate)
 {
     return execute(edits::setSubtitleAppearance(burn, percent, plate));

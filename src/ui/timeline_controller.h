@@ -160,6 +160,9 @@ public:
     /// Select all timeline clips covering the playhead, across video and audio tracks.
     /// An empty match leaves the current selection unchanged.
     Q_INVOKABLE bool selectClipsAtPlayhead();
+    /// Replace selection with clips overlapping or fully contained in the current span.
+    /// Read-only: locked tracks are eligible, and no clip-edit history is created.
+    Q_INVOKABLE bool selectClipsInSelectionRange(bool overlapping);
     /// Select only whole clips ending at or before / starting at or after the playhead.
     /// Clips intersecting the playhead are excluded; empty results keep the old selection.
     Q_INVOKABLE bool selectClipsBeforePlayhead();

@@ -268,6 +268,22 @@ later clip, a protected track, any intersecting clip or an unsafe transition.
 It never trims or deletes footage. Subtitles and timeline markers stay at their
 absolute sequence frame positions. Neither command is present in v1.3.1.
 
+## Select clips by the current selection range (v1.4 development)
+
+Select at least two timeline clips to define the time span from the earliest
+selected start to the latest selected exclusive end. Then choose either
+**Edit → Select Clips Overlapping Selection Range** to include every clip on
+all video/audio tracks with any frames in that span, or **Edit → Select Clips
+Entirely Inside Selection Range** to include only clips whose full duration
+falls inside the span. These are selection operations only: they do not trim,
+move, ripple, copy, delete or create an Undo command.
+
+The range uses half-open intervals: a clip beginning exactly at the selected
+range's end is excluded; a clip ending exactly at its start is excluded from
+the overlapping mode. Locked tracks are included for inspection, not edited.
+An empty selection or a selection already matching the requested mode leaves
+the project and edit history untouched.
+
 ## Navigate to selected clip edges (v1.4 development)
 
 Select one or more video/audio clips, then use **Playback → Go to Selection

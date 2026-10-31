@@ -56,5 +56,13 @@ namespace srt {
 /// Input may be unordered; output is sorted and renumbered. Overlaps fail atomically.
 [[nodiscard]] Result<SubtitleTrack> fromBytes(const QByteArray& bytes);
 [[nodiscard]] Result<QByteArray> toBytes(const SubtitleTrack& track);
- } // namespace srt
+} // namespace srt
+
+namespace webvtt {
+/// Writes UTF-8 WebVTT sidecar captions with exact millisecond cue boundaries.
+/// Cue text is HTML-escaped so angle brackets and ampersands remain literal.
+[[nodiscard]] Result<QByteArray> toBytes(const SubtitleTrack& track);
+} // namespace webvtt
+
+} // namespace ft
 

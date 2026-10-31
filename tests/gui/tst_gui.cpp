@@ -465,7 +465,8 @@ private slots:
         const QVariantMap bounds = timeline->selectedFrameRange();
         const FrameCount start =
             static_cast<FrameCount>(bounds.value(QStringLiteral("start")).toDouble());
-        const FrameCount end = static_cast<FrameCount>(bounds.value(QStringLiteral("end")).toDouble());
+        const FrameCount end =
+            static_cast<FrameCount>(bounds.value(QStringLiteral("end")).toDouble());
         QVERIFY(end > start);
         QVERIFY(start >= 10);
         const FrameCount midpoint = start + (end - start) / 2;

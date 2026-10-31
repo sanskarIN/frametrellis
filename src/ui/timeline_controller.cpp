@@ -675,8 +675,7 @@ bool TimelineController::alignSelectionEndToPlayhead()
     }
 
     // Clip intervals are half-open: end is the first frame after the selected range.
-    const FrameCount end =
-        static_cast<FrameCount>(bounds.value(QStringLiteral("end")).toDouble());
+    const FrameCount end = static_cast<FrameCount>(bounds.value(QStringLiteral("end")).toDouble());
     const FrameCount delta = m_playback->positionFrames() - end;
     if (delta == 0) {
         return false;

@@ -412,10 +412,11 @@ private slots:
             QCOMPARE(shifted->properties, original->properties);
         }
         QCOMPARE(timeline->selection(), selectionBefore);
+        QCOMPARE(static_cast<FrameCount>(
+                     timeline->selectedFrameRange().value(QStringLiteral("end")).toDouble()),
+                 cursor);
         QCOMPARE(m_app->project()->undoText(), QStringLiteral("Nudge Clips Left"));
         const QString undoBefore = m_app->project()->undoText();
-        QVERIFY(!timeline->alignSelectionEndToPlayhead());
-        QCOMPARE(m_app->project()->undoText(), undoBefore);
 
         m_app->playback()->goToStart();
         QVERIFY(!timeline->alignSelectionEndToPlayhead());

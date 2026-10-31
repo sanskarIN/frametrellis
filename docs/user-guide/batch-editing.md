@@ -158,6 +158,20 @@ duplicated IDs, and selections already at the requested value are rejected
 without modifying any clip. Source media is not altered; the same properties
 apply to playback and the final renderer. This is not in stable v1.3.1.
 
+## Change selected clips' audio gain together (v1.4 development)
+
+Select clips across audio and video tracks, then choose **Edit → Audio Gain
+for Selected Clips** to set all their linear gain controls to 0% (silence),
+50%, 100% (normal), 150%, or 200%. The command changes only the audio gain,
+not the clip's mute state, keyframes, fades, trims, picture adjustments, or
+timeline position. It makes one undoable change for the entire selection.
+
+The underlying gain control accepts finite values from 0.0 to 4.0 (400%).
+Missing/duplicate selections, locked tracks, invalid values, and settings
+already identical across the selection are rejected without changing the
+project. Gain above 100% may cause clipping depending on the source audio.
+This is a development feature and is not in stable v1.3.1.
+
 ## Exact gap duration and automatic gap closure (v1.4 development)
 
 Use **Edit → Insert Gap at Playhead → Custom Duration…** or **Edit →

@@ -23,7 +23,8 @@ Result<QString> subtitlePath(const QString& input, const QString& extension)
                        input.at(1) == QLatin1Char(':') &&
                        (input.at(2) == QLatin1Char('/') || input.at(2) == QLatin1Char('\\'));
     if (input.isEmpty() || (!url.scheme().isEmpty() && !url.isLocalFile() && !drive)) {
-        return makeError(ErrorCode::InvalidArgument, QStringLiteral("Choose a local .%1 file.").arg(extension));
+        return makeError(ErrorCode::InvalidArgument,
+                         QStringLiteral("Choose a local .%1 file.").arg(extension));
     }
     const QString path = ProjectController::localPath(input);
     if (QFileInfo(path).suffix().compare(extension, Qt::CaseInsensitive) != 0) {

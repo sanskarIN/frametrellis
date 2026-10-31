@@ -825,6 +825,34 @@ bool TimelineController::duplicateSelection()
     return true;
 }
 
+bool TimelineController::duplicateSelectionAtPlayhead()
+{
+    if (m_selection.isEmpty()) {
+        emit statusMessage(QStringLiteral("Select one or more clips to duplicate."));
+        return false;
+    }
+    QList<Id> ids(m_selection.cbegin(), m_selection.cend());
+    std::sort(ids.begin(), ids.end());
+    QList<Id> copies;
+    copies.reserve(ids.size());
+    for (qsizetype i = 0; i < ids.size(); ++i) {
+        copies.append(createId());
+    }
+    if (!m_project->execute(edits::duplicateClipsAt(ids, copies, m_playback->positionFrames()))) {
+        return false;
+    }
+    m_selection.clear();
+    for (const Id& id : copies) {
+        m_selection.insert(id);
+    }
+    setTransitionSelection({});
+    m_model.updateSelection(m_selection);
+    emit selectionChanged();
+    emit selectedClipChanged();
+    emit statusMessage(QStringLiteral("Duplicated %1 clip(s) at the playhead.").arg(copies.size()));
+    return true;
+}
+
 bool TimelineController::nudgeSelection(int frames)
 {
     if (m_selection.isEmpty()) {

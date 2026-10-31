@@ -168,12 +168,13 @@ private slots:
                                             QStringLiteral("नमस्ते <b>&</b>")));
         QVERIFY(m_project->save());
         const Project before = m_project->project();
+        const bool undoBeforeExport = m_project->canUndo();
         const QString output = m_dir.filePath(QStringLiteral("captions.vtt"));
         QVERIFY(m_subtitles->exportWebVtt(QUrl::fromLocalFile(output).toString()));
         QCOMPARE(read(output), *webvtt::toBytes(before.subtitles()));
         QCOMPARE(m_project->project(), before);
         QVERIFY(!m_project->isModified());
-        QVERIFY(!m_project->canUndo() == false); // Export must not erase edit history.
+        QCOMPARE(m_project->canUndo(), undoBeforeExport); // Sidecar export never edits history.
         QVERIFY(!m_subtitles->exportWebVtt(QStringLiteral("https://example.com/file.vtt")));
         QVERIFY(!m_subtitles->exportWebVtt(m_dir.filePath(QStringLiteral("wrong.srt"))));
         QVERIFY(!m_subtitles->exportWebVtt(m_dir.filePath(QStringLiteral("absent/file.vtt"))));

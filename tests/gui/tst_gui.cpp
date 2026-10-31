@@ -764,8 +764,7 @@ private slots:
             findItem(m_window->contentItem(), QStringLiteral("customPictureProperty"));
         QQuickItem* percent =
             findItem(m_window->contentItem(), QStringLiteral("customPicturePercent"));
-        QQuickItem* apply =
-            findItem(m_window->contentItem(), QStringLiteral("customPictureApply"));
+        QQuickItem* apply = findItem(m_window->contentItem(), QStringLiteral("customPictureApply"));
         QVERIFY(type);
         QVERIFY(percent);
         QVERIFY(apply);

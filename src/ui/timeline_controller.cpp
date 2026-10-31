@@ -684,6 +684,31 @@ bool TimelineController::alignSelectionEndToPlayhead()
         edits::nudgeClips(QList<Id>(m_selection.cbegin(), m_selection.cend()), delta));
 }
 
+bool TimelineController::alignSelectionCenterToPlayhead()
+{
+    const QVariantMap bounds = selectedFrameRange();
+    if (bounds.isEmpty()) {
+        emit statusMessage(QStringLiteral("Select one or more clips to align."));
+        return false;
+    }
+
+    const FrameCount start =
+        static_cast<FrameCount>(bounds.value(QStringLiteral("start")).toDouble());
+    const FrameCount end = static_cast<FrameCount>(bounds.value(QStringLiteral("end")).toDouble());
+    if (end <= start) {
+        return false;
+    }
+    // Timeline intervals are half-open. For odd-length ranges, the center
+    // rounds down to the earlier whole frame to avoid fractional positions.
+    const FrameCount center = start + (end - start) / 2;
+    const FrameCount delta = m_playback->positionFrames() - center;
+    if (delta == 0) {
+        return false;
+    }
+    return m_project->execute(
+        edits::nudgeClips(QList<Id>(m_selection.cbegin(), m_selection.cend()), delta));
+}
+
 bool TimelineController::trimSelectionToPlayhead(bool trimEnd)
 {
     if (m_selection.size() != 1) {

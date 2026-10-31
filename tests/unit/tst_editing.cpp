@@ -764,19 +764,15 @@ private slots:
 
         QVERIFY(!f.doc.execute(edits::duplicateClipsAt({}, {}, 100)));
         QVERIFY(!f.doc.execute(edits::duplicateClipsAt(sources, {copies.front()}, 100)));
-        QVERIFY(!f.doc.execute(edits::duplicateClipsAt(
-            {first.id, first.id}, copies, 100)));
-        QVERIFY(!f.doc.execute(edits::duplicateClipsAt(
-            sources, {copies.front(), copies.front()}, 100)));
-        QVERIFY(!f.doc.execute(edits::duplicateClipsAt(
-            {first.id, QStringLiteral("missing")}, copies, 100)));
-        QVERIFY(!f.doc.execute(edits::duplicateClipsAt(
-            sources, {QString(), copies.back()}, 100)));
-        QVERIFY(!f.doc.execute(edits::duplicateClipsAt(
-            sources, {first.id, copies.back()}, 100)));
-        QVERIFY(!f.doc.execute(edits::duplicateClipsAt(sources, copies, -1)));
+        QVERIFY(!f.doc.execute(edits::duplicateClipsAt({first.id, first.id}, copies, 100)));
         QVERIFY(!f.doc.execute(
-            edits::duplicateClipsAt(sources, copies, kMaxTimelineFrames - 5)));
+            edits::duplicateClipsAt(sources, {copies.front(), copies.front()}, 100)));
+        QVERIFY(!f.doc.execute(
+            edits::duplicateClipsAt({first.id, QStringLiteral("missing")}, copies, 100)));
+        QVERIFY(!f.doc.execute(edits::duplicateClipsAt(sources, {QString(), copies.back()}, 100)));
+        QVERIFY(!f.doc.execute(edits::duplicateClipsAt(sources, {first.id, copies.back()}, 100)));
+        QVERIFY(!f.doc.execute(edits::duplicateClipsAt(sources, copies, -1)));
+        QVERIFY(!f.doc.execute(edits::duplicateClipsAt(sources, copies, kMaxTimelineFrames - 5)));
         // The first inserted copy would fit, but the later V2 copy hits a blocker.
         QVERIFY(!f.doc.execute(edits::duplicateClipsAt(sources, copies, 100)));
         QCOMPARE(f.doc.project(), before);

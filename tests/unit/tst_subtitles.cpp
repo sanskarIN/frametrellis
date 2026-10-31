@@ -222,9 +222,8 @@ private slots:
     {
         Project p = project();
         SubtitleTrack track;
-        track.cues = {
-            cue(QStringLiteral("first"), 0, 500, QStringLiteral("नमस्ते")),
-            cue(QStringLiteral("second"), 2000, 3000, QStringLiteral("Hello"))};
+        track.cues = {cue(QStringLiteral("first"), 0, 500, QStringLiteral("नमस्ते")),
+                      cue(QStringLiteral("second"), 2000, 3000, QStringLiteral("Hello"))};
         QVERIFY(p.setSubtitles(track));
         ProjectDocument doc(p);
         const Project before = doc.project();

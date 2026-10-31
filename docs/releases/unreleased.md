@@ -86,6 +86,10 @@ below. No v1.4 release is declared by these notes.
   video/audio clip fade presets and fade clearing, with per-clip duration clamping.
 - [#115](https://github.com/sanskarIN/frametrellis/pull/115): undoable batch
   audio-gain presets, with range validation and locked-track safety.
+- [#116](https://github.com/sanskarIN/frametrellis/pull/116): atomic video-opacity
+  presets across selected video clips, preserving source-anchored automation.
+- [#117](https://github.com/sanskarIN/frametrellis/pull/117): align a multi-track
+  selection's latest exclusive end to the playhead with undo/redo.
 
 All of these are integrated on the development `main` branch, not included
 in the published stable v1.3.1 binaries.

@@ -517,6 +517,46 @@ private slots:
         timeline->clearSelection();
     }
 
+    void selectedPictureAdjustmentPreservesOtherClipAttributes()
+    {
+        auto* timeline = m_app->timeline();
+        const Project before = m_app->project()->project();
+        const QString undoBefore = m_app->project()->undoText();
+        QVERIFY(!track(0).clips.empty());
+        QVERIFY(!track(2).clips.empty());
+        const Clip picture = track(0).clips.back();
+        const Clip audio = track(2).clips.front();
+
+        timeline->clearSelection();
+        QVERIFY(!timeline->setSelectionVideoAdjustment(QStringLiteral("saturation"), 0.0));
+        timeline->select(picture.id, false);
+        timeline->select(audio.id, true);
+        QVERIFY(!timeline->setSelectionVideoAdjustment(QStringLiteral("saturation"), 0.0));
+        QCOMPARE(m_app->project()->project(), before);
+        QCOMPARE(m_app->project()->undoText(), undoBefore);
+
+        timeline->clearSelection();
+        timeline->select(picture.id, false);
+        QVERIFY(!timeline->setSelectionVideoAdjustment(QStringLiteral("gain"), 0.5));
+        QVERIFY(!timeline->setSelectionVideoAdjustment(
+            QStringLiteral("contrast"), std::numeric_limits<double>::quiet_NaN()));
+        const double target = picture.properties.video.saturation == 0.0 ? 1.25 : 0.0;
+        QVERIFY(timeline->setSelectionVideoAdjustment(QStringLiteral("saturation"), target));
+        const Project changed = m_app->project()->project();
+        ClipProperties expected = picture.properties;
+        expected.video.saturation = target;
+        QCOMPARE(changed.timeline().clip(picture.id)->properties, expected);
+        QCOMPARE(m_app->project()->undoText(), QStringLiteral("Set Selected Video Adjustment"));
+        QVERIFY(!timeline->setSelectionVideoAdjustment(QStringLiteral("saturation"), target));
+        QCOMPARE(m_app->project()->project(), changed);
+        m_app->project()->undo();
+        QCOMPARE(m_app->project()->project(), before);
+        m_app->project()->redo();
+        QCOMPARE(m_app->project()->project(), changed);
+        m_app->project()->undo();
+        timeline->clearSelection();
+    }
+
     void selectedVideoOpacityPreservesOtherClipProperties()
     {
         auto* timeline = m_app->timeline();

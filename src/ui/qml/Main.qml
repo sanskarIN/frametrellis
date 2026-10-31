@@ -253,6 +253,17 @@ ApplicationWindow {
             MenuSeparator {}
             Action { text: qsTr("&Mute Selected Clips"); shortcut: "Ctrl+Alt+M"; enabled: window.editKeys && window.app.timeline.selection.length > 0; onTriggered: window.app.timeline.muteSelection(true) }
             Action { text: qsTr("Unmute Selected Clips"); shortcut: "Ctrl+Alt+U"; enabled: window.editKeys && window.app.timeline.selection.length > 0; onTriggered: window.app.timeline.muteSelection(false) }
+            Menu {
+                title: qsTr("Fade Selected Clips")
+                enabled: window.editKeys && window.app.timeline.selection.length > 0
+                Action { text: qsTr("Fade In — 10 Frames"); onTriggered: window.app.timeline.setSelectionFade(false, 10) }
+                Action { text: qsTr("Fade Out — 10 Frames"); onTriggered: window.app.timeline.setSelectionFade(true, 10) }
+                Action { text: qsTr("Fade In — About 1 Second"); onTriggered: window.app.timeline.setSelectionFade(false, Math.max(1, Math.round(window.app.timeline.frameRate))) }
+                Action { text: qsTr("Fade Out — About 1 Second"); onTriggered: window.app.timeline.setSelectionFade(true, Math.max(1, Math.round(window.app.timeline.frameRate))) }
+                MenuSeparator {}
+                Action { text: qsTr("Clear Selected Fade Ins"); onTriggered: window.app.timeline.setSelectionFade(false, 0) }
+                Action { text: qsTr("Clear Selected Fade Outs"); onTriggered: window.app.timeline.setSelectionFade(true, 0) }
+            }
             Action { text: qsTr("&Reset Selected Picture Adjustments"); enabled: window.editKeys && window.app.timeline.selection.length > 0; onTriggered: window.app.timeline.resetSelectionPictures() }
             Action { text: qsTr("Add &Transition"); shortcut: "T"; enabled: window.editKeys; onTriggered: window.app.timeline.addTransition() }
             Action { text: qsTr("&Delete"); shortcut: StandardKey.Delete; enabled: window.editKeys; onTriggered: window.app.timeline.deleteSelection(false) }

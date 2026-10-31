@@ -704,6 +704,92 @@ private slots:
         QCOMPARE(f.doc.undoText(), undo);
     }
 
+    void duplicateSelectionAtPlayheadPreservesOffsetsAndAttributes()
+    {
+        Fixture f;
+        Clip picture = clipOf(QStringLiteral("m1"), 10, 20, QStringLiteral("picture"));
+        picture.sourceIn = 5;
+        picture.properties.fadeIn = 3;
+        picture.properties.video.opacity = 0.4;
+        Clip overlay = clipOf(QStringLiteral("m1"), 35, 15, QStringLiteral("overlay"));
+        overlay.sourceIn = 20;
+        overlay.properties.video.contrast = 1.2;
+        Clip sound = clipOf(QStringLiteral("m1"), 25, 10, QStringLiteral("sound"));
+        sound.sourceIn = 50;
+        sound.properties.gain = 0.7;
+        QVERIFY(f.doc.execute(edits::addClip(f.v1, picture)));
+        QVERIFY(f.doc.execute(edits::addClip(f.v2, overlay)));
+        QVERIFY(f.doc.execute(edits::addClip(f.a1, sound)));
+        const Project before = f.doc.project();
+
+        const QList<Id> originals{picture.id, overlay.id, sound.id};
+        const QList<Id> copies{QStringLiteral("picture-copy"), QStringLiteral("overlay-copy"),
+                               QStringLiteral("sound-copy")};
+        QVERIFY(f.doc.execute(edits::duplicateClipsAt(originals, copies, 100)));
+        const Project after = f.doc.project();
+        QCOMPARE(after.timeline().clipCount(), before.timeline().clipCount() + 3);
+        const std::vector<Clip> sourceClips{picture, overlay, sound};
+        const std::vector<Id> tracks{f.v1, f.v2, f.a1};
+        const std::vector<FrameCount> starts{100, 125, 115};
+        for (size_t i = 0; i < sourceClips.size(); ++i) {
+            Clip expected = sourceClips.at(i);
+            expected.id = copies.at(static_cast<qsizetype>(i));
+            expected.start = starts.at(i);
+            const Clip* actual = after.timeline().clip(expected.id);
+            QVERIFY(actual);
+            QCOMPARE(*actual, expected);
+            QCOMPARE(after.timeline().trackOfClip(expected.id)->id, tracks.at(i));
+            QCOMPARE(*after.timeline().clip(sourceClips.at(i).id), sourceClips.at(i));
+        }
+        QCOMPARE(f.doc.undoText(), QStringLiteral("Duplicate Selected Clips at Playhead"));
+        QVERIFY(f.doc.undo());
+        QCOMPARE(f.doc.project(), before);
+        QVERIFY(f.doc.redo());
+        QCOMPARE(f.doc.project(), after);
+    }
+
+    void duplicateSelectionAtPlayheadRejectsCollisionsLocksAndInvalidIdsAtomically()
+    {
+        Fixture f;
+        const Clip first = clipOf(QStringLiteral("m1"), 0, 20, QStringLiteral("first"));
+        const Clip second = clipOf(QStringLiteral("m1"), 40, 20, QStringLiteral("second"));
+        const Clip blocker = clipOf(QStringLiteral("m1"), 140, 20, QStringLiteral("blocker"));
+        QVERIFY(f.doc.execute(edits::addClip(f.v1, first)));
+        QVERIFY(f.doc.execute(edits::addClip(f.v2, second)));
+        QVERIFY(f.doc.execute(edits::addClip(f.v2, blocker)));
+        const Project before = f.doc.project();
+        const QString undoBefore = f.doc.undoText();
+        const QList<Id> sources{first.id, second.id};
+        const QList<Id> copies{QStringLiteral("first-copy"), QStringLiteral("second-copy")};
+
+        QVERIFY(!f.doc.execute(edits::duplicateClipsAt({}, {}, 100)));
+        QVERIFY(!f.doc.execute(edits::duplicateClipsAt(sources, {copies.front()}, 100)));
+        QVERIFY(!f.doc.execute(edits::duplicateClipsAt(
+            {first.id, first.id}, copies, 100)));
+        QVERIFY(!f.doc.execute(edits::duplicateClipsAt(
+            sources, {copies.front(), copies.front()}, 100)));
+        QVERIFY(!f.doc.execute(edits::duplicateClipsAt(
+            {first.id, QStringLiteral("missing")}, copies, 100)));
+        QVERIFY(!f.doc.execute(edits::duplicateClipsAt(
+            sources, {QString(), copies.back()}, 100)));
+        QVERIFY(!f.doc.execute(edits::duplicateClipsAt(
+            sources, {first.id, copies.back()}, 100)));
+        QVERIFY(!f.doc.execute(edits::duplicateClipsAt(sources, copies, -1)));
+        QVERIFY(!f.doc.execute(
+            edits::duplicateClipsAt(sources, copies, kMaxTimelineFrames - 5)));
+        // The first inserted copy would fit, but the later V2 copy hits a blocker.
+        QVERIFY(!f.doc.execute(edits::duplicateClipsAt(sources, copies, 100)));
+        QCOMPARE(f.doc.project(), before);
+        QCOMPARE(f.doc.undoText(), undoBefore);
+
+        QVERIFY(f.doc.execute(edits::setTrackLocked(f.v2, true)));
+        const Project locked = f.doc.project();
+        const QString lockedUndo = f.doc.undoText();
+        QVERIFY(!f.doc.execute(edits::duplicateClipsAt(sources, copies, 250)));
+        QCOMPARE(f.doc.project(), locked);
+        QCOMPARE(f.doc.undoText(), lockedUndo);
+    }
+
     void duplicatePreservesSourceEditsAndHistory()
     {
         Fixture f;

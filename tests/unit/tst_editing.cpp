@@ -348,8 +348,8 @@ private slots:
             edits::setClipOpacities({first.id}, std::numeric_limits<double>::quiet_NaN())));
         QVERIFY(!f.doc.execute(
             edits::setClipOpacities({first.id}, std::numeric_limits<double>::infinity())));
-        QVERIFY(!f.doc.execute(
-            edits::setClipOpacities({first.id, QStringLiteral("missing")}, 0.5)));
+        QVERIFY(
+            !f.doc.execute(edits::setClipOpacities({first.id, QStringLiteral("missing")}, 0.5)));
         QVERIFY(!f.doc.execute(edits::setClipOpacities({first.id, second.id}, 1.0)));
         QCOMPARE(f.doc.project(), before);
         QCOMPARE(f.doc.undoText(), undoBefore);

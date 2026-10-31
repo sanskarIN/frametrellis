@@ -132,6 +132,11 @@ Acceptance criteria, each checked before the release:
   locked-track guards, unit/GUI regressions and undo/redo (PRs #114–#115).
 - ✅ Video-opacity presets for multi-clip selections and group selection-end
   alignment to the playhead, with atomic validation and undo/redo (PRs #116–#117).
+- ✅ Multi-clip brightness/contrast/saturation presets and selection duplication
+  at the playhead, preserving attributes and refusing unsafe placement
+  (PRs #119, #122).
+- ✅ Evidence-driven v1.4 editor acceptance matrix with all hands-on release
+  checks explicitly pending until verified (PR #120).
 - ⏳ Run final integrated Linux, Windows, sanitizer and package validation,
   complete documented hands-on editing/export checks, and review v1–v6
   project-format migrations before publishing any v1.4 preview or stable release.

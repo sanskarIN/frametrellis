@@ -112,6 +112,9 @@ public:
     /// Shift the whole selection so its latest exclusive end meets the playhead.
     /// Retains inter-clip offsets and delegates safety validation to the undoable nudge engine.
     Q_INVOKABLE bool alignSelectionEndToPlayhead();
+    /// Move the integer midpoint of the selected [start, end) range to the playhead.
+    /// Uses the same atomic, collision-checked multi-track nudge as start/end alignment.
+    Q_INVOKABLE bool alignSelectionCenterToPlayhead();
     /// Trim the selected clip's start or exclusive end to the playhead.
     /// Rejects unsafe transition edits rather than silently removing a transition.
     Q_INVOKABLE bool trimSelectionToPlayhead(bool trimEnd);
@@ -157,6 +160,9 @@ public:
     /// Select all timeline clips covering the playhead, across video and audio tracks.
     /// An empty match leaves the current selection unchanged.
     Q_INVOKABLE bool selectClipsAtPlayhead();
+    /// Replace selection with clips overlapping or fully contained in the current span.
+    /// Read-only: locked tracks are eligible, and no clip-edit history is created.
+    Q_INVOKABLE bool selectClipsInSelectionRange(bool overlapping);
     /// Select only whole clips ending at or before / starting at or after the playhead.
     /// Clips intersecting the playhead are excluded; empty results keep the old selection.
     Q_INVOKABLE bool selectClipsBeforePlayhead();

@@ -684,6 +684,31 @@ bool TimelineController::alignSelectionEndToPlayhead()
         edits::nudgeClips(QList<Id>(m_selection.cbegin(), m_selection.cend()), delta));
 }
 
+bool TimelineController::alignSelectionCenterToPlayhead()
+{
+    const QVariantMap bounds = selectedFrameRange();
+    if (bounds.isEmpty()) {
+        emit statusMessage(QStringLiteral("Select one or more clips to align."));
+        return false;
+    }
+
+    const FrameCount start =
+        static_cast<FrameCount>(bounds.value(QStringLiteral("start")).toDouble());
+    const FrameCount end = static_cast<FrameCount>(bounds.value(QStringLiteral("end")).toDouble());
+    if (end <= start) {
+        return false;
+    }
+    // Timeline intervals are half-open. For odd-length ranges, the center
+    // rounds down to the earlier whole frame to avoid fractional positions.
+    const FrameCount center = start + (end - start) / 2;
+    const FrameCount delta = m_playback->positionFrames() - center;
+    if (delta == 0) {
+        return false;
+    }
+    return m_project->execute(
+        edits::nudgeClips(QList<Id>(m_selection.cbegin(), m_selection.cend()), delta));
+}
+
 bool TimelineController::trimSelectionToPlayhead(bool trimEnd)
 {
     if (m_selection.size() != 1) {
@@ -1124,6 +1149,51 @@ bool TimelineController::selectClipsAtPlayhead()
     emit selectedClipChanged();
     emit statusMessage(
         QStringLiteral("Selected %1 clip(s) at the playhead.").arg(m_selection.size()));
+    return true;
+}
+
+bool TimelineController::selectClipsInSelectionRange(bool overlapping)
+{
+    if (m_selection.isEmpty()) {
+        emit statusMessage(QStringLiteral("Select clips to define a time range first."));
+        return false;
+    }
+    const Timeline& timeline = project().timeline();
+    FrameCount first = kMaxTimelineFrames;
+    FrameCount end = 0;
+    for (const Id& id : std::as_const(m_selection)) {
+        const Clip* clip = timeline.clip(id);
+        if (!clip) {
+            emit statusMessage(QStringLiteral("The selection contains a missing clip."));
+            return false;
+        }
+        first = std::min(first, clip->start);
+        end = std::max(end, clip->end());
+    }
+    if (end <= first) {
+        return false;
+    }
+
+    QSet<Id> matching;
+    for (const Track& track : timeline.tracks()) {
+        for (const Clip& clip : track.clips) {
+            const bool matches = overlapping ? clip.start < end && clip.end() > first
+                                             : clip.start >= first && clip.end() <= end;
+            if (matches) {
+                matching.insert(clip.id);
+            }
+        }
+    }
+    if (matching == m_selection) {
+        return false;
+    }
+    setTransitionSelection({});
+    m_selection = std::move(matching);
+    m_model.updateSelection(m_selection);
+    emit selectionChanged();
+    emit selectedClipChanged();
+    emit statusMessage(
+        QStringLiteral("Selected %1 clip(s) in the time range.").arg(m_selection.size()));
     return true;
 }
 

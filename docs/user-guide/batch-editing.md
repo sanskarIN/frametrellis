@@ -180,6 +180,20 @@ cannot normally move beyond the sequence's last visible frame, so aligning
 the very last clip end can move the group one frame earlier. This action is
 not available in stable v1.3.1.
 
+### Center the selection on the playhead
+
+Choose **Edit → Center Selection on Playhead** to shift the entire selected
+video/audio group until the midpoint of its outer `[start, end)` range
+matches the current playhead frame. The group retains its internal timing,
+tracks, source trims, fades, keyframes and all other clip attributes. For
+odd-length ranges, the center rounds down to the earlier whole frame.
+
+The edit is a single atomic **Nudge Clips** undo step; an empty selection,
+already-centered group, locked track, collision or movement before frame zero
+is refused without affecting the project or its history. As with start/end
+alignment, this does not change media content, markers, subtitles or
+unselected clips. It is not in stable v1.3.1.
+
 ## Apply fades to multiple selected clips (v1.4 development)
 
 Select several clips across video and audio tracks, then choose **Edit →
@@ -253,6 +267,22 @@ empty interval. The command refuses an occupied playhead position, a missing
 later clip, a protected track, any intersecting clip or an unsafe transition.
 It never trims or deletes footage. Subtitles and timeline markers stay at their
 absolute sequence frame positions. Neither command is present in v1.3.1.
+
+## Select clips by the current selection range (v1.4 development)
+
+Select at least two timeline clips to define the time span from the earliest
+selected start to the latest selected exclusive end. Then choose either
+**Edit → Select Clips Overlapping Selection Range** to include every clip on
+all video/audio tracks with any frames in that span, or **Edit → Select Clips
+Entirely Inside Selection Range** to include only clips whose full duration
+falls inside the span. These are selection operations only: they do not trim,
+move, ripple, copy, delete or create an Undo command.
+
+The range uses half-open intervals: a clip beginning exactly at the selected
+range's end is excluded; a clip ending exactly at its start is excluded from
+the overlapping mode. Locked tracks are included for inspection, not edited.
+An empty selection or a selection already matching the requested mode leaves
+the project and edit history untouched.
 
 ## Traverse selected clips' visible edges (v1.4 development)
 

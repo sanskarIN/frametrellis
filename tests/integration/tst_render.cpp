@@ -37,12 +37,13 @@ private:
     QString m_video;
     QString m_tone;
 
-    Project project(FrameCount videoFrames = 50)
+    Project project(FrameCount videoFrames = 50,
+                    FrameRate rate = FrameRate::integer(25))
     {
         ProjectSettings settings;
         settings.width = 160;
         settings.height = 90;
-        settings.frameRate = *FrameRate::create(25, 1);
+        settings.frameRate = rate;
         Project p = Project::createNew(QStringLiteral("Render"), settings);
         Result<MediaAsset> video = media::createAsset(m_video);
         Result<MediaAsset> tone = media::createAsset(m_tone);
@@ -521,11 +522,9 @@ private slots:
 
         // The helper must preserve the exact 30000/1001 time base and use
         // drop-frame labels, rather than rounding 29.97 fps to an integer.
-        ProjectSettings ntscSettings = p.settings();
-        ntscSettings.frameRate = *FrameRate::create(30'000, 1'001);
-        QVERIFY(p.setSettings(ntscSettings));
+        const Project ntscProject = project(25, *FrameRate::create(30'000, 1'001));
         const QString ntscPath = m_dir.filePath(QStringLiteral("inspect-ntsc.ftproj"));
-        QVERIFY(project_format::saveToFile(p, ntscPath));
+        QVERIFY(project_format::saveToFile(ntscProject, ntscPath));
         QProcess ntsc;
         ntsc.start(QStringLiteral(FT_RENDER_HELPER),
                    {QStringLiteral("--inspect-project"), QStringLiteral("--project"), ntscPath});

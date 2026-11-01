@@ -309,7 +309,15 @@ QJsonObject toJson(const Project& project, const QString& projectDir)
         o[QLatin1String("name")] = a.name;
         o[QLatin1String("path")] = QDir::fromNativeSeparators(a.filePath);
         if (!projectDir.isEmpty()) {
-            o[QLatin1String("relativePath")] = dir.relativeFilePath(a.filePath);
+            const QString relative = dir.relativeFilePath(a.filePath);
+            // A valid absolute media path and project directory can generate a
+            // relative path longer than the format reader's 4096-char limit,
+            // particularly when both paths are deeply nested and unrelated.
+            // Omit the optional relocation hint instead of writing a document
+            // that cannot be reopened. The original absolute path is retained.
+            if (relative.size() <= kMaxMediaPathLength) {
+                o[QLatin1String("relativePath")] = relative;
+            }
         }
         o[QLatin1String("info")] = mediaInfoToJson(a.info);
         media.append(o);

@@ -177,7 +177,8 @@ private slots:
         QCOMPARE(m_project->canUndo(), undoBeforeExport);
         QVERIFY(!m_subtitles->exportTranscriptTxt(QStringLiteral("https://example.com/file.txt")));
         QVERIFY(!m_subtitles->exportTranscriptTxt(m_dir.filePath(QStringLiteral("wrong.srt"))));
-        QVERIFY(!m_subtitles->exportTranscriptTxt(m_dir.filePath(QStringLiteral("absent/file.txt"))));
+        QVERIFY(
+            !m_subtitles->exportTranscriptTxt(m_dir.filePath(QStringLiteral("absent/file.txt"))));
         QCOMPARE(m_project->project(), before);
         QVERIFY(open(before, QStringLiteral("project.txt")));
         const QByteArray saved = read(m_project->filePath());

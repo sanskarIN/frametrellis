@@ -252,6 +252,40 @@ private slots:
         QCOMPARE(media[QLatin1String("relativePath")].toString(), QStringLiteral("media/clip.mp4"));
     }
 
+    void oversizedRelativePathFallsBackToStoredAbsolutePath()
+    {
+        // These two separately valid absolute paths produce a relative
+        // traversal too long for the .ftproj reader's optional field.
+        const QString directory = QStringLiteral("/") + QStringLiteral("a/").repeated(1450) +
+                                  QStringLiteral("edit");
+        const QString mediaPath = QStringLiteral("/") + QStringLiteral("b/").repeated(1450) +
+                                  QStringLiteral("clip.mp4");
+        QVERIFY(directory.size() <= kMaxMediaPathLength);
+        QVERIFY(mediaPath.size() <= kMaxMediaPathLength);
+        QVERIFY(QDir(directory).relativeFilePath(mediaPath).size() > kMaxMediaPathLength);
+
+        Project project = Project::createNew(QStringLiteral("Relocation hints"), ProjectSettings{});
+        MediaAsset media = makeAsset(QStringLiteral("long-path-media"), mediaPath,
+                                    MediaKind::Video, 1'000'000);
+        QVERIFY(project.addAsset(media));
+        QVERIFY(project.validate());
+
+        const QByteArray data = project_format::toBytes(project, directory);
+        const QJsonObject root = QJsonDocument::fromJson(data).object();
+        const QJsonObject entry = root.value(QLatin1String("project"))
+                                      .toObject()
+                                      .value(QLatin1String("media"))
+                                      .toArray()
+                                      .at(0)
+                                      .toObject();
+        QCOMPARE(entry.value(QLatin1String("path")).toString(), mediaPath);
+        QVERIFY(entry.value(QLatin1String("relativePath")).isUndefined());
+
+        const Result<Project> loaded = project_format::fromBytes(data, directory);
+        QVERIFY2(loaded, qPrintable(loaded ? QString() : loaded.error().toString()));
+        QCOMPARE(loaded->asset(media.id)->filePath, mediaPath);
+    }
+
     void movedProjectFolderResolvesRelativePaths()
     {
         QTemporaryDir oldRoot;

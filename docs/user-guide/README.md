@@ -504,6 +504,10 @@ sharing outside your machine. Available in development source, not stable v1.3.1
 3. Optionally adjust quality (lower CRF = better quality, bigger file), encoder speed and audio.
 4. Click **Export**.
 
+The v1.4 development presets add **Low-bandwidth review (up to 480p)** and
+**Creator upload (up to 1440p)**. Both preserve smaller project canvases
+without upscaling and work for landscape and portrait projects.
+
 The export runs in the background — you can keep editing; it uses a snapshot of the project.
 The status bar shows progress. The result is written to a temporary file first and only replaces
 an existing file once the export succeeded. FrameTrellis refuses to overwrite your source media

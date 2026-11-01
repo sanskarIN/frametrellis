@@ -233,6 +233,43 @@ private slots:
         ultraHd.height = 2160;
         QCOMPARE(outputSize(applyPreset(*creatorHd, QString()), ultraHd), QSize(1920, 1080));
         QCOMPARE(outputSize(applyPreset(*creator4k, QString()), ultraHd), QSize(3840, 2160));
+        const auto review480 = std::find_if(
+            presets.cbegin(), presets.cend(), [](const ExportPreset& p) {
+                return p.id == QLatin1String("review480p");
+            });
+        const auto creatorQhd = std::find_if(
+            presets.cbegin(), presets.cend(), [](const ExportPreset& p) {
+                return p.id == QLatin1String("youtube1440p");
+            });
+        QVERIFY(review480 != presets.cend());
+        QVERIFY(creatorQhd != presets.cend());
+        QCOMPARE(review480->shortSide, 480);
+        QCOMPARE(review480->crf, 27);
+        QCOMPARE(review480->speedPreset, QStringLiteral("veryfast"));
+        QCOMPARE(review480->audioBitrateKbps, 96);
+        QVERIFY(review480->avoidUpscaling);
+        QCOMPARE(creatorQhd->shortSide, 1440);
+        QCOMPARE(creatorQhd->crf, 18);
+        QCOMPARE(creatorQhd->speedPreset, QStringLiteral("medium"));
+        QCOMPARE(creatorQhd->audioBitrateKbps, 256);
+        QVERIFY(creatorQhd->avoidUpscaling);
+        const ExportSettings review =
+            applyPreset(*review480, m_dir.filePath(QStringLiteral("review.mp4")));
+        const ExportSettings qhd =
+            applyPreset(*creatorQhd, m_dir.filePath(QStringLiteral("creator-qhd.mp4")));
+        QCOMPARE(outputSize(review, ProjectSettings{}), QSize(854, 480));
+        QCOMPARE(outputSize(qhd, ultraHd), QSize(2560, 1440));
+        QCOMPARE(outputSize(qhd, ProjectSettings{}), QSize(1920, 1080));
+        ProjectSettings portrait;
+        portrait.width = 1080;
+        portrait.height = 1920;
+        QCOMPARE(outputSize(review, portrait), QSize(480, 854));
+        ProjectSettings small;
+        small.width = 640;
+        small.height = 360;
+        QCOMPARE(outputSize(review, small), QSize(640, 360));
+        QVERIFY(validateExport(review, projectWithClip()));
+        QVERIFY(validateExport(qhd, projectWithClip()));
         const ExportPreset quick =
             *std::find_if(presets.cbegin(), presets.cend(),
                           [](const ExportPreset& p) { return p.id == QLatin1String("quick"); });

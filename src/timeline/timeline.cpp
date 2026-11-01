@@ -441,8 +441,8 @@ Status Timeline::insertTrack(Track t, int index)
         if (const Status shape = checkClipShape(c); !shape) {
             return shape;
         }
-        if (c.start < previousEnd || trackIndex(c.id) >= 0 || findClip(c.id) ||
-            transition(c.id) || incomingIds.contains(c.id)) {
+        if (c.start < previousEnd || trackIndex(c.id) >= 0 || findClip(c.id) || transition(c.id) ||
+            incomingIds.contains(c.id)) {
             return makeError(ErrorCode::InvalidArgument,
                              QStringLiteral("The track's clips are inconsistent."));
         }
@@ -450,8 +450,8 @@ Status Timeline::insertTrack(Track t, int index)
         incomingIds.insert(c.id);
     }
     for (const Transition& tr : t.transitions) {
-        if (!isValidId(tr.id) || trackIndex(tr.id) >= 0 || findClip(tr.id) ||
-            transition(tr.id) || incomingIds.contains(tr.id)) {
+        if (!isValidId(tr.id) || trackIndex(tr.id) >= 0 || findClip(tr.id) || transition(tr.id) ||
+            incomingIds.contains(tr.id)) {
             return makeError(ErrorCode::InvalidArgument,
                              QStringLiteral("The track's transitions have inconsistent ids."));
         }

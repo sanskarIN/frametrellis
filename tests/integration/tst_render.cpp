@@ -37,12 +37,12 @@ private:
     QString m_video;
     QString m_tone;
 
-    Project project(FrameCount videoFrames = 50)
+    Project project(FrameCount videoFrames = 50, FrameRate rate = FrameRate::integer(25))
     {
         ProjectSettings settings;
         settings.width = 160;
         settings.height = 90;
-        settings.frameRate = *FrameRate::create(25, 1);
+        settings.frameRate = rate;
         Project p = Project::createNew(QStringLiteral("Render"), settings);
         Result<MediaAsset> video = media::createAsset(m_video);
         Result<MediaAsset> tone = media::createAsset(m_tone);
@@ -467,6 +467,11 @@ private slots:
         QCOMPARE(report->value(QStringLiteral("event")).toString(),
                  QStringLiteral("project_inspection"));
         QCOMPARE(report->value(QStringLiteral("name")).toString(), QStringLiteral("Render"));
+        QCOMPARE(report->value(QStringLiteral("sequenceWidth")).toInt(), 160);
+        QCOMPARE(report->value(QStringLiteral("sequenceHeight")).toInt(), 90);
+        QCOMPARE(report->value(QStringLiteral("frameRate")).toString(), QStringLiteral("25/1"));
+        QCOMPARE(report->value(QStringLiteral("durationTimecode")).toString(),
+                 QStringLiteral("00:00:01:15"));
         QCOMPARE(report->value(QStringLiteral("trackCount")).toInt(), 4);
         QCOMPARE(report->value(QStringLiteral("videoTrackCount")).toInt(), 2);
         QCOMPARE(report->value(QStringLiteral("audioTrackCount")).toInt(), 2);
@@ -509,6 +514,28 @@ private slots:
         QCOMPARE(unavailable->value(QStringLiteral("unusedMediaCount")).toInt(), 1);
         QCOMPARE(unavailable->value(QStringLiteral("missingMediaCount")).toInt(), 2);
         QCOMPARE(unavailable->value(QStringLiteral("missingUsedMediaCount")).toInt(), 1);
+        QCOMPARE(unavailable->value(QStringLiteral("frameRate")).toString(),
+                 QStringLiteral("25/1"));
+        QCOMPARE(unavailable->value(QStringLiteral("durationTimecode")).toString(),
+                 QStringLiteral("00:00:01:15"));
+
+        // The helper must preserve the exact 30000/1001 time base and use
+        // drop-frame labels, rather than rounding 29.97 fps to an integer.
+        const Project ntscProject = project(25, *FrameRate::create(30'000, 1'001));
+        const QString ntscPath = m_dir.filePath(QStringLiteral("inspect-ntsc.ftproj"));
+        QVERIFY(project_format::saveToFile(ntscProject, ntscPath));
+        QProcess ntsc;
+        ntsc.start(QStringLiteral(FT_RENDER_HELPER),
+                   {QStringLiteral("--inspect-project"), QStringLiteral("--project"), ntscPath});
+        QVERIFY2(ntsc.waitForStarted(10'000), qPrintable(ntsc.errorString()));
+        QVERIFY2(ntsc.waitForFinished(15'000), qPrintable(ntsc.errorString()));
+        QCOMPARE(ntsc.exitCode(), int(protocol::Success));
+        const auto rateReport = protocol::decode(ntsc.readAllStandardOutput().trimmed());
+        QVERIFY(rateReport);
+        QCOMPARE(rateReport->value(QStringLiteral("frameRate")).toString(),
+                 QStringLiteral("30000/1001"));
+        QCOMPARE(rateReport->value(QStringLiteral("durationTimecode")).toString(),
+                 QStringLiteral("00:00:01;10"));
     }
 
     void helperInspectionRejectsInvalidArgumentAndMissingProject()

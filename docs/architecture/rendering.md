@@ -56,6 +56,32 @@ libraries cannot be mistaken for an event:
 
 Exit codes: 0 success, 1 failure, 2 bad arguments, 3 cancelled.
 
+## Read-only project inspection
+
+The render helper can inspect a saved project without starting MLT, decoding media,
+rendering an export or modifying the project:
+
+```sh
+frametrellis-render --inspect-project --project /path/to/edit.ftproj
+```
+
+It emits a single `@ft` JSON `project_inspection` event containing track,
+clip and media availability counts, the sequence dimensions (`sequenceWidth`,
+`sequenceHeight`), the exact rational `frameRate` (for example `30000/1001`),
+`durationFrames`, and a formatted `durationTimecode`. The timecode uses the
+same automatic drop-frame convention as the editor at 29.97/59.94 fps.
+Selected fields from a 160x90, 25 fps, 40-frame sequence are shown below;
+the actual event also includes the remaining project summary fields:
+
+```text
+@ft {"event":"project_inspection","sequenceWidth":160,"sequenceHeight":90,"frameRate":"25/1","durationFrames":40,"durationTimecode":"00:00:01:15"}
+```
+
+The event is additive and intended for local tools and preflight scripts. It
+contains no source file paths or imported media names. It reports saved project
+state, not whether a future export will succeed; offline/used media counts can
+help identify missing sources before rendering.
+
 ## Known engine quirks handled here
 
 * MLT's parallel frame rendering in the avformat consumer (`real_time < 0`) produced corrupt

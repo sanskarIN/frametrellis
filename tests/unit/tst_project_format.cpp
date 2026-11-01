@@ -133,6 +133,30 @@ private slots:
         QVERIFY(project.validate());
     }
 
+    void invalidProjectCannotOverwritePreviouslySavedDocument()
+    {
+        QTemporaryDir dir;
+        QVERIFY(dir.isValid());
+        const QString path = dir.filePath(QStringLiteral("protected.ftproj"));
+        Project project = makeProject(QStringLiteral("/media"));
+        QVERIFY(project_format::saveToFile(project, path));
+        QFile initial(path);
+        QVERIFY(initial.open(QIODevice::ReadOnly));
+        const QByteArray original = initial.readAll();
+        initial.close();
+        QVERIFY(!original.isEmpty());
+
+        project.setName(QStringLiteral(" \t "));
+        const Status rejected = project_format::saveToFile(project, path);
+        QVERIFY(!rejected);
+        QCOMPARE(rejected.error().code, ErrorCode::InvalidDocument);
+        QFile preserved(path);
+        QVERIFY(preserved.open(QIODevice::ReadOnly));
+        QCOMPARE(preserved.readAll(), original);
+        preserved.close();
+        QVERIFY(project_format::loadFromFile(path));
+    }
+
     void suggestedTrackNamesIgnoreCase()
     {
         Project project = Project::createNew(QStringLiteral("Names"), ProjectSettings{});

@@ -519,6 +519,26 @@ private slots:
                  QStringLiteral("25/1"));
         QCOMPARE(unavailable->value(QStringLiteral("durationTimecode")).toString(),
                  QStringLiteral("00:00:01:15"));
+
+        // The helper must preserve the exact 30000/1001 time base and use
+        // drop-frame labels, rather than rounding 29.97 fps to an integer.
+        ProjectSettings ntscSettings = p.settings();
+        ntscSettings.frameRate = *FrameRate::create(30'000, 1'001);
+        QVERIFY(p.setSettings(ntscSettings));
+        const QString ntscPath = m_dir.filePath(QStringLiteral("inspect-ntsc.ftproj"));
+        QVERIFY(project_format::saveToFile(p, ntscPath));
+        QProcess ntsc;
+        ntsc.start(QStringLiteral(FT_RENDER_HELPER),
+                   {QStringLiteral("--inspect-project"), QStringLiteral("--project"), ntscPath});
+        QVERIFY2(ntsc.waitForStarted(10'000), qPrintable(ntsc.errorString()));
+        QVERIFY2(ntsc.waitForFinished(15'000), qPrintable(ntsc.errorString()));
+        QCOMPARE(ntsc.exitCode(), int(protocol::Success));
+        const auto rateReport = protocol::decode(ntsc.readAllStandardOutput().trimmed());
+        QVERIFY(rateReport);
+        QCOMPARE(rateReport->value(QStringLiteral("frameRate")).toString(),
+                 QStringLiteral("30000/1001"));
+        QCOMPARE(rateReport->value(QStringLiteral("durationTimecode")).toString(),
+                 QStringLiteral("00:00:01;10"));
     }
 
     void helperInspectionRejectsInvalidArgumentAndMissingProject()

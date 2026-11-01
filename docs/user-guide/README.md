@@ -346,6 +346,10 @@ WebVTT preserves exact millisecond cue boundaries, Unicode, line breaks and lite
 markup characters (`<`, `>` and `&`) as displayed text, not styling. Both exports
 use protected atomic file writes, reject remote URLs and refuse paths that point
 to the project or imported source media. Neither modifies the project or undo history.
+**Export TXT…** writes a UTF-8 timestamped reading transcript (`.txt`), with each
+cue displayed as `[start --> end]` followed by its literal text. It is useful for
+reviews and translation, but is not a caption format for video players. It has
+the same protected atomic writes and does not modify the project or Undo history.
 Turn burn-in off for sidecar-only delivery. Sidecar export is separate from MP4 export;
 the MP4 does not contain a switchable subtitle stream.
 

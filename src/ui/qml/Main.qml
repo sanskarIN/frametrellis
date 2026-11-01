@@ -19,7 +19,7 @@ ApplicationWindow {
     readonly property bool dialogOpen: newDialog.visible || titleDialog.visible || exportDialog.visible || aboutDialog.visible
                                        || shortcutsDialog.visible || goToTimecodeDialog.visible || markerDialog.visible || welcome.visible || messageBox.visible
                                        || unsavedDialog.visible || exportRunningDialog.visible || recoveryDialog.visible
-                                       || subtitleDialog.visible || subtitleImportDialog.visible || subtitleExportDialog.visible || subtitleVttExportDialog.visible
+                                       || subtitleDialog.visible || subtitleImportDialog.visible || subtitleExportDialog.visible || subtitleVttExportDialog.visible || subtitleTranscriptExportDialog.visible
                                        || previewFrameDialog.visible || clipListDialog.visible || mediaAuditCsvDialog.visible || preciseGapDialog.visible
                                        || customPictureDialog.visible || mediaPanel.excerptDialogOpen
     readonly property bool editKeys: !dialogOpen
@@ -642,6 +642,17 @@ ApplicationWindow {
         onAccepted: window.app.subtitles.exportWebVtt(window.app.localPath(selectedFile))
     }
 
+    FileDialog {
+        id: subtitleTranscriptExportDialog
+        title: qsTr("Export timestamped text transcript")
+        fileMode: FileDialog.SaveFile
+        defaultSuffix: "txt"
+        nameFilters: [qsTr("Plain text transcripts (*.txt)")]
+        currentFolder: window.app.fileUrl(window.app.project.projectFolder())
+        selectedFile: window.app.fileUrl(window.app.project.projectFolder() + "/" + window.app.project.suggestedFileName().replace(/\.ftproj$/i, ".txt"))
+        onAccepted: window.app.subtitles.exportTranscriptTxt(window.app.localPath(selectedFile))
+    }
+
     FtDialog {
         id: preciseGapDialog
         objectName: "preciseGapDialog"
@@ -806,6 +817,7 @@ ApplicationWindow {
         onImportRequested: subtitleImportDialog.open()
         onExportRequested: subtitleExportDialog.open()
         onExportWebVttRequested: subtitleVttExportDialog.open()
+        onExportTranscriptRequested: subtitleTranscriptExportDialog.open()
     }
     WelcomeOverlay { id: welcome; objectName: "welcome"; app: window.app; onImportRequested: importDialog.open() }
     MessageBox { id: messageBox }

@@ -64,4 +64,10 @@ namespace webvtt {
 [[nodiscard]] Result<QByteArray> toBytes(const SubtitleTrack& track);
 } // namespace webvtt
 
+namespace transcript {
+/// UTF-8 timestamped reading transcript with the original literal caption text.
+/// This is a review format, not a video-player subtitle stream.
+[[nodiscard]] Result<QByteArray> toBytes(const SubtitleTrack& track);
+} // namespace transcript
+
 } // namespace ft

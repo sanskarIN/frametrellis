@@ -233,12 +233,11 @@ private slots:
         ultraHd.height = 2160;
         QCOMPARE(outputSize(applyPreset(*creatorHd, QString()), ultraHd), QSize(1920, 1080));
         QCOMPARE(outputSize(applyPreset(*creator4k, QString()), ultraHd), QSize(3840, 2160));
-        const auto review480 = std::find_if(
-            presets.cbegin(), presets.cend(), [](const ExportPreset& p) {
-                return p.id == QLatin1String("review480p");
-            });
-        const auto creatorQhd = std::find_if(
-            presets.cbegin(), presets.cend(), [](const ExportPreset& p) {
+        const auto review480 =
+            std::find_if(presets.cbegin(), presets.cend(),
+                         [](const ExportPreset& p) { return p.id == QLatin1String("review480p"); });
+        const auto creatorQhd =
+            std::find_if(presets.cbegin(), presets.cend(), [](const ExportPreset& p) {
                 return p.id == QLatin1String("youtube1440p");
             });
         QVERIFY(review480 != presets.cend());

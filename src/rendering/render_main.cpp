@@ -247,29 +247,28 @@ int main(int argc, char** argv)
         }
         // Metadata only: no MLT runtime, media decoding, destination files or project edits.
         // Local source paths are deliberately excluded from the machine-readable summary.
-        emitEvent({{QStringLiteral("event"), QStringLiteral("project_inspection")},
-                   {QStringLiteral("name"), inspected->name()},
-                   {QStringLiteral("sequenceWidth"), inspected->settings().width},
-                   {QStringLiteral("sequenceHeight"), inspected->settings().height},
-                   {QStringLiteral("frameRate"),
-                    inspected->settings().frameRate.rational().toString()},
-                   {QStringLiteral("durationTimecode"),
-                    timecode::format(inspected->timeline().duration(),
-                                     inspected->settings().frameRate)},
-                   {QStringLiteral("trackCount"), inspected->timeline().trackCount()},
-                   {QStringLiteral("videoTrackCount"), videoTracks},
-                   {QStringLiteral("audioTrackCount"), audioTracks},
-                   {QStringLiteral("clipCount"), inspected->timeline().clipCount()},
-                   {QStringLiteral("mediaCount"), static_cast<int>(inspected->media().size())},
-                   {QStringLiteral("subtitleCueCount"),
-                    static_cast<int>(inspected->subtitles().cues.size())},
-                   {QStringLiteral("subtitleBurnIn"), inspected->subtitles().burnIn},
-                   {QStringLiteral("usedMediaCount"), static_cast<int>(referencedIds.size())},
-                   {QStringLiteral("unusedMediaCount"), unusedMedia},
-                   {QStringLiteral("missingMediaCount"), missingMedia},
-                   {QStringLiteral("missingUsedMediaCount"), missingUsedMedia},
-                   {QStringLiteral("durationFrames"),
-                    static_cast<double>(inspected->timeline().duration())}});
+        emitEvent(
+            {{QStringLiteral("event"), QStringLiteral("project_inspection")},
+             {QStringLiteral("name"), inspected->name()},
+             {QStringLiteral("sequenceWidth"), inspected->settings().width},
+             {QStringLiteral("sequenceHeight"), inspected->settings().height},
+             {QStringLiteral("frameRate"), inspected->settings().frameRate.rational().toString()},
+             {QStringLiteral("durationTimecode"),
+              timecode::format(inspected->timeline().duration(), inspected->settings().frameRate)},
+             {QStringLiteral("trackCount"), inspected->timeline().trackCount()},
+             {QStringLiteral("videoTrackCount"), videoTracks},
+             {QStringLiteral("audioTrackCount"), audioTracks},
+             {QStringLiteral("clipCount"), inspected->timeline().clipCount()},
+             {QStringLiteral("mediaCount"), static_cast<int>(inspected->media().size())},
+             {QStringLiteral("subtitleCueCount"),
+              static_cast<int>(inspected->subtitles().cues.size())},
+             {QStringLiteral("subtitleBurnIn"), inspected->subtitles().burnIn},
+             {QStringLiteral("usedMediaCount"), static_cast<int>(referencedIds.size())},
+             {QStringLiteral("unusedMediaCount"), unusedMedia},
+             {QStringLiteral("missingMediaCount"), missingMedia},
+             {QStringLiteral("missingUsedMediaCount"), missingUsedMedia},
+             {QStringLiteral("durationFrames"),
+              static_cast<double>(inspected->timeline().duration())}});
         return protocol::Success;
     }
 

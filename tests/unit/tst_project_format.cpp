@@ -162,8 +162,9 @@ private slots:
         Project project = makeProject(QStringLiteral("/media"));
         const QString originalPath = project.asset(QStringLiteral("m3"))->filePath;
         const QString originalName = project.asset(QStringLiteral("m3"))->name;
-        MediaAsset newAsset = makeAsset(QStringLiteral("long-new"), QStringLiteral("/media/new.mp4"),
-                                       MediaKind::Video, 1000000);
+        MediaAsset newAsset =
+            makeAsset(QStringLiteral("long-new"), QStringLiteral("/media/new.mp4"),
+                      MediaKind::Video, 1000000);
 
         newAsset.filePath = QStringLiteral("/") + QString(4096, QLatin1Char('p'));
         const Status rejectedPath = project.addAsset(newAsset);
@@ -193,8 +194,7 @@ private slots:
         QVERIFY(project.validate());
         QVERIFY(project_format::fromBytes(project_format::toBytes(project)));
 
-        QCOMPARE(project.asset(newAsset.id)->name.size(),
-                 qsizetype{kMaxMediaNameLength});
+        QCOMPARE(project.asset(newAsset.id)->name.size(), qsizetype{kMaxMediaNameLength});
     }
 
     void suggestedTrackNamesIgnoreCase()

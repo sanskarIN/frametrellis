@@ -24,11 +24,12 @@ maintainer can inspect and attach them by hand.
 
 ## Prepare all five release attachments (without publishing)
 
-1. On GitHub, open **Actions → Prepare manual release → Run workflow**.
-   Select **main**, run it **only after the source is frozen**, and verify that
-   the run's **head SHA exactly matches** the validated `main` commit (the UI
-   selects a branch/ref rather than letting you pin an arbitrary commit).
-   This is a release *rehearsal and packaging* workflow, not a publisher.
+1. A **Prepare manual release** run starts when changes to the preparation
+   workflow itself are merged into `main`; otherwise open **Actions → Prepare
+   manual release → Run workflow**, select **main** and run it. Verify the run's
+   **head SHA exactly matches** the frozen, tested `main` commit (the UI selects
+   a branch/ref rather than letting you pin an arbitrary commit). This is a
+   release *rehearsal and packaging* workflow, not a publisher.
 2. Require the entire workflow to succeed: version/notes check, Windows packages,
    clean-host package verification, matching third-party corresponding sources,
    and the final `Assemble manual upload bundle` job.

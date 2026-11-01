@@ -3,6 +3,7 @@
 """Regression checks for stable and prerelease Windows asset naming."""
 
 import importlib.util
+import re
 import subprocess
 import sys
 import unittest
@@ -17,6 +18,32 @@ from release_version import resolve_release_version  # noqa: E402
 
 
 class ReleaseVersionTests(unittest.TestCase):
+    def test_current_project_has_matching_release_notes(self):
+        """Catch missing or mismatched notes before building release binaries."""
+        root = SOURCE.parents[1]
+        cmake = (root / "CMakeLists.txt").read_text(encoding="utf-8")
+        match = re.search(
+            r"project\(FrameTrellis\s+VERSION\s+([0-9]+\.[0-9]+\.[0-9]+)",
+            cmake,
+        )
+        self.assertIsNotNone(match, "CMake must declare a numeric project version")
+        version = match.group(1)
+        notes = root / "docs" / "releases" / f"v{version}.md"
+        self.assertTrue(notes.is_file(), f"Missing release notes: {notes}")
+        preamble = notes.read_text(encoding="utf-8").splitlines()[:20]
+        self.assertTrue(preamble[0].startswith(f"# FrameTrellis {version}"))
+        self.assertFalse(
+            any(
+                re.search(
+                    r"^<!--\s*draft|^# .*\b(draft|not released)\b|^>.*not published",
+                    line,
+                    re.I,
+                )
+                for line in preamble
+            ),
+            "Release notes preamble must not advertise a draft or unpublished version",
+        )
+
     def test_stable_release(self):
         result = resolve_release_version("v1.4.0", "1.4.0")
         self.assertEqual(result.version, "1.4.0")

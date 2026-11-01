@@ -1,42 +1,23 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
-# Publishes the packages of a version (for example tag v1.2.2) to its GitHub release.
-#
-# It runs when a version tag is pushed and when a release is published in the GitHub web
-# interface (which can also create the tag). The Windows packages are built and verified on
-# clean runners by the "Windows packages" workflow first, and nothing is published if any build,
-# test or verification step fails. If the release does not exist yet, it is created with the
-# notes from docs/releases/<tag>.md; if it was created by hand, the packages are attached to it
-# and its notes are kept, completed with the download list and the checksums.
-#
-# A manual run rehearses by default. Set publish=true explicitly to publish after verified
-# builds. The release notes and checksums are also retained as workflow artifacts.
-name: Release
+# Manually rehearses a release and assembles all verified assets for a HUMAN to upload.
+# This workflow NEVER creates a tag, GitHub release or release asset and has no
+# push/tag/release triggers. Publication happens directly from the repository owner's
+# GitHub Releases interface after acceptance, not from GitHub Actions.
+name: Prepare manual release
 
 on:
-  push:
-    tags: ["v*"]
-  release:
-    types: [published]
   workflow_dispatch:
-    inputs:
-      publish:
-        description: "Publish the matching version and attach verified packages (otherwise rehearse)"
-        type: boolean
-        required: true
-        default: false
 
 permissions:
   contents: read
 
 concurrency:
-  # A release published in the web interface may also push its tag; both runs share this group,
-  # and the second one finds the packages already attached and stops.
-  group: release-${{ github.event_name == 'workflow_dispatch' && !inputs.publish && 'rehearsal' || github.ref_name }}
+  group: manual-release-rehearsal-${{ github.ref_name }}
   cancel-in-progress: false
 
 jobs:
   check:
-    name: Check the version and release notes
+    name: Check version and release notes
     runs-on: ubuntu-24.04
     outputs:
       version: ${{ steps.version.outputs.version }}
@@ -101,7 +82,7 @@ jobs:
           fi
           # tag/version/package_version already emitted by release_version.py
       - id: published
-        name: Check whether the packages are already published
+        name: Require a fresh verified asset assembly
         env:
           GH_TOKEN: ${{ github.token }}
           TAG: ${{ steps.version.outputs.tag }}
@@ -154,8 +135,8 @@ jobs:
           if-no-files-found: error
           compression-level: 0
 
-  publish:
-    name: Publish the release
+  assemble:
+    name: Assemble manual upload bundle
     needs: [check, packages, sources]
     runs-on: ubuntu-24.04
     permissions:
@@ -212,41 +193,12 @@ jobs:
           } > release-assets.md
           { cat "docs/releases/v${VERSION%%-*}.md"; echo; cat release-assets.md; } > release-notes.md
           cat release-notes.md
-      - name: Keep the release notes and checksums
+      - name: Upload complete verified files for manual GitHub publication
         uses: actions/upload-artifact@v6
         with:
-          name: release-notes
+          name: manual-release-assets
           path: |
+            release/*
             release-notes.md
-            release/SHA256SUMS.txt
-      - name: Create the release or attach the packages to it
-        if: github.event_name != 'workflow_dispatch' || inputs.publish
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          set -euo pipefail
-          if gh release view "$TAG" > /dev/null 2>&1; then
-            echo "The release $TAG exists; attaching the packages."
-            gh release upload "$TAG" release/* --clobber
-            body=$(gh release view "$TAG" --json body --jq .body)
-            if [ -z "${body//[[:space:]]/}" ]; then
-              gh release edit "$TAG" --notes-file release-notes.md
-            elif ! grep -q '^## Checksums' <<< "$body"; then
-              { printf '%s\n\n' "$body"; cat release-assets.md; } > merged-notes.md
-              gh release edit "$TAG" --notes-file merged-notes.md
-            fi
-          else
-            prerelease=()
-            if [[ "$TAG" == *-* ]]; then prerelease=(--prerelease); fi
-            gh release create "$TAG" release/* \
-              --verify-tag \
-              --title "FrameTrellis $RELEASE_VERSION" \
-              --notes-file release-notes.md \
-              "${prerelease[@]}"
-          fi
-          gh release view "$TAG" --json url,assets --jq '.url, (.assets[] | "\(.name)  \(.size) bytes")'
-      - name: Refresh the website's download links
-        if: github.event_name != 'workflow_dispatch' || inputs.publish
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: gh workflow run pages.yml --ref main || echo "::warning::Could not start the website workflow"
+          if-no-files-found: error
+          compression-level: 0

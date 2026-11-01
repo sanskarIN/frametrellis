@@ -100,6 +100,30 @@ below. No v1.4 release is declared by these notes.
   video/audio clips at the playhead, preserving inter-clip timing and track
   assignments with collision-safe atomic undo/redo.
 
+- [#123](https://github.com/sanskarIN/frametrellis/pull/123):
+  center selected multi-track clips around the playhead.
+- [#125](https://github.com/sanskarIN/frametrellis/pull/125):
+  select clips overlapping or contained within a time selection.
+- [#126](https://github.com/sanskarIN/frametrellis/pull/126):
+  navigate each selected clip's exact first/last visible frame.
+- [#128](https://github.com/sanskarIN/frametrellis/pull/128):
+  set precise custom numeric brightness, contrast and saturation adjustments.
+- [#129](https://github.com/sanskarIN/frametrellis/pull/129):
+  safe UTF-8 subtitle WebVTT sidecar export.
+- [#130](https://github.com/sanskarIN/frametrellis/pull/130):
+  shift all subtitle cues atomically for audio sync.
+- [#131](https://github.com/sanskarIN/frametrellis/pull/131):
+  protected timestamped Unicode TXT transcript export.
+- [#132](https://github.com/sanskarIN/frametrellis/pull/132):
+  seek to the earlier midpoint visible frame of a clip selection.
+- [#133](https://github.com/sanskarIN/frametrellis/pull/133):
+  1440p creator upload and 480p review MP4 presets.
+
+The v1.4.0 candidate requires an integrated clean CI/package pass,
+version bump, checked release notes and outstanding manual review; see
+[the release preflight](v1.4.0-preflight.md). Neither this log nor an
+open preparation PR constitutes publication of v1.4.0.
+
 All of these are integrated on the development `main` branch, not included
 in the published stable v1.3.1 binaries.
 

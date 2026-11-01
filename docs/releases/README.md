@@ -5,6 +5,7 @@ GitHub release description. Unreleased changes are collected in [unreleased.md](
 
 | Version | Notes |
 |---|---|
+| 1.4.0 | [v1.4.0.md](v1.4.0.md) — **candidate under preparation, not published**; track remaining gates in [preflight](v1.4.0-preflight.md) |
 | 1.3.1 | [v1.3.1.md](v1.3.1.md) — maintenance fixes for media-bin selection, offline keyboard relink and regression coverage (published stable) |
 | 1.3.0 | [v1.3.0.md](v1.3.0.md) — source safety, searchable media bin, timecode navigation and render diagnostics |
 | 1.2.2 | [v1.2.2.md](v1.2.2.md) — faster MP4 export presets and verified resolution safety |

@@ -37,8 +37,7 @@ private:
     QString m_video;
     QString m_tone;
 
-    Project project(FrameCount videoFrames = 50,
-                    FrameRate rate = FrameRate::integer(25))
+    Project project(FrameCount videoFrames = 50, FrameRate rate = FrameRate::integer(25))
     {
         ProjectSettings settings;
         settings.width = 160;

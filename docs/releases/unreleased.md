@@ -137,6 +137,10 @@ in the published stable v1.3.1 binaries.
 - [#137](https://github.com/sanskarIN/frametrellis/pull/137):
   copy SMPTE selection start, exclusive end, last visible frame, duration
   and rational frame rate to the OS clipboard without editing.
+- [#139](https://github.com/sanskarIN/frametrellis/pull/139):
+  consistently bound media paths to 4,096 characters and display names to
+  512 characters in project edits, validation and loading, with round-trip
+  coverage preventing files the project reader cannot reopen.
 
 ## Volume automation
 

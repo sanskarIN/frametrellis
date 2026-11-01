@@ -133,7 +133,7 @@ Status Project::addAsset(MediaAsset newAsset, int index)
         return makeError(ErrorCode::InvalidArgument,
                          QStringLiteral("The media id is invalid or already used."));
     }
-    if (newAsset.filePath.isEmpty()) {
+    if (newAsset.filePath.trimmed().isEmpty()) {
         return makeError(ErrorCode::InvalidArgument, QStringLiteral("The media has no file path."));
     }
     if (assetByPath(newAsset.filePath)) {
@@ -173,7 +173,7 @@ Status Project::replaceAsset(const MediaAsset& updated)
     if (index < 0) {
         return makeError(ErrorCode::NotFound, QStringLiteral("The media was not found."));
     }
-    if (updated.filePath.isEmpty()) {
+    if (updated.filePath.trimmed().isEmpty()) {
         return makeError(ErrorCode::InvalidArgument, QStringLiteral("The media has no file path."));
     }
     const QString key = canonicalMediaKey(updated.filePath);
@@ -218,11 +218,11 @@ QString Project::nextTrackName(TrackKind kind) const
     const QString prefix = kind == TrackKind::Video ? QStringLiteral("V") : QStringLiteral("A");
     QSet<QString> used;
     for (const Track& t : m_timeline.tracks()) {
-        used.insert(t.name);
+        used.insert(t.name.toCaseFolded());
     }
     for (int n = 1;; ++n) {
         const QString candidate = prefix + QString::number(n);
-        if (!used.contains(candidate)) {
+        if (!used.contains(candidate.toCaseFolded())) {
             return candidate;
         }
     }
@@ -233,13 +233,17 @@ Status Project::validate() const
     if (!isValidId(m_id)) {
         return makeError(ErrorCode::InvalidDocument, QStringLiteral("The project id is invalid."));
     }
+    if (m_name.trimmed().isEmpty() || m_name.size() > 120) {
+        return makeError(ErrorCode::InvalidDocument,
+                         QStringLiteral("The project name must contain 1 to 120 characters."));
+    }
     if (const Status settingsValid = m_settings.validate(); !settingsValid) {
         return makeError(ErrorCode::InvalidDocument, settingsValid.error().message);
     }
     QSet<Id> ids;
     QSet<QString> paths;
     for (const MediaAsset& a : m_media) {
-        if (!isValidId(a.id) || ids.contains(a.id) || a.filePath.isEmpty()) {
+        if (!isValidId(a.id) || ids.contains(a.id) || a.filePath.trimmed().isEmpty()) {
             return makeError(
                 ErrorCode::InvalidDocument,
                 QStringLiteral("A media entry has a missing or duplicate id or path."));

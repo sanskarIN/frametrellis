@@ -84,6 +84,48 @@ class TimelineTest : public QObject
     Q_OBJECT
 
 private slots:
+    void insertedTracksRejectInvalidNamesAndIds()
+    {
+        Timeline timeline = timelineWithCut();
+        const int baseline = timeline.trackCount();
+        Track added;
+        added.id = QStringLiteral("new-track");
+        added.kind = TrackKind::Video;
+        added.name = QStringLiteral("  ");
+        QVERIFY(!timeline.insertTrack(added));
+        added.name = QString(65, QLatin1Char('x'));
+        QVERIFY(!timeline.insertTrack(added));
+        added.name = QStringLiteral("Overlay");
+
+        added.id = QStringLiteral("a"); // existing clip id
+        QVERIFY(!timeline.insertTrack(added));
+        added.id = QStringLiteral("new-track");
+        added.clips.push_back(makeClip(QStringLiteral("duplicate"), kStillAsset, 0, 0, 10));
+        added.clips.push_back(makeClip(QStringLiteral("duplicate"), kStillAsset, 20, 0, 10));
+        QVERIFY(!timeline.insertTrack(added));
+        added.clips.back().id = added.id; // collides with incoming track id
+        QVERIFY(!timeline.insertTrack(added));
+        added.clips.back().id = QStringLiteral("distinct");
+        QVERIFY(timeline.insertTrack(added));
+        QCOMPARE(timeline.trackCount(), baseline + 1);
+        QVERIFY(timeline.validate(testSources()));
+    }
+
+    void restoredTracksRequireValidNames()
+    {
+        Timeline timeline = makeTimeline();
+        std::vector<Track> tracks = timeline.tracks();
+        tracks.front().name = QStringLiteral(" ");
+        timeline.restoreTracks(tracks);
+        QVERIFY(!timeline.validate(testSources()));
+        tracks.front().name = QString(65, QLatin1Char('a'));
+        timeline.restoreTracks(tracks);
+        QVERIFY(!timeline.validate(testSources()));
+        tracks.front().name = QStringLiteral("V1");
+        timeline.restoreTracks(tracks);
+        QVERIFY(timeline.validate(testSources()));
+    }
+
     void clipEndpointsRejectOverflowBeforeCalculatingEnd()
     {
         Timeline t = makeTimeline();

@@ -422,7 +422,7 @@ void Timeline::insertSorted(Track& t, Clip c)
 
 Status Timeline::insertTrack(Track t, int index)
 {
-    if (!isValidId(t.id) || trackIndex(t.id) >= 0) {
+    if (!isValidId(t.id) || trackIndex(t.id) >= 0 || findClip(t.id) || transition(t.id)) {
         return makeError(ErrorCode::InvalidArgument,
                          QStringLiteral("The track id is invalid or already used."));
     }
@@ -430,16 +430,32 @@ Status Timeline::insertTrack(Track t, int index)
         return makeError(ErrorCode::OutOfRange,
                          QStringLiteral("A timeline can have at most %1 tracks.").arg(kMaxTracks));
     }
+    if (t.name.trimmed().isEmpty() || t.name.size() > 64) {
+        return makeError(ErrorCode::InvalidArgument,
+                         QStringLiteral("Track names must contain 1 to 64 characters."));
+    }
+    QSet<Id> incomingIds;
+    incomingIds.insert(t.id);
     FrameCount previousEnd = 0;
     for (const Clip& c : t.clips) {
         if (const Status shape = checkClipShape(c); !shape) {
             return shape;
         }
-        if (c.start < previousEnd || findClip(c.id)) {
+        if (c.start < previousEnd || trackIndex(c.id) >= 0 || findClip(c.id) ||
+            transition(c.id) || incomingIds.contains(c.id)) {
             return makeError(ErrorCode::InvalidArgument,
                              QStringLiteral("The track's clips are inconsistent."));
         }
         previousEnd = c.end();
+        incomingIds.insert(c.id);
+    }
+    for (const Transition& tr : t.transitions) {
+        if (!isValidId(tr.id) || trackIndex(tr.id) >= 0 || findClip(tr.id) ||
+            transition(tr.id) || incomingIds.contains(tr.id)) {
+            return makeError(ErrorCode::InvalidArgument,
+                             QStringLiteral("The track's transitions have inconsistent ids."));
+        }
+        incomingIds.insert(tr.id);
     }
     if (index < 0 || index > trackCount()) {
         index = trackCount();
@@ -1196,6 +1212,10 @@ Status Timeline::validate(const SourceLookup& sources) const
     }
     QSet<Id> ids;
     for (const Track& t : m_tracks) {
+        if (t.name.trimmed().isEmpty() || t.name.size() > 64) {
+            return makeError(ErrorCode::InvalidDocument,
+                             QStringLiteral("A track has an invalid name."));
+        }
         if (!isValidId(t.id) || ids.contains(t.id)) {
             return makeError(ErrorCode::InvalidDocument,
                              QStringLiteral("A track has a missing or duplicate id."));

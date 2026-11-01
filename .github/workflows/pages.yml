@@ -1,10 +1,12 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 # Builds the website from main and publishes it to GitHub Pages. The download page lists the
 # assets of the latest published release, so the release workflow runs this workflow again
-# after it has published a version. Pull requests are checked by website.yml.
+# when the repository owner manually publishes a release. Pull requests are checked by website.yml.
 name: Publish website
 
 on:
+  release:
+    types: [published]
   push:
     branches: [main]
     paths:

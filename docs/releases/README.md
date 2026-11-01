@@ -23,23 +23,16 @@ include the newer project format or features being developed on `main`.
 The [v1.3.0 verification report](v1.3.0-verification.md) documents the earlier
 stable release's automated checks and manual testing distinction.
 
-## Publishing a release
+## Publishing a release as the repository owner
 
-1. Make sure the version in `CMakeLists.txt` is the version to release, that
-   `docs/releases/vX.Y.Z.md` exists and is not marked as a draft, and that CI and the Windows
-   packages workflow are green on `main`. Optionally rehearse the release first: run the
-   **Release** workflow by hand from the Actions tab with **publish=false**; it builds and
-   verifies everything and keeps the release notes and checksums without publishing.
-   A maintainer may instead choose **publish=true** to create or update the release only
-   after the verified packages and source archive have been produced.
-2. Publish the release, in either of two ways:
-   * **In the web interface:** *Releases → Draft a new release*, choose a new tag `vX.Y.Z` on
-     `main`, title it `FrameTrellis X.Y.Z`, and either paste the notes from `vX.Y.Z.md` or leave
-     the description empty, then *Publish release*.
-   * **From the command line:** `git tag -a vX.Y.Z -m "FrameTrellis X.Y.Z"` on `main`, then
-     `git push origin vX.Y.Z`. The workflow creates the release.
-3. The **Release** workflow builds the packages, verifies them on clean Windows machines and
-   attaches them to the release, usually within 30 minutes. If the release has no description,
-   it uses `vX.Y.Z.md`; otherwise it keeps the description and adds the download list and the
-   checksums. If any check fails, nothing is attached.
-4. The website's download page is updated automatically when the packages have been published.
+For v1.4.0 and subsequent releases, use the [direct GitHub release publishing
+checklist](manual-publication.md). The **Prepare manual release** workflow only
+rebuilds, verifies and assembles files for the maintainer. It **never creates a
+GitHub tag, release or uploads release attachments**. A maintainer must attach
+the installer, portable ZIP, SPDX SBOM, third-party corresponding source archive
+and SHA-256 sums directly through the GitHub Releases interface after recording
+physical-device acceptance results.
+
+The `Windows packages` CI workflow can still run automatically, and publishing
+a release triggers `Publish website` to update the download page. **No
+Actions workflow automatically publishes a GitHub release.**

@@ -3,8 +3,8 @@
 # works: the installation self-test runs inside the image, and the project the self-test leaves
 # behind is rendered again from a mounted folder as an unprivileged user. Pull requests only
 # build and check the image. A version tag (pushed directly or created with a release in the web
-# interface), or a manual run for a version tag, also publishes it to GitHub Packages as
-# ghcr.io/<owner>/frametrellis-render:<version>.
+# interface) no longer publishes automatically. A separate manual dispatch for a version
+# tag can still publish the image explicitly to GitHub Packages when approved.
 name: Container image
 
 on:
@@ -15,8 +15,6 @@ on:
       - "src/**"
       - "cmake/**"
       - "CMakeLists.txt"
-  push:
-    tags: ["v*"]
   workflow_dispatch:
     inputs:
       tag:

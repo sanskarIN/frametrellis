@@ -786,8 +786,7 @@ private slots:
         timeline->clearSelection();
         timeline->select(picture.id, false);
         QVERIFY(timeline->seekToSelectionMidpoint());
-        QCOMPARE(m_app->playback()->positionFrames(),
-                 picture.start + (picture.duration - 1) / 2);
+        QCOMPARE(m_app->playback()->positionFrames(), picture.start + (picture.duration - 1) / 2);
         QCOMPARE(m_app->project()->project(), before);
         QCOMPARE(m_app->project()->undoText(), undoBefore);
         QCOMPARE(m_app->project()->isModified(), wasModified);

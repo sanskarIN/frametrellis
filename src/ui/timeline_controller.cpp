@@ -1331,8 +1331,8 @@ bool TimelineController::copySelectionTimecodes()
     // The outer selection may span empty space between clips; the reported end
     // is intentionally exclusive to match the timeline and EDL conventions.
     const QString report =
-        QStringLiteral("Start: %1\\nEnd (exclusive): %2\\nLast visible: %3\\n"
-                       "Duration: %4 frames\\nFrame rate: %5/%6 fps")
+        QStringLiteral("Start: %1\nEnd (exclusive): %2\nLast visible: %3\n"
+                       "Duration: %4 frames\nFrame rate: %5/%6 fps")
             .arg(timecode::format(first, rate), timecode::format(end, rate),
                  timecode::format(end - 1, rate))
             .arg(end - first)

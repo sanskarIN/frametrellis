@@ -1312,6 +1312,37 @@ QVariantMap TimelineController::selectedFrameRange() const
             {QStringLiteral("end"), static_cast<double>(last)}};
 }
 
+bool TimelineController::copySelectionTimecodes()
+{
+    const QVariantMap bounds = selectedFrameRange();
+    if (bounds.isEmpty()) {
+        emit statusMessage(QStringLiteral("Select at least one clip to copy a time range."));
+        return false;
+    }
+    QClipboard* clipboard = QGuiApplication::clipboard();
+    if (!clipboard) {
+        emit statusMessage(QStringLiteral("The system clipboard is unavailable."));
+        return false;
+    }
+    const FrameCount first =
+        static_cast<FrameCount>(bounds.value(QStringLiteral("start")).toDouble());
+    const FrameCount end = static_cast<FrameCount>(bounds.value(QStringLiteral("end")).toDouble());
+    const FrameRate& rate = project().settings().frameRate;
+    // The outer selection may span empty space between clips; the reported end
+    // is intentionally exclusive to match the timeline and EDL conventions.
+    const QString report =
+        QStringLiteral("Start: %1\\nEnd (exclusive): %2\\nLast visible: %3\\n"
+                       "Duration: %4 frames\\nFrame rate: %5/%6 fps")
+            .arg(timecode::format(first, rate), timecode::format(end, rate),
+                 timecode::format(end - 1, rate))
+            .arg(end - first)
+            .arg(rate.numerator())
+            .arg(rate.denominator());
+    clipboard->setText(report);
+    emit statusMessage(QStringLiteral("Copied selection timecodes and frame duration."));
+    return true;
+}
+
 bool TimelineController::seekToSelectionBoundary(bool lastFrame)
 {
     const QVariantMap range = selectedFrameRange();

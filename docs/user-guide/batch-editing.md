@@ -63,6 +63,16 @@ be undone or redone with **Ctrl+Z / Ctrl+Shift+Z**.
 
 Select any combination of video or audio clips. Use **Alt+Left / Alt+Right** to move them one project frame, or **Alt+Shift+Left / Alt+Shift+Right** to move ten frames. Edits retain source trims and synchronized spacing; all clips move together in one undo step. Moves are refused if a track is locked, the move overlaps an unselected clip, exceeds timeline boundaries, or would invalidate a transition. Undo restores every clip and transition.
 
+## Copy selection timecodes (v1.4 development)
+
+Select one or more clips on any video/audio tracks and choose **Playback →
+Copy Selection Timecodes**. The editor copies SMPTE start, **exclusive** end,
+last visible frame, exact duration in frames, and rational project frame rate
+to the system clipboard. It reports the *outer* span of selected clips,
+including any gaps; it does not sum clip durations. An empty selection leaves
+the clipboard unchanged. This is read-only: it cannot alter the sequence,
+track locks, selection, source files, project dirty state or Undo history.
+
 ## Align one clip edge to the playhead (v1.4 development)
 
 Select **one** timeline clip and position the playhead on the exact destination

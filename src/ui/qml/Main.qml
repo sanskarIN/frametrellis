@@ -365,6 +365,7 @@ ApplicationWindow {
             Action { text: qsTr("Go to Selection Start"); enabled: window.editKeys && window.app.timeline.selection.length > 0; onTriggered: window.app.timeline.seekToSelectionBoundary(false) }
             Action { text: qsTr("Go to Selection Last Frame"); enabled: window.editKeys && window.app.timeline.selection.length > 0; onTriggered: window.app.timeline.seekToSelectionBoundary(true) }
             Action { text: qsTr("Go to Selection Midpoint"); enabled: window.editKeys && window.app.timeline.selection.length > 0; onTriggered: window.app.timeline.seekToSelectionMidpoint() }
+            Action { text: qsTr("Copy Selection Timecodes"); enabled: window.editKeys && window.app.timeline.selection.length > 0; onTriggered: window.app.timeline.copySelectionTimecodes() }
             Action { text: qsTr("Previous Selected Clip Edge"); enabled: window.editKeys && window.app.timeline.selection.length > 0; onTriggered: window.app.timeline.seekToSelectedClipEdge(false) }
             Action { text: qsTr("Next Selected Clip Edge"); enabled: window.editKeys && window.app.timeline.selection.length > 0; onTriggered: window.app.timeline.seekToSelectedClipEdge(true) }
             Action { text: qsTr("&Go to Timecode…"); shortcut: "Ctrl+G"; enabled: window.editKeys && !window.app.timeline.empty; onTriggered: goToTimecodeDialog.open() }

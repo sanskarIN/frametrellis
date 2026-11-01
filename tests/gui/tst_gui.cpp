@@ -5,6 +5,7 @@
 // variable FT_SCREENSHOT_DIR is set, screenshots of the running application are saved there
 // (they are used for the documentation).
 
+#include "core/timecode.h"
 #include "engine/mlt_runtime.h"
 #include "media_fixtures.h"
 #include "ui/app_controller.h"
@@ -748,6 +749,47 @@ private slots:
         QCOMPARE(timeline->selection(), selectionBefore);
         QCOMPARE(m_app->project()->project(), before);
         QCOMPARE(m_app->project()->undoText(), undoBefore);
+        timeline->clearSelection();
+    }
+
+    void copySelectionTimecodesDocumentsExactFrameBoundsWithoutEditing()
+    {
+        auto* timeline = m_app->timeline();
+        QVERIFY(!track(0).clips.empty());
+        QVERIFY(!track(2).clips.empty());
+        const Project before = m_app->project()->project();
+        const QString undo = m_app->project()->undoText();
+        const bool modified = m_app->project()->isModified();
+        const Clip picture = track(0).clips.back();
+        const Clip sound = track(2).clips.front();
+        QClipboard* clipboard = QGuiApplication::clipboard();
+        QVERIFY(clipboard);
+
+        timeline->clearSelection();
+        clipboard->setText(QStringLiteral("unchanged on empty selection"));
+        QVERIFY(!timeline->copySelectionTimecodes());
+        QCOMPARE(clipboard->text(), QStringLiteral("unchanged on empty selection"));
+
+        timeline->select(picture.id, false);
+        timeline->select(sound.id, true);
+        const QStringList originalSelection = timeline->selection();
+        const FrameCount first = std::min(picture.start, sound.start);
+        const FrameCount end = std::max(picture.end(), sound.end());
+        const FrameRate& rate = before.settings().frameRate;
+        QVERIFY(timeline->copySelectionTimecodes());
+        const QString expected =
+            QStringLiteral("Start: %1\nEnd (exclusive): %2\nLast visible: %3\n"
+                           "Duration: %4 frames\nFrame rate: %5/%6 fps")
+                .arg(timecode::format(first, rate), timecode::format(end, rate),
+                     timecode::format(end - 1, rate))
+                .arg(end - first)
+                .arg(rate.numerator())
+                .arg(rate.denominator());
+        QCOMPARE(clipboard->text(), expected);
+        QCOMPARE(timeline->selection(), originalSelection);
+        QCOMPARE(m_app->project()->project(), before);
+        QCOMPARE(m_app->project()->undoText(), undo);
+        QCOMPARE(m_app->project()->isModified(), modified);
         timeline->clearSelection();
     }
 

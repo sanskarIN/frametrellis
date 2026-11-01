@@ -174,6 +174,9 @@ public:
     /// Bounds of all currently selected clips, [start, end) in timeline frames.
     /// Returns an empty map when no valid clip is selected; this is read-only.
     Q_INVOKABLE QVariantMap selectedFrameRange() const;
+    /// Copy the outer selection's frame-exact inclusive/exclusive time boundaries
+    /// and duration to the system clipboard without modifying the project.
+    Q_INVOKABLE bool copySelectionTimecodes();
     /// Seek to the earliest selected start or the last visible selected frame.
     /// Does not alter selection, project contents, or undo history.
     Q_INVOKABLE bool seekToSelectionBoundary(bool lastFrame);

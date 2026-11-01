@@ -1328,6 +1328,23 @@ bool TimelineController::seekToSelectionBoundary(bool lastFrame)
     return true;
 }
 
+bool TimelineController::seekToSelectionMidpoint()
+{
+    const QVariantMap range = selectedFrameRange();
+    if (range.isEmpty()) {
+        emit statusMessage(QStringLiteral("Select at least one clip to navigate."));
+        return false;
+    }
+    const FrameCount first =
+        static_cast<FrameCount>(range.value(QStringLiteral("start")).toDouble());
+    const FrameCount end = static_cast<FrameCount>(range.value(QStringLiteral("end")).toDouble());
+    // [first, end) contains end - first visible frames. For an even number,
+    // choose the earlier middle frame; never seek to the exclusive end.
+    const FrameCount middle = first + (end - 1 - first) / 2;
+    m_playback->seek(static_cast<double>(middle));
+    return true;
+}
+
 bool TimelineController::seekToSelectedClipEdge(bool forward)
 {
     if (m_selection.isEmpty()) {

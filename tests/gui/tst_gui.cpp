@@ -767,6 +767,7 @@ private slots:
         const FrameCount emptyPosition = m_app->playback()->positionFrames();
         QVERIFY(!timeline->seekToSelectionBoundary(false));
         QVERIFY(!timeline->seekToSelectionBoundary(true));
+        QVERIFY(!timeline->seekToSelectionMidpoint());
         QCOMPARE(m_app->playback()->positionFrames(), emptyPosition);
 
         timeline->select(picture.id, false);
@@ -778,6 +779,17 @@ private slots:
         QCOMPARE(m_app->playback()->positionFrames(), first);
         QVERIFY(timeline->seekToSelectionBoundary(true));
         QCOMPARE(m_app->playback()->positionFrames(), last);
+        QVERIFY(timeline->seekToSelectionMidpoint());
+        QCOMPARE(m_app->playback()->positionFrames(), first + (last - first) / 2);
+        // Single-clip even/odd lengths both use the earlier middle visible frame.
+        timeline->clearSelection();
+        timeline->select(picture.id, false);
+        QVERIFY(timeline->seekToSelectionMidpoint());
+        QCOMPARE(m_app->playback()->positionFrames(),
+                 picture.start + (picture.duration - 1) / 2);
+        timeline->clearSelection();
+        timeline->select(picture.id, false);
+        timeline->select(sound.id, true);
         QCOMPARE(timeline->selection(), originalSelection);
         QCOMPARE(m_app->project()->project(), before);
         QCOMPARE(m_app->project()->undoText(), undoBefore);

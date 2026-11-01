@@ -105,6 +105,71 @@ class ProjectFormatTest : public QObject
     Q_OBJECT
 
 private slots:
+    void rejectsBlankMediaAndProjectNames()
+    {
+        Project project = makeProject(QStringLiteral("/media"));
+        const QString originalPath = project.asset(QStringLiteral("m3"))->filePath;
+
+        MediaAsset added =
+            makeAsset(QStringLiteral("blank-media"), QStringLiteral("   "), MediaKind::Video, 1);
+        const Status inserted = project.addAsset(added);
+        QVERIFY(!inserted);
+        QCOMPARE(inserted.error().code, ErrorCode::InvalidArgument);
+        QVERIFY(!project.asset(added.id));
+
+        MediaAsset replacement = *project.asset(QStringLiteral("m3"));
+        replacement.filePath = QStringLiteral("  ");
+        const Status replaced = project.replaceAsset(replacement);
+        QVERIFY(!replaced);
+        QCOMPARE(replaced.error().code, ErrorCode::InvalidArgument);
+        QCOMPARE(project.asset(QStringLiteral("m3"))->filePath, originalPath);
+
+        const QString oldName = project.name();
+        project.setName(QStringLiteral(" \t "));
+        QVERIFY(!project.validate());
+        project.setName(QString(121, QLatin1Char('x')));
+        QVERIFY(!project.validate());
+        project.setName(oldName);
+        QVERIFY(project.validate());
+    }
+
+    void invalidProjectCannotOverwritePreviouslySavedDocument()
+    {
+        QTemporaryDir dir;
+        QVERIFY(dir.isValid());
+        const QString path = dir.filePath(QStringLiteral("protected.ftproj"));
+        Project project = makeProject(QStringLiteral("/media"));
+        QVERIFY(project_format::saveToFile(project, path));
+        QFile initial(path);
+        QVERIFY(initial.open(QIODevice::ReadOnly));
+        const QByteArray original = initial.readAll();
+        initial.close();
+        QVERIFY(!original.isEmpty());
+
+        project.setName(QStringLiteral(" \t "));
+        const Status rejected = project_format::saveToFile(project, path);
+        QVERIFY(!rejected);
+        QCOMPARE(rejected.error().code, ErrorCode::InvalidDocument);
+        QFile preserved(path);
+        QVERIFY(preserved.open(QIODevice::ReadOnly));
+        QCOMPARE(preserved.readAll(), original);
+        preserved.close();
+        QVERIFY(project_format::loadFromFile(path));
+    }
+
+    void suggestedTrackNamesIgnoreCase()
+    {
+        Project project = Project::createNew(QStringLiteral("Names"), ProjectSettings{});
+        QCOMPARE(project.nextTrackName(TrackKind::Video), QStringLiteral("V3"));
+        Track track;
+        track.id = QStringLiteral("extra-video");
+        track.kind = TrackKind::Video;
+        track.name = QStringLiteral("v3");
+        QVERIFY(project.timeline().insertTrack(track));
+        QCOMPARE(project.nextTrackName(TrackKind::Video), QStringLiteral("V4"));
+        QVERIFY(project.validate());
+    }
+
     void roundTripPreservesEverything()
     {
         const Project original = makeProject(QStringLiteral("/media"));

@@ -9,6 +9,13 @@ turnaround over compression efficiency.
 | Quick export (up to 1080p) | Up to 1080p | veryfast | 22 |
 | Fast draft (up to 720p) | Up to 720p | veryfast | 28 |
 | Turbo preview (up to 720p) | Up to 720p | superfast | 26 |
+| Low-bandwidth review (up to 480p) — v1.4 development | Up to 480p | veryfast | 27 |
+
+A **Creator upload (up to 1440p)** preset (CRF 18, medium encoding, 256 kbit/s
+AAC) is also available in v1.4 development alongside the 1080p and 4K creator
+profiles. A 3840 × 2160 project becomes 2560 × 1440; a smaller 1080p project
+stays native. The 480p review preset uses 96 kbit/s AAC and does not upscale
+small projects; resulting file sizes still depend on the scene and encoder.
 
 The established Match project, 1080p, 720p and 2160p modes remain available.
 Output size, encoder preset, video quality and audio bitrate can be customized.

@@ -33,8 +33,14 @@ class ReleaseVersionTests(unittest.TestCase):
         preamble = notes.read_text(encoding="utf-8").splitlines()[:20]
         self.assertTrue(preamble[0].startswith(f"# FrameTrellis {version}"))
         self.assertFalse(
-            any(re.search(r"^<!--\s*draft|^# .*\b(draft|not released)\b|^>.*not published", line, re.I)
-                for line in preamble),
+            any(
+                re.search(
+                    r"^<!--\s*draft|^# .*\b(draft|not released)\b|^>.*not published",
+                    line,
+                    re.I,
+                )
+                for line in preamble
+            ),
             "Release notes preamble must not advertise a draft or unpublished version",
         )
 

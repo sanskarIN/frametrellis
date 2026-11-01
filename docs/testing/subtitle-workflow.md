@@ -12,6 +12,7 @@ require project format v6. The stable Windows downloads do not include this work
 | Persistence | Exact v6 roundtrip, v1–v6 reads, required fields/types/bounds, pre-v6 subtitle rejection and minimum-version selection after clearing/resetting |
 | Preview graph | Active/inactive boundary frames, one-frame clips, unchanged audio/duration, burn-in disabled, canonical wrapping across smaller previews |
 | MP4 helper | Render a v6 snapshot; decoded frames show text only in the expected interval; sidecar-only mode removes it; future cues do not lengthen the video |
+| Transcript TXT | Literal UTF-8 multilingual text with exact `[start --> end]` times; protected atomic export, unchanged project and Undo state; invalid cues rejected before any output |
 | Controller | Local URL/path handling, atomic overlapping imports, Unicode/time sidecar roundtrip, project path protection, failed writes, selection/navigation, outside/unsampled cues and viewport filtering |
 | Real QML | Type text/times, Apply, project undo, invalid timing rejection, Cancel/Discard draft guard, timeline selection; verify clips and transport remain unchanged while typing |
 | Pause stability | Freeze the published frame when playback has already rendered the next frame; pause acknowledgement must not precede a later playhead advance |

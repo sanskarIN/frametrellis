@@ -127,6 +127,14 @@ open preparation PR constitutes publication of v1.4.0.
 All of these are integrated on the development `main` branch, not included
 in the published stable v1.3.1 binaries.
 
+- [#135](https://github.com/sanskarIN/frametrellis/pull/135):
+  refuse whitespace-only media paths, invalid project/track names and
+  cross-kind timeline ID collisions; keep prior project bytes unchanged
+  when invalid in-memory state is rejected on save.
+- [#137](https://github.com/sanskarIN/frametrellis/pull/137):
+  copy SMPTE selection start, exclusive end, last visible frame, duration
+  and rational frame rate to the OS clipboard without editing.
+
 ## Volume automation
 
 - Source-anchored volume keyframes from -60 to +12 dB, with linear interpolation

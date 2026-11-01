@@ -253,4 +253,23 @@ Result<QByteArray> toBytes(const SubtitleTrack& track)
 }
 
 } // namespace webvtt
+
+namespace transcript {
+
+Result<QByteArray> toBytes(const SubtitleTrack& track)
+{
+    if (const Status valid = validateSubtitles(track); !valid) {
+        return valid.error();
+    }
+    QByteArray bytes;
+    for (const SubtitleCue& cue : track.cues) {
+        // Keep Unicode, literal tags and exact subtitle times intact.
+        bytes += QStringLiteral("[%1 --> %2]\n%3\n\n")
+                     .arg(formatSubtitleTime(cue.startMs), formatSubtitleTime(cue.endMs), cue.text)
+                     .toUtf8();
+    }
+    return bytes;
+}
+
+} // namespace transcript
 } // namespace ft

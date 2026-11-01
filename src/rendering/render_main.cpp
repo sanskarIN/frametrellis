@@ -247,12 +247,15 @@ int main(int argc, char** argv)
         }
         // Metadata only: no MLT runtime, media decoding, destination files or project edits.
         // Local source paths are deliberately excluded from the machine-readable summary.
+        const FrameRate& frameRate = inspected->settings().frameRate;
+        const QString rationalRate =
+            QStringLiteral("%1/%2").arg(frameRate.numerator()).arg(frameRate.denominator());
         emitEvent(
             {{QStringLiteral("event"), QStringLiteral("project_inspection")},
              {QStringLiteral("name"), inspected->name()},
              {QStringLiteral("sequenceWidth"), inspected->settings().width},
              {QStringLiteral("sequenceHeight"), inspected->settings().height},
-             {QStringLiteral("frameRate"), inspected->settings().frameRate.rational().toString()},
+             {QStringLiteral("frameRate"), rationalRate},
              {QStringLiteral("durationTimecode"),
               timecode::format(inspected->timeline().duration(), inspected->settings().frameRate)},
              {QStringLiteral("trackCount"), inspected->timeline().trackCount()},

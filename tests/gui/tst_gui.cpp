@@ -2044,6 +2044,16 @@ private slots:
         const FrameCount ten =
             static_cast<FrameCount>(std::llround(10.0 * snapshot.settings().frameRate.toDouble()));
         QCOMPARE(playback->positionFrames(), std::max<FrameCount>(length - 1 - ten, 0));
+
+        // Exercise real QAction shortcuts, not only direct controller methods.
+        playback->goToStart();
+        QTest::keyClick(m_window, Qt::Key_Right, Qt::ControlModifier);
+        QCOMPARE(playback->positionFrames(), std::min(five, length - 1));
+        QTest::keyClick(m_window, Qt::Key_Left, Qt::ControlModifier);
+        QCOMPARE(playback->positionFrames(), FrameCount{0});
+        QTest::keyClick(m_window, Qt::Key_Right, Qt::ControlModifier | Qt::ShiftModifier);
+        QCOMPARE(playback->positionFrames(), std::min(ten, length - 1));
+
         QCOMPARE(m_app->project()->project(), snapshot);
         QCOMPARE(m_app->project()->undoText(), undo);
         QCOMPARE(m_app->project()->isModified(), modified);

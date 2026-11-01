@@ -23,7 +23,7 @@ class ReleaseVersionTests(unittest.TestCase):
         root = SOURCE.parents[1]
         cmake = (root / "CMakeLists.txt").read_text(encoding="utf-8")
         match = re.search(
-            r"project\\(FrameTrellis\\s+VERSION\\s+([0-9]+\\.[0-9]+\\.[0-9]+)",
+            r"project\(FrameTrellis\s+VERSION\s+([0-9]+\.[0-9]+\.[0-9]+)",
             cmake,
         )
         self.assertIsNotNone(match, "CMake must declare a numeric project version")
@@ -33,7 +33,7 @@ class ReleaseVersionTests(unittest.TestCase):
         preamble = notes.read_text(encoding="utf-8").splitlines()[:20]
         self.assertTrue(preamble[0].startswith(f"# FrameTrellis {version}"))
         self.assertFalse(
-            any(re.search(r"^<!--\\s*draft|^# .*\\b(draft|not released)\\b|^>.*not published", line, re.I)
+            any(re.search(r"^<!--\s*draft|^# .*\b(draft|not released)\b|^>.*not published", line, re.I)
                 for line in preamble),
             "Release notes preamble must not advertise a draft or unpublished version",
         )

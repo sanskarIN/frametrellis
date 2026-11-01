@@ -23,14 +23,10 @@ jobs:
       version: ${{ steps.version.outputs.version }}
       package_version: ${{ steps.version.outputs.package_version }}
       tag: ${{ steps.version.outputs.tag }}
-      build: ${{ steps.published.outputs.build }}
     steps:
       - uses: actions/checkout@v6
       - id: version
         name: Compare the tag with the project version
-        env:
-          PUBLISH: ${{ inputs.publish }}
-          GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
           # project() spans several lines; -z makes grep treat the file as one record.
@@ -39,39 +35,21 @@ jobs:
             echo "::error::Cannot read the project version from CMakeLists.txt"
             exit 1
           fi
-          if [ "$GITHUB_EVENT_NAME" = workflow_dispatch ]; then
-            tag="v$project"
-            if [ "$PUBLISH" = true ]; then
-              echo "Publishing the verified release of $tag."
-            else
-              echo "Rehearsing the release of $tag; nothing will be published."
-            fi
-          else
-            tag="$GITHUB_REF_NAME"
-          fi
+          tag="v$project"
+          echo "Preparing complete manual-approval bundle for $tag; this job cannot publish."
           # Validate tag syntax, version match, and the base binary-package name.
-          # A tag such as v1.4.0-beta.1 is published as that prerelease, but the
-          # CMake/Inno package filename remains FrameTrellis-1.4.0-windows-x64.
+          # The manual release tag and CMake package version must match.
           if ! python3 packaging/release_version.py --tag "$tag" \
                  --project-version "$project" >> "$GITHUB_OUTPUT"; then
             echo "::error::Invalid release tag or mismatched CMake version"
             exit 1
           fi
           version="${tag#v}"
-          # A manual publish must run at the exact commit tagged for release.
-          # A rehearsal does not require a tag and never publishes.
-          if [ "$GITHUB_EVENT_NAME" = workflow_dispatch ] && [ "$PUBLISH" = true ]; then
-            tagged="$(gh api "repos/$GITHUB_REPOSITORY/git/ref/tags/$tag" --jq '.object.sha' 2>/dev/null || true)"
-            if [ -z "$tagged" ] || [ "$tagged" != "$GITHUB_SHA" ]; then
-              echo "::error::Published tag $tag must already point to this exact workflow commit"
-              exit 1
-            fi
-          fi
           if [ ! -f "docs/releases/v${version%%-*}.md" ]; then
             echo "::error::Release notes docs/releases/v${version%%-*}.md are missing"
             exit 1
           fi
-          # Refuse publication when a notes file is explicitly labelled DRAFT or
+          # Reject preparation when notes are explicitly labelled DRAFT or
           # NOT RELEASED, including Markdown headings (not just HTML comments).
           # Check only the preamble so a historical link to draft notes in the body
           # does not accidentally block a legitimate release.
@@ -81,27 +59,10 @@ jobs:
             exit 1
           fi
           # tag/version/package_version already emitted by release_version.py
-      - id: published
-        name: Require a fresh verified asset assembly
-        env:
-          GH_TOKEN: ${{ github.token }}
-          TAG: ${{ steps.version.outputs.tag }}
-          PUBLISH: ${{ inputs.publish }}
-        run: |
-          set -euo pipefail
-          build=true
-          if { [ "$GITHUB_EVENT_NAME" != workflow_dispatch ] || [ "$PUBLISH" = true ]; } &&
-             gh release view "$TAG" --repo "$GITHUB_REPOSITORY" --json assets --jq '.assets[].name' 2>/dev/null |
-               grep -q -- '-windows-x64-setup\.exe$'; then
-            echo "::notice::The packages of $TAG are already attached to its release; nothing to do."
-            build=false
-          fi
-          echo "build=$build" >> "$GITHUB_OUTPUT"
 
   packages:
     name: Windows packages
     needs: check
-    if: needs.check.outputs.build == 'true'
     uses: ./.github/workflows/package-windows.yml
 
   sources:
@@ -140,8 +101,7 @@ jobs:
     needs: [check, packages, sources]
     runs-on: ubuntu-24.04
     permissions:
-      contents: write
-      actions: write
+      contents: read
     env:
       TAG: ${{ needs.check.outputs.tag }}
       RELEASE_VERSION: ${{ needs.check.outputs.version }}

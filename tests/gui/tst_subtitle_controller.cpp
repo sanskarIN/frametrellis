@@ -200,9 +200,11 @@ private slots:
                  QStringLiteral("00:00:00,100"));
         QVERIFY(!m_subtitles->shiftAll(-101));
         QCOMPARE(m_project->project().subtitles(), shifted);
-        QVERIFY(m_project->undo());
+        QVERIFY(m_project->canUndo());
+        m_project->undo();
         QCOMPARE(m_project->project().subtitles(), before);
-        QVERIFY(m_project->redo());
+        QVERIFY(m_project->canRedo());
+        m_project->redo();
         QCOMPARE(m_project->project().subtitles(), shifted);
         QVERIFY(m_subtitles->shiftAll(-100));
         QCOMPARE(m_project->project().subtitles(), before);

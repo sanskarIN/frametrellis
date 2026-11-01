@@ -136,6 +136,11 @@ Status Project::addAsset(MediaAsset newAsset, int index)
     if (newAsset.filePath.trimmed().isEmpty()) {
         return makeError(ErrorCode::InvalidArgument, QStringLiteral("The media has no file path."));
     }
+    if (newAsset.filePath.size() > kMaxMediaPathLength ||
+        newAsset.name.size() > kMaxMediaNameLength) {
+        return makeError(ErrorCode::OutOfRange,
+                         QStringLiteral("The media path or display name is too long."));
+    }
     if (assetByPath(newAsset.filePath)) {
         return makeError(ErrorCode::Conflict,
                          QStringLiteral("This file is already present in the media bin."));
@@ -175,6 +180,11 @@ Status Project::replaceAsset(const MediaAsset& updated)
     }
     if (updated.filePath.trimmed().isEmpty()) {
         return makeError(ErrorCode::InvalidArgument, QStringLiteral("The media has no file path."));
+    }
+    if (updated.filePath.size() > kMaxMediaPathLength ||
+        updated.name.size() > kMaxMediaNameLength) {
+        return makeError(ErrorCode::OutOfRange,
+                         QStringLiteral("The media path or display name is too long."));
     }
     const QString key = canonicalMediaKey(updated.filePath);
     for (const MediaAsset& asset : m_media) {
@@ -247,6 +257,10 @@ Status Project::validate() const
             return makeError(
                 ErrorCode::InvalidDocument,
                 QStringLiteral("A media entry has a missing or duplicate id or path."));
+        }
+        if (a.filePath.size() > kMaxMediaPathLength || a.name.size() > kMaxMediaNameLength) {
+            return makeError(ErrorCode::InvalidDocument,
+                             QStringLiteral("A media path or display name is too long."));
         }
         const QString key = canonicalMediaKey(a.filePath);
         if (paths.contains(key)) {

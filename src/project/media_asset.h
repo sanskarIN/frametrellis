@@ -13,6 +13,11 @@
 
 namespace ft {
 
+// Bound media fields to limits enforced by the .ftproj deserializer. Accepting
+// longer values in memory would create projects that cannot reopen.
+inline constexpr qsizetype kMaxMediaPathLength = 4096;
+inline constexpr qsizetype kMaxMediaNameLength = 512;
+
 enum class MediaKind { Video, Audio, Image };
 
 QString mediaKindToString(MediaKind kind);

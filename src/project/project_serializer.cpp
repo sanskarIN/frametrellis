@@ -474,9 +474,9 @@ Result<Project> fromJson(const QJsonObject& document, const QString& projectDir)
         const QJsonObject o = media.at(i).toObject();
         MediaAsset asset;
         asset.id = mr.id(o, "id");
-        const QString path = mr.string(o, "path", true, 4096);
-        const QString relative = mr.string(o, "relativePath", false, 4096);
-        asset.name = mr.string(o, "name", false, 512);
+        const QString path = mr.string(o, "path", true, kMaxMediaPathLength);
+        const QString relative = mr.string(o, "relativePath", false, kMaxMediaPathLength);
+        asset.name = mr.string(o, "name", false, kMaxMediaNameLength);
         Reader ir(mr.path() + QStringLiteral(".info"));
         asset.info = readMediaInfo(ir, mr.object(o, "info"));
         mr.adopt(ir);

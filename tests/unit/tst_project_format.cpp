@@ -157,6 +157,46 @@ private slots:
         QVERIFY(project_format::loadFromFile(path));
     }
 
+    void rejectsOversizedMediaFieldsBeforeCreatingUnreadableProjects()
+    {
+        Project project = makeProject(QStringLiteral("/media"));
+        const QString originalPath = project.asset(QStringLiteral("m3"))->filePath;
+        const QString originalName = project.asset(QStringLiteral("m3"))->name;
+        MediaAsset newAsset =
+            makeAsset(QStringLiteral("long-new"), QStringLiteral("/media/new.mp4"),
+                      MediaKind::Video, 1000000);
+
+        newAsset.filePath = QStringLiteral("/") + QString(4096, QLatin1Char('p'));
+        const Status rejectedPath = project.addAsset(newAsset);
+        QVERIFY(!rejectedPath);
+        QCOMPARE(rejectedPath.error().code, ErrorCode::OutOfRange);
+        QVERIFY(!project.asset(newAsset.id));
+
+        newAsset.filePath = QStringLiteral("/media/new.mp4");
+        newAsset.name = QString(513, QLatin1Char('n'));
+        const Status rejectedName = project.addAsset(newAsset);
+        QVERIFY(!rejectedName);
+        QCOMPARE(rejectedName.error().code, ErrorCode::OutOfRange);
+        QVERIFY(!project.asset(newAsset.id));
+
+        MediaAsset replacement = *project.asset(QStringLiteral("m3"));
+        replacement.filePath = QStringLiteral("/") + QString(4096, QLatin1Char('r'));
+        QVERIFY(!project.replaceAsset(replacement));
+        QCOMPARE(project.asset(QStringLiteral("m3"))->filePath, originalPath);
+        replacement.filePath = originalPath;
+        replacement.name = QString(513, QLatin1Char('n'));
+        QVERIFY(!project.replaceAsset(replacement));
+        QCOMPARE(project.asset(QStringLiteral("m3"))->name, originalName);
+
+        // The serializer's exact upper boundary remains accepted.
+        newAsset.name = QString(512, QLatin1Char('n'));
+        QVERIFY(project.addAsset(newAsset));
+        QVERIFY(project.validate());
+        QVERIFY(project_format::fromBytes(project_format::toBytes(project)));
+
+        QCOMPARE(project.asset(newAsset.id)->name.size(), qsizetype{kMaxMediaNameLength});
+    }
+
     void suggestedTrackNamesIgnoreCase()
     {
         Project project = Project::createNew(QStringLiteral("Names"), ProjectSettings{});

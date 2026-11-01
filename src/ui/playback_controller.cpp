@@ -8,6 +8,10 @@
 #include <QFileInfo>
 #include <QSaveFile>
 
+#include <algorithm>
+#include <cmath>
+#include <cstdlib>
+
 namespace ft::ui {
 
 PlaybackController::PlaybackController(ProjectController* project, QObject* parent)
@@ -130,6 +134,36 @@ bool PlaybackController::seekToTimecode(const QString& label)
 void PlaybackController::step(int frames)
 {
     seek(static_cast<double>(m_position + frames));
+}
+
+bool PlaybackController::skipSeconds(int seconds)
+{
+    const FrameCount length = m_project->project().timeline().duration();
+    if (length <= 0 || seconds == 0 || seconds < -60 || seconds > 60) {
+        return false;
+    }
+    // Multiply the exact project rate, not the nominal SMPTE timecode rate
+    // (30 fps would be wrong for 30000/1001). Bound input to avoid overflow.
+    const FrameRate rate = m_project->project().settings().frameRate;
+    const FrameCount magnitude = static_cast<FrameCount>(
+        std::llround(static_cast<double>(std::abs(seconds)) * rate.toDouble()));
+    const FrameCount delta = seconds < 0 ? -magnitude : magnitude;
+    const FrameCount target = std::clamp<FrameCount>(m_position + delta, 0, length - 1);
+    if (target == m_position) {
+        return false;
+    }
+    seek(static_cast<double>(target));
+    return true;
+}
+
+bool PlaybackController::goToSequenceMidpoint()
+{
+    const FrameCount length = m_project->project().timeline().duration();
+    if (length <= 0) {
+        return false;
+    }
+    seek(static_cast<double>((length - 1) / 2));
+    return true;
 }
 
 void PlaybackController::goToStart()

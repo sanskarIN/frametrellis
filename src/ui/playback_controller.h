@@ -56,6 +56,11 @@ public:
     /// input.
     Q_INVOKABLE bool seekToTimecode(const QString& label);
     Q_INVOKABLE void step(int frames);
+    /// Seek a bounded whole-second interval measured at the exact project frame rate.
+    /// Clamps to visible sequence frames; does not modify project or Undo history.
+    Q_INVOKABLE bool skipSeconds(int seconds);
+    /// Seek to the earlier central visible frame; refuse empty timelines.
+    Q_INVOKABLE bool goToSequenceMidpoint();
     Q_INVOKABLE void goToStart();
     Q_INVOKABLE void goToEnd();
     /// Saves the decoded preview image, which may be lower resolution than final export.

@@ -6,6 +6,12 @@
 name: Prepare manual release
 
 on:
+  # Also assemble a fresh upload-ready asset bundle whenever the preparation
+  # workflow itself changes on main. This never publishes a GitHub release.
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/release.yml"
   workflow_dispatch:
 
 permissions:

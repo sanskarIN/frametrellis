@@ -61,6 +61,7 @@ public:
     Q_INVOKABLE bool updateSelected(const QString& start, const QString& end, const QString& text);
     Q_INVOKABLE bool removeSelected();
     Q_INVOKABLE bool clearAll();
+    Q_INVOKABLE bool shiftAll(int deltaMilliseconds);
     Q_INVOKABLE bool setAppearance(bool burnIn, int fontPercent, bool background);
     Q_INVOKABLE bool resetAppearance();
     Q_INVOKABLE void clearError() { setError({}); }

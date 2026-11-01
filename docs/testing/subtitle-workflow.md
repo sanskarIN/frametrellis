@@ -8,7 +8,7 @@ require project format v6. The stable Windows downloads do not include this work
 | Cue model | Unique IDs, exact integer milliseconds, sorted non-overlapping half-open intervals, bounded count/text/time, valid Unicode and no embedded blank lines |
 | SRT | Hindi/emoji/literal markup, UTF-8 BOM, CRLF/CR/LF, unordered counters, canonical export; malformed/truncated UTF-8, timestamps, missing fields, overlaps and capacity limits refuse the whole input |
 | Clock | Exact rational conversions including 29.97 fps and high rates; boundaries, exclusive ends and cues between sampled frames |
-| Commands | Exact undo/redo for add/update/remove/append/clear/style; failed operations leave track/history unchanged and preserve the timeline |
+| Commands | Exact undo/redo for add/update/remove/append/clear/style and whole-track time shifting; failed operations leave track/history unchanged and preserve the timeline |
 | Persistence | Exact v6 roundtrip, v1–v6 reads, required fields/types/bounds, pre-v6 subtitle rejection and minimum-version selection after clearing/resetting |
 | Preview graph | Active/inactive boundary frames, one-frame clips, unchanged audio/duration, burn-in disabled, canonical wrapping across smaller previews |
 | MP4 helper | Render a v6 snapshot; decoded frames show text only in the expected interval; sidecar-only mode removes it; future cues do not lengthen the video |

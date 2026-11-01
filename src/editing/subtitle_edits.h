@@ -12,6 +12,8 @@ std::unique_ptr<EditCommand> removeSubtitle(Id cueId);
 std::unique_ptr<EditCommand> appendSubtitles(std::vector<SubtitleCue> cues);
 std::unique_ptr<EditCommand> replaceSubtitles(SubtitleTrack track);
 std::unique_ptr<EditCommand> clearSubtitles();
+/// Move every subtitle by the same exact number of milliseconds, atomically and undoably.
+std::unique_ptr<EditCommand> shiftSubtitles(std::int64_t deltaMilliseconds);
 std::unique_ptr<EditCommand> setSubtitleAppearance(bool burnIn, int fontPercent, bool background);
 
 } // namespace ft::edits

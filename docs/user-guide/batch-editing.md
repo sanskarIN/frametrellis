@@ -284,6 +284,19 @@ the overlapping mode. Locked tracks are included for inspection, not edited.
 An empty selection or a selection already matching the requested mode leaves
 the project and edit history untouched.
 
+## Traverse selected clips' visible edges (v1.4 development)
+
+Select any set of timeline clips, then use **Playback → Previous Selected Clip
+Edge** or **Playback → Next Selected Clip Edge** to seek among every selected
+clip's first and final **visible** frame. Edges from overlapping clips on
+multiple audio/video tracks are combined, sorted and deduplicated.
+
+These commands skip the current frame and never wrap around the sequence.
+The final visible frame is the exclusive clip end minus one, avoiding
+one-past-the-end seeks on the last clip. Neither action edits project data,
+undo history, track locks or the current selection. Empty selections and a
+missing preceding/following edge leave the playhead where it is.
+
 ## Navigate to selected clip edges (v1.4 development)
 
 Select one or more video/audio clips, then use **Playback → Go to Selection

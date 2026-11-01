@@ -141,6 +141,9 @@ in the published stable v1.3.1 binaries.
   consistently bound media paths to 4,096 characters and display names to
   512 characters in project edits, validation and loading, with round-trip
   coverage preventing files the project reader cannot reopen.
+- [#140](https://github.com/sanskarIN/frametrellis/pull/140):
+  omit oversized optional relocation hints when serializing media paths,
+  preserving absolute source references and saved-project reopenability.
 
 ## Volume automation
 

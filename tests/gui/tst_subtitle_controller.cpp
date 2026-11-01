@@ -160,6 +160,33 @@ private slots:
         m_project->undo(); // importing every cue was one undo step
         QCOMPARE(m_subtitles->rowCount(), 0);
     }
+    void transcriptExportIsProtectedAndDoesNotModifyProject()
+    {
+        QVERIFY(m_subtitles->addAtPlayhead());
+        QVERIFY(m_subtitles->updateSelected(QStringLiteral("00:00:00,001"),
+                                            QStringLiteral("00:00:01,002"),
+                                            QStringLiteral("नमस्ते <b>literal</b>")));
+        QVERIFY(m_project->save());
+        const Project before = m_project->project();
+        const bool undoBeforeExport = m_project->canUndo();
+        const QString output = m_dir.filePath(QStringLiteral("captions.txt"));
+        QVERIFY(m_subtitles->exportTranscriptTxt(QUrl::fromLocalFile(output).toString()));
+        QCOMPARE(read(output), *transcript::toBytes(before.subtitles()));
+        QCOMPARE(m_project->project(), before);
+        QVERIFY(!m_project->isModified());
+        QCOMPARE(m_project->canUndo(), undoBeforeExport);
+        QVERIFY(!m_subtitles->exportTranscriptTxt(QStringLiteral("https://example.com/file.txt")));
+        QVERIFY(!m_subtitles->exportTranscriptTxt(m_dir.filePath(QStringLiteral("wrong.srt"))));
+        QVERIFY(!m_subtitles->exportTranscriptTxt(m_dir.filePath(QStringLiteral("absent/file.txt"))));
+        QCOMPARE(m_project->project(), before);
+        QVERIFY(open(before, QStringLiteral("project.txt")));
+        const QByteArray saved = read(m_project->filePath());
+        QVERIFY(!m_subtitles->exportTranscriptTxt(m_project->filePath()));
+        QCOMPARE(read(m_project->filePath()), saved);
+        QCOMPARE(m_project->project(), before);
+        QVERIFY(!m_project->isModified());
+    }
+
     void webVttExportIsProtectedAndDoesNotModifyProject()
     {
         QVERIFY(m_subtitles->addAtPlayhead());

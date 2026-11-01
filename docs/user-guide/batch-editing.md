@@ -321,5 +321,10 @@ Start** to seek to the earliest selected start. Use **Playback → Go to
 Selection Last Frame** to seek to the last visible frame before the latest
 selected clip's exclusive end. This respects the timeline's half-open clip
 intervals and prevents an accidental seek one frame past the selection.
+**Playback → Go to Selection Midpoint** seeks to the earlier middle visible
+frame in the outer span of the selection, including any gaps between selected
+clips. For an even frame count the earlier of the two central frames wins.
+It never seeks to the exclusive end and works across audio/video tracks.
+
 Navigation does not edit clips, alter track locks, clear selections or create
 undo history; empty selections have no effect. This is a development feature.

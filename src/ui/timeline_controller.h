@@ -177,6 +177,9 @@ public:
     /// Seek to the earliest selected start or the last visible selected frame.
     /// Does not alter selection, project contents, or undo history.
     Q_INVOKABLE bool seekToSelectionBoundary(bool lastFrame);
+    /// Seek to the earlier middle visible frame of the selected clips' outer span.
+    /// Read-only; gaps within the selected span are included in midpoint arithmetic.
+    Q_INVOKABLE bool seekToSelectionMidpoint();
     /// Navigate next/previous first or final visible frame of any selected clip.
     /// Skips duplicate edges; leaves the project and selection unchanged.
     Q_INVOKABLE bool seekToSelectedClipEdge(bool forward);

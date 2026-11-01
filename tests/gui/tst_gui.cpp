@@ -767,6 +767,7 @@ private slots:
         const FrameCount emptyPosition = m_app->playback()->positionFrames();
         QVERIFY(!timeline->seekToSelectionBoundary(false));
         QVERIFY(!timeline->seekToSelectionBoundary(true));
+        QVERIFY(!timeline->seekToSelectionMidpoint());
         QCOMPARE(m_app->playback()->positionFrames(), emptyPosition);
 
         timeline->select(picture.id, false);
@@ -778,7 +779,14 @@ private slots:
         QCOMPARE(m_app->playback()->positionFrames(), first);
         QVERIFY(timeline->seekToSelectionBoundary(true));
         QCOMPARE(m_app->playback()->positionFrames(), last);
+        QVERIFY(timeline->seekToSelectionMidpoint());
+        QCOMPARE(m_app->playback()->positionFrames(), first + (last - first) / 2);
         QCOMPARE(timeline->selection(), originalSelection);
+        // Single-clip midpoint uses the last visible frame, not the exclusive end.
+        timeline->clearSelection();
+        timeline->select(picture.id, false);
+        QVERIFY(timeline->seekToSelectionMidpoint());
+        QCOMPARE(m_app->playback()->positionFrames(), picture.start + (picture.duration - 1) / 2);
         QCOMPARE(m_app->project()->project(), before);
         QCOMPARE(m_app->project()->undoText(), undoBefore);
         QCOMPARE(m_app->project()->isModified(), wasModified);

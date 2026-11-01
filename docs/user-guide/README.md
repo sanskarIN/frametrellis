@@ -461,8 +461,13 @@ Continuous slider changes become a single undo step.
 
 ## Playback
 
-Space plays and pauses; Left/Right step one frame; Shift+Left/Right move one second; Up/Down jump
-to the previous/next edit point; Home/End go to the start/end. Clicking or dragging on the ruler
+Space plays and pauses; Left/Right step one frame; Shift+Left/Right move one second;
+Ctrl+Left/Right skip five seconds and Ctrl+Shift+Left/Right skip ten seconds.
+The skips use the project's actual frame rate (including 29.97 fps), clamp to
+visible frames and do not modify the edit. Up/Down jump to the previous/next
+edit point; Home/End go to the start/end. **Playback → Go to Sequence
+Midpoint** seeks to the earlier middle visible frame of the entire sequence.
+An empty timeline has no midpoint. Clicking or dragging on the ruler
 moves the playhead. If no audio device is available, the preview plays silently.
 
 ## Media audit reports (planned v1.4 feature)

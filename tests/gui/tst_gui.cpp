@@ -2058,6 +2058,50 @@ private slots:
         m_app->timeline()->setTransformHandlesVisible(false);
     }
 
+    void transportSkipsAndSequenceMidpointKeepProjectUnchanged()
+    {
+        auto* playback = m_app->playback();
+        const Project snapshot = m_app->project()->project();
+        const QString undo = m_app->project()->undoText();
+        const bool modified = m_app->project()->isModified();
+        const FrameCount length = snapshot.timeline().duration();
+        QVERIFY(length > 0);
+
+        playback->goToStart();
+        QVERIFY(!playback->skipSeconds(0));
+        QVERIFY(!playback->skipSeconds(61));
+        QVERIFY(!playback->skipSeconds(-61));
+        QVERIFY(!playback->skipSeconds(-5));
+        QCOMPARE(playback->positionFrames(), FrameCount{0});
+        QVERIFY(playback->skipSeconds(5));
+        const FrameCount five =
+            static_cast<FrameCount>(std::llround(5.0 * snapshot.settings().frameRate.toDouble()));
+        QCOMPARE(playback->positionFrames(), std::min(five, length - 1));
+
+        QVERIFY(playback->goToSequenceMidpoint());
+        QCOMPARE(playback->positionFrames(), (length - 1) / 2);
+        playback->goToEnd();
+        QVERIFY(!playback->skipSeconds(10));
+        QVERIFY(playback->skipSeconds(-10));
+        const FrameCount ten =
+            static_cast<FrameCount>(std::llround(10.0 * snapshot.settings().frameRate.toDouble()));
+        QCOMPARE(playback->positionFrames(), std::max<FrameCount>(length - 1 - ten, 0));
+
+        // Exercise real QAction shortcuts, not only direct controller methods.
+        playback->goToStart();
+        QTest::keyClick(m_window, Qt::Key_Right, Qt::ControlModifier);
+        QCOMPARE(playback->positionFrames(), std::min(five, length - 1));
+        QTest::keyClick(m_window, Qt::Key_Left, Qt::ControlModifier);
+        QCOMPARE(playback->positionFrames(), FrameCount{0});
+        QTest::keyClick(m_window, Qt::Key_Right, Qt::ControlModifier | Qt::ShiftModifier);
+        QCOMPARE(playback->positionFrames(), std::min(ten, length - 1));
+
+        QCOMPARE(m_app->project()->project(), snapshot);
+        QCOMPARE(m_app->project()->undoText(), undo);
+        QCOMPARE(m_app->project()->isModified(), modified);
+        playback->goToStart();
+    }
+
     void goToTimecodeSeeksOnlyForValidPositions()
     {
         const double before = m_app->playback()->position();

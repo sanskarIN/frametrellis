@@ -360,6 +360,10 @@ ApplicationWindow {
             Action { text: qsTr("Next Frame"); shortcut: "Right"; enabled: window.editKeys; onTriggered: window.app.playback.step(1) }
             Action { text: qsTr("Back One Second"); shortcut: "Shift+Left"; enabled: window.editKeys; onTriggered: window.app.playback.step(-Math.round(window.app.timeline.frameRate)) }
             Action { text: qsTr("Forward One Second"); shortcut: "Shift+Right"; enabled: window.editKeys; onTriggered: window.app.playback.step(Math.round(window.app.timeline.frameRate)) }
+            Action { text: qsTr("Back Five Seconds"); shortcut: "Ctrl+Left"; enabled: window.editKeys && !window.app.timeline.empty; onTriggered: window.app.playback.skipSeconds(-5) }
+            Action { text: qsTr("Forward Five Seconds"); shortcut: "Ctrl+Right"; enabled: window.editKeys && !window.app.timeline.empty; onTriggered: window.app.playback.skipSeconds(5) }
+            Action { text: qsTr("Back Ten Seconds"); shortcut: "Ctrl+Shift+Left"; enabled: window.editKeys && !window.app.timeline.empty; onTriggered: window.app.playback.skipSeconds(-10) }
+            Action { text: qsTr("Forward Ten Seconds"); shortcut: "Ctrl+Shift+Right"; enabled: window.editKeys && !window.app.timeline.empty; onTriggered: window.app.playback.skipSeconds(10) }
             Action { text: qsTr("Previous Edit Point"); shortcut: "Up"; enabled: window.editKeys; onTriggered: window.app.timeline.previousEditPoint() }
             Action { text: qsTr("Next Edit Point"); shortcut: "Down"; enabled: window.editKeys; onTriggered: window.app.timeline.nextEditPoint() }
             Action { text: qsTr("Go to Selection Start"); enabled: window.editKeys && window.app.timeline.selection.length > 0; onTriggered: window.app.timeline.seekToSelectionBoundary(false) }
@@ -377,6 +381,7 @@ ApplicationWindow {
             Action { text: qsTr("Copy Markers as WebVTT Chapters"); enabled: window.editKeys && window.app.timeline.markers.length > 0; onTriggered: window.app.timeline.copyMarkersAsWebVtt() }
             Action { text: qsTr("Go to Start"); shortcut: "Home"; enabled: window.editKeys; onTriggered: window.app.playback.goToStart() }
             Action { text: qsTr("Go to End"); shortcut: "End"; enabled: window.editKeys; onTriggered: window.app.playback.goToEnd() }
+            Action { text: qsTr("Go to Sequence Midpoint"); enabled: window.editKeys && !window.app.timeline.empty; onTriggered: window.app.playback.goToSequenceMidpoint() }
             MenuSeparator {}
             Action { text: qsTr("Mute Preview"); checkable: true; checked: window.app.playback.muted; enabled: window.app.playback.audioAvailable; onTriggered: window.app.playback.muted = checked }
         }

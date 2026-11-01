@@ -2032,8 +2032,8 @@ private slots:
         QVERIFY(!playback->skipSeconds(-5));
         QCOMPARE(playback->positionFrames(), FrameCount{0});
         QVERIFY(playback->skipSeconds(5));
-        const FrameCount five = static_cast<FrameCount>(
-            std::llround(5.0 * snapshot.settings().frameRate.toDouble()));
+        const FrameCount five =
+            static_cast<FrameCount>(std::llround(5.0 * snapshot.settings().frameRate.toDouble()));
         QCOMPARE(playback->positionFrames(), std::min(five, length - 1));
 
         QVERIFY(playback->goToSequenceMidpoint());
@@ -2041,8 +2041,8 @@ private slots:
         playback->goToEnd();
         QVERIFY(!playback->skipSeconds(10));
         QVERIFY(playback->skipSeconds(-10));
-        const FrameCount ten = static_cast<FrameCount>(
-            std::llround(10.0 * snapshot.settings().frameRate.toDouble()));
+        const FrameCount ten =
+            static_cast<FrameCount>(std::llround(10.0 * snapshot.settings().frameRate.toDouble()));
         QCOMPARE(playback->positionFrames(), std::max<FrameCount>(length - 1 - ten, 0));
         QCOMPARE(m_app->project()->project(), snapshot);
         QCOMPARE(m_app->project()->undoText(), undo);

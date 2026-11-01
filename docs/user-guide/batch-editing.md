@@ -207,6 +207,23 @@ duplicated IDs, and selections already at the requested value are rejected
 without modifying any clip. Source media is not altered; the same properties
 apply to playback and the final renderer. This is not in stable v1.3.1.
 
+## Use exact picture-adjustment percentages (v1.4 development)
+
+The **Edit → Picture Adjustments for Selected Clips → Custom Picture
+Adjustment…** dialog lets you enter precise whole-percentage values instead
+of choosing only from presets: brightness from -100% through +100%, contrast
+from 0% through 200%, and saturation from 0% through 300%. Neutral values
+are 0% brightness and 100% contrast/saturation. Select video clips across
+tracks before applying; the chosen adjustment is applied to all selected
+clips as **one undoable command**.
+
+The dialog rejects mixed audio/video selections, locked tracks and requests
+that would change nothing. It stays open and explains the failure so that
+you can correct the selection or value. Only the chosen picture property
+changes: clip source trims, fades, audio gain, opacity, other picture
+properties and source-anchored keyframes remain untouched. This custom
+dialog is available on the development branch, not stable v1.3.1.
+
 ## Change selected clips' audio gain together (v1.4 development)
 
 Select clips across audio and video tracks, then choose **Edit → Audio Gain

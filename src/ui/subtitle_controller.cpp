@@ -371,6 +371,28 @@ bool SubtitleController::exportWebVtt(const QString& input)
     return true;
 }
 
+bool SubtitleController::exportTranscriptTxt(const QString& input)
+{
+    const auto path = subtitlePath(input, QStringLiteral("txt"));
+    if (!path)
+        return fail(path.error().message);
+    const auto& project = m_project->project();
+    if (project.assetByPath(*path) ||
+        (!m_project->filePath().isEmpty() &&
+         canonicalMediaKey(*path) == canonicalMediaKey(m_project->filePath())))
+        return fail(tr("Choose a transcript path separate from the project and its source media."));
+    const auto bytes = transcript::toBytes(project.subtitles());
+    if (!bytes)
+        return fail(bytes.error().message);
+    QSaveFile file(*path);
+    file.setDirectWriteFallback(false);
+    if (!file.open(QIODevice::WriteOnly) || file.write(*bytes) != bytes->size() || !file.commit())
+        return fail(tr("Could not save the transcript. The previous file was kept."));
+    setError({});
+    emit statusMessage(tr("Exported %1 transcript cues.").arg(m_track.cues.size()));
+    return true;
+}
+
 QString SubtitleController::playheadTimestamp() const
 {
     const auto value = subtitleMillisecondsAtFrame(m_playback->positionFrames(),

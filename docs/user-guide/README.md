@@ -321,6 +321,16 @@ Switching cues, importing, undoing or closing protects unapplied drafts with
 Apply/Discard/Cancel. Saving the project applies a valid draft first. Project
 **Undo/Redo** buttons are separate from text-field undo.
 
+For subtitle/audio sync, use **Shift all cues**: move every cue earlier or later by
+100 milliseconds or one second. Or enter an exact signed **Custom timing offset**
+in milliseconds (up to ±3,600,000 per operation) and select **Apply offset**.
+Negative offsets move captions earlier; positive offsets move them later.
+Each operation preserves the cue text, IDs, relative spacing and duration; it
+is one undoable edit. Shifts that would move any cue
+before time zero or beyond the maximum supported time are refused as a whole,
+without a partial edit. This does not move video or audio clips, chapter
+markers or the playhead. Shift operations are development-only (v1.4).
+
 **Burn into preview and video** enables the same centered, bottom-aligned captions
 in preview and MP4 export. Set text size from 2% to 10% of picture height and
 toggle the dark background. Long text wraps and shrinks to fit; text remains

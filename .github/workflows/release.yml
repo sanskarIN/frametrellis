@@ -1,8 +1,9 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 # Manually rehearses a release and assembles all verified assets for a HUMAN to upload.
-# This workflow NEVER creates a tag, GitHub release or release asset and has no
-# push/tag/release triggers. Publication happens directly from the repository owner's
-# GitHub Releases interface after acceptance, not from GitHub Actions.
+# This workflow NEVER creates a tag, GitHub release or release asset. A main
+# push that changes this workflow can assemble assets, but tag pushes and
+# published-release events cannot trigger publishing; only the repository owner
+# publishes through the GitHub Releases interface.
 name: Prepare manual release
 
 on:

@@ -25,7 +25,9 @@ maintainer can inspect and attach them by hand.
 ## Prepare all five release attachments (without publishing)
 
 1. On GitHub, open **Actions → Prepare manual release → Run workflow**.
-   Select the tested `main` commit and run it **only after the source is frozen**.
+   Select **main**, run it **only after the source is frozen**, and verify that
+   the run's **head SHA exactly matches** the validated `main` commit (the UI
+   selects a branch/ref rather than letting you pin an arbitrary commit).
    This is a release *rehearsal and packaging* workflow, not a publisher.
 2. Require the entire workflow to succeed: version/notes check, Windows packages,
    clean-host package verification, matching third-party corresponding sources,

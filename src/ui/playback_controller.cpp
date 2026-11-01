@@ -162,7 +162,8 @@ bool PlaybackController::goToSequenceMidpoint()
     if (length <= 0) {
         return false;
     }
-    seek(static_cast<double>((length - 1) / 2));
+    const FrameCount midpoint = (length - 1) / 2;
+    seek(static_cast<double>(midpoint));
     return true;
 }
 

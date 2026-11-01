@@ -781,16 +781,13 @@ private slots:
         QCOMPARE(m_app->playback()->positionFrames(), last);
         QVERIFY(timeline->seekToSelectionMidpoint());
         QCOMPARE(m_app->playback()->positionFrames(), first + (last - first) / 2);
-        // Single-clip even/odd lengths both use the earlier middle visible frame.
+        QCOMPARE(timeline->selection(), originalSelection);
+        // Single-clip midpoint uses the last visible frame, not the exclusive end.
         timeline->clearSelection();
         timeline->select(picture.id, false);
         QVERIFY(timeline->seekToSelectionMidpoint());
         QCOMPARE(m_app->playback()->positionFrames(),
                  picture.start + (picture.duration - 1) / 2);
-        timeline->clearSelection();
-        timeline->select(picture.id, false);
-        timeline->select(sound.id, true);
-        QCOMPARE(timeline->selection(), originalSelection);
         QCOMPARE(m_app->project()->project(), before);
         QCOMPARE(m_app->project()->undoText(), undoBefore);
         QCOMPARE(m_app->project()->isModified(), wasModified);

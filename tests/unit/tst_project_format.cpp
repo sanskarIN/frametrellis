@@ -193,9 +193,8 @@ private slots:
         QVERIFY(project.validate());
         QVERIFY(project_format::fromBytes(project_format::toBytes(project)));
 
-        // Validate every stored entry before writing, even if an external
-        // caller bypassed addAsset() through previously loaded data.
-        QCOMPARE(project.asset(newAsset.id)->name.size(), kMaxMediaNameLength);
+        QCOMPARE(project.asset(newAsset.id)->name.size(),
+                 qsizetype{kMaxMediaNameLength});
     }
 
     void suggestedTrackNamesIgnoreCase()

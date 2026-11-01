@@ -256,17 +256,17 @@ private slots:
     {
         // These two separately valid absolute paths produce a relative
         // traversal too long for the .ftproj reader's optional field.
-        const QString directory = QStringLiteral("/") + QStringLiteral("a/").repeated(1450) +
-                                  QStringLiteral("edit");
-        const QString mediaPath = QStringLiteral("/") + QStringLiteral("b/").repeated(1450) +
-                                  QStringLiteral("clip.mp4");
+        const QString directory =
+            QStringLiteral("/") + QStringLiteral("a/").repeated(1450) + QStringLiteral("edit");
+        const QString mediaPath =
+            QStringLiteral("/") + QStringLiteral("b/").repeated(1450) + QStringLiteral("clip.mp4");
         QVERIFY(directory.size() <= kMaxMediaPathLength);
         QVERIFY(mediaPath.size() <= kMaxMediaPathLength);
         QVERIFY(QDir(directory).relativeFilePath(mediaPath).size() > kMaxMediaPathLength);
 
         Project project = Project::createNew(QStringLiteral("Relocation hints"), ProjectSettings{});
-        MediaAsset media = makeAsset(QStringLiteral("long-path-media"), mediaPath,
-                                    MediaKind::Video, 1'000'000);
+        MediaAsset media =
+            makeAsset(QStringLiteral("long-path-media"), mediaPath, MediaKind::Video, 1'000'000);
         QVERIFY(project.addAsset(media));
         QVERIFY(project.validate());
 

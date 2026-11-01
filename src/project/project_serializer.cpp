@@ -729,6 +729,11 @@ Result<Project> fromBytes(const QByteArray& data, const QString& projectDir)
 
 Status saveToFile(const Project& project, const QString& filePath)
 {
+    // Refuse to replace an existing project with invalid in-memory state.
+    // This guard also covers non-GUI callers that bypass editor command validation.
+    if (const Status valid = project.validate(); !valid) {
+        return valid;
+    }
     const QFileInfo info(filePath);
     // Never overwrite a media source with a project document, even when the chosen
     // target reaches it through a symbolic link or a different spelling of its path.

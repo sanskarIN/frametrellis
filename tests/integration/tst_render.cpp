@@ -467,6 +467,12 @@ private slots:
         QCOMPARE(report->value(QStringLiteral("event")).toString(),
                  QStringLiteral("project_inspection"));
         QCOMPARE(report->value(QStringLiteral("name")).toString(), QStringLiteral("Render"));
+        QCOMPARE(report->value(QStringLiteral("sequenceWidth")).toInt(), 160);
+        QCOMPARE(report->value(QStringLiteral("sequenceHeight")).toInt(), 90);
+        QCOMPARE(report->value(QStringLiteral("frameRate")).toString(),
+                 QStringLiteral("25/1"));
+        QCOMPARE(report->value(QStringLiteral("durationTimecode")).toString(),
+                 QStringLiteral("00:00:01:15"));
         QCOMPARE(report->value(QStringLiteral("trackCount")).toInt(), 4);
         QCOMPARE(report->value(QStringLiteral("videoTrackCount")).toInt(), 2);
         QCOMPARE(report->value(QStringLiteral("audioTrackCount")).toInt(), 2);
@@ -509,6 +515,10 @@ private slots:
         QCOMPARE(unavailable->value(QStringLiteral("unusedMediaCount")).toInt(), 1);
         QCOMPARE(unavailable->value(QStringLiteral("missingMediaCount")).toInt(), 2);
         QCOMPARE(unavailable->value(QStringLiteral("missingUsedMediaCount")).toInt(), 1);
+        QCOMPARE(unavailable->value(QStringLiteral("frameRate")).toString(),
+                 QStringLiteral("25/1"));
+        QCOMPARE(unavailable->value(QStringLiteral("durationTimecode")).toString(),
+                 QStringLiteral("00:00:01:15"));
     }
 
     void helperInspectionRejectsInvalidArgumentAndMissingProject()

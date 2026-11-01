@@ -469,8 +469,7 @@ private slots:
         QCOMPARE(report->value(QStringLiteral("name")).toString(), QStringLiteral("Render"));
         QCOMPARE(report->value(QStringLiteral("sequenceWidth")).toInt(), 160);
         QCOMPARE(report->value(QStringLiteral("sequenceHeight")).toInt(), 90);
-        QCOMPARE(report->value(QStringLiteral("frameRate")).toString(),
-                 QStringLiteral("25/1"));
+        QCOMPARE(report->value(QStringLiteral("frameRate")).toString(), QStringLiteral("25/1"));
         QCOMPARE(report->value(QStringLiteral("durationTimecode")).toString(),
                  QStringLiteral("00:00:01:15"));
         QCOMPARE(report->value(QStringLiteral("trackCount")).toInt(), 4);

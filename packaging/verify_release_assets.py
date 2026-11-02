@@ -133,7 +133,9 @@ def verify(directory: Path, version: str) -> list[str]:
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--version", required=True, help="Exact numeric CMake version, e.g. 1.4.0")
-    parser.add_argument("--directory", type=Path, required=True, help="Extracted release asset folder")
+    parser.add_argument(
+        "--directory", type=Path, required=True, help="Extracted release asset folder"
+    )
     args = parser.parse_args()
     try:
         assets = verify(args.directory, args.version)

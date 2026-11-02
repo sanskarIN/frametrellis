@@ -1,9 +1,7 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
-# Manually rehearses a release and assembles all verified assets for a HUMAN to upload.
-# This workflow NEVER creates a tag, GitHub release or release asset. A main
-# push that changes this workflow can assemble assets, but tag pushes and
-# published-release events cannot trigger publishing; only the repository owner
-# publishes through the GitHub Releases interface.
+# Assembles checked release files for a maintainer or the post-publication uploader.
+# This workflow NEVER creates a tag or GitHub Release. The owner publishes the
+# release in GitHub's UI; release-assets.yml attaches the verified files afterwards.
 name: Prepare manual release
 
 on:
@@ -13,6 +11,7 @@ on:
     branches: [main]
     paths:
       - ".github/workflows/release.yml"
+      - ".github/workflows/release-assets.yml"
   workflow_dispatch:
 
 permissions:
@@ -43,7 +42,7 @@ jobs:
             exit 1
           fi
           tag="v$project"
-          echo "Preparing complete manual-approval bundle for $tag; this job cannot publish."
+          echo "Preparing complete owner-approved bundle for $tag; this job cannot publish."
           # Validate tag syntax, version match, and the base binary-package name.
           # The manual release tag and CMake package version must match.
           if ! python3 packaging/release_version.py --tag "$tag" \
@@ -160,7 +159,7 @@ jobs:
           } > release-assets.md
           { cat "docs/releases/v${VERSION%%-*}.md"; echo; cat release-assets.md; } > release-notes.md
           cat release-notes.md
-      - name: Upload complete verified files for manual GitHub publication
+      - name: Save complete verified files for owner-published GitHub release
         uses: actions/upload-artifact@v6
         with:
           name: manual-release-assets

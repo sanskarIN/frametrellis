@@ -5,8 +5,8 @@
 name: Prepare manual release
 
 on:
-  # Also assemble a fresh upload-ready asset bundle whenever the preparation
-  # workflow itself changes on main. This never publishes a GitHub release.
+  # Also assemble a fresh upload-ready asset bundle whenever preparation
+  # or automatic attachment behavior changes on main. No release is published.
   push:
     branches: [main]
     paths:

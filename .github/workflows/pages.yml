@@ -1,12 +1,14 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 # Builds the website from main and publishes it to GitHub Pages. The download page lists the
-# assets of the latest published release, so the release workflow runs this workflow again
-# when the repository owner manually publishes a release. Pull requests are checked by website.yml.
+# assets of the latest published release. After the owner publishes a release,
+# regenerate the website ONLY after the release asset-attachment workflow succeeds.
+# Pull requests are checked by website.yml.
 name: Publish website
 
 on:
-  release:
-    types: [published]
+  workflow_run:
+    workflows: ["Attach verified release assets"]
+    types: [completed]
   push:
     branches: [main]
     paths:
@@ -27,6 +29,7 @@ concurrency:
 jobs:
   build:
     name: Build and check the website
+    if: ${{ github.event_name != 'workflow_run' || (github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.event == 'release' && github.event.workflow_run.head_repository.full_name == github.repository) }}
     runs-on: ubuntu-24.04
     steps:
       - name: Publish only from main

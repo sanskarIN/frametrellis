@@ -56,6 +56,16 @@ maintainer can inspect and attach them by hand.
 
    Match each value against the entry for that filename. Do not trust a hash
    from an older candidate or an unrelated Actions run.
+   For a repeatable four-payload hash and archive-integrity gate, run the
+   [independent asset validator](asset-verification.md) from the repository root:
+
+   ```sh
+   python3 packaging/verify_release_assets.py --version 1.4.0 --directory /path/to/extracted-assets
+   ```
+
+   This checks filenames, SHA-256, portable ZIP CRC/path safety, the matching
+   SPDX package version and corresponding-source TAR structure. It does **not**
+   replace real Windows/audio/export acceptance tests.
 5. Inspect `release-notes.md`, the source archive inventory, and the package
    manifest before publication. Use real hardware test results in release sign-off.
 

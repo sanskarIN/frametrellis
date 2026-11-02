@@ -27,12 +27,12 @@ stable release's automated checks and manual testing distinction.
 
 For v1.4.0 and subsequent releases, use the [direct GitHub release publishing
 checklist](manual-publication.md). The **Prepare manual release** workflow only
-rebuilds, verifies and assembles files for the maintainer. It **never creates a
-GitHub tag, release or uploads release attachments**. A maintainer must attach
-the installer, portable ZIP, SPDX SBOM, third-party corresponding source archive
-and SHA-256 sums directly through the GitHub Releases interface after recording
-physical-device acceptance results.
+rebuilds, verifies and assembles files; it never creates a GitHub tag or
+release. Once physical-device acceptance is recorded and the owner publishes
+the release in the GitHub UI, the **Attach verified release assets** workflow
+automatically verifies and uploads all five matching assets. A failed job
+means the publicly visible release may be missing files: inspect the run.
 
-The `Windows packages` CI workflow can still run automatically, and publishing
-a release triggers `Publish website` to update the download page. **No
-Actions workflow automatically publishes a GitHub release.**
+The `Windows packages` CI workflow can still run automatically. After asset
+attachment succeeds, `Publish website` refreshes the download page. **No
+Actions workflow creates or publishes a GitHub release.**

@@ -1,0 +1,158 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
+# The owner creates/publishes the GitHub Release in the UI. This workflow ONLY
+# attaches files from a successful manual-release preparation on the exact tag SHA.
+# A failed gate must leave the release without any newly uploaded assets.
+name: Attach verified release assets
+
+on:
+  release:
+    types: [published]
+
+permissions:
+  actions: read
+  contents: write
+
+concurrency:
+  group: attach-release-${{ github.event.release.id }}
+  cancel-in-progress: false
+
+jobs:
+  attach:
+    name: Verify and attach release assets
+    if: ${{ !github.event.release.prerelease && !github.event.release.draft }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    env:
+      GH_TOKEN: ${{ github.token }}
+      RELEASE_TAG: ${{ github.event.release.tag_name }}
+      RELEASE_ID: ${{ github.event.release.id }}
+    steps:
+      - name: Check out the exact published tag
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ github.event.release.tag_name }}
+          persist-credentials: false
+
+      - name: Validate release tag, version and frozen source commit
+        id: source
+        run: |
+          set -euo pipefail
+          tag_sha=$(git rev-parse HEAD)
+          main_sha=$(gh api "repos/$GITHUB_REPOSITORY/branches/main" --jq '.commit.sha')
+          if [ "$tag_sha" != "$main_sha" ]; then
+            echo "::error::Release tag $RELEASE_TAG does not point to the tested main commit."
+            exit 1
+          fi
+          published_tag=$(gh api "repos/$GITHUB_REPOSITORY/releases/$RELEASE_ID" --jq '.tag_name')
+          if [ "$published_tag" != "$RELEASE_TAG" ]; then
+            echo "::error::Release metadata and tag disagree."
+            exit 1
+          fi
+          version=$(grep -Pzo 'project\(FrameTrellis\s+VERSION\s+\K[0-9.]+' CMakeLists.txt | tr -d '\0')
+          if [ -z "$version" ]; then
+            echo "::error::Cannot determine CMake project version."
+            exit 1
+          fi
+          python3 packaging/release_version.py --tag "$RELEASE_TAG" --project-version "$version" > version.txt
+          if grep -qx 'prerelease=true' version.txt; then
+            echo "::error::This workflow attaches stable release packages only."
+            exit 1
+          fi
+          echo "sha=$tag_sha" >> "$GITHUB_OUTPUT"
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+
+      - name: Find successful matching release preparation and complete artifact
+        id: prepared
+        env:
+          RELEASE_SHA: ${{ steps.source.outputs.sha }}
+        run: |
+          set -euo pipefail
+          # Never accept a PR/fork artifact or an older build at another SHA.
+          gh api "repos/$GITHUB_REPOSITORY/actions/workflows/release.yml/runs?status=success&per_page=100" > runs.json
+          run_id=$(jq -r --arg sha "$RELEASE_SHA" '
+            [.workflow_runs[]
+              | select(.head_sha == $sha and .head_branch == "main")
+              | select(.conclusion == "success")
+              | select(.event == "push" or .event == "workflow_dispatch")
+            ] | sort_by(.run_started_at) | last | .id // empty
+          ' runs.json)
+          if [ -z "$run_id" ]; then
+            echo "::error::No successful manual release preparation for $RELEASE_SHA."
+            exit 1
+          fi
+          gh api "repos/$GITHUB_REPOSITORY/actions/runs/$run_id/artifacts?per_page=100" > artifacts.json
+          count=$(jq '[.artifacts[] | select(.name == "manual-release-assets" and (.expired | not))] | length' artifacts.json)
+          if [ "$count" -ne 1 ]; then
+            echo "::error::Matching preparation has no unique, unexpired complete release artifact."
+            exit 1
+          fi
+          echo "run_id=$run_id" >> "$GITHUB_OUTPUT"
+
+      - name: Download only the artifact from the verified preparation run
+        uses: actions/download-artifact@v7
+        with:
+          name: manual-release-assets
+          path: prepared
+          repository: ${{ github.repository }}
+          run-id: ${{ steps.prepared.outputs.run_id }}
+          github-token: ${{ github.token }}
+
+      - name: Independently verify all four payloads and archive structure
+        env:
+          RELEASE_VERSION: ${{ steps.source.outputs.version }}
+        run: |
+          set -euo pipefail
+          python3 packaging/verify_release_assets.py --version "$RELEASE_VERSION" --directory prepared/release
+          test -s prepared/release-notes.md
+
+      - name: Attach exactly the five verified files (never create a release)
+        env:
+          RELEASE_VERSION: ${{ steps.source.outputs.version }}
+        run: |
+          set -euo pipefail
+          existing=$(gh api "repos/$GITHUB_REPOSITORY/releases/$RELEASE_ID/assets?per_page=100" --jq 'length')
+          if [ "$existing" -ne 0 ]; then
+            echo "::error::This release already has $existing assets. Do not overwrite or mix release builds."
+            echo "::error::Review partial uploads manually before rerunning this job."
+            exit 1
+          fi
+          for asset in \
+            "FrameTrellis-$RELEASE_VERSION-windows-x64-setup.exe" \
+            "FrameTrellis-$RELEASE_VERSION-windows-x64.zip" \
+            "FrameTrellis-$RELEASE_VERSION-windows-x64.spdx.json" \
+            "FrameTrellis-$RELEASE_VERSION-windows-x64-third-party-sources.tar" \
+            "SHA256SUMS.txt"; do
+            gh release upload "$RELEASE_TAG" "prepared/release/$asset" --repo "$GITHUB_REPOSITORY"
+          done
+
+      - name: Confirm published asset names and byte lengths
+        env:
+          RELEASE_VERSION: ${{ steps.source.outputs.version }}
+        run: |
+          set -euo pipefail
+          gh api "repos/$GITHUB_REPOSITORY/releases/$RELEASE_ID/assets?per_page=100" > published-assets.json
+          python3 - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+
+          version = os.environ["RELEASE_VERSION"]
+          root = Path("prepared/release")
+          names = {
+              f"FrameTrellis-{version}-windows-x64-setup.exe",
+              f"FrameTrellis-{version}-windows-x64.zip",
+              f"FrameTrellis-{version}-windows-x64.spdx.json",
+              f"FrameTrellis-{version}-windows-x64-third-party-sources.tar",
+              "SHA256SUMS.txt",
+          }
+          assets = json.loads(Path("published-assets.json").read_text(encoding="utf-8"))
+          found = {asset["name"]: asset for asset in assets}
+          if set(found) != names:
+              raise SystemExit(f"Uploaded asset set differs from expected: {sorted(found)}")
+          for name in names:
+              if found[name]["size"] != (root / name).stat().st_size:
+                  raise SystemExit(f"Uploaded byte count differs for {name}")
+              if found[name].get("state") not in (None, "uploaded"):
+                  raise SystemExit(f"Asset not uploaded: {name}")
+          print("Verified all five GitHub Release asset names and byte lengths")
+          PY

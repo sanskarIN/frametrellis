@@ -5,7 +5,7 @@ GitHub release description. Unreleased changes are collected in [unreleased.md](
 
 | Version | Notes |
 |---|---|
-| 1.4.0 | [v1.4.0.md](v1.4.0.md) — **candidate under preparation, not published**; track remaining gates in [preflight](v1.4.0-preflight.md) |
+| 1.4.0 | [v1.4.0.md](v1.4.0.md) — **published stable 2 November 2026**; see the [publication record](v1.4.0-preflight.md) |
 | 1.3.1 | [v1.3.1.md](v1.3.1.md) — maintenance fixes for media-bin selection, offline keyboard relink and regression coverage (published stable) |
 | 1.3.0 | [v1.3.0.md](v1.3.0.md) — source safety, searchable media bin, timecode navigation and render diagnostics |
 | 1.2.2 | [v1.2.2.md](v1.2.2.md) — faster MP4 export presets and verified resolution safety |
@@ -15,13 +15,19 @@ GitHub release description. Unreleased changes are collected in [unreleased.md](
 | 1.1.0 | [v1.1.0.md](v1.1.0.md) — clip duplication, title overlays and container renderer |
 | 1.0.0 | [v1.0.0.md](v1.0.0.md) — the first stable release |
 
-The stable [v1.3.1 GitHub release](https://github.com/sanskarIN/frametrellis/releases/tag/v1.3.1)
-contains verified Windows installer and portable ZIP downloads, SPDX bill of
-materials, corresponding source archive and SHA-256 checksums. It was built
-from a separate maintenance branch based on the v1.3.0 tag, and does not
-include the newer project format or features being developed on `main`.
-The [v1.3.0 verification report](v1.3.0-verification.md) documents the earlier
-stable release's automated checks and manual testing distinction.
+The stable [v1.4.0 GitHub release](https://github.com/sanskarIN/frametrellis/releases/tag/v1.4.0)
+was published on **2 November 2026** from commit
+[`1ba161ed`](https://github.com/sanskarIN/frametrellis/commit/1ba161ed8b7d7f8a0a38494e535e3ac8644d797f).
+Its Windows installer, portable ZIP, SPDX bill of materials, corresponding
+source archive and SHA-256 checksums are attached. The exact release commit
+passed [main CI](https://github.com/sanskarIN/frametrellis/actions/runs/41466264193),
+[Windows packages](https://github.com/sanskarIN/frametrellis/actions/runs/41466264022)
+and [release-asset attachment](https://github.com/sanskarIN/frametrellis/actions/runs/41470759563).
+These automated results do **not** establish physical-device QA.
+The older [v1.3.1 release](https://github.com/sanskarIN/frametrellis/releases/tag/v1.3.1)
+remains available for projects that do not need v1.4 functionality.
+The [v1.3.0 verification report](v1.3.0-verification.md) documents
+that earlier release's automated/manual testing distinction.
 
 ## Publishing a release as the repository owner
 

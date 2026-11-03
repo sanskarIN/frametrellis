@@ -140,12 +140,13 @@ PanelFrame {
 
                 Item { Layout.fillWidth: true }
 
-                FtButton {
+                IconButton {
                     objectName: "previewLoopToggle"
-                    text: qsTr("Loop")
-                    primary: panel.playback.loopPreview
+                    iconName: "repeat"
+                    tip: panel.playback.loopPreview ? qsTr("Disable Loop Preview") : qsTr("Loop Preview")
+                    active: panel.playback.loopPreview
                     enabled: !panel.app.timeline.empty
-                    Accessible.description: qsTr("Repeat the sequence during preview; exported video is unchanged")
+                    Accessible.description: qsTr("Repeat sequence playback without changing exported video")
                     onClicked: panel.playback.loopPreview = !panel.playback.loopPreview
                 }
 

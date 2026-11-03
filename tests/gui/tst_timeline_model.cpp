@@ -5,6 +5,8 @@
 #include <QSignalSpy>
 #include <QTest>
 
+#include <utility>
+
 using namespace ft;
 
 namespace {
@@ -103,7 +105,10 @@ private slots:
         QSignalSpy changed(&model, &QAbstractItemModel::dataChanged);
         QSignalSpy reset(&model, &QAbstractItemModel::modelReset);
         QSignalSpy count(&model, &ui::ClipListModel::countChanged);
-        track.clips.push_back(makeVideoTrack(4).clips.back());
+        Clip next = track.clips.back();
+        next.id = QStringLiteral("clip-3");
+        next.start = 30;
+        track.clips.push_back(std::move(next));
         model.setClips(track, project, {});
         QCOMPARE(model.rowCount(), 4);
         QCOMPARE(reset.size(), 1);

@@ -5,6 +5,7 @@
 #include <QFileInfo>
 
 #include <algorithm>
+#include <utility>
 
 namespace ft::ui {
 
@@ -158,9 +159,32 @@ void ClipListModel::setClips(const Track& track, const Project& project, const Q
         std::equal(rows.begin(), rows.end(), m_rows.begin(),
                    [](const Row& a, const Row& b) { return a.clip.id == b.clip.id; });
     if (sameIds) {
+        // Keep stable delegate identities and notify only the clips whose displayed state
+        // changed. A full-range dataChanged forces QML to re-evaluate every clip on a
+        // track even when only one trim, gain or selection changes.
+        std::vector<std::pair<int, int>> changedRanges;
+        int rangeStart = -1;
+        for (int i = 0; i < static_cast<int>(rows.size()); ++i) {
+            const Row& next = rows[static_cast<size_t>(i)];
+            const Row& current = m_rows[static_cast<size_t>(i)];
+            const bool changed =
+                next.clip != current.clip || next.name != current.name ||
+                next.kind != current.kind || next.offline != current.offline ||
+                next.sourceLength != current.sourceLength || next.selected != current.selected ||
+                next.onAudioTrack != current.onAudioTrack || next.waveform != current.waveform;
+            if (changed && rangeStart < 0) {
+                rangeStart = i;
+            } else if (!changed && rangeStart >= 0) {
+                changedRanges.emplace_back(rangeStart, i - 1);
+                rangeStart = -1;
+            }
+        }
+        if (rangeStart >= 0) {
+            changedRanges.emplace_back(rangeStart, static_cast<int>(rows.size()) - 1);
+        }
         m_rows = std::move(rows);
-        if (!m_rows.empty()) {
-            emit dataChanged(index(0), index(rowCount() - 1));
+        for (const auto& [first, last] : changedRanges) {
+            emit dataChanged(index(first), index(last));
         }
         return;
     }

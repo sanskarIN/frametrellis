@@ -9,3 +9,7 @@ set_tests_properties(tst_gui PROPERTIES
 ft_add_test(tst_subtitle_controller SOURCES tst_subtitle_controller.cpp
     LIBS ft_ui ft_uiplugin ft_test_fixtures LABELS gui)
 set_tests_properties(tst_subtitle_controller PROPERTIES TIMEOUT 60)
+
+# Regression: large timeline updates must not invalidate unchanged clip delegates.
+ft_add_test(tst_timeline_model SOURCES tst_timeline_model.cpp LIBS ft_ui LABELS gui)
+set_tests_properties(tst_timeline_model PROPERTIES TIMEOUT 60)

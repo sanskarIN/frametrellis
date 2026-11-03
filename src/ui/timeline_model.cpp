@@ -5,6 +5,7 @@
 #include <QFileInfo>
 
 #include <algorithm>
+#include <utility>
 
 namespace ft::ui {
 

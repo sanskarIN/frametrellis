@@ -167,12 +167,11 @@ void ClipListModel::setClips(const Track& track, const Project& project, const Q
         for (int i = 0; i < static_cast<int>(rows.size()); ++i) {
             const Row& next = rows[static_cast<size_t>(i)];
             const Row& current = m_rows[static_cast<size_t>(i)];
-            const bool changed = next.clip != current.clip || next.name != current.name ||
-                                 next.kind != current.kind || next.offline != current.offline ||
-                                 next.sourceLength != current.sourceLength ||
-                                 next.selected != current.selected ||
-                                 next.onAudioTrack != current.onAudioTrack ||
-                                 next.waveform != current.waveform;
+            const bool changed =
+                next.clip != current.clip || next.name != current.name ||
+                next.kind != current.kind || next.offline != current.offline ||
+                next.sourceLength != current.sourceLength || next.selected != current.selected ||
+                next.onAudioTrack != current.onAudioTrack || next.waveform != current.waveform;
             if (changed && rangeStart < 0) {
                 rangeStart = i;
             } else if (!changed && rangeStart >= 0) {

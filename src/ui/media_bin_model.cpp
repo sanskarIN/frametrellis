@@ -221,10 +221,10 @@ QString MediaBinFilterModel::sortMode() const
 void MediaBinFilterModel::setSortMode(const QString& mode)
 {
     const QString requested = mode.toLower();
-    const QString next = requested == QLatin1String("name-asc") ||
-                                 requested == QLatin1String("name-desc")
-                             ? requested
-                             : QStringLiteral("import");
+    const QString next =
+        requested == QLatin1String("name-asc") || requested == QLatin1String("name-desc")
+            ? requested
+            : QStringLiteral("import");
     if (m_sortMode == next) {
         return;
     }
@@ -232,8 +232,8 @@ void MediaBinFilterModel::setSortMode(const QString& mode)
     if (m_sortMode == QLatin1String("import")) {
         sort(-1); // Restore the original imported order; never reorder project assets.
     } else {
-        sort(0, m_sortMode == QLatin1String("name-desc") ? Qt::DescendingOrder
-                                                       : Qt::AscendingOrder);
+        sort(0,
+             m_sortMode == QLatin1String("name-desc") ? Qt::DescendingOrder : Qt::AscendingOrder);
     }
     emit sortModeChanged();
 }

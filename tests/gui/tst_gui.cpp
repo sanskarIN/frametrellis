@@ -199,6 +199,39 @@ private slots:
         QVERIFY(total > 0);
         QCOMPARE(total, m_app->media()->model()->rowCount());
 
+        // Sorting affects only the proxy, never the project's stored import order.
+        QStringList importedOrder;
+        for (int i = 0; i < total; ++i) {
+            importedOrder.append(
+                m_app->media()->model()->get(i).value(QStringLiteral("name")).toString());
+        }
+        QCOMPARE(filter.sortMode(), QStringLiteral("import"));
+        filter.setSortMode(QStringLiteral("name-asc"));
+        QCOMPARE(filter.sortMode(), QStringLiteral("name-asc"));
+        for (int i = 1; i < total; ++i) {
+            const QString previous =
+                filter.data(filter.index(i - 1, 0), ui::MediaBinModel::NameRole).toString();
+            const QString current =
+                filter.data(filter.index(i, 0), ui::MediaBinModel::NameRole).toString();
+            QVERIFY(QString::compare(previous, current, Qt::CaseInsensitive) <= 0);
+        }
+        filter.setSortMode(QStringLiteral("name-desc"));
+        for (int i = 1; i < total; ++i) {
+            const QString previous =
+                filter.data(filter.index(i - 1, 0), ui::MediaBinModel::NameRole).toString();
+            const QString current =
+                filter.data(filter.index(i, 0), ui::MediaBinModel::NameRole).toString();
+            QVERIFY(QString::compare(previous, current, Qt::CaseInsensitive) >= 0);
+        }
+        filter.setSortMode(QStringLiteral("unknown"));
+        QCOMPARE(filter.sortMode(), QStringLiteral("import"));
+        for (int i = 0; i < total; ++i) {
+            QCOMPARE(filter.data(filter.index(i, 0), ui::MediaBinModel::NameRole).toString(),
+                     importedOrder.at(i));
+            QCOMPARE(m_app->media()->model()->get(i).value(QStringLiteral("name")).toString(),
+                     importedOrder.at(i));
+        }
+
         const QString firstName =
             m_app->media()->model()->get(0).value(QStringLiteral("name")).toString();
         QVERIFY(!firstName.isEmpty());
@@ -254,6 +287,13 @@ private slots:
         QTRY_COMPARE(grid->property("count").toInt(), 0);
         kind->setProperty("currentIndex", 0); // Restore All for following GUI tests.
         QTRY_COMPARE(grid->property("count").toInt(), total);
+        QQuickItem* sorter = findItem(m_window->contentItem(), QStringLiteral("mediaSortOrder"));
+        QVERIFY(sorter);
+        sorter->setProperty("currentIndex", 1); // A–Z through the actual UI.
+        QTRY_COMPARE(grid->property("count").toInt(), total);
+        sorter->setProperty("currentIndex", 2); // Z–A.
+        QTRY_COMPARE(grid->property("count").toInt(), total);
+        sorter->setProperty("currentIndex", 0); // Preserve default import order.
         QCOMPARE(m_app->media()->model()->rowCount(), total);
     }
 

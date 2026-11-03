@@ -21,6 +21,7 @@ PanelFrame {
         sourceModel: panel.app.media.model
         searchText: searchBox.text
         category: ["all", "video", "audio", "image", "offline", "changed", "used", "unused"][kindBox.currentIndex] || "all"
+        sortMode: ["import", "name-asc", "name-desc"][sortBox.currentIndex] || "import"
     }
 
     title: qsTr("Media") + (app.media.model.count > 0 ? "  ·  " + app.media.model.count : "")
@@ -86,6 +87,13 @@ PanelFrame {
             model: [qsTr("All"), qsTr("Video"), qsTr("Audio"), qsTr("Images"), qsTr("Offline"),
                     qsTr("Changed"), qsTr("Used"), qsTr("Unused")]
             Accessible.name: qsTr("Media kind filter")
+        }
+        ComboBox {
+            id: sortBox
+            objectName: "mediaSortOrder"
+            Layout.preferredWidth: 124
+            model: [qsTr("Imported"), qsTr("Name A–Z"), qsTr("Name Z–A")]
+            Accessible.name: qsTr("Media sort order")
         }
     }
 

@@ -340,8 +340,7 @@ private slots:
 
     void loopPreviewToggleLeavesProjectAndUndoHistoryUnchanged()
     {
-        QQuickItem* button =
-            findItem(m_window->contentItem(), QStringLiteral("previewLoopToggle"));
+        QQuickItem* button = findItem(m_window->contentItem(), QStringLiteral("previewLoopToggle"));
         QVERIFY(button);
         QVERIFY(button->isEnabled());
         QVERIFY(!m_app->playback()->loopPreview());

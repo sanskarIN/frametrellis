@@ -228,7 +228,7 @@ These are development features after v1.3.0, not a new stable release or version
 - Headless rendering includes the Qt font platform and Linux fonts; Windows uses
   installed system fonts. Package/container self-tests inspect caption pixels in
   the encoded MP4. See the [subtitle acceptance matrix](../testing/subtitle-workflow.md)
-  and [user workflow](../user-guide/README.md#subtitles-development-preview).
+  and [user workflow](../user-guide/README.md#subtitles).
 - Freeze the published playhead before acknowledging pause, preventing a rendered-ahead
   frame from moving a stopped playhead during precise cue timing. A dedicated
   in-flight-frame regression accompanies the existing pause/seek tests.

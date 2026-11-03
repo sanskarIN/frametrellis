@@ -1,10 +1,20 @@
-# Unreleased (after FrameTrellis 1.3.1)
+# Development history and unreleased changes
 
-The latest published stable release is [FrameTrellis 1.3.1](v1.3.1.md).
-The [v1.3.1 GitHub release](https://github.com/sanskarIN/frametrellis/releases/tag/v1.3.1)
-provides verified Windows installer and portable ZIP downloads. It is a narrow
-maintenance patch based on v1.3.0 and does not include the development features
-below. No v1.4 release is declared by these notes.
+**Latest stable: [FrameTrellis v1.4.0](https://github.com/sanskarIN/frametrellis/releases/tag/v1.4.0),
+published on 2 November 2026.** Its exact shipped features are listed in
+[v1.4.0.md](v1.4.0.md). The integrated PR list below is a **historical
+pre-release development log** accumulated after v1.3.1; it is not an
+up-to-date list of still-unreleased features.
+
+## Future work after v1.4.0
+
+Priorities include source monitoring/three-point editing, verified proxy
+generation, audio metering, long-timeline performance profiling, and
+further cross-platform packaging. See the [professional-editor assessment](../development/pro-editor-assessment.md)
+and [roadmap](../roadmap.md). No features are claimed as released until
+their actual tag and packages are verified.
+
+## Historical integration log for v1.4.0
 
 ## Integrated on main for the next milestone
 
@@ -119,13 +129,11 @@ below. No v1.4 release is declared by these notes.
 - [#133](https://github.com/sanskarIN/frametrellis/pull/133):
   1440p creator upload and 480p review MP4 presets.
 
-The v1.4.0 candidate requires an integrated clean CI/package pass,
-version bump, checked release notes and outstanding manual review; see
-[the release preflight](v1.4.0-preflight.md). Neither this log nor an
-open preparation PR constitutes publication of v1.4.0.
-
-All of these are integrated on the development `main` branch, not included
-in the published stable v1.3.1 binaries.
+The integrated candidate subsequently shipped as stable v1.4.0.
+Its [publication record](v1.4.0-preflight.md) links successful exact-commit
+CI, Windows packaging and automatic asset attachment. This historical
+log does not by itself establish inclusion of every PR: use the release
+notes and verified tag for that.
 
 - [#136](https://github.com/sanskarIN/frametrellis/pull/136):
   exact five/ten-second playback jumps and whole-sequence midpoint with
@@ -220,7 +228,7 @@ These are development features after v1.3.0, not a new stable release or version
 - Headless rendering includes the Qt font platform and Linux fonts; Windows uses
   installed system fonts. Package/container self-tests inspect caption pixels in
   the encoded MP4. See the [subtitle acceptance matrix](../testing/subtitle-workflow.md)
-  and [user workflow](../user-guide/README.md#subtitles-development-preview).
+  and [user workflow](../user-guide/README.md#subtitles).
 - Freeze the published playhead before acknowledging pause, preventing a rendered-ahead
   frame from moving a stopped playhead during precise cue timing. A dedicated
   in-flight-frame regression accompanies the existing pause/seek tests.

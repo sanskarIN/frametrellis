@@ -16,11 +16,13 @@ account, no cloud processing, no telemetry and no advertising.
 
 ![The FrameTrellis workspace with media bin, program monitor, clip inspector and a three-track timeline](docs/images/workspace.png)
 
-> **Latest stable release: 1.3.1.** Includes the v1.3.0 safety and media search
-> improvements, plus media-bin selection and offline keyboard relink fixes.
-> Download the verified Windows installer or portable ZIP from the
-> [v1.3.1 release](https://github.com/sanskarIN/frametrellis/releases/tag/v1.3.1).
-> On Linux, build from source. Back up important projects.
+> **Latest stable release: 1.4.0 (2 November 2026).** Includes timeline gap/slip/roll
+> editing, volume/opacity/transform keyframes, subtitles and review exports.
+> Download the Windows installer or portable ZIP from the
+> [v1.4.0 release](https://github.com/sanskarIN/frametrellis/releases/tag/v1.4.0).
+> Both Windows packages, SHA-256 checksums, SPDX SBOM and corresponding-source archive
+> are attached. On Linux, build from source. **Back up projects before upgrading:**
+> files using newer format versions may not reopen in v1.3.1.
 
 
 ## Features
@@ -56,21 +58,22 @@ What works today (each item is implemented and covered by automated tests):
       including media and track counts without revealing source paths
 - [x] Autosave every minute and crash recovery
 - [x] Recent projects, dark and light themes, keyboard shortcuts, first-run guide
+- [x] Slip and roll edits, multi-track gap insertion/removal, track reorder/duplication,
+      selected-clip alignment and precision timeline selection/navigation
+- [x] Source-anchored volume, opacity and position/scale/rotation keyframes,
+      with inspector and timeline controls and corresponding preview/export support
+- [x] Timeline markers and subtitles, UTF-8 SRT import/export, WebVTT and transcript
+      exports, optional caption burn-in, cuts-only EDL and formula-safe CSV reports
+- [x] Asynchronous folder import, media audits and usage/health filters,
+      undoable unused-media cleanup and protected preview PNG snapshots
+- [x] Creator upload and low-bandwidth review MP4 profiles with no-upscale safeguards
 
-Planned (see the [roadmap](docs/roadmap.md)): editable title layers, advanced animation controls,
-proxy media, customisable shortcuts, more export formats, and Linux and macOS packages.
-
-Development source also contains review markers, chapter/EDL handoff and slip/roll edits.
-Volume keyframes are integrated, and development source adds opacity keyframes with
-inspector controls, timeline curves and shared preview/export automation. Position, scale
-and rotation keyframes add inspector editing and direct monitor handles. Development
-source also adds a subtitle editor, exact SRT import/export, a caption timeline strip
-and matching preview/video burn-in. Development builds also include folder import,
-read-only media audits, undoable unused-media cleanup, live media-bin usage/health
-filters, creator upload export profiles, CLI preset discovery and preview PNG snapshots.
-These development features are separate from the stable Windows downloads; see the
-[current-state assessment](docs/development/pro-editor-assessment.md) and
-[unreleased notes](docs/releases/unreleased.md).
+Planned (see the [roadmap](docs/roadmap.md)): editable native text titles, animation
+easing and custom pivots, proxy media, customisable shortcuts, additional export
+formats, and Linux and macOS packages. These are **not included** in v1.4.0.
+See the [v1.4.0 notes](docs/releases/v1.4.0.md) for the exact shipped scope
+and the [professional-editor assessment](docs/development/pro-editor-assessment.md)
+for remaining engineering gaps.
 
 ## Platforms
 
@@ -128,9 +131,12 @@ and Turbo presets and how to measure improvements. The [user guide](docs/user-gu
 ## Current limitations
 
 - Titles are PNG image overlays rather than editable text layers, and dissolve/crossfade
-  is the only transition. Volume, opacity and position/scale/rotation animation are
-  development features; easing curves and custom pivots remain planned. Keep generated PNGs when moving the project.
-- Only MP4 (H.264 + AAC) export; frame rate is fixed once clips are on the timeline.
+  is the only transition. Volume, opacity and position/scale/rotation keyframes are
+  available in v1.4.0; easing curves and custom pivots remain planned. Keep generated
+  PNGs when moving the project.
+- Video export supports MP4 (H.264 + AAC), with optional subtitle burn-in;
+  embedded switchable subtitle tracks and alternative video codecs/containers are
+  not yet supported. Frame rate is fixed once clips are on the timeline.
 - Very large timelines (thousands of clips) are not optimised yet.
 - Picture adjustments need an FFmpeg/MLT build with a working `eq` filter; the inspector says
   when they are unavailable.

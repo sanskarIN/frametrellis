@@ -1,7 +1,8 @@
 # FrameTrellis user guide
 
 FrameTrellis is a local-first video editor: your media stays on your computer and is never
-uploaded. This guide covers everything the current version can do.
+uploaded. This guide covers the **v1.4.0 stable release**. Back up .ftproj files before
+upgrading: projects using newer v2–v6 formats may not open in the older v1.3.1 editor.
 
 - [Installing FrameTrellis](installation.md)
 - [The workspace](#the-workspace)
@@ -12,13 +13,13 @@ uploaded. This guide covers everything the current version can do.
 - [Title overlays](#title-overlays)
 - [Transitions](#transitions)
 - [Adjusting clips](#adjusting-clips)
-- [Volume keyframes (development preview)](#volume-keyframes-development-preview)
-- [Opacity keyframes (development preview)](#opacity-keyframes-development-preview)
-- [Transform animation (development preview)](#transform-animation-development-preview)
-- [Subtitles (development preview)](#subtitles-development-preview)
+- [Volume keyframes](#volume-keyframes)
+- [Opacity keyframes](#opacity-keyframes)
+- [Transform animation](#transform-animation)
+- [Subtitles](#subtitles)
 - [Playback](#playback)
 - [Exporting](#exporting)
-- [Exporting an edit decision list (development preview)](#exporting-a-picture-edit-decision-list-development-preview)
+- [Exporting an edit decision list](#exporting-a-picture-edit-decision-list)
 - [Faster export profiles](faster-export.md)
 - [Missing media and recovery](#missing-media-and-recovery)
 - [Troubleshooting](#troubleshooting)
@@ -54,7 +55,7 @@ If you move the project folder together with the media, FrameTrellis finds them 
 
 ## Importing media
 
-In development builds with the **planned v1.4 folder import feature**, use
+In FrameTrellis v1.4.0, use
 **File → Import Media Folder…** to select a directory. FrameTrellis searches
 its subfolders for up to **500 supported media files** and imports them using
 the normal background decoder checks. Files with unsupported suffixes and
@@ -64,8 +65,7 @@ after 10,000 scanned files, and large folders are reported as truncated.
 No files are moved, copied, renamed or deleted. If the folder contains more
 than the safety limit, split your import into smaller subfolders.
 
-This is a **v1.4 development feature**, not included in the v1.3.1 stable
-release. Folder discovery runs on a worker thread, keeping the editing workspace
+In v1.4.0, folder discovery runs on a worker thread, keeping the editing workspace
 responsive while scanning large or slow directories. The media-panel busy indicator
 covers both folder discovery and background media probing. The scan result is
 ignored if another project is opened before it finishes. Invalid or unreadable
@@ -90,13 +90,12 @@ the project (removing never deletes the file; media in use must be removed from 
 For a cleaner media bin, **File → Remove Unused Media from Project** removes
 imported media references that are not used by any timeline clip. Original
 files remain unchanged on disk, and **Ctrl+Z** restores the removed references
-in their original order. Media in use is always preserved. This is a
-**v1.4 development feature**, not included in the v1.3.1 stable download.
+in their original order. Media in use is always preserved. This is available in v1.4.0.
 
 
 Use the **Search media** field at the top of the media bin to find files by name or path,
 without changing the project. The adjacent filter shows all assets, videos, audio,
-still images or offline files. In development builds it also offers **Changed**
+still images or offline files. In v1.4.0 it also offers **Changed**
 (sources modified since import), **Used** (referenced by timeline clips), and
 **Unused** (not referenced by any timeline clip). Search is case-insensitive,
 combines with the chosen category, and updates visible tiles when clip usage
@@ -117,7 +116,7 @@ every imported file again. Filtering never removes files from the project.
   overlap another clip are refused — nothing is ever overwritten.
 * **Trim:** drag the left or right edge of a clip. You cannot trim beyond the start or end of the
   source media.
-* **Slip (v1.4 development):** select one or more video or audio clips, then open
+* **Slip (v1.4.0):** select one or more video or audio clips, then open
   *Edit → Slip Selected Clips (Source)*. Move source content one frame with
   **Ctrl+Alt+Left / Right**, or ten frames with **Ctrl+Alt+Shift+Left / Right**.
   The clip stays in the same timeline position and keeps the same duration,
@@ -126,8 +125,7 @@ every imported file again. Filtering never removes files from the project.
   before/after the current source trim. Still images, locked tracks and slips
   that would remove a transition's source handles are rejected without edits.
   Trimming the end of a clip may create room to slip it later.
-  This is not yet in the v1.3.0 stable release.
-* **Roll a cut (v1.4 development):** select the outgoing clip (the one before a cut)
+* **Roll a cut (v1.4.0):** select the outgoing clip (the one before a cut)
   and choose *Edit → Roll Cut After Selected Clip*. For a touching time-based clip,
   the inspector also offers **Roll Following Cut** controls. Rolling earlier shortens
   the outgoing clip and reveals more of the incoming source; rolling later does the
@@ -135,7 +133,6 @@ every imported file again. Filtering never removes files from the project.
   A roll preserves clip properties, fades and transitions and is undoable in one step.
   An invalid roll (exhausted source media, invalid fades or transition handles,
   separated clips, still images or a locked track) fails without changing either clip.
-  This is not part of the stable v1.3.0 package.
 * **Split:** move the playhead and press **S**. With clips selected, only those are split;
   otherwise every unlocked clip under the playhead is split.
 * **Duplicate:** select one clip and press **Ctrl+D** (or use the timeline copy button). The copy
@@ -145,39 +142,39 @@ every imported file again. Filtering never removes files from the project.
   delete) removes one clip and moves the following clips on that track left to close the gap.
 * **Snapping** (N) aligns clip edges with other clips and the playhead.
 * **Zoom** with + and −, Ctrl+mouse wheel, the zoom slider, or *Fit* to see the whole sequence.
-* **Zoom to Selection (v1.4 development):** select one or more clips and use
+* **Zoom to Selection (v1.4.0):** select one or more clips and use
   *View → Zoom to Selection* (Ctrl+Shift+0), or the selection-fit toolbar button.
   FrameTrellis fits the selected clips' earliest start through their latest end,
   with a margin for trim handles. It never moves clips or changes project state.
-* **Center on Playhead (v1.4 development):** use *View → Center on Playhead*
+* **Center on Playhead (v1.4.0):** use *View → Center on Playhead*
   (Ctrl+Shift+L) to return the horizontal timeline viewport to the current frame
   without seeking, stopping playback, or adding an undo entry. These view actions
-  are not present in the published v1.3.1 stable release.
+  are available in v1.4.0.
 * **Go to timecode** with Ctrl+G (Playback menu): enter a frame-accurate timecode, such as
   `00:00:12:08`. Invalid or out-of-sequence positions are rejected without moving the playhead.
-* **Duplicate a track (v1.4 development):** right-click a track header and choose
+* **Duplicate a track (v1.4.0):** right-click a track header and choose
   *Duplicate track*. A separate track appears immediately after the original, keeping clip
   timing, source trims, settings and transitions but assigning new clip/transition IDs.
-  Undo or redo this as a single edit. Not included in stable v1.3.1.
+  Undo or redo this as a single edit.
 * **Tracks:** add tracks with *+ Video* / *+ Audio*; each track can be hidden (video), muted or
   locked. Double-click a track name to rename it. Right-click the track header
   to select all clips or remove an unlocked track. Development builds also offer
   **Move track up/down** in this menu for adjacent tracks of the same kind.
   Moving video tracks changes layer order; moving audio tracks changes mixer order.
   The move retains all clips, media and settings and supports undo/redo.
-  In development builds, **Edit → Lock All Tracks** protects every track against
+  In v1.4.0, **Edit → Lock All Tracks** protects every track against
   accidental clip edits; **Edit → Unlock All Tracks** restores editability.
   Both are single-step undoable changes and preserve each track's mute and
-  visibility settings. Not available in stable v1.3.1.
+  visibility settings.
 
-* **Advanced selections (v1.4 development):** **Ctrl+Shift+J** selects clips
+* **Advanced selections (v1.4.0):** **Ctrl+Shift+J** selects clips
   overlapping the playhead across all video and audio tracks; **Ctrl+Alt+R**
   selects every use of the single selected media source. Right-click a track
   header and choose **Select all clips on track** to select that track's clips.
   These commands can select locked tracks for inspection, but do not bypass
   lock protection on editing. If no clips match, the existing selection remains.
   Selection actions never change project edits or undo history and are not in
-  the published v1.3.1 stable release.
+  available in the v1.4.0 release.
 
 Every change can be undone (Ctrl+Z) and redone (Ctrl+Shift+Z).
 
@@ -185,9 +182,8 @@ Clips on audio tracks show the waveform of their sound, scaled by the clip's vol
 time a file is used, FrameTrellis reads its sound in the background (a few seconds for a long
 file) and keeps the result in its cache, so the waveform appears instantly afterwards.
 
-## Volume keyframes (development preview)
+## Volume keyframes
 
-This feature is a development candidate, **not part of the v1.3.0 Windows downloads**.
 Select an audio clip or a video clip with audio, pause playback, and put the playhead
 inside that clip. In the inspector's **Volume Keyframes** section:
 
@@ -219,9 +215,9 @@ destination clip's automation unchanged.
 **Compatibility:** Projects containing volume points save in project format **v3**.
 Earlier development builds that only understand v2 cannot reopen them. Keep a backup
 before upgrading. Projects without automation or subtitles save as v2; the reader
-can load v1 through v6. Opacity curves require v4, transform curves v5 and subtitles v6. v1.3.0 stable cannot open these development formats.
+can load v1 through v6. Opacity curves require v4, transform curves v5 and subtitles v6. v1.3.1 and earlier cannot open documents requiring these newer formats.
 
-## Opacity keyframes (development preview)
+## Opacity keyframes
 
 Select a video or still-image clip on a video track, pause playback, and place the
 playhead inside the clip. Scroll to **Opacity Keyframes** in the inspector.
@@ -255,9 +251,9 @@ have opacity points. Locked tracks prevent edits.
 **Compatibility:** Opacity points require at least format **v4**; transform points
 raise the saved format to **v5** and subtitles require **v6**. Volume-only projects
 use v3 and projects without automation or subtitles use v2. Keep backup project copies before
-switching development builds. This feature is not part of stable v1.3.0.
+switching between editor versions. This feature is available in v1.4.0.
 
-## Transform animation (development preview)
+## Transform animation
 
 Select one video or image clip on a video track, pause playback and place the
 playhead inside it. In **Transform**, adjust **Horizontal position**, **Vertical
@@ -301,9 +297,9 @@ track and resume when moved back. The same graph renders preview and MP4 output.
 one constant point. Older builds refuse these projects. Loading v1–v6 is supported;
 subtitles require v6. With no subtitles, clearing transform points permits v4/v3/v2
 saves according to the remaining curves.
-This feature is development work after stable v1.3.0. Keep backup project copies.
+This feature is available in v1.4.0. Keep backup project copies.
 
-## Subtitles (development preview)
+## Subtitles
 
 Open **File → Subtitles…**, the **Subtitles** toolbar button, or `Ctrl+Alt+S`.
 Pause inside a free gap and choose **+ At playhead**, or **Import SRT…** to append
@@ -329,7 +325,7 @@ Each operation preserves the cue text, IDs, relative spacing and duration; it
 is one undoable edit. Shifts that would move any cue
 before time zero or beyond the maximum supported time are refused as a whole,
 without a partial edit. This does not move video or audio clips, chapter
-markers or the playhead. Shift operations are development-only (v1.4).
+markers or the playhead. Shift operations are available in v1.4.0.
 
 **Burn into preview and video** enables the same centered, bottom-aligned captions
 in preview and MP4 export. Set text size from 2% to 10% of picture height and
@@ -364,9 +360,9 @@ units total. Blank text lines separate cues in SRT and cannot be embedded in a c
 **Compatibility:** Subtitles or nondefault subtitle styling require project
 **format v6**. Older builds refuse these projects. Clear cues and **Reset style**
 to return to the minimum format required by other features. Loading v1–v6 remains
-supported. This workflow is outside the stable v1.3.0 downloads.
+supported. This workflow is included in v1.4.0.
 
-## Timeline markers (v1.4 development preview)
+## Timeline markers
 
 Use **Playback → Add Timeline Marker** (`Shift+M`) or the **+ Marker** button above the
 timeline to attach a named review cue to an exact project frame. Markers are shown as diamonds
@@ -389,11 +385,11 @@ covers their position.
 
 **Compatibility:** Markers require project format v2; automation may require v3/v4/v5 and subtitles v6. FrameTrellis
 v1.3 and older reject these newer project files, even if they contain no markers. Keep a
-backup if you may need to return to an older editor. This feature is not in v1.3.0 stable.
+backup if you may need to return to an older editor. Markers are available in v1.4.0.
 
 ### Export review markers as chapters
 
-In this development build, choose **Playback → Copy Markers as Video Chapters** to
+In v1.4.0, choose **Playback → Copy Markers as Video Chapters** to
 copy lines such as `00:01:05 Color grade` for a video description. The first
 chapter must start at frame zero, and no two markers may map to the same whole second.
 This action does not change the project or its edit history.
@@ -408,8 +404,7 @@ Paste the copied output into a UTF-8 `.vtt` text file; attach it as a
 `<track kind="chapters">` to a compatible HTML5 video player. This does not
 burn anything into the exported video or upload data to any service.
 
-Both chapter workflows are **v1.4 proposals**, not features of the v1.3.0
-stable Windows package.
+Both chapter workflows are included in v1.4.0.
 
 ## Title overlays
 
@@ -470,9 +465,9 @@ Midpoint** seeks to the earlier middle visible frame of the entire sequence.
 An empty timeline has no midpoint. Clicking or dragging on the ruler
 moves the playhead. If no audio device is available, the preview plays silently.
 
-## Media audit reports (planned v1.4 feature)
+## Media audit reports
 
-In development builds that include the v1.4 media-audit feature, choose
+In v1.4.0, choose
 **File → Export Media Audit (JSON)…** to save a read-only report of the media
 bin. It records the current file availability, size and modification-time
 changes, clip-use counts and a [versioned schema](../architecture/media-audit-json.md)
@@ -485,16 +480,15 @@ report does not calculate cryptographic checksums and is not a media-authenticit
 guarantee. **Full local source-file paths are included** and may be sensitive:
 inspect or redact the JSON before sharing it publicly.
 
-This is a **proposed v1.4 feature**, not available in the current v1.3.0
-stable download.
+This feature is included in v1.4.0.
 
-## Saving a preview snapshot (v1.4 development)
+## Saving a preview snapshot
 
 Use **File → Save Preview Frame as PNG…** when the program monitor has a decoded
 frame. The snapshot uses the monitor's current preview resolution, which can be
 smaller than the source or final video. The editor saves atomically and refuses
 to replace a referenced source file or the open project. For full-quality
-frames, use video export instead. This is not included in stable v1.3.1.
+frames, use video export instead.
 
 ## Exporting
 
@@ -504,7 +498,7 @@ start/end timecodes. This report doesn't render video, edit the project or
 change undo history. Save it only to a .csv file; the editor refuses to
 replace imported source media or the project file. Spreadsheet formula-like
 cells are escaped. **The CSV contains local file paths** — review it before
-sharing outside your machine. Available in development source, not stable v1.3.1.
+sharing outside your machine. Available in v1.4.0.
 
 *File → Export…* (Ctrl+E):
 
@@ -513,7 +507,7 @@ sharing outside your machine. Available in development source, not stable v1.3.1
 3. Optionally adjust quality (lower CRF = better quality, bigger file), encoder speed and audio.
 4. Click **Export**.
 
-The v1.4 development presets add **Low-bandwidth review (up to 480p)** and
+The v1.4.0 presets include **Low-bandwidth review (up to 480p)** and
 **Creator upload (up to 1440p)**. Both preserve smaller project canvases
 without upscaling and work for landscape and portrait projects.
 
@@ -528,7 +522,7 @@ Enable **Do not upscale smaller projects** to preserve native size instead of ma
 small projects, and watch the measured frames/second in the export progress dialog.
 See [Faster export](faster-export.md) for presets and tradeoffs.
 
-## Exporting a picture edit decision list (development preview)
+## Exporting a picture edit decision list
 
 **File → Copy Picture EDL (CMX3600)** generates a cut-only picture edit
 decision list and copies it to the clipboard. Paste it into a UTF-8 text file
@@ -551,8 +545,7 @@ a *picture-only* EDL, not an audio conform, mix, or full project interchange.
 EDLs cannot describe many effects, reel/timecode metadata and mixed-rate
 workflows in a modern NLE. Review and verify the conformed sources in your
 target editor. The export does not save over the project, change the timeline,
-or render any media. **This is a v1.4 development feature, not part of
-FrameTrellis v1.3.0 stable.**
+or render any media. This feature is included in v1.4.0.
 
 ## Missing media and recovery
 
@@ -580,7 +573,7 @@ recover that work the next time it starts.
 * **Logs** — *Help → About → Open log folder*. *Copy diagnostics* copies version information for
   bug reports.
 
-### Append a source excerpt (v1.4 development)
+### Append a source excerpt
 
 In the media bin, right-click an imported video or audio file and choose
 **Append source excerpt…**. Enter the first source frame (**In**) and the
@@ -594,9 +587,9 @@ sources and the absence of an editable track are refused.
 Source ranges are expressed in **project frames**, not source-file timecode;
 this feature does not yet provide a dedicated source playback monitor, proxy
 generation, or synchronized automatic insertion of separate video/audio lanes.
-It is in development only, not the published v1.3.1 stable release.
+It is available in v1.4.0.
 
-### Export a media audit as CSV (v1.4 development)
+### Export a media audit as CSV
 
 Choose **File → Export Media Audit (CSV)…** to save a read-only UTF-8 CSV
 inventory of imported media. It includes asset IDs, names, media kind, online/
@@ -606,4 +599,4 @@ calculation, uses CRLF records and escapes quotes, newlines and cells that
 could otherwise be interpreted as spreadsheet formulas. The export is atomic
 and refuses to overwrite a source file or the current project. It does not
 probe or re-encode media, change clips or record an undo step. This feature is
-in development, not in stable v1.3.1.
+included in stable v1.4.0.

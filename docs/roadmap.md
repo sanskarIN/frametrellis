@@ -112,7 +112,7 @@ Acceptance criteria, each checked before the release:
 - ℹ️ [Automated release verification](releases/v1.3.0-verification.md) is recorded separately
   from the still-unrecorded manual desktop smoke-test checklist
 
-## v1.4.0 — Professional workflow candidates 🚧
+## v1.4.0 — Editing, automation and review workflows ✅
 - ✅ Integrated on `main`: persistent review markers, WebVTT chapters, cuts-only
   picture EDL export, source slip, roll editing, source-anchored volume and opacity
   automation (PRs #75–#79, #82–#84).
@@ -137,10 +137,15 @@ Acceptance criteria, each checked before the release:
   (PRs #119, #122).
 - ✅ Evidence-driven v1.4 editor acceptance matrix with all hands-on release
   checks explicitly pending until verified (PR #120).
-- ⏳ Run final integrated Linux, Windows, sanitizer and package validation,
-  complete documented hands-on editing/export checks, and review v1–v6
-  project-format migrations before publishing any v1.4 preview or stable release.
-  The published stable remains v1.3.1; development `main` is not a stable build.
+- ✅ Published stable **v1.4.0** on 2 November 2026 from commit
+  [`1ba161ed`](https://github.com/sanskarIN/frametrellis/commit/1ba161ed8b7d7f8a0a38494e535e3ac8644d797f).
+  Exact-commit main CI, Windows packaging and release-asset attachment passed;
+  the installer, portable ZIP, checksums, SBOM and source archive are attached.
+- ℹ️ Automated verification does not prove hands-on playback, audio or GPU
+  acceptance on a physical Windows computer. Back up projects before upgrading;
+  files using project formats v2–v6 may not open in v1.3.1.
+  See the [release notes](releases/v1.4.0.md) and
+  [publication evidence](releases/v1.4.0-preflight.md).
 
 The [professional-editor assessment](development/pro-editor-assessment.md) records
 the audited source state, concrete capability gaps and the next implementation order.

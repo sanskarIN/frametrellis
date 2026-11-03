@@ -41,6 +41,7 @@ struct Command
         Step,
         PreviewSize,
         Audio,
+        Loop,
         Volume,
         Quit
     };
@@ -159,6 +160,7 @@ private:
     bool m_needsRender = false;
     bool m_playing = false;
     bool m_audioEnabled = true;
+    bool m_loopEnabled = false;
     double m_volume = 1.0;
     FrameCount m_position = 0;
     FrameCount m_duration = 0;
@@ -387,6 +389,9 @@ bool PlaybackEngine::Worker::applyCommands(std::deque<Command>& commands)
                 m_audio->clear();
             }
             break;
+        case Command::Type::Loop:
+            m_loopEnabled = command.flag;
+            break;
         case Command::Type::Volume:
             m_volume = std::clamp(command.value, 0.0, 2.0);
             break;
@@ -432,9 +437,20 @@ void PlaybackEngine::Worker::run()
         }
 
         if (m_position >= m_duration) {
-            m_position = std::max<FrameCount>(m_duration - 1, 0);
-            setPlaying(false);
-            continue;
+            if (m_loopEnabled && m_duration > 0) {
+                // Never carry queued end-of-sequence audio or the previous wall-clock
+                // origin into the next pass. This is preview-only; export is unaffected.
+                if (m_audio) {
+                    m_audio->clear();
+                }
+                m_position = 0;
+                m_clockStart = Clock::now();
+                m_clockStartFrame = 0;
+            } else {
+                m_position = std::max<FrameCount>(m_duration - 1, 0);
+                setPlaying(false);
+                continue;
+            }
         }
         m_needsRender = false;
         QImage image;
@@ -566,6 +582,13 @@ void PlaybackEngine::setMaximumPreviewSize(QSize size)
 void PlaybackEngine::setAudioEnabled(bool enabled)
 {
     Command c{Command::Type::Audio};
+    c.flag = enabled;
+    m_worker->post(std::move(c));
+}
+
+void PlaybackEngine::setLoopEnabled(bool enabled)
+{
+    Command c{Command::Type::Loop};
     c.flag = enabled;
     m_worker->post(std::move(c));
 }

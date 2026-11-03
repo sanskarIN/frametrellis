@@ -172,6 +172,38 @@ private slots:
         QVERIFY(!playing.last().at(0).toBool());
     }
 
+    void loopPreviewRestartsAndCanBeDisabledDuringPlayback()
+    {
+        playback::PlaybackEngine engine;
+        QSignalSpy frames(&engine, &playback::PlaybackEngine::frameReady);
+        engine.setAudioEnabled(false); // Deterministic wall-clock preview on CI runners.
+        engine.setMaximumPreviewSize(QSize(160, 90));
+        engine.setProject(project());
+        engine.seek(68);
+        QVERIFY(!waitForFrameAt(frames, 68).isNull());
+        frames.clear();
+
+        engine.setLoopEnabled(true);
+        engine.play();
+        const auto restarted = [&] {
+            for (const QList<QVariant>& args : std::as_const(frames)) {
+                if (args.at(1).value<FrameCount>() <= 2) {
+                    return true;
+                }
+            }
+            return false;
+        };
+        QVERIFY2(QTest::qWaitFor(restarted, 6000),
+                 "Loop preview did not return to the sequence start.");
+        QVERIFY(engine.isPlaying());
+
+        // Turning loop off must restore the default stop-at-end behavior without
+        // interrupting the current pass or affecting the project.
+        engine.setLoopEnabled(false);
+        QVERIFY(QTest::qWaitFor([&] { return !engine.isPlaying(); }, 7000));
+        QVERIFY(engine.position() >= 70);
+    }
+
     void pauseStopsAdvancing()
     {
         playback::PlaybackEngine engine;

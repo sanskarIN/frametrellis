@@ -440,9 +440,8 @@ void PlaybackEngine::Worker::run()
             if (m_loopEnabled && m_duration > 0) {
                 // The next first frame follows the last frame's scheduled duration.
                 // Without this pacing, a one-frame loop can spin at render speed.
-                const auto elapsed = m_profileRate
-                                         .framesToMicroseconds(m_duration - m_clockStartFrame)
-                                         .value_or(0);
+                const auto elapsed =
+                    m_profileRate.framesToMicroseconds(m_duration - m_clockStartFrame).value_or(0);
                 const auto nextStart = m_clockStart + std::chrono::microseconds(elapsed);
                 m_clockStart = std::max(nextStart, Clock::now());
                 m_clockStartFrame = 0;

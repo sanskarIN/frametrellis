@@ -438,14 +438,17 @@ void PlaybackEngine::Worker::run()
 
         if (m_position >= m_duration) {
             if (m_loopEnabled && m_duration > 0) {
-                // Never carry queued end-of-sequence audio or the previous wall-clock
-                // origin into the next pass. This is preview-only; export is unaffected.
-                if (m_audio) {
-                    m_audio->clear();
-                }
-                m_position = 0;
-                m_clockStart = Clock::now();
+                // The next first frame follows the last frame's scheduled duration.
+                // Without this pacing, a one-frame loop can spin at render speed.
+                const auto elapsed = m_profileRate
+                                         .framesToMicroseconds(m_duration - m_clockStartFrame)
+                                         .value_or(0);
+                const auto nextStart = m_clockStart + std::chrono::microseconds(elapsed);
+                m_clockStart = std::max(nextStart, Clock::now());
                 m_clockStartFrame = 0;
+                m_position = 0;
+                // Keep the tail already queued to the speaker. Frame-zero audio
+                // is appended after it, rather than cutting the end of the loop.
             } else {
                 m_position = std::max<FrameCount>(m_duration - 1, 0);
                 setPlaying(false);

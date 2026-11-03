@@ -292,6 +292,7 @@ private slots:
     {
         playback::PlaybackEngine engine;
         engine.setProject(Project::createNew(QStringLiteral("Empty"), ProjectSettings{}));
+        engine.setLoopEnabled(true); // An empty sequence must never spin on a loop.
         engine.play();
         QTest::qWait(200);
         QVERIFY(!engine.isPlaying());

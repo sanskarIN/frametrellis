@@ -204,6 +204,29 @@ private slots:
         QVERIFY(engine.position() >= 70);
     }
 
+    void singleFrameLoopStillHonoursProjectFrameRate()
+    {
+        Project p = project();
+        const Id id = p.timeline().tracks()[0].clips.front().id;
+        QVERIFY(p.timeline().trimClipEnd(id, 1, p.sourceLookup()));
+        QCOMPARE(p.timeline().duration(), FrameCount{1});
+
+        playback::PlaybackEngine engine;
+        engine.setAudioEnabled(false);
+        engine.setMaximumPreviewSize(QSize(160, 90));
+        engine.setProject(p);
+        engine.setLoopEnabled(true);
+        engine.play();
+        QVERIFY(QTest::qWaitFor([&] { return engine.isPlaying(); }, 2000));
+        QTest::qWait(400);
+        QVERIFY(engine.isPlaying());
+        // At 25 fps, 400 ms should render around ten frames, not hundreds.
+        QVERIFY2(engine.renderedFrameCount() < 30,
+                 "A single-frame preview loop is rendering without frame pacing.");
+        engine.pause();
+        QVERIFY(QTest::qWaitFor([&] { return !engine.isPlaying(); }, 2000));
+    }
+
     void pauseStopsAdvancing()
     {
         playback::PlaybackEngine engine;

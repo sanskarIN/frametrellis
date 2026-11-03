@@ -140,6 +140,15 @@ PanelFrame {
 
                 Item { Layout.fillWidth: true }
 
+                FtButton {
+                    objectName: "previewLoopToggle"
+                    text: qsTr("Loop")
+                    primary: panel.playback.loopPreview
+                    enabled: !panel.app.timeline.empty
+                    Accessible.description: qsTr("Repeat the sequence during preview; exported video is unchanged")
+                    onClicked: panel.playback.loopPreview = !panel.playback.loopPreview
+                }
+
                 IconButton {
                     iconName: panel.playback.muted || !panel.playback.audioAvailable ? "volume-off" : "volume"
                     tip: !panel.playback.audioAvailable ? qsTr("No audio device: the preview plays silently")

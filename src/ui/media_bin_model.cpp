@@ -213,6 +213,43 @@ void MediaBinFilterModel::setCategory(const QString& category)
     emit categoryChanged();
 }
 
+QString MediaBinFilterModel::sortMode() const
+{
+    return m_sortMode;
+}
+
+void MediaBinFilterModel::setSortMode(const QString& mode)
+{
+    const QString requested = mode.toLower();
+    const QString next = requested == QLatin1String("name-asc") ||
+                                 requested == QLatin1String("name-desc")
+                             ? requested
+                             : QStringLiteral("import");
+    if (m_sortMode == next) {
+        return;
+    }
+    m_sortMode = next;
+    if (m_sortMode == QLatin1String("import")) {
+        sort(-1); // Restore the original imported order; never reorder project assets.
+    } else {
+        sort(0, m_sortMode == QLatin1String("name-desc") ? Qt::DescendingOrder
+                                                       : Qt::AscendingOrder);
+    }
+    emit sortModeChanged();
+}
+
+bool MediaBinFilterModel::lessThan(const QModelIndex& left, const QModelIndex& right) const
+{
+    const QAbstractItemModel* model = sourceModel();
+    if (!model) {
+        return left.row() < right.row();
+    }
+    const QString a = model->data(left, MediaBinModel::NameRole).toString();
+    const QString b = model->data(right, MediaBinModel::NameRole).toString();
+    const int comparison = QString::compare(a, b, Qt::CaseInsensitive);
+    return comparison == 0 ? left.row() < right.row() : comparison < 0;
+}
+
 int MediaBinFilterModel::count() const
 {
     return rowCount();

@@ -223,10 +223,9 @@ private slots:
         QVERIFY(info);
         const FrameRate rate = FrameRate::integer(25);
         const QSize previewSize(80, 80);
-        for (const auto& [frame, expected] :
-             {std::pair{FrameCount{5}, QColor(Qt::red)},
-              std::pair{FrameCount{35}, QColor(Qt::green)},
-              std::pair{FrameCount{65}, QColor(Qt::blue)}}) {
+        for (const auto& [frame, expected] : {std::pair{FrameCount{5}, QColor(Qt::red)},
+                                              std::pair{FrameCount{35}, QColor(Qt::green)},
+                                              std::pair{FrameCount{65}, QColor(Qt::blue)}}) {
             Result<QImage> image =
                 media::renderSourceFrame(m_media.video, *info, previewSize, frame, rate);
             QVERIFY2(image, qPrintable(image ? QString() : image.error().toString()));

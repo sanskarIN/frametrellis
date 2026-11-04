@@ -223,6 +223,35 @@ private slots:
                 filter.data(filter.index(i, 0), ui::MediaBinModel::NameRole).toString();
             QVERIFY(QString::compare(previous, current, Qt::CaseInsensitive) >= 0);
         }
+        // Numeric duration sorts must not use displayed minute/second strings.
+        // Still images and unknown durations always follow timed media.
+        for (const QString& mode :
+             {QStringLiteral("duration-asc"), QStringLiteral("duration-desc")}) {
+            filter.setSortMode(mode);
+            bool sawUnknown = false;
+            qint64 previous =
+                mode == QLatin1String("duration-asc") ? 0 : std::numeric_limits<qint64>::max();
+            for (int i = 0; i < total; ++i) {
+                const qint64 current =
+                    filter.data(filter.index(i, 0), ui::MediaBinModel::DurationUsRole).toLongLong();
+                if (current <= 0) {
+                    sawUnknown = true;
+                    continue;
+                }
+                QVERIFY2(!sawUnknown, "Timed media appeared after a still or unknown duration");
+                if (mode == QLatin1String("duration-asc")) {
+                    QVERIFY(previous <= current);
+                } else {
+                    QVERIFY(previous >= current);
+                }
+                previous = current;
+            }
+        }
+        filter.setSortMode(QStringLiteral("usage-desc"));
+        for (int i = 0; i < total; ++i) {
+            QCOMPARE(filter.data(filter.index(i, 0), ui::MediaBinModel::NameRole).toString(),
+                     importedOrder.at(i)); // No clip uses yet; imported order breaks ties.
+        }
         filter.setSortMode(QStringLiteral("unknown"));
         QCOMPARE(filter.sortMode(), QStringLiteral("import"));
         for (int i = 0; i < total; ++i) {
@@ -293,6 +322,12 @@ private slots:
         QTRY_COMPARE(grid->property("count").toInt(), total);
         sorter->setProperty("currentIndex", 2); // Z–A.
         QTRY_COMPARE(grid->property("count").toInt(), total);
+        sorter->setProperty("currentIndex", 3); // Longest first.
+        QTRY_COMPARE(grid->property("count").toInt(), total);
+        sorter->setProperty("currentIndex", 4); // Shortest first.
+        QTRY_COMPARE(grid->property("count").toInt(), total);
+        sorter->setProperty("currentIndex", 5); // Most used.
+        QTRY_COMPARE(grid->property("count").toInt(), total);
         sorter->setProperty("currentIndex", 0); // Preserve default import order.
         QCOMPARE(m_app->media()->model()->rowCount(), total);
     }
@@ -310,6 +345,9 @@ private slots:
         ui::MediaBinFilterModel unusedFilter;
         unusedFilter.setSourceModel(m_app->media()->model());
         unusedFilter.setCategory(QStringLiteral("unused"));
+        ui::MediaBinFilterModel usageSort;
+        usageSort.setSourceModel(m_app->media()->model());
+        usageSort.setSortMode(QStringLiteral("usage-desc"));
         QCOMPARE(usedFilter.count(), 0);
         QCOMPARE(unusedFilter.count(), totalMedia);
         // Clicking a delegate must not produce a QML ReferenceError from view lookup.
@@ -323,6 +361,8 @@ private slots:
         QVERIFY2(m_qmlWarnings.isEmpty(), "Media-bin tile interaction emitted QML warnings");
         QTRY_COMPARE(usedFilter.count(), 1);
         QTRY_COMPARE(unusedFilter.count(), totalMedia - 1);
+        QTRY_COMPARE(usageSort.data(usageSort.index(0, 0), ui::MediaBinModel::UsageRole).toInt(),
+                     1);
         // Append the remaining media through the same action.
         for (int row = 1; row < m_app->media()->model()->rowCount(); ++row) {
             QVERIFY(m_app->timeline()->appendAsset(
@@ -1139,6 +1179,7 @@ private slots:
 
     void fadeSelectedClipFromEditMenuIsUndoable()
     {
+        m_qmlWarnings.clear();
         auto* timeline = m_app->timeline();
         const Project before = m_app->project()->project();
         QVERIFY(!track(0).clips.empty());
@@ -1166,6 +1207,7 @@ private slots:
         m_app->project()->undo();
         QCOMPARE(m_app->project()->project(), before);
         timeline->clearSelection();
+        QVERIFY2(m_qmlWarnings.isEmpty(), "Fading clips emitted QML paint warnings");
     }
 
     void selectionZoomAndPlayheadCenterPreserveProject()

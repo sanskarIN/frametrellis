@@ -80,6 +80,8 @@ QVariant MediaBinModel::data(const QModelIndex& index, int role) const
         return mediaKindToString(a.info.kind);
     case DurationRole:
         return row.duration;
+    case DurationUsRole:
+        return a.info.kind == MediaKind::Image ? qint64{0} : a.info.durationUs;
     case DetailsRole:
         return describeMedia(a);
     case StatusRole:
@@ -115,9 +117,16 @@ QVariant MediaBinModel::data(const QModelIndex& index, int role) const
 
 QHash<int, QByteArray> MediaBinModel::roleNames() const
 {
-    return {{IdRole, "assetId"},        {NameRole, "name"},           {KindRole, "kind"},
-            {DurationRole, "duration"}, {DetailsRole, "details"},     {StatusRole, "status"},
-            {FilePathRole, "filePath"}, {ThumbnailRole, "thumbnail"}, {UsageRole, "usage"},
+    return {{IdRole, "assetId"},
+            {NameRole, "name"},
+            {KindRole, "kind"},
+            {DurationRole, "duration"},
+            {DurationUsRole, "durationUs"},
+            {DetailsRole, "details"},
+            {StatusRole, "status"},
+            {FilePathRole, "filePath"},
+            {ThumbnailRole, "thumbnail"},
+            {UsageRole, "usage"},
             {TooltipRole, "tooltip"}};
 }
 
@@ -221,19 +230,24 @@ QString MediaBinFilterModel::sortMode() const
 void MediaBinFilterModel::setSortMode(const QString& mode)
 {
     const QString requested = mode.toLower();
-    const QString next =
-        requested == QLatin1String("name-asc") || requested == QLatin1String("name-desc")
-            ? requested
-            : QStringLiteral("import");
+    const QString next = requested == QLatin1String("name-asc") ||
+                                 requested == QLatin1String("name-desc") ||
+                                 requested == QLatin1String("duration-asc") ||
+                                 requested == QLatin1String("duration-desc") ||
+                                 requested == QLatin1String("usage-desc")
+                             ? requested
+                             : QStringLiteral("import");
     if (m_sortMode == next) {
         return;
     }
     m_sortMode = next;
-    if (m_sortMode == QLatin1String("import")) {
-        sort(-1); // Restore the original imported order; never reorder project assets.
-    } else {
-        sort(0,
-             m_sortMode == QLatin1String("name-desc") ? Qt::DescendingOrder : Qt::AscendingOrder);
+    // Reset the proxy's active sort column before changing modes: two modes can
+    // use the same Qt direction but a different comparison. Calling sort(0)
+    // again without resetting may keep the previous cached proxy ordering.
+    sort(-1); // Also restores import order when the requested mode is "import".
+    if (m_sortMode != QLatin1String("import")) {
+        // lessThan handles direction and unknown-duration-last consistently.
+        sort(0, Qt::AscendingOrder);
     }
     emit sortModeChanged();
 }
@@ -244,10 +258,34 @@ bool MediaBinFilterModel::lessThan(const QModelIndex& left, const QModelIndex& r
     if (!model) {
         return left.row() < right.row();
     }
+    if (m_sortMode == QLatin1String("duration-asc") ||
+        m_sortMode == QLatin1String("duration-desc")) {
+        const qint64 a = model->data(left, MediaBinModel::DurationUsRole).toLongLong();
+        const qint64 b = model->data(right, MediaBinModel::DurationUsRole).toLongLong();
+        // Still images and assets with unknown durations do not belong at zero
+        // seconds when searching for short clips. Put them last in both modes.
+        const bool knownA = a > 0;
+        const bool knownB = b > 0;
+        if (knownA != knownB) {
+            return knownA;
+        }
+        if (knownA && a != b) {
+            return m_sortMode == QLatin1String("duration-asc") ? a < b : a > b;
+        }
+        return left.row() < right.row();
+    }
+    if (m_sortMode == QLatin1String("usage-desc")) {
+        const int a = model->data(left, MediaBinModel::UsageRole).toInt();
+        const int b = model->data(right, MediaBinModel::UsageRole).toInt();
+        return a == b ? left.row() < right.row() : a > b;
+    }
     const QString a = model->data(left, MediaBinModel::NameRole).toString();
     const QString b = model->data(right, MediaBinModel::NameRole).toString();
     const int comparison = QString::compare(a, b, Qt::CaseInsensitive);
-    return comparison == 0 ? left.row() < right.row() : comparison < 0;
+    if (comparison == 0) {
+        return left.row() < right.row();
+    }
+    return m_sortMode == QLatin1String("name-desc") ? comparison > 0 : comparison < 0;
 }
 
 int MediaBinFilterModel::count() const

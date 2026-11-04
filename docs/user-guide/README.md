@@ -109,6 +109,10 @@ changes. The **Unused** view lets you review media before choosing
 **File → Remove Unused Media from Project**; filtering itself never removes
 media or touches source files. Select **All** and clear the search box to see
 every imported file again. Filtering never removes files from the project.
+In development builds after v1.4.0, the **Sort** menu also offers **Longest
+first**, **Shortest first** and **Most used** (timeline clip occurrences).
+Still images and assets with unknown durations sort last in both duration
+modes. Sort modes do not change project media order or exported results.
 
 ## Editing on the timeline
 

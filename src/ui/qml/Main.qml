@@ -23,6 +23,7 @@ ApplicationWindow {
                                        || previewFrameDialog.visible || clipListDialog.visible || mediaAuditCsvDialog.visible || preciseGapDialog.visible
                                        || customPictureDialog.visible || mediaPanel.excerptDialogOpen
     readonly property bool editKeys: !dialogOpen
+    readonly property bool sourceMode: monitorTabs.currentIndex === 1
 
     width: Math.min(1440, Screen.desktopAvailableWidth - 40)
     height: Math.min(900, Screen.desktopAvailableHeight - 40)
@@ -355,32 +356,34 @@ ApplicationWindow {
         }
         Menu {
             title: qsTr("&Playback")
-            Action { text: window.app.playback.playing ? qsTr("&Pause") : qsTr("&Play"); shortcut: "Space"; enabled: window.editKeys; onTriggered: window.app.playback.togglePlay() }
-            Action { text: qsTr("Previous Frame"); shortcut: "Left"; enabled: window.editKeys; onTriggered: window.app.playback.step(-1) }
-            Action { text: qsTr("Next Frame"); shortcut: "Right"; enabled: window.editKeys; onTriggered: window.app.playback.step(1) }
-            Action { text: qsTr("Back One Second"); shortcut: "Shift+Left"; enabled: window.editKeys; onTriggered: window.app.playback.step(-Math.round(window.app.timeline.frameRate)) }
-            Action { text: qsTr("Forward One Second"); shortcut: "Shift+Right"; enabled: window.editKeys; onTriggered: window.app.playback.step(Math.round(window.app.timeline.frameRate)) }
-            Action { text: qsTr("Back Five Seconds"); shortcut: "Ctrl+Left"; enabled: window.editKeys && !window.app.timeline.empty; onTriggered: window.app.playback.skipSeconds(-5) }
-            Action { text: qsTr("Forward Five Seconds"); shortcut: "Ctrl+Right"; enabled: window.editKeys && !window.app.timeline.empty; onTriggered: window.app.playback.skipSeconds(5) }
-            Action { text: qsTr("Back Ten Seconds"); shortcut: "Ctrl+Shift+Left"; enabled: window.editKeys && !window.app.timeline.empty; onTriggered: window.app.playback.skipSeconds(-10) }
-            Action { text: qsTr("Forward Ten Seconds"); shortcut: "Ctrl+Shift+Right"; enabled: window.editKeys && !window.app.timeline.empty; onTriggered: window.app.playback.skipSeconds(10) }
-            Action { text: qsTr("Previous Edit Point"); shortcut: "Up"; enabled: window.editKeys; onTriggered: window.app.timeline.previousEditPoint() }
-            Action { text: qsTr("Next Edit Point"); shortcut: "Down"; enabled: window.editKeys; onTriggered: window.app.timeline.nextEditPoint() }
+            Action { text: window.app.playback.playing ? qsTr("&Pause") : qsTr("&Play"); shortcut: "Space"; enabled: window.editKeys && !window.sourceMode; onTriggered: window.app.playback.togglePlay() }
+            Action { text: window.sourceMode ? qsTr("Previous Source Frame") : qsTr("Previous Frame"); shortcut: "Left"; enabled: window.editKeys && (!window.sourceMode || sourceMonitor.loaded); onTriggered: window.sourceMode ? sourceMonitor.step(-1) : window.app.playback.step(-1) }
+            Action { text: window.sourceMode ? qsTr("Next Source Frame") : qsTr("Next Frame"); shortcut: "Right"; enabled: window.editKeys && (!window.sourceMode || sourceMonitor.loaded); onTriggered: window.sourceMode ? sourceMonitor.step(1) : window.app.playback.step(1) }
+            Action { text: qsTr("Back One Second"); shortcut: "Shift+Left"; enabled: window.editKeys && (!window.sourceMode || sourceMonitor.loaded); onTriggered: window.sourceMode ? sourceMonitor.step(-Math.round(window.app.timeline.frameRate)) : window.app.playback.step(-Math.round(window.app.timeline.frameRate)) }
+            Action { text: qsTr("Forward One Second"); shortcut: "Shift+Right"; enabled: window.editKeys && (!window.sourceMode || sourceMonitor.loaded); onTriggered: window.sourceMode ? sourceMonitor.step(Math.round(window.app.timeline.frameRate)) : window.app.playback.step(Math.round(window.app.timeline.frameRate)) }
+            Action { text: qsTr("Back Five Seconds"); shortcut: "Ctrl+Left"; enabled: window.editKeys && (window.sourceMode ? sourceMonitor.loaded : !window.app.timeline.empty); onTriggered: window.sourceMode ? sourceMonitor.step(-Math.round(window.app.timeline.frameRate * 5)) : window.app.playback.skipSeconds(-5) }
+            Action { text: qsTr("Forward Five Seconds"); shortcut: "Ctrl+Right"; enabled: window.editKeys && (window.sourceMode ? sourceMonitor.loaded : !window.app.timeline.empty); onTriggered: window.sourceMode ? sourceMonitor.step(Math.round(window.app.timeline.frameRate * 5)) : window.app.playback.skipSeconds(5) }
+            Action { text: qsTr("Back Ten Seconds"); shortcut: "Ctrl+Shift+Left"; enabled: window.editKeys && (window.sourceMode ? sourceMonitor.loaded : !window.app.timeline.empty); onTriggered: window.sourceMode ? sourceMonitor.step(-Math.round(window.app.timeline.frameRate * 10)) : window.app.playback.skipSeconds(-10) }
+            Action { text: qsTr("Forward Ten Seconds"); shortcut: "Ctrl+Shift+Right"; enabled: window.editKeys && (window.sourceMode ? sourceMonitor.loaded : !window.app.timeline.empty); onTriggered: window.sourceMode ? sourceMonitor.step(Math.round(window.app.timeline.frameRate * 10)) : window.app.playback.skipSeconds(10) }
+            Action { text: qsTr("Previous Edit Point"); shortcut: "Up"; enabled: window.editKeys && !window.sourceMode; onTriggered: window.app.timeline.previousEditPoint() }
+            Action { text: qsTr("Next Edit Point"); shortcut: "Down"; enabled: window.editKeys && !window.sourceMode; onTriggered: window.app.timeline.nextEditPoint() }
             Action { text: qsTr("Go to Selection Start"); enabled: window.editKeys && window.app.timeline.selection.length > 0; onTriggered: window.app.timeline.seekToSelectionBoundary(false) }
             Action { text: qsTr("Go to Selection Last Frame"); enabled: window.editKeys && window.app.timeline.selection.length > 0; onTriggered: window.app.timeline.seekToSelectionBoundary(true) }
             Action { text: qsTr("Go to Selection Midpoint"); enabled: window.editKeys && window.app.timeline.selection.length > 0; onTriggered: window.app.timeline.seekToSelectionMidpoint() }
             Action { text: qsTr("Copy Selection Timecodes"); enabled: window.editKeys && window.app.timeline.selection.length > 0; onTriggered: window.app.timeline.copySelectionTimecodes() }
             Action { text: qsTr("Previous Selected Clip Edge"); enabled: window.editKeys && window.app.timeline.selection.length > 0; onTriggered: window.app.timeline.seekToSelectedClipEdge(false) }
             Action { text: qsTr("Next Selected Clip Edge"); enabled: window.editKeys && window.app.timeline.selection.length > 0; onTriggered: window.app.timeline.seekToSelectedClipEdge(true) }
-            Action { text: qsTr("&Go to Timecode…"); shortcut: "Ctrl+G"; enabled: window.editKeys && !window.app.timeline.empty; onTriggered: goToTimecodeDialog.open() }
+            Action { text: qsTr("&Go to Timecode…"); shortcut: "Ctrl+G"; enabled: window.editKeys && !window.sourceMode && !window.app.timeline.empty; onTriggered: goToTimecodeDialog.open() }
             MenuSeparator {}
             Action { text: qsTr("Add Timeline &Marker…"); shortcut: "Shift+M"; enabled: window.editKeys; onTriggered: markerDialog.openNew(window.app.playback.position) }
             Action { text: qsTr("Previous Marker"); shortcut: "Ctrl+PgUp"; enabled: window.editKeys && window.app.timeline.markers.length > 0; onTriggered: window.app.timeline.previousMarker() }
             Action { text: qsTr("Next Marker"); shortcut: "Ctrl+PgDown"; enabled: window.editKeys && window.app.timeline.markers.length > 0; onTriggered: window.app.timeline.nextMarker() }
             Action { text: qsTr("Copy Markers as Video Chapters"); enabled: window.editKeys && window.app.timeline.markers.length > 0; onTriggered: window.app.timeline.copyMarkersAsChapters() }
             Action { text: qsTr("Copy Markers as WebVTT Chapters"); enabled: window.editKeys && window.app.timeline.markers.length > 0; onTriggered: window.app.timeline.copyMarkersAsWebVtt() }
-            Action { text: qsTr("Go to Start"); shortcut: "Home"; enabled: window.editKeys; onTriggered: window.app.playback.goToStart() }
-            Action { text: qsTr("Go to End"); shortcut: "End"; enabled: window.editKeys; onTriggered: window.app.playback.goToEnd() }
+            Action { text: window.sourceMode ? qsTr("Go to Source Start") : qsTr("Go to Start"); shortcut: "Home"; enabled: window.editKeys && (!window.sourceMode || sourceMonitor.loaded); onTriggered: window.sourceMode ? (sourceMonitor.previewFrame = 0) : window.app.playback.goToStart() }
+            Action { text: window.sourceMode ? qsTr("Go to Source End") : qsTr("Go to End"); shortcut: "End"; enabled: window.editKeys && (!window.sourceMode || sourceMonitor.loaded); onTriggered: window.sourceMode ? (sourceMonitor.previewFrame = sourceMonitor.maxFrames - 1) : window.app.playback.goToEnd() }
+            Action { text: qsTr("Mark Source In"); shortcut: "I"; enabled: window.editKeys && window.sourceMode && sourceMonitor.loaded; onTriggered: sourceMonitor.markIn() }
+            Action { text: qsTr("Mark Source Out"); shortcut: "O"; enabled: window.editKeys && window.sourceMode && sourceMonitor.loaded; onTriggered: sourceMonitor.markOut() }
             Action { text: qsTr("Go to Sequence Midpoint"); enabled: window.editKeys && !window.app.timeline.empty; onTriggered: window.app.playback.goToSequenceMidpoint() }
             MenuSeparator {}
             Action { text: qsTr("Loop Preview"); shortcut: "Ctrl+Alt+L"; checkable: true; checked: window.app.playback.loopPreview; enabled: window.editKeys && !window.app.timeline.empty; onTriggered: window.app.playback.loopPreview = checked }

@@ -21,7 +21,8 @@ PanelFrame {
         sourceModel: panel.app.media.model
         searchText: searchBox.text
         category: ["all", "video", "audio", "image", "offline", "changed", "used", "unused"][kindBox.currentIndex] || "all"
-        sortMode: ["import", "name-asc", "name-desc"][sortBox.currentIndex] || "import"
+        sortMode: ["import", "name-asc", "name-desc", "duration-desc", "duration-asc",
+                   "usage-desc"][sortBox.currentIndex] || "import"
     }
 
     title: qsTr("Media") + (app.media.model.count > 0 ? "  ·  " + app.media.model.count : "")
@@ -92,7 +93,8 @@ PanelFrame {
             id: sortBox
             objectName: "mediaSortOrder"
             Layout.preferredWidth: 124
-            model: [qsTr("Imported"), qsTr("Name A–Z"), qsTr("Name Z–A")]
+            model: [qsTr("Imported"), qsTr("Name A–Z"), qsTr("Name Z–A"),
+                    qsTr("Longest first"), qsTr("Shortest first"), qsTr("Most used")]
             Accessible.name: qsTr("Media sort order")
         }
     }

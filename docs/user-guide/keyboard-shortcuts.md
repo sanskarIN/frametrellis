@@ -2,13 +2,14 @@
 
 | Shortcut | Action |
 |---|---|
-| Space | Play / pause |
+| Space | Play / pause the Program monitor (disabled while the Source tab is selected) |
 | Ctrl+Alt+L | Toggle Loop Preview (development builds after v1.4.0) |
-| Left / Right | Previous / next frame |
+| Left / Right | Previous / next frame in the active Program or Source monitor |
 | Shift+Left / Shift+Right | Back / forward one second |
 | Up / Down | Previous / next edit point |
-| Home / End | Go to start / end |
-| Ctrl+G | Jump to a SMPTE timecode within the sequence |
+| Home / End | Go to start / end of the active Program or Source monitor |
+| Ctrl+G | Jump to a SMPTE timecode within the sequence (Program tab only) |
+| I / O | Mark In / Out at the displayed Source frame (post-v1.4.0 development) |
 | Shift+M | Add a named timeline marker |
 | Ctrl+PageUp / Ctrl+PageDown | Jump to previous / next timeline marker |
 | S | Split at playhead |
@@ -43,5 +44,9 @@
 | F1 | Show keyboard shortcuts |
 
 Single-key shortcuts are disabled while a dialog is open. On macOS, Ctrl is Cmd.
+In post-v1.4.0 development builds, frame stepping and Home/End follow the
+selected Program or Source tab; Shift+Arrow and Ctrl+Arrow seek within the
+active monitor. Space controls Program playback only. The Source viewer is
+silent and does not provide independent audio playback.
 Within the subtitle text field, undo/redo edits the text draft. The editor's
 **Undo** and **Redo** buttons operate on project history and protect unapplied drafts.

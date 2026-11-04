@@ -26,10 +26,12 @@ Media Bin timeline-use navigation
 technical properties
 ([#156](https://github.com/sanskarIN/frametrellis/pull/156)).
 The source-excerpt picture preview
-([#157](https://github.com/sanskarIN/frametrellis/pull/157)) is in a
-separate development PR as of this addendum; it is **not** included in the
-v1.4.0 installers. Always distinguish a merged development feature from one
-present in a tagged release.
+([#157](https://github.com/sanskarIN/frametrellis/pull/157)) has also merged
+into main as **post-v1.4.0 development**. It provides silent, frame-accurate
+source pictures and In/Out marks, but not a standalone playable source monitor
+or complete three-point editing. These new features are **not** included in
+the v1.4.0 installers. Always distinguish a merged development feature from
+one present in a tagged release.
 
 The original audit follows unchanged as a record of the gaps and engineering
 acceptance criteria at that time.

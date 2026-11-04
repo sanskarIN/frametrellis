@@ -209,6 +209,7 @@ PanelFrame {
         property int maxFrames: 1
         property bool failed: false
         property bool hasPicture: false
+        property int pictureFrame: 0
 
         title: qsTr("Preview and append source excerpt")
         implicitWidth: 560
@@ -224,6 +225,17 @@ PanelFrame {
             sourceInFrame.value = 0
             sourceOutFrame.value = excerptDialog.maxFrames
             sourcePreviewFrame.value = 0
+            sourcePreviewDebounce.stop()
+            excerptDialog.pictureFrame = 0
+        }
+
+        // Fast scrubbing can otherwise spawn a new decoder for every pointer
+        // movement. Coalesce those requests while keeping the frame input live.
+        Timer {
+            id: sourcePreviewDebounce
+            interval: 100
+            repeat: false
+            onTriggered: excerptDialog.pictureFrame = sourcePreviewFrame.value
         }
 
         contentItem: ColumnLayout {
@@ -252,14 +264,14 @@ PanelFrame {
                     anchors.fill: parent
                     anchors.margins: 4
                     source: panel.app.media.sourcePreviewUrl(excerptDialog.assetId,
-                                                             sourcePreviewFrame.value)
+                                                             excerptDialog.pictureFrame)
                     sourceSize.width: 640
                     sourceSize.height: 360
                     fillMode: Image.PreserveAspectFit
                     asynchronous: true
                     cache: false
                     Accessible.role: Accessible.Graphic
-                    Accessible.name: qsTr("Source frame %1").arg(sourcePreviewFrame.value)
+                    Accessible.name: qsTr("Source frame %1").arg(excerptDialog.pictureFrame)
                 }
                 BusyIndicator {
                     anchors.centerIn: parent
@@ -283,6 +295,7 @@ PanelFrame {
                     to: Math.max(0, excerptDialog.maxFrames - 1)
                     editable: true
                     Layout.fillWidth: true
+                    onValueChanged: sourcePreviewDebounce.restart()
                     Accessible.name: qsTr("Preview source frame")
                 }
                 FtButton {

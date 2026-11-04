@@ -17,6 +17,7 @@
 #include <mlt++/Mlt.h>
 
 #include <cmath>
+#include <utility>
 
 using namespace ft;
 using namespace ft::testing;

@@ -378,6 +378,46 @@ private slots:
         screenshot(QStringLiteral("03-timeline"));
     }
 
+    void mediaPropertiesInspectorIsReadOnly()
+    {
+        auto* media = m_app->media();
+        const QString assetId =
+            media->model()->get(0).value(QStringLiteral("assetId")).toString();
+        QVERIFY(!assetId.isEmpty());
+        const Project before = m_app->project()->project();
+        const QString undoBefore = m_app->project()->undoText();
+        const bool modifiedBefore = m_app->project()->isModified();
+
+        QVERIFY(media->mediaProperties(QStringLiteral("invalid-asset-id")).isEmpty());
+        const QVariantMap facts = media->mediaProperties(assetId);
+        QCOMPARE(facts.value(QStringLiteral("assetId")).toString(), assetId);
+        QCOMPARE(facts.value(QStringLiteral("kind")).toString(), QStringLiteral("video"));
+        QCOMPARE(facts.value(QStringLiteral("filePath")).toString(), m_media.front());
+        QCOMPARE(facts.value(QStringLiteral("timelineUses")).toString(),
+                 QString::number(before.timeline().clipsUsingAsset(assetId).size()));
+        QVERIFY(!facts.value(QStringLiteral("resolution")).toString().isEmpty());
+        QVERIFY(!facts.value(QStringLiteral("frameRate")).toString().isEmpty());
+
+        QClipboard* clipboard = QGuiApplication::clipboard();
+        QVERIFY(clipboard);
+        clipboard->setText(QStringLiteral("preserve on invalid media"));
+        QVERIFY(!media->copyMediaProperties(QStringLiteral("invalid-asset-id")));
+        QCOMPARE(clipboard->text(), QStringLiteral("preserve on invalid media"));
+        QVERIFY(media->copyMediaProperties(assetId));
+        QVERIFY(clipboard->text().contains(QStringLiteral("File: ") + m_media.front()));
+        QVERIFY(clipboard->text().contains(QStringLiteral("Timeline uses: ")));
+
+        QObject* dialog = m_window->findChild<QObject*>(QStringLiteral("mediaPropertiesDialog"));
+        QVERIFY(dialog);
+        QVERIFY(QMetaObject::invokeMethod(dialog, "openFor", Q_ARG(QVariant, QVariant(assetId))));
+        QTRY_VERIFY(dialog->property("visible").toBool());
+        QVERIFY(QMetaObject::invokeMethod(dialog, "close"));
+
+        QCOMPARE(m_app->project()->project(), before);
+        QCOMPARE(m_app->project()->undoText(), undoBefore);
+        QCOMPARE(m_app->project()->isModified(), modifiedBefore);
+    }
+
     void loopPreviewToggleLeavesProjectAndUndoHistoryUnchanged()
     {
         QQuickItem* button = findItem(m_window->contentItem(), QStringLiteral("previewLoopToggle"));

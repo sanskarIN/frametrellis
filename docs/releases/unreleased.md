@@ -16,6 +16,10 @@ their actual tag and packages are verified.
 
 ## Post-v1.4.0 development changes (not in the stable download)
 
+- **Media Properties inspector:** inspect a source's technical metadata, disk
+  status, file path and timeline usage from the media-bin context menu. Copy a
+  plain-text diagnostic report without modifying project or media files.
+
 - **Media-bin sorting:** choose longest/shortest source duration or most-used
   media in addition to import/name order. Unknown durations and stills come
   last in duration modes; equal values retain import order. Source assets

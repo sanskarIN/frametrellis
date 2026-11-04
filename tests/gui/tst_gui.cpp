@@ -591,14 +591,13 @@ private slots:
         QVERIFY(picture);
         QVERIFY(source->property("assetId").toString().isEmpty());
 
-        QVERIFY(QMetaObject::invokeMethod(source, "openFor",
-                                          Q_ARG(QVariant, QVariant(videoId))));
+        QVERIFY(QMetaObject::invokeMethod(source, "openFor", Q_ARG(QVariant, QVariant(videoId))));
         QCOMPARE(source->property("assetId").toString(), videoId);
         QVERIFY(source->property("hasPicture").toBool());
         QVERIFY(tabs->setProperty("currentIndex", 1));
         QVERIFY(source->setProperty("previewFrame", 13));
-        QTRY_VERIFY(picture->property("source").toString().contains(
-            QStringLiteral("frame=13&fpsNum=")));
+        QTRY_VERIFY(
+            picture->property("source").toString().contains(QStringLiteral("frame=13&fpsNum=")));
         QTRY_COMPARE_WITH_TIMEOUT(picture->property("status").toInt(), 1, 15000);
         QVERIFY(QMetaObject::invokeMethod(source, "markIn"));
         QCOMPARE(source->property("markInFrame").toInt(), 13);
@@ -628,8 +627,7 @@ private slots:
         m_app->project()->undo();
         QCOMPARE(m_app->project()->project(), before);
 
-        QVERIFY(QMetaObject::invokeMethod(source, "openFor",
-                                          Q_ARG(QVariant, QVariant(audioId))));
+        QVERIFY(QMetaObject::invokeMethod(source, "openFor", Q_ARG(QVariant, QVariant(audioId))));
         QVERIFY(!source->property("hasPicture").toBool());
         QVERIFY(QMetaObject::invokeMethod(source, "clear"));
         QVERIFY(source->property("assetId").toString().isEmpty());

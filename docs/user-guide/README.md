@@ -468,7 +468,8 @@ moves the playhead. If no audio device is available, the preview plays silently.
 **Development builds after v1.4.0:** Select **Loop** in the program monitor
 or **Playback → Loop Preview** to repeat the current sequence from frame zero
 when it reaches the end. The button stays highlighted while looping is enabled.
-Disable it to resume normal stop-at-end playback. This is a preview-only
+Disable it to resume normal stop-at-end playback. Press **Ctrl+Alt+L** to toggle
+Loop Preview from the keyboard. This is a preview-only
 transport option: it does not change project edits, Undo history, or export
 duration. It is **not included in the v1.4.0 stable Windows packages**.
 

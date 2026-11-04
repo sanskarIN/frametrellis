@@ -468,11 +468,44 @@ ApplicationWindow {
                 SplitView.minimumWidth: 200
                 onImportRequested: importDialog.open()
                 onRelinkRequested: (assetId, name) => { relinkDialog.assetId = assetId; relinkDialog.title = qsTr("Locate “%1”").arg(name); relinkDialog.open() }
+                onSourceMonitorRequested: assetId => {
+                    if (sourceMonitor.openFor(assetId))
+                        monitorTabs.currentIndex = 1
+                }
             }
-            MonitorPanel {
-                app: window.app
+            Item {
                 SplitView.fillWidth: true
                 SplitView.minimumWidth: 320
+                ColumnLayout {
+                    anchors.fill: parent
+                    spacing: 0
+                    TabBar {
+                        id: monitorTabs
+                        objectName: "monitorTabs"
+                        Layout.fillWidth: true
+                        currentIndex: 0
+                        TabButton {
+                            objectName: "programMonitorTab"
+                            text: qsTr("Program")
+                        }
+                        TabButton {
+                            objectName: "sourceMonitorTab"
+                            text: qsTr("Source")
+                        }
+                    }
+                    StackLayout {
+                        Layout.fillWidth: true
+                        Layout.fillHeight: true
+                        currentIndex: monitorTabs.currentIndex
+                        MonitorPanel {
+                            app: window.app
+                        }
+                        SourceMonitorPanel {
+                            id: sourceMonitor
+                            app: window.app
+                        }
+                    }
+                }
             }
             InspectorPanel {
                 app: window.app

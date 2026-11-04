@@ -123,6 +123,85 @@ PanelFrame {
     }
 
     FtDialog {
+        id: mediaPropertiesDialog
+        objectName: "mediaPropertiesDialog"
+        property string assetId: ""
+        property var facts: ({})
+
+        title: qsTr("Media properties")
+        implicitWidth: 560
+        closePolicy: Popup.CloseOnEscape
+
+        function openFor(id) {
+            const data = panel.app.media.mediaProperties(id)
+            if (!data || !data.name)
+                return
+            mediaPropertiesDialog.assetId = id
+            mediaPropertiesDialog.facts = data
+            open()
+        }
+
+        contentItem: ScrollView {
+            implicitHeight: 390
+            clip: true
+            ColumnLayout {
+                width: parent.width
+                spacing: Theme.spacingS
+                Repeater {
+                    model: [
+                        { label: qsTr("Name"), value: mediaPropertiesDialog.facts.name },
+                        { label: qsTr("File"), value: mediaPropertiesDialog.facts.filePath },
+                        { label: qsTr("Type"), value: mediaPropertiesDialog.facts.kind },
+                        { label: qsTr("Status"), value: mediaPropertiesDialog.facts.status },
+                        { label: qsTr("Duration"), value: mediaPropertiesDialog.facts.duration },
+                        { label: qsTr("Resolution"), value: mediaPropertiesDialog.facts.resolution },
+                        { label: qsTr("Source frame rate"), value: mediaPropertiesDialog.facts.frameRate },
+                        { label: qsTr("Video codec"), value: mediaPropertiesDialog.facts.videoCodec },
+                        { label: qsTr("Audio codec"), value: mediaPropertiesDialog.facts.audioCodec },
+                        { label: qsTr("Container"), value: mediaPropertiesDialog.facts.container },
+                        { label: qsTr("Audio sample rate"), value: mediaPropertiesDialog.facts.sampleRate },
+                        { label: qsTr("Audio channels"), value: mediaPropertiesDialog.facts.channels },
+                        { label: qsTr("File size"), value: mediaPropertiesDialog.facts.fileSize },
+                        { label: qsTr("Modified (UTC)"), value: mediaPropertiesDialog.facts.lastModified },
+                        { label: qsTr("Timeline uses"), value: mediaPropertiesDialog.facts.timelineUses },
+                        { label: qsTr("Media ID"), value: mediaPropertiesDialog.facts.assetId }
+                    ]
+                    delegate: RowLayout {
+                        required property var modelData
+                        Layout.fillWidth: true
+                        spacing: Theme.spacingS
+                        Label {
+                            Layout.preferredWidth: 128
+                            Layout.alignment: Qt.AlignTop
+                            color: Theme.textMuted
+                            text: modelData.label
+                            font.pixelSize: Theme.fontSizeSmall
+                        }
+                        Label {
+                            Layout.fillWidth: true
+                            color: Theme.text
+                            text: modelData.value === undefined ? "" : String(modelData.value)
+                            font.pixelSize: Theme.fontSizeSmall
+                            wrapMode: Text.WrapAnywhere
+                            textFormat: Text.PlainText
+                        }
+                    }
+                }
+            }
+        }
+
+        footer: DialogButtons {
+            Item { Layout.fillWidth: true }
+            FtButton {
+                objectName: "copyMediaProperties"
+                text: qsTr("Copy details")
+                onClicked: panel.app.media.copyMediaProperties(mediaPropertiesDialog.assetId)
+            }
+            FtButton { text: qsTr("Close"); onClicked: mediaPropertiesDialog.close() }
+        }
+    }
+
+    FtDialog {
         id: excerptDialog
         objectName: "sourceExcerptDialog"
         property string assetId: ""
@@ -432,6 +511,10 @@ PanelFrame {
                 MenuItem {
                     text: tile.status === "missing" ? qsTr("Relink missing file…") : qsTr("Replace file…")
                     onTriggered: panel.relinkRequested(tile.assetId, tile.name)
+                }
+                MenuItem {
+                    text: qsTr("Properties…")
+                    onTriggered: mediaPropertiesDialog.openFor(tile.assetId)
                 }
                 MenuItem {
                     text: qsTr("Show in folder")

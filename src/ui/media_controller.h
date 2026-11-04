@@ -9,6 +9,7 @@
 #include <QObject>
 #include <QQmlEngine>
 #include <QUrl>
+#include <QVariantMap>
 
 #include <memory>
 
@@ -56,6 +57,10 @@ public:
     Q_INVOKABLE bool exportMediaAudit(const QString& urlOrPath);
     /// Save a spreadsheet-friendly read-only media inventory, with formula-safe cells.
     Q_INVOKABLE bool exportMediaAuditCsv(const QString& urlOrPath);
+    /// Read-only source properties for the Media Bin inspector (empty if not found).
+    Q_INVOKABLE QVariantMap mediaProperties(const QString& assetId) const;
+    /// Copy a plain-text technical report; invalid IDs preserve clipboard contents.
+    Q_INVOKABLE bool copyMediaProperties(const QString& assetId);
     /// Opens the folder that contains the asset's file in the system file manager.
     Q_INVOKABLE void revealInFolder(const QString& assetId) const;
 

@@ -93,6 +93,13 @@ all clip occurrences of the source across tracks (including locked tracks).
 The first-use action moves the playhead to the earliest matching clip; neither
 action changes project contents or adds an undo step.
 
+Development builds after v1.4.0 also offer **Properties…** in a media tile's
+right-click menu. The read-only inspector shows the source's container and
+audio/video codecs, native frame rate, dimensions, duration, file size, last
+modified time, online/offline status and number of timeline uses. **Copy
+details** produces a plain-text support report without changing the project,
+source files or edit history.
+
 For a cleaner media bin, **File → Remove Unused Media from Project** removes
 imported media references that are not used by any timeline clip. Original
 files remain unchanged on disk, and **Ctrl+Z** restores the removed references

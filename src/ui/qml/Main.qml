@@ -383,7 +383,7 @@ ApplicationWindow {
             Action { text: qsTr("Go to End"); shortcut: "End"; enabled: window.editKeys; onTriggered: window.app.playback.goToEnd() }
             Action { text: qsTr("Go to Sequence Midpoint"); enabled: window.editKeys && !window.app.timeline.empty; onTriggered: window.app.playback.goToSequenceMidpoint() }
             MenuSeparator {}
-            Action { text: qsTr("Loop Preview"); checkable: true; checked: window.app.playback.loopPreview; onTriggered: window.app.playback.loopPreview = checked }
+            Action { text: qsTr("Loop Preview"); shortcut: "Ctrl+Alt+L"; checkable: true; checked: window.app.playback.loopPreview; enabled: window.editKeys && !window.app.timeline.empty; onTriggered: window.app.playback.loopPreview = checked }
             Action { text: qsTr("Mute Preview"); checkable: true; checked: window.app.playback.muted; enabled: window.app.playback.audioAvailable; onTriggered: window.app.playback.muted = checked }
         }
         Menu {

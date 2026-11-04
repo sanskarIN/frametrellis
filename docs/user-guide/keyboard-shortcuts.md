@@ -3,6 +3,7 @@
 | Shortcut | Action |
 |---|---|
 | Space | Play / pause |
+| Ctrl+Alt+L | Toggle Loop Preview (development builds after v1.4.0) |
 | Left / Right | Previous / next frame |
 | Shift+Left / Shift+Right | Back / forward one second |
 | Up / Down | Previous / next edit point |

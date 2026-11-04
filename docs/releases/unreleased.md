@@ -19,7 +19,8 @@ their actual tag and packages are verified.
 - **Loop Preview:** the program monitor and Playback menu can repeat the
   entire sequence during playback. It restarts at frame zero with a correctly
   paced playback clock while retaining already-queued tail audio for continuity.
-  Turning it off restores normal stop-at-end behavior; this option neither changes
+  Turning it off restores normal stop-at-end behavior. **Ctrl+Alt+L** toggles
+  the mode in post-v1.4.0 development builds; this option neither changes
   project files nor affects MP4 exports. Regression tests cover the audio-free
   loop boundary, single-frame pacing and the real QML transport control.
   **Only available after v1.4.0**, pending integration into a future release.

@@ -173,8 +173,7 @@ every imported file again. Filtering never removes files from the project.
   header and choose **Select all clips on track** to select that track's clips.
   These commands can select locked tracks for inspection, but do not bypass
   lock protection on editing. If no clips match, the existing selection remains.
-  Selection actions never change project edits or undo history and are not in
-  available in the v1.4.0 release.
+  Selection actions never change project edits or undo history.
 
 Every change can be undone (Ctrl+Z) and redone (Ctrl+Shift+Z).
 
@@ -468,7 +467,8 @@ moves the playhead. If no audio device is available, the preview plays silently.
 **Development builds after v1.4.0:** Select **Loop** in the program monitor
 or **Playback → Loop Preview** to repeat the current sequence from frame zero
 when it reaches the end. The button stays highlighted while looping is enabled.
-Disable it to resume normal stop-at-end playback. This is a preview-only
+Disable it to resume normal stop-at-end playback. Press **Ctrl+Alt+L** to toggle
+Loop Preview from the keyboard. This is a preview-only
 transport option: it does not change project edits, Undo history, or export
 duration. It is **not included in the v1.4.0 stable Windows packages**.
 

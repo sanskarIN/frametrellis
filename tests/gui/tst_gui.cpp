@@ -361,6 +361,23 @@ private slots:
         QCOMPARE(m_app->project()->undoText(), originalUndo);
     }
 
+    void loopPreviewKeyboardShortcutLeavesProjectAndHistoryUnchanged()
+    {
+        auto* playback = m_app->playback();
+        playback->setLoopPreview(false);
+        const Project before = m_app->project()->project();
+        const QString undo = m_app->project()->undoText();
+        const bool modified = m_app->project()->isModified();
+
+        QTest::keyClick(m_window, Qt::Key_L, Qt::ControlModifier | Qt::AltModifier);
+        QCOMPARE(playback->loopPreview(), true);
+        QTest::keyClick(m_window, Qt::Key_L, Qt::ControlModifier | Qt::AltModifier);
+        QCOMPARE(playback->loopPreview(), false);
+        QCOMPARE(m_app->project()->project(), before);
+        QCOMPARE(m_app->project()->undoText(), undo);
+        QCOMPARE(m_app->project()->isModified(), modified);
+    }
+
     void appendSourceExcerptUsesExactSourceFramesAndUndo()
     {
         auto* timeline = m_app->timeline();

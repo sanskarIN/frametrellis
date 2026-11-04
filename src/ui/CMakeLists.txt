@@ -42,6 +42,7 @@ qt_add_qml_module(ft_ui
         qml/panels/InspectorPanel.qml
         qml/panels/MediaBinPanel.qml
         qml/panels/MonitorPanel.qml
+        qml/panels/SourceMonitorPanel.qml
         qml/panels/TimeRuler.qml
         qml/panels/TimelinePanel.qml
         qml/panels/TrackHeader.qml

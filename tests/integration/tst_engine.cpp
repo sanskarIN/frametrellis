@@ -17,6 +17,7 @@
 #include <mlt++/Mlt.h>
 
 #include <cmath>
+#include <utility>
 
 using namespace ft;
 using namespace ft::testing;
@@ -214,6 +215,42 @@ private slots:
         Result<MediaInfo> toneInfo = media::probeMedia(m_media.tone);
         QVERIFY(toneInfo);
         QVERIFY(!media::renderThumbnail(m_media.tone, *toneInfo, QSize(32, 32)));
+    }
+
+    void sourceFramePreviewMatchesProjectRateAndRejectsOutOfRange()
+    {
+        Result<MediaInfo> info = media::probeMedia(m_media.video);
+        QVERIFY(info);
+        const FrameRate rate = FrameRate::integer(25);
+        const QSize previewSize(80, 80);
+        for (const auto& [frame, expected] : {std::pair{FrameCount{5}, QColor(Qt::red)},
+                                              std::pair{FrameCount{35}, QColor(Qt::green)},
+                                              std::pair{FrameCount{65}, QColor(Qt::blue)}}) {
+            Result<QImage> image =
+                media::renderSourceFrame(m_media.video, *info, previewSize, frame, rate);
+            QVERIFY2(image, qPrintable(image ? QString() : image.error().toString()));
+            QCOMPARE(image->size(), QSize(80, 46));
+            QVERIFY2(isCloseTo(averageColor(*image), expected),
+                     qPrintable(averageColor(*image).name()));
+        }
+
+        QVERIFY(!media::renderSourceFrame(m_media.video, *info, previewSize, -1, rate));
+        QVERIFY(!media::renderSourceFrame(m_media.video, *info, previewSize, 75, rate));
+        QVERIFY(!media::renderSourceFrame(m_media.video, *info, {}, 10, rate));
+        Result<MediaInfo> audio = media::probeMedia(m_media.tone);
+        QVERIFY(audio);
+        QVERIFY(!media::renderSourceFrame(m_media.tone, *audio, previewSize, 10, rate));
+        Result<MediaInfo> still = media::probeMedia(m_media.still);
+        QVERIFY(still);
+        QVERIFY(!media::renderSourceFrame(m_media.still, *still, previewSize, 0, rate));
+
+        // Frame positions are measured against the exact project rate, not the
+        // native source rate; 30000/1001 at frame 60 is just past 2 seconds.
+        const FrameRate ntsc = *FrameRate::create(30000, 1001);
+        Result<QImage> ntscFrame =
+            media::renderSourceFrame(m_media.video, *info, previewSize, 60, ntsc);
+        QVERIFY(ntscFrame);
+        QVERIFY(isCloseTo(averageColor(*ntscFrame), Qt::blue));
     }
 
     void graphShowsTheRightSourceFrames()

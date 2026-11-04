@@ -208,9 +208,11 @@ PanelFrame {
         property string sourceName: ""
         property int maxFrames: 1
         property bool failed: false
+        property bool hasPicture: false
+        property int pictureFrame: 0
 
-        title: qsTr("Append source excerpt")
-        implicitWidth: 440
+        title: qsTr("Preview and append source excerpt")
+        implicitWidth: 560
         closePolicy: Popup.CloseOnEscape
 
         function openFor(assetId, name) {
@@ -218,9 +220,22 @@ PanelFrame {
             excerptDialog.sourceName = name
             excerptDialog.maxFrames = Math.max(1, Math.floor(panel.app.timeline.assetDuration(assetId)))
             excerptDialog.failed = false
+            excerptDialog.hasPicture = panel.app.media.mediaProperties(assetId).kind === "video"
             open()
             sourceInFrame.value = 0
             sourceOutFrame.value = excerptDialog.maxFrames
+            sourcePreviewFrame.value = 0
+            sourcePreviewDebounce.stop()
+            excerptDialog.pictureFrame = 0
+        }
+
+        // Fast scrubbing can otherwise spawn a new decoder for every pointer
+        // movement. Coalesce those requests while keeping the frame input live.
+        Timer {
+            id: sourcePreviewDebounce
+            interval: 100
+            repeat: false
+            onTriggered: excerptDialog.pictureFrame = sourcePreviewFrame.value
         }
 
         contentItem: ColumnLayout {
@@ -233,9 +248,83 @@ PanelFrame {
             }
             Label {
                 Layout.fillWidth: true
-                text: qsTr("Choose exact project frames. Out is exclusive (the first frame not used).")
+                text: qsTr("Preview exact project-rate source frames. Out is exclusive (the first frame not used).")
                 wrapMode: Text.WordWrap
                 color: Theme.textMuted
+            }
+            Rectangle {
+                Layout.fillWidth: true
+                Layout.preferredHeight: 210
+                color: Theme.monitorBackground
+                radius: Theme.radiusSmall
+                clip: true
+                Image {
+                    id: sourceFrameImage
+                    objectName: "sourceFramePreviewImage"
+                    anchors.fill: parent
+                    anchors.margins: 4
+                    source: panel.app.media.sourcePreviewUrl(excerptDialog.assetId,
+                                                             excerptDialog.pictureFrame)
+                    sourceSize.width: 640
+                    sourceSize.height: 360
+                    fillMode: Image.PreserveAspectFit
+                    asynchronous: true
+                    cache: false
+                    Accessible.role: Accessible.Graphic
+                    Accessible.name: qsTr("Source frame %1").arg(excerptDialog.pictureFrame)
+                }
+                BusyIndicator {
+                    anchors.centerIn: parent
+                    running: sourceFrameImage.status === Image.Loading
+                    visible: running
+                }
+                Label {
+                    anchors.centerIn: parent
+                    visible: !excerptDialog.hasPicture
+                    text: qsTr("Audio-only source — no picture available")
+                    color: Theme.textMuted
+                }
+                Label {
+                    anchors.centerIn: parent
+                    visible: excerptDialog.hasPicture && sourceFrameImage.status === Image.Error
+                    text: qsTr("Frame preview unavailable. Check the source file.")
+                    color: Theme.danger
+                }
+            }
+            RowLayout {
+                Layout.fillWidth: true
+                Label { text: qsTr("Preview frame"); color: Theme.textMuted }
+                SpinBox {
+                    id: sourcePreviewFrame
+                    objectName: "sourcePreviewFrame"
+                    from: 0
+                    to: Math.max(0, excerptDialog.maxFrames - 1)
+                    editable: true
+                    Layout.fillWidth: true
+                    onValueChanged: sourcePreviewDebounce.restart()
+                    Accessible.name: qsTr("Preview source frame")
+                }
+                FtButton {
+                    text: qsTr("Mark In")
+                    enabled: sourcePreviewFrame.value < sourceOutFrame.value
+                    onClicked: sourceInFrame.value = sourcePreviewFrame.value
+                }
+                FtButton {
+                    text: qsTr("Mark Out")
+                    enabled: sourcePreviewFrame.value >= sourceInFrame.value
+                    onClicked: sourceOutFrame.value = sourcePreviewFrame.value + 1
+                }
+            }
+            Slider {
+                objectName: "sourcePreviewScrubber"
+                Layout.fillWidth: true
+                from: 0
+                to: Math.max(0, excerptDialog.maxFrames - 1)
+                stepSize: 1
+                snapMode: Slider.SnapAlways
+                value: sourcePreviewFrame.value
+                onMoved: sourcePreviewFrame.value = Math.round(value)
+                Accessible.name: qsTr("Scrub source frames")
             }
             RowLayout {
                 Layout.fillWidth: true
@@ -248,7 +337,10 @@ PanelFrame {
                     editable: true
                     Layout.fillWidth: true
                     Accessible.name: qsTr("Source In frame")
-                    onValueModified: excerptDialog.failed = false
+                    onValueModified: {
+                        excerptDialog.failed = false
+                        sourcePreviewFrame.value = value
+                    }
                 }
                 Label { text: qsTr("Out frame"); color: Theme.textMuted }
                 SpinBox {
@@ -259,7 +351,10 @@ PanelFrame {
                     editable: true
                     Layout.fillWidth: true
                     Accessible.name: qsTr("Exclusive source Out frame")
-                    onValueModified: excerptDialog.failed = false
+                    onValueModified: {
+                        excerptDialog.failed = false
+                        sourcePreviewFrame.value = Math.max(0, value - 1)
+                    }
                 }
             }
             Label {

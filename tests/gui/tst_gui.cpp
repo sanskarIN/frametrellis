@@ -30,6 +30,7 @@
 #include <QTemporaryDir>
 #include <QTest>
 #include <QThreadPool>
+#include <QUrlQuery>
 #include <QtQml/qqmlextensionplugin.h>
 
 #include <cmath>
@@ -510,6 +511,62 @@ private slots:
         QCOMPARE(m_app->project()->project(), before);
         QCOMPARE(m_app->project()->undoText(), undo);
         QCOMPARE(m_app->project()->isModified(), modified);
+    }
+
+    void sourceExcerptFramePreviewIsFrameAccurateAndReadOnly()
+    {
+        auto* media = m_app->media();
+        const QString videoId = media->model()->get(0).value(QStringLiteral("assetId")).toString();
+        const QString audioId = media->model()->get(1).value(QStringLiteral("assetId")).toString();
+        const FrameRate rate = m_app->project()->project().settings().frameRate;
+        const int length = static_cast<int>(m_app->timeline()->assetDuration(videoId));
+        QVERIFY(length > 60);
+
+        QVERIFY(media->sourcePreviewUrl(QStringLiteral("missing-id"), 0).isEmpty());
+        QVERIFY(media->sourcePreviewUrl(audioId, 0).isEmpty());
+        QVERIFY(media->sourcePreviewUrl(videoId, -1).isEmpty());
+        QVERIFY(media->sourcePreviewUrl(videoId, length).isEmpty());
+        const QUrl url(media->sourcePreviewUrl(videoId, 13));
+        QVERIFY(url.isValid());
+        QCOMPARE(url.scheme(), QStringLiteral("image"));
+        QCOMPARE(QUrlQuery(url).queryItemValue(QStringLiteral("frame")), QStringLiteral("13"));
+        QCOMPARE(QUrlQuery(url).queryItemValue(QStringLiteral("fpsNum")),
+                 QString::number(rate.numerator()));
+        QCOMPARE(QUrlQuery(url).queryItemValue(QStringLiteral("fpsDen")),
+                 QString::number(rate.denominator()));
+
+        const Project before = m_app->project()->project();
+        const QString undoBefore = m_app->project()->undoText();
+        const bool modifiedBefore = m_app->project()->isModified();
+        QObject* dialog = m_window->findChild<QObject*>(QStringLiteral("sourceExcerptDialog"));
+        QVERIFY(dialog);
+        QVERIFY(
+            QMetaObject::invokeMethod(dialog, "openFor", Q_ARG(QVariant, QVariant(videoId)),
+                                      Q_ARG(QVariant, QVariant(QStringLiteral("Preview test")))));
+        QTRY_VERIFY(dialog->property("visible").toBool());
+
+        QQuickItem* previewFrame =
+            findItem(m_window->contentItem(), QStringLiteral("sourcePreviewFrame"));
+        QQuickItem* previewImage =
+            findItem(m_window->contentItem(), QStringLiteral("sourceFramePreviewImage"));
+        QQuickItem* inFrame = findItem(m_window->contentItem(), QStringLiteral("sourceExcerptIn"));
+        QQuickItem* outFrame =
+            findItem(m_window->contentItem(), QStringLiteral("sourceExcerptOut"));
+        QVERIFY(previewFrame);
+        QVERIFY(previewImage);
+        QVERIFY(inFrame);
+        QVERIFY(outFrame);
+        QVERIFY(previewFrame->setProperty("value", 13));
+        QTRY_VERIFY(previewImage->property("source").toString().contains(
+            QStringLiteral("frame=13&fpsNum=")));
+        QTRY_COMPARE_WITH_TIMEOUT(previewImage->property("status").toInt(), 1, 15000);
+        QVERIFY(inFrame->setProperty("value", 13));
+        QVERIFY(outFrame->setProperty("value", 29));
+        QCOMPARE(outFrame->property("value").toInt() - inFrame->property("value").toInt(), 16);
+        QCOMPARE(m_app->project()->project(), before);
+        QCOMPARE(m_app->project()->undoText(), undoBefore);
+        QCOMPARE(m_app->project()->isModified(), modifiedBefore);
+        QVERIFY(QMetaObject::invokeMethod(dialog, "close"));
     }
 
     void appendSourceExcerptUsesExactSourceFramesAndUndo()

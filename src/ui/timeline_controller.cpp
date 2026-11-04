@@ -1245,6 +1245,27 @@ bool TimelineController::selectClipsAfterPlayhead()
     return true;
 }
 
+bool TimelineController::selectMediaOccurrences(const QString& assetId)
+{
+    const std::vector<Id> ids = project().timeline().clipsUsingAsset(assetId);
+    if (ids.empty()) {
+        emit statusMessage(QStringLiteral("This media has no uses on the timeline."));
+        return false;
+    }
+    QSet<Id> matches;
+    for (const Id& id : ids) {
+        matches.insert(id);
+    }
+    setTransitionSelection({});
+    m_selection = std::move(matches);
+    m_model.updateSelection(m_selection);
+    emit selectionChanged();
+    emit selectedClipChanged();
+    emit statusMessage(
+        QStringLiteral("Selected %1 occurrence(s) of this media.").arg(m_selection.size()));
+    return true;
+}
+
 bool TimelineController::selectAllMediaOccurrences()
 {
     if (m_selection.size() != 1) {
@@ -1252,24 +1273,7 @@ bool TimelineController::selectAllMediaOccurrences()
         return false;
     }
     const Clip* source = project().timeline().clip(*m_selection.cbegin());
-    if (!source) {
-        return false;
-    }
-    const std::vector<Id> ids = project().timeline().clipsUsingAsset(source->assetId);
-    if (ids.empty()) {
-        return false;
-    }
-    setTransitionSelection({});
-    m_selection.clear();
-    for (const Id& id : ids) {
-        m_selection.insert(id);
-    }
-    m_model.updateSelection(m_selection);
-    emit selectionChanged();
-    emit selectedClipChanged();
-    emit statusMessage(
-        QStringLiteral("Selected %1 occurrence(s) of this media.").arg(m_selection.size()));
-    return true;
+    return source && selectMediaOccurrences(source->assetId);
 }
 
 bool TimelineController::selectTrackClips(const QString& trackId)

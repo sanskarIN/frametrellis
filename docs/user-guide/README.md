@@ -87,6 +87,12 @@ for the full list.
 Right-click a tile to add it to the timeline, show it in its folder, relink it or remove it from
 the project (removing never deletes the file; media in use must be removed from the timeline first).
 
+In development builds after v1.4.0, a used media tile also offers
+**Select timeline uses** and **Go to first timeline use**. These actions find
+all clip occurrences of the source across tracks (including locked tracks).
+The first-use action moves the playhead to the earliest matching clip; neither
+action changes project contents or adds an undo step.
+
 Development builds after v1.4.0 also offer **Properties…** in a media tile's
 right-click menu. The read-only inspector shows the source's container and
 audio/video codecs, native frame rate, dimensions, duration, file size, last

@@ -523,6 +523,20 @@ PanelFrame {
                 }
                 MenuSeparator {}
                 MenuItem {
+                    text: qsTr("Select timeline uses (%1)").arg(tile.usage)
+                    enabled: tile.usage > 0
+                    onTriggered: panel.app.timeline.selectMediaOccurrences(tile.assetId)
+                }
+                MenuItem {
+                    text: qsTr("Go to first timeline use")
+                    enabled: tile.usage > 0
+                    onTriggered: {
+                        if (panel.app.timeline.selectMediaOccurrences(tile.assetId))
+                            panel.app.timeline.seekToSelectionBoundary(false)
+                    }
+                }
+                MenuSeparator {}
+                MenuItem {
                     text: tile.usage > 0 ? qsTr("Remove from project (used %1×)").arg(tile.usage) : qsTr("Remove from project")
                     enabled: tile.usage === 0
                     onTriggered: panel.app.media.remove(tile.assetId)

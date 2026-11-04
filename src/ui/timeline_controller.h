@@ -167,6 +167,9 @@ public:
     /// Clips intersecting the playhead are excluded; empty results keep the old selection.
     Q_INVOKABLE bool selectClipsBeforePlayhead();
     Q_INVOKABLE bool selectClipsAfterPlayhead();
+    /// Select every clip using a media-bin asset ID, including on locked tracks.
+    /// No matches leave existing selection and project history untouched.
+    Q_INVOKABLE bool selectMediaOccurrences(const QString& assetId);
     /// Select every clip using the same media asset as the single selected clip.
     Q_INVOKABLE bool selectAllMediaOccurrences();
     /// Select all clips on the given track, including locked tracks (inspection only).

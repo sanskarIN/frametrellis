@@ -378,6 +378,61 @@ private slots:
         screenshot(QStringLiteral("03-timeline"));
     }
 
+    void mediaBinCanFindTimelineUsesWithoutEditing()
+    {
+        auto* timeline = m_app->timeline();
+        auto* playback = m_app->playback();
+        const QString assetId =
+            m_app->media()->model()->get(0).value(QStringLiteral("assetId")).toString();
+        QVERIFY(!assetId.isEmpty());
+
+        // Create a second occurrence, then restore the project at the end.
+        const Project projectBefore = m_app->project()->project();
+        const QStringList previousSelection = timeline->selection();
+        const FrameCount previousPlayhead = playback->positionFrames();
+        QVERIFY(timeline->appendAssetRange(assetId, 0, 20));
+        const Project withTwoUses = m_app->project()->project();
+        const QString undoBefore = m_app->project()->undoText();
+        const bool modifiedBefore = m_app->project()->isModified();
+        const std::vector<Id> uses = withTwoUses.timeline().clipsUsingAsset(assetId);
+        QVERIFY(uses.size() >= 2);
+
+        timeline->clearSelection();
+        QVERIFY(!timeline->selectMediaOccurrences(QStringLiteral("nonexistent-asset-id")));
+        QVERIFY(timeline->selection().isEmpty());
+
+        QVERIFY(timeline->selectMediaOccurrences(assetId));
+        QCOMPARE(timeline->selection().size(), static_cast<int>(uses.size()));
+        FrameCount earliest = kMaxTimelineFrames;
+        for (const Id& use : uses) {
+            QVERIFY(timeline->selection().contains(use));
+            const Clip* clip = withTwoUses.timeline().clip(use);
+            QVERIFY(clip);
+            earliest = std::min(earliest, clip->start);
+        }
+        QVERIFY(timeline->seekToSelectionBoundary(false));
+        QCOMPARE(playback->positionFrames(), earliest);
+
+        const QStringList matches = timeline->selection();
+        QVERIFY(!timeline->selectMediaOccurrences(QStringLiteral("nonexistent-asset-id")));
+        QCOMPARE(timeline->selection(), matches);
+        QCOMPARE(m_app->project()->project(), withTwoUses);
+        QCOMPARE(m_app->project()->undoText(), undoBefore);
+        QCOMPARE(m_app->project()->isModified(), modifiedBefore);
+
+        // Undo only the temporary appended excerpt, leaving following GUI tests
+        // with their original timeline and playhead.
+        m_app->project()->undo();
+        QCOMPARE(m_app->project()->project(), projectBefore);
+        timeline->clearSelection();
+        bool first = true;
+        for (const QString& clipId : previousSelection) {
+            timeline->select(clipId, !first);
+            first = false;
+        }
+        playback->seek(static_cast<double>(previousPlayhead));
+    }
+
     void mediaPropertiesInspectorIsReadOnly()
     {
         auto* media = m_app->media();

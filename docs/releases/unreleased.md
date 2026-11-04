@@ -16,6 +16,10 @@ their actual tag and packages are verified.
 
 ## Post-v1.4.0 development changes (not in the stable download)
 
+- **Find timeline uses from Media Bin:** right-click a used source to select all
+  matching timeline clips or jump the playhead to its earliest clip. This works
+  across tracks without changing source files, project edits, or Undo history.
+
 - **Media Properties inspector:** inspect a source's technical metadata, disk
   status, file path and timeline usage from the media-bin context menu. Copy a
   plain-text diagnostic report without modifying project or media files.

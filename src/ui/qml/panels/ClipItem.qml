@@ -134,6 +134,7 @@ Rectangle {
 
     // Fade ramps
     Canvas {
+        id: fadeRampCanvas
         anchors.fill: parent
         visible: clip.fadeIn > 0 || clip.fadeOut > 0
         onPaint: {
@@ -146,7 +147,12 @@ Rectangle {
             if (fo > 0) { ctx.beginPath(); ctx.moveTo(width, 0); ctx.lineTo(width - fo, 0); ctx.lineTo(width, height); ctx.closePath(); ctx.fill() }
         }
         onWidthChanged: requestPaint()
-        Connections { target: clip; function onFadeInChanged() { parent.requestPaint() } function onFadeOutChanged() { parent.requestPaint() } }
+        onHeightChanged: requestPaint()
+        Connections {
+            target: clip
+            function onFadeInChanged() { fadeRampCanvas.requestPaint() }
+            function onFadeOutChanged() { fadeRampCanvas.requestPaint() }
+        }
     }
 
     Rectangle {

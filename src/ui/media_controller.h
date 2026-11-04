@@ -61,6 +61,9 @@ public:
     Q_INVOKABLE QVariantMap mediaProperties(const QString& assetId) const;
     /// Copy a plain-text technical report; invalid IDs preserve clipboard contents.
     Q_INVOKABLE bool copyMediaProperties(const QString& assetId);
+    /// An asynchronous thumbnail-provider URL for one project-rate source frame.
+    /// Invalid, offline or audio-only sources return an empty URL.
+    Q_INVOKABLE QString sourcePreviewUrl(const QString& assetId, int sourceFrame) const;
     /// Opens the folder that contains the asset's file in the system file manager.
     Q_INVOKABLE void revealInFolder(const QString& assetId) const;
 

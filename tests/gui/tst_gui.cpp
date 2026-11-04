@@ -599,11 +599,16 @@ private slots:
         QTRY_VERIFY(
             picture->property("source").toString().contains(QStringLiteral("frame=13&fpsNum=")));
         QTRY_COMPARE_WITH_TIMEOUT(picture->property("status").toInt(), 1, 15000);
-        QVERIFY(QMetaObject::invokeMethod(source, "markIn"));
+        QTest::keyClick(m_window, Qt::Key_Right);
+        QTRY_COMPARE(source->property("previewFrame").toInt(), 14);
+        QCOMPARE(m_app->playback()->positionFrames(), programBefore);
+        QTest::keyClick(m_window, Qt::Key_Left);
+        QTRY_COMPARE(source->property("previewFrame").toInt(), 13);
+        QTest::keyClick(m_window, Qt::Key_I);
         QCOMPARE(source->property("markInFrame").toInt(), 13);
 
         QVERIFY(source->setProperty("previewFrame", 27));
-        QVERIFY(QMetaObject::invokeMethod(source, "markOut"));
+        QTest::keyClick(m_window, Qt::Key_O);
         QCOMPARE(source->property("markOutFrame").toInt(), 28);
         QCOMPARE(m_app->project()->project(), before);
         QCOMPARE(m_app->project()->undoText(), undoBefore);

@@ -30,6 +30,6 @@ Result<QImage> renderThumbnail(const QString& filePath, const MediaInfo& info, Q
 /// project-rate source frames, matching appendAssetRange() semantics. Invalid or
 /// out-of-range frames fail without decoding, and audio-only sources are rejected.
 Result<QImage> renderSourceFrame(const QString& filePath, const MediaInfo& info, QSize maxSize,
-                                FrameCount sourceFrame, const FrameRate& projectRate);
+                                 FrameCount sourceFrame, const FrameRate& projectRate);
 
 } // namespace ft::media

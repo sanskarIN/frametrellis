@@ -1124,6 +1124,7 @@ private slots:
 
     void fadeSelectedClipFromEditMenuIsUndoable()
     {
+        m_qmlWarnings.clear();
         auto* timeline = m_app->timeline();
         const Project before = m_app->project()->project();
         QVERIFY(!track(0).clips.empty());
@@ -1151,6 +1152,7 @@ private slots:
         m_app->project()->undo();
         QCOMPARE(m_app->project()->project(), before);
         timeline->clearSelection();
+        QVERIFY2(m_qmlWarnings.isEmpty(), "Fading clips emitted QML paint warnings");
     }
 
     void selectionZoomAndPlayheadCenterPreserveProject()

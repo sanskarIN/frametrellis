@@ -16,6 +16,11 @@ their actual tag and packages are verified.
 
 ## Post-v1.4.0 development changes (not in the stable download)
 
+- **Media-bin sorting:** choose longest/shortest source duration or most-used
+  media in addition to import/name order. Unknown durations and stills come
+  last in duration modes; equal values retain import order. Source assets
+  and project files are not changed by the sort.
+
 - **Loop Preview:** the program monitor and Playback menu can repeat the
   entire sequence during playback. It restarts at frame zero with a correctly
   paced playback clock while retaining already-queued tail audio for continuity.

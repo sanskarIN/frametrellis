@@ -1,11 +1,42 @@
 # FrameTrellis professional-editor gap assessment — 30 October 2026
 
-This is a development assessment, **not a release announcement**. The audited
-source baseline is `main` at `eb4eb18a23482f92edfea332af9b768ad6fbed34` following the merge of PRs #103 and #104.
-The published stable release is **v1.3.1**. Do not describe development
-features as shipped in its installer.
+This is a **historical development assessment**, not a release announcement.
+Its audited source baseline is `main` at
+`eb4eb18a23482f92edfea332af9b768ad6fbed34`, following PRs #103 and #104.
+The published stable release **at the time of this 30 October audit** was
+v1.3.1. Its tables and PR status refer to that historical snapshot, not
+necessarily the current repository.
 
-## What is integrated on main
+## Status addendum — 4 November 2026
+
+The current published stable release is
+[**v1.4.0 (2 November 2026)**](https://github.com/sanskarIN/frametrellis/releases/tag/v1.4.0),
+with a Windows installer, portable ZIP, SHA256 checksums, SPDX manifest and
+third-party source notice archive. The source-excerpt In/Out workflow discussed
+below is now part of v1.4.0, but this does **not** mean a standalone source
+monitor, three-point insert/overwrite workflow or proxies have shipped.
+
+Subsequent **development-only**, post-v1.4.0 improvements merged into main
+include media duration/usage sorting
+([#153](https://github.com/sanskarIN/frametrellis/pull/153)),
+QML fade repaint reliability
+([#154](https://github.com/sanskarIN/frametrellis/pull/154)),
+Media Bin timeline-use navigation
+([#155](https://github.com/sanskarIN/frametrellis/pull/155)) and source
+technical properties
+([#156](https://github.com/sanskarIN/frametrellis/pull/156)).
+The source-excerpt picture preview
+([#157](https://github.com/sanskarIN/frametrellis/pull/157)) has also merged
+into main as **post-v1.4.0 development**. It provides silent, frame-accurate
+source pictures and In/Out marks, but not a standalone playable source monitor
+or complete three-point editing. These new features are **not** included in
+the v1.4.0 installers. Always distinguish a merged development feature from
+one present in a tagged release.
+
+The original audit follows unchanged as a record of the gaps and engineering
+acceptance criteria at that time.
+
+## What was integrated on main at the 30 October audit
 
 | Workflow | Verified implementation | Important limits |
 |---|---|---|
@@ -22,9 +53,11 @@ The GUI and renderer share the sequence model. Save/reopen and rendering are
 core acceptance gates for any feature that adds persisted properties. A new
 label in the UI is not evidence of preview/export parity.
 
-## Development PRs awaiting acceptance
+## Historical PRs awaiting acceptance on 30 October
 
-These proposals are **not merged in this assessment baseline**:
+These proposals were **not merged at the original assessment baseline**.
+Consult their GitHub status for subsequent integration; do not assume the
+following list describes the current open PR queue:
 
 - [#105](https://github.com/sanskarIN/frametrellis/pull/105):
   source excerpt In/Out frame selection from the media bin. The proposal
@@ -89,7 +122,12 @@ fixtures. Keep Windows x64/ARM and Linux verification separate from macOS
 until macOS builds have actually run. Signing, installers and distribution
 manifests are independent release gates.
 
-## Release acceptance gates for v1.4.0
+## Historical release acceptance gates for v1.4.0
+
+v1.4.0 has since been published. The following engineering gates document the
+review criteria of the original audit. Apply equivalent final-commit and
+installer checks to future release candidates; do not infer that a PR merge
+alone constitutes a release.
 
 - Freeze feature scope and enumerate merged SHAs, project format versions,
   supported upgrades/downgrades and data-migration limitations.

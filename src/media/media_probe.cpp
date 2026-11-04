@@ -251,10 +251,10 @@ Result<MediaAsset> createAsset(const QString& filePath)
 }
 
 Result<QImage> renderSourceFrame(const QString& filePath, const MediaInfo& info, QSize maxSize,
-                                FrameCount sourceFrame, const FrameRate& projectRate)
+                                 FrameCount sourceFrame, const FrameRate& projectRate)
 {
-    if (!info.hasVideo || info.kind != MediaKind::Video || info.width <= 0 ||
-        info.height <= 0 || !projectRate.isValid() || maxSize.isEmpty()) {
+    if (!info.hasVideo || info.kind != MediaKind::Video || info.width <= 0 || info.height <= 0 ||
+        !projectRate.isValid() || maxSize.isEmpty()) {
         return makeError(ErrorCode::InvalidArgument,
                          QStringLiteral("This source has no frame-accurate video preview."));
     }
@@ -265,8 +265,7 @@ Result<QImage> renderSourceFrame(const QString& filePath, const MediaInfo& info,
                          QStringLiteral("The requested source frame is out of range."));
     }
     if (!QFileInfo::exists(filePath)) {
-        return makeError(ErrorCode::NotFound,
-                         QStringLiteral("The source file is missing."));
+        return makeError(ErrorCode::NotFound, QStringLiteral("The source file is missing."));
     }
     const QSize size = engine::fitPreviewSize(QSize(info.width, info.height), maxSize);
     std::unique_ptr<Mlt::Profile> profile =

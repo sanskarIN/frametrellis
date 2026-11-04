@@ -87,6 +87,13 @@ for the full list.
 Right-click a tile to add it to the timeline, show it in its folder, relink it or remove it from
 the project (removing never deletes the file; media in use must be removed from the timeline first).
 
+Development builds after v1.4.0 also offer **Properties…** in a media tile's
+right-click menu. The read-only inspector shows the source's container and
+audio/video codecs, native frame rate, dimensions, duration, file size, last
+modified time, online/offline status and number of timeline uses. **Copy
+details** produces a plain-text support report without changing the project,
+source files or edit history.
+
 For a cleaner media bin, **File → Remove Unused Media from Project** removes
 imported media references that are not used by any timeline clip. Original
 files remain unchanged on disk, and **Ctrl+Z** restores the removed references

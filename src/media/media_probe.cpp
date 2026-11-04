@@ -250,6 +250,40 @@ Result<MediaAsset> createAsset(const QString& filePath)
     return asset;
 }
 
+Result<QImage> renderSourceFrame(const QString& filePath, const MediaInfo& info, QSize maxSize,
+                                FrameCount sourceFrame, const FrameRate& projectRate)
+{
+    if (!info.hasVideo || info.kind != MediaKind::Video || info.width <= 0 ||
+        info.height <= 0 || !projectRate.isValid() || maxSize.isEmpty()) {
+        return makeError(ErrorCode::InvalidArgument,
+                         QStringLiteral("This source has no frame-accurate video preview."));
+    }
+    const auto length = projectRate.microsecondsToFrames(info.durationUs, Rounding::Down);
+    if (!length || sourceFrame < 0 || sourceFrame >= std::max<FrameCount>(*length, 1) ||
+        sourceFrame > INT_MAX) {
+        return makeError(ErrorCode::InvalidArgument,
+                         QStringLiteral("The requested source frame is out of range."));
+    }
+    if (!QFileInfo::exists(filePath)) {
+        return makeError(ErrorCode::NotFound,
+                         QStringLiteral("The source file is missing."));
+    }
+    const QSize size = engine::fitPreviewSize(QSize(info.width, info.height), maxSize);
+    std::unique_ptr<Mlt::Profile> profile =
+        engine::createProfile(size.width(), size.height(), projectRate);
+    std::unique_ptr<Mlt::Producer> producer = openAvformat(*profile, filePath);
+    if (!producer) {
+        return makeError(ErrorCode::Media,
+                         QStringLiteral("Could not open the source for frame preview."));
+    }
+    QImage image = engine::grabFrame(*producer, static_cast<int>(sourceFrame), size);
+    if (image.isNull()) {
+        return makeError(ErrorCode::Media,
+                         QStringLiteral("Could not decode the requested source frame."));
+    }
+    return image;
+}
+
 Result<QImage> renderThumbnail(const QString& filePath, const MediaInfo& info, QSize maxSize)
 {
     if (!info.hasVideo || info.width <= 0 || info.height <= 0) {

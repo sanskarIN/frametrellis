@@ -10,11 +10,14 @@
 #include "ui/project_controller.h"
 #include "ui/title_image.h"
 
+#include <QClipboard>
 #include <QDesktopServices>
 #include <QDir>
 #include <QFile>
 #include <QFileInfo>
 #include <QFutureWatcher>
+#include <QGuiApplication>
+#include <QLocale>
 #include <QSaveFile>
 #include <QUrl>
 #include <QtConcurrent/QtConcurrentRun>
@@ -299,6 +302,110 @@ bool MediaController::relink(const QString& assetId, const QString& urlOrPath)
         return false;
     }
     emit statusMessage(QStringLiteral("Relinked %1.").arg(QFileInfo(path).fileName()));
+    return true;
+}
+
+QVariantMap MediaController::mediaProperties(const QString& assetId) const
+{
+    const Project& project = m_project->project();
+    const MediaAsset* asset = project.asset(assetId);
+    if (!asset) {
+        return {};
+    }
+    const MediaInfo& info = asset->info;
+    QString status = QStringLiteral("Unknown");
+    switch (asset->status) {
+    case MediaStatus::Online:
+        status = QStringLiteral("Online");
+        break;
+    case MediaStatus::Missing:
+        status = QStringLiteral("Offline (missing)");
+        break;
+    case MediaStatus::Changed:
+        status = QStringLiteral("Changed since import");
+        break;
+    default:
+        break;
+    }
+
+    const QString na = QStringLiteral("N/A");
+    const QString resolution =
+        info.hasVideo && info.width > 0 && info.height > 0
+            ? QStringLiteral("%1 × %2").arg(info.width).arg(info.height)
+            : na;
+    const QString frameRate = info.hasVideo && info.frameRate.isValid()
+                                  ? QStringLiteral("%1 fps")
+                                        .arg(QString::number(info.frameRate.toDouble(), 'f', 3))
+                                  : na;
+    const QString duration = info.kind == MediaKind::Image
+                                 ? QStringLiteral("Still image")
+                                 : formatDuration(info.durationUs);
+    const QString fileSize = info.fileSize > 0
+                                 ? QLocale().formattedDataSize(info.fileSize)
+                                 : QStringLiteral("Unknown");
+    const QString modified = info.lastModified.isValid()
+                                 ? info.lastModified.toUTC().toString(Qt::ISODate)
+                                 : QStringLiteral("Unknown");
+    return {
+        {QStringLiteral("assetId"), asset->id},
+        {QStringLiteral("name"), asset->name},
+        {QStringLiteral("filePath"), asset->filePath},
+        {QStringLiteral("kind"), mediaKindToString(info.kind)},
+        {QStringLiteral("status"), status},
+        {QStringLiteral("duration"), duration},
+        {QStringLiteral("resolution"), resolution},
+        {QStringLiteral("frameRate"), frameRate},
+        {QStringLiteral("videoCodec"), info.videoCodec.isEmpty() ? na : info.videoCodec},
+        {QStringLiteral("audioCodec"), info.audioCodec.isEmpty() ? na : info.audioCodec},
+        {QStringLiteral("container"), info.container.isEmpty() ? na : info.container},
+        {QStringLiteral("sampleRate"),
+         info.hasAudio && info.audioSampleRate > 0
+             ? QStringLiteral("%1 Hz").arg(info.audioSampleRate)
+             : na},
+        {QStringLiteral("channels"),
+         info.hasAudio && info.audioChannels > 0 ? QString::number(info.audioChannels) : na},
+        {QStringLiteral("fileSize"), fileSize},
+        {QStringLiteral("lastModified"), modified},
+        {QStringLiteral("timelineUses"),
+         QString::number(static_cast<qulonglong>(project.timeline().clipsUsingAsset(assetId).size()))},
+    };
+}
+
+bool MediaController::copyMediaProperties(const QString& assetId)
+{
+    const QVariantMap facts = mediaProperties(assetId);
+    QClipboard* clipboard = QGuiApplication::clipboard();
+    if (facts.isEmpty() || !clipboard) {
+        return false;
+    }
+    const QList<QPair<QString, QString>> fields = {
+        {QStringLiteral("Name"), QStringLiteral("name")},
+        {QStringLiteral("File"), QStringLiteral("filePath")},
+        {QStringLiteral("Type"), QStringLiteral("kind")},
+        {QStringLiteral("Status"), QStringLiteral("status")},
+        {QStringLiteral("Duration"), QStringLiteral("duration")},
+        {QStringLiteral("Resolution"), QStringLiteral("resolution")},
+        {QStringLiteral("Source frame rate"), QStringLiteral("frameRate")},
+        {QStringLiteral("Video codec"), QStringLiteral("videoCodec")},
+        {QStringLiteral("Audio codec"), QStringLiteral("audioCodec")},
+        {QStringLiteral("Container"), QStringLiteral("container")},
+        {QStringLiteral("Audio sample rate"), QStringLiteral("sampleRate")},
+        {QStringLiteral("Audio channels"), QStringLiteral("channels")},
+        {QStringLiteral("File size"), QStringLiteral("fileSize")},
+        {QStringLiteral("Last modified (UTC)"), QStringLiteral("lastModified")},
+        {QStringLiteral("Timeline uses"), QStringLiteral("timelineUses")},
+        {QStringLiteral("Media ID"), QStringLiteral("assetId")},
+    };
+    QStringList lines;
+    for (const auto& [label, key] : fields) {
+        // Keep each fact on a single line, even for unusual source filenames.
+        QString value = facts.value(key).toString();
+        value.replace(QLatin1Char('\r'), QStringLiteral("\\r"));
+        value.replace(QLatin1Char('\n'), QStringLiteral("\\n"));
+        lines << QStringLiteral("%1: %2").arg(label, value);
+    }
+    clipboard->setText(lines.join(QLatin1Char('\n')));
+    emit statusMessage(QStringLiteral("Copied read-only media properties."));
     return true;
 }
 

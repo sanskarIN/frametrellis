@@ -80,6 +80,8 @@ QVariant MediaBinModel::data(const QModelIndex& index, int role) const
         return mediaKindToString(a.info.kind);
     case DurationRole:
         return row.duration;
+    case DurationUsRole:
+        return a.info.kind == MediaKind::Image ? qint64{0} : a.info.durationUs;
     case DetailsRole:
         return describeMedia(a);
     case StatusRole:
@@ -116,7 +118,8 @@ QVariant MediaBinModel::data(const QModelIndex& index, int role) const
 QHash<int, QByteArray> MediaBinModel::roleNames() const
 {
     return {{IdRole, "assetId"},        {NameRole, "name"},           {KindRole, "kind"},
-            {DurationRole, "duration"}, {DetailsRole, "details"},     {StatusRole, "status"},
+            {DurationRole, "duration"}, {DurationUsRole, "durationUs"},
+            {DetailsRole, "details"},   {StatusRole, "status"},
             {FilePathRole, "filePath"}, {ThumbnailRole, "thumbnail"}, {UsageRole, "usage"},
             {TooltipRole, "tooltip"}};
 }
@@ -222,7 +225,10 @@ void MediaBinFilterModel::setSortMode(const QString& mode)
 {
     const QString requested = mode.toLower();
     const QString next =
-        requested == QLatin1String("name-asc") || requested == QLatin1String("name-desc")
+        requested == QLatin1String("name-asc") || requested == QLatin1String("name-desc") ||
+                requested == QLatin1String("duration-asc") ||
+                requested == QLatin1String("duration-desc") ||
+                requested == QLatin1String("usage-desc")
             ? requested
             : QStringLiteral("import");
     if (m_sortMode == next) {
@@ -243,6 +249,27 @@ bool MediaBinFilterModel::lessThan(const QModelIndex& left, const QModelIndex& r
     const QAbstractItemModel* model = sourceModel();
     if (!model) {
         return left.row() < right.row();
+    }
+    if (m_sortMode == QLatin1String("duration-asc") ||
+        m_sortMode == QLatin1String("duration-desc")) {
+        const qint64 a = model->data(left, MediaBinModel::DurationUsRole).toLongLong();
+        const qint64 b = model->data(right, MediaBinModel::DurationUsRole).toLongLong();
+        // Still images and assets with unknown durations do not belong at zero
+        // seconds when searching for short clips. Put them last in both modes.
+        const bool knownA = a > 0;
+        const bool knownB = b > 0;
+        if (knownA != knownB) {
+            return knownA;
+        }
+        if (knownA && a != b) {
+            return m_sortMode == QLatin1String("duration-asc") ? a < b : a > b;
+        }
+        return left.row() < right.row();
+    }
+    if (m_sortMode == QLatin1String("usage-desc")) {
+        const int a = model->data(left, MediaBinModel::UsageRole).toInt();
+        const int b = model->data(right, MediaBinModel::UsageRole).toInt();
+        return a == b ? left.row() < right.row() : a > b;
     }
     const QString a = model->data(left, MediaBinModel::NameRole).toString();
     const QString b = model->data(right, MediaBinModel::NameRole).toString();

@@ -329,20 +329,17 @@ QVariantMap MediaController::mediaProperties(const QString& assetId) const
     }
 
     const QString na = QStringLiteral("N/A");
-    const QString resolution =
-        info.hasVideo && info.width > 0 && info.height > 0
-            ? QStringLiteral("%1 × %2").arg(info.width).arg(info.height)
+    const QString resolution = info.hasVideo && info.width > 0 && info.height > 0
+                                   ? QStringLiteral("%1 × %2").arg(info.width).arg(info.height)
+                                   : na;
+    const QString frameRate =
+        info.hasVideo && info.frameRate.isValid()
+            ? QStringLiteral("%1 fps").arg(QString::number(info.frameRate.toDouble(), 'f', 3))
             : na;
-    const QString frameRate = info.hasVideo && info.frameRate.isValid()
-                                  ? QStringLiteral("%1 fps")
-                                        .arg(QString::number(info.frameRate.toDouble(), 'f', 3))
-                                  : na;
-    const QString duration = info.kind == MediaKind::Image
-                                 ? QStringLiteral("Still image")
-                                 : formatDuration(info.durationUs);
-    const QString fileSize = info.fileSize > 0
-                                 ? QLocale().formattedDataSize(info.fileSize)
-                                 : QStringLiteral("Unknown");
+    const QString duration = info.kind == MediaKind::Image ? QStringLiteral("Still image")
+                                                           : formatDuration(info.durationUs);
+    const QString fileSize =
+        info.fileSize > 0 ? QLocale().formattedDataSize(info.fileSize) : QStringLiteral("Unknown");
     const QString modified = info.lastModified.isValid()
                                  ? info.lastModified.toUTC().toString(Qt::ISODate)
                                  : QStringLiteral("Unknown");
@@ -358,16 +355,15 @@ QVariantMap MediaController::mediaProperties(const QString& assetId) const
         {QStringLiteral("videoCodec"), info.videoCodec.isEmpty() ? na : info.videoCodec},
         {QStringLiteral("audioCodec"), info.audioCodec.isEmpty() ? na : info.audioCodec},
         {QStringLiteral("container"), info.container.isEmpty() ? na : info.container},
-        {QStringLiteral("sampleRate"),
-         info.hasAudio && info.audioSampleRate > 0
-             ? QStringLiteral("%1 Hz").arg(info.audioSampleRate)
-             : na},
+        {QStringLiteral("sampleRate"), info.hasAudio && info.audioSampleRate > 0
+                                           ? QStringLiteral("%1 Hz").arg(info.audioSampleRate)
+                                           : na},
         {QStringLiteral("channels"),
          info.hasAudio && info.audioChannels > 0 ? QString::number(info.audioChannels) : na},
         {QStringLiteral("fileSize"), fileSize},
         {QStringLiteral("lastModified"), modified},
-        {QStringLiteral("timelineUses"),
-         QString::number(static_cast<qulonglong>(project.timeline().clipsUsingAsset(assetId).size()))},
+        {QStringLiteral("timelineUses"), QString::number(static_cast<qulonglong>(
+                                             project.timeline().clipsUsingAsset(assetId).size()))},
     };
 }
 

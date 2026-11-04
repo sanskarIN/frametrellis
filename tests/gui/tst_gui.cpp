@@ -569,6 +569,73 @@ private slots:
         QVERIFY(QMetaObject::invokeMethod(dialog, "close"));
     }
 
+    void independentSourceMonitorMarksWithoutChangingProgram()
+    {
+        const QString videoId =
+            m_app->media()->model()->get(0).value(QStringLiteral("assetId")).toString();
+        const QString audioId =
+            m_app->media()->model()->get(1).value(QStringLiteral("assetId")).toString();
+        QVERIFY(!videoId.isEmpty());
+        QVERIFY(!audioId.isEmpty());
+        const Project before = m_app->project()->project();
+        const QString undoBefore = m_app->project()->undoText();
+        const bool modifiedBefore = m_app->project()->isModified();
+        const FrameCount programBefore = m_app->playback()->positionFrames();
+
+        QObject* source = m_window->findChild<QObject*>(QStringLiteral("sourceMonitorPanel"));
+        QQuickItem* tabs = findItem(m_window->contentItem(), QStringLiteral("monitorTabs"));
+        QQuickItem* picture =
+            findItem(m_window->contentItem(), QStringLiteral("sourceMonitorFrameImage"));
+        QVERIFY(source);
+        QVERIFY(tabs);
+        QVERIFY(picture);
+        QVERIFY(source->property("assetId").toString().isEmpty());
+
+        QVERIFY(QMetaObject::invokeMethod(source, "openFor",
+                                          Q_ARG(QVariant, QVariant(videoId))));
+        QCOMPARE(source->property("assetId").toString(), videoId);
+        QVERIFY(source->property("hasPicture").toBool());
+        QVERIFY(tabs->setProperty("currentIndex", 1));
+        QVERIFY(source->setProperty("previewFrame", 13));
+        QTRY_VERIFY(picture->property("source").toString().contains(
+            QStringLiteral("frame=13&fpsNum=")));
+        QTRY_COMPARE_WITH_TIMEOUT(picture->property("status").toInt(), 1, 15000);
+        QVERIFY(QMetaObject::invokeMethod(source, "markIn"));
+        QCOMPARE(source->property("markInFrame").toInt(), 13);
+
+        QVERIFY(source->setProperty("previewFrame", 27));
+        QVERIFY(QMetaObject::invokeMethod(source, "markOut"));
+        QCOMPARE(source->property("markOutFrame").toInt(), 28);
+        QCOMPARE(m_app->project()->project(), before);
+        QCOMPARE(m_app->project()->undoText(), undoBefore);
+        QCOMPARE(m_app->project()->isModified(), modifiedBefore);
+        QCOMPARE(m_app->playback()->positionFrames(), programBefore);
+
+        // Invalid IDs cannot replace the loaded source or create an edit.
+        QVERIFY(QMetaObject::invokeMethod(source, "openFor",
+                                          Q_ARG(QVariant, QVariant(QStringLiteral("invalid")))));
+        QCOMPARE(source->property("assetId").toString(), videoId);
+        QCOMPARE(m_app->project()->project(), before);
+
+        QVERIFY(QMetaObject::invokeMethod(source, "appendRange"));
+        const Project changed = m_app->project()->project();
+        QCOMPARE(changed.timeline().clipCount(), before.timeline().clipCount() + 1);
+        const Clip* excerpt = changed.timeline().clip(m_app->timeline()->selection().first());
+        QVERIFY(excerpt);
+        QCOMPARE(excerpt->assetId, videoId);
+        QCOMPARE(excerpt->sourceIn, FrameCount{13});
+        QCOMPARE(excerpt->duration, FrameCount{15});
+        m_app->project()->undo();
+        QCOMPARE(m_app->project()->project(), before);
+
+        QVERIFY(QMetaObject::invokeMethod(source, "openFor",
+                                          Q_ARG(QVariant, QVariant(audioId))));
+        QVERIFY(!source->property("hasPicture").toBool());
+        QVERIFY(QMetaObject::invokeMethod(source, "clear"));
+        QVERIFY(source->property("assetId").toString().isEmpty());
+        QVERIFY(tabs->setProperty("currentIndex", 0));
+    }
+
     void appendSourceExcerptUsesExactSourceFramesAndUndo()
     {
         auto* timeline = m_app->timeline();

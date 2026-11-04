@@ -30,6 +30,7 @@ class PlaybackController : public QObject
     Q_PROPERTY(bool hasFrame READ hasFrame NOTIFY frameReady)
     Q_PROPERTY(QStringList warnings READ warnings NOTIFY warningsChanged)
     Q_PROPERTY(bool muted READ muted WRITE setMuted NOTIFY mutedChanged)
+    Q_PROPERTY(bool loopPreview READ loopPreview WRITE setLoopPreview NOTIFY loopPreviewChanged)
 
 public:
     PlaybackController(ProjectController* project, QObject* parent = nullptr);
@@ -45,6 +46,8 @@ public:
     [[nodiscard]] QStringList warnings() const { return m_warnings; }
     [[nodiscard]] bool muted() const { return m_muted; }
     void setMuted(bool muted);
+    [[nodiscard]] bool loopPreview() const { return m_loopPreview; }
+    void setLoopPreview(bool enabled);
     [[nodiscard]] FrameCount positionFrames() const { return m_position; }
     [[nodiscard]] const QImage& currentFrame() const { return m_frame; }
 
@@ -78,6 +81,7 @@ signals:
     void frameReady();
     void warningsChanged();
     void mutedChanged();
+    void loopPreviewChanged();
     void errorOccurred(const QString& message);
 
 private:
@@ -88,6 +92,7 @@ private:
     FrameCount m_position = 0;
     QStringList m_warnings;
     bool m_muted = false;
+    bool m_loopPreview = false;
 };
 
 } // namespace ft::ui

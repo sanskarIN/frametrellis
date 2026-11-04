@@ -14,6 +14,16 @@ further cross-platform packaging. See the [professional-editor assessment](../de
 and [roadmap](../roadmap.md). No features are claimed as released until
 their actual tag and packages are verified.
 
+## Post-v1.4.0 development changes (not in the stable download)
+
+- **Loop Preview:** the program monitor and Playback menu can repeat the
+  entire sequence during playback. It restarts at frame zero with a correctly
+  paced playback clock while retaining already-queued tail audio for continuity.
+  Turning it off restores normal stop-at-end behavior; this option neither changes
+  project files nor affects MP4 exports. Regression tests cover the audio-free
+  loop boundary, single-frame pacing and the real QML transport control.
+  **Only available after v1.4.0**, pending integration into a future release.
+
 ## Historical integration log for v1.4.0
 
 ## Integrated on main for the next milestone

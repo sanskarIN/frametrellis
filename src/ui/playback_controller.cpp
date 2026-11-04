@@ -76,6 +76,16 @@ void PlaybackController::setMuted(bool muted)
     emit mutedChanged();
 }
 
+void PlaybackController::setLoopPreview(bool enabled)
+{
+    if (enabled == m_loopPreview) {
+        return;
+    }
+    m_loopPreview = enabled;
+    m_engine.setLoopEnabled(enabled);
+    emit loopPreviewChanged();
+}
+
 void PlaybackController::syncNow()
 {
     m_syncTimer.stop();

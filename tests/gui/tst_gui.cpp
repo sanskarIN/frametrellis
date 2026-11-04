@@ -338,6 +338,29 @@ private slots:
         screenshot(QStringLiteral("03-timeline"));
     }
 
+    void loopPreviewToggleLeavesProjectAndUndoHistoryUnchanged()
+    {
+        QQuickItem* button = findItem(m_window->contentItem(), QStringLiteral("previewLoopToggle"));
+        QVERIFY(button);
+        QVERIFY(button->isEnabled());
+        QVERIFY(!m_app->playback()->loopPreview());
+        const Project before = m_app->project()->project();
+        const QString originalUndo = m_app->project()->undoText();
+        QSignalSpy changed(m_app->playback(), &ui::PlaybackController::loopPreviewChanged);
+
+        QTest::mouseClick(m_window, Qt::LeftButton, Qt::NoModifier, centreOf(button));
+        QCOMPARE(m_app->playback()->loopPreview(), true);
+        QCOMPARE(changed.size(), 1);
+        QCOMPARE(m_app->project()->project(), before);
+        QCOMPARE(m_app->project()->undoText(), originalUndo);
+
+        QTest::mouseClick(m_window, Qt::LeftButton, Qt::NoModifier, centreOf(button));
+        QCOMPARE(m_app->playback()->loopPreview(), false);
+        QCOMPARE(changed.size(), 2);
+        QCOMPARE(m_app->project()->project(), before);
+        QCOMPARE(m_app->project()->undoText(), originalUndo);
+    }
+
     void appendSourceExcerptUsesExactSourceFramesAndUndo()
     {
         auto* timeline = m_app->timeline();

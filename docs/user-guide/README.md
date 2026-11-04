@@ -465,6 +465,13 @@ Midpoint** seeks to the earlier middle visible frame of the entire sequence.
 An empty timeline has no midpoint. Clicking or dragging on the ruler
 moves the playhead. If no audio device is available, the preview plays silently.
 
+**Development builds after v1.4.0:** Select **Loop** in the program monitor
+or **Playback → Loop Preview** to repeat the current sequence from frame zero
+when it reaches the end. The button stays highlighted while looping is enabled.
+Disable it to resume normal stop-at-end playback. This is a preview-only
+transport option: it does not change project edits, Undo history, or export
+duration. It is **not included in the v1.4.0 stable Windows packages**.
+
 ## Media audit reports
 
 In v1.4.0, choose

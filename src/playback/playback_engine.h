@@ -44,6 +44,8 @@ public:
     /// Largest picture size the UI wants; frames keep the project's aspect ratio.
     void setMaximumPreviewSize(QSize size);
     void setAudioEnabled(bool enabled);
+    /// Repeat the sequence during preview playback; the default is to stop at the end.
+    void setLoopEnabled(bool enabled);
     void setVolume(double volume);
 
     [[nodiscard]] FrameCount position() const { return m_position.load(); }

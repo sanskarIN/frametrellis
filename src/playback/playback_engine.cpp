@@ -41,6 +41,7 @@ struct Command
         Step,
         PreviewSize,
         Audio,
+        Loop,
         Volume,
         Quit
     };
@@ -159,6 +160,7 @@ private:
     bool m_needsRender = false;
     bool m_playing = false;
     bool m_audioEnabled = true;
+    bool m_loopEnabled = false;
     double m_volume = 1.0;
     FrameCount m_position = 0;
     FrameCount m_duration = 0;
@@ -387,6 +389,9 @@ bool PlaybackEngine::Worker::applyCommands(std::deque<Command>& commands)
                 m_audio->clear();
             }
             break;
+        case Command::Type::Loop:
+            m_loopEnabled = command.flag;
+            break;
         case Command::Type::Volume:
             m_volume = std::clamp(command.value, 0.0, 2.0);
             break;
@@ -432,9 +437,22 @@ void PlaybackEngine::Worker::run()
         }
 
         if (m_position >= m_duration) {
-            m_position = std::max<FrameCount>(m_duration - 1, 0);
-            setPlaying(false);
-            continue;
+            if (m_loopEnabled && m_duration > 0) {
+                // The next first frame follows the last frame's scheduled duration.
+                // Without this pacing, a one-frame loop can spin at render speed.
+                const auto elapsed =
+                    m_profileRate.framesToMicroseconds(m_duration - m_clockStartFrame).value_or(0);
+                const auto nextStart = m_clockStart + std::chrono::microseconds(elapsed);
+                m_clockStart = std::max(nextStart, Clock::now());
+                m_clockStartFrame = 0;
+                m_position = 0;
+                // Keep the tail already queued to the speaker. Frame-zero audio
+                // is appended after it, rather than cutting the end of the loop.
+            } else {
+                m_position = std::max<FrameCount>(m_duration - 1, 0);
+                setPlaying(false);
+                continue;
+            }
         }
         m_needsRender = false;
         QImage image;
@@ -566,6 +584,13 @@ void PlaybackEngine::setMaximumPreviewSize(QSize size)
 void PlaybackEngine::setAudioEnabled(bool enabled)
 {
     Command c{Command::Type::Audio};
+    c.flag = enabled;
+    m_worker->post(std::move(c));
+}
+
+void PlaybackEngine::setLoopEnabled(bool enabled)
+{
+    Command c{Command::Type::Loop};
     c.flag = enabled;
     m_worker->post(std::move(c));
 }

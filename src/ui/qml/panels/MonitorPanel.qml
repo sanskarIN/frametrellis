@@ -141,6 +141,16 @@ PanelFrame {
                 Item { Layout.fillWidth: true }
 
                 IconButton {
+                    objectName: "previewLoopToggle"
+                    iconName: "repeat"
+                    tip: panel.playback.loopPreview ? qsTr("Disable Loop Preview") : qsTr("Loop Preview")
+                    active: panel.playback.loopPreview
+                    enabled: !panel.app.timeline.empty
+                    Accessible.description: qsTr("Repeat sequence playback without changing exported video")
+                    onClicked: panel.playback.loopPreview = !panel.playback.loopPreview
+                }
+
+                IconButton {
                     iconName: panel.playback.muted || !panel.playback.audioAvailable ? "volume-off" : "volume"
                     tip: !panel.playback.audioAvailable ? qsTr("No audio device: the preview plays silently")
                          : panel.playback.muted ? qsTr("Unmute preview") : qsTr("Mute preview")

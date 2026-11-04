@@ -516,10 +516,8 @@ private slots:
     void sourceExcerptFramePreviewIsFrameAccurateAndReadOnly()
     {
         auto* media = m_app->media();
-        const QString videoId =
-            media->model()->get(0).value(QStringLiteral("assetId")).toString();
-        const QString audioId =
-            media->model()->get(1).value(QStringLiteral("assetId")).toString();
+        const QString videoId = media->model()->get(0).value(QStringLiteral("assetId")).toString();
+        const QString audioId = media->model()->get(1).value(QStringLiteral("assetId")).toString();
         const FrameRate rate = m_app->project()->project().settings().frameRate;
         const int length = static_cast<int>(m_app->timeline()->assetDuration(videoId));
         QVERIFY(length > 60);
@@ -542,17 +540,16 @@ private slots:
         const bool modifiedBefore = m_app->project()->isModified();
         QObject* dialog = m_window->findChild<QObject*>(QStringLiteral("sourceExcerptDialog"));
         QVERIFY(dialog);
-        QVERIFY(QMetaObject::invokeMethod(
-            dialog, "openFor", Q_ARG(QVariant, QVariant(videoId)),
-            Q_ARG(QVariant, QVariant(QStringLiteral("Preview test")))));
+        QVERIFY(
+            QMetaObject::invokeMethod(dialog, "openFor", Q_ARG(QVariant, QVariant(videoId)),
+                                      Q_ARG(QVariant, QVariant(QStringLiteral("Preview test")))));
         QTRY_VERIFY(dialog->property("visible").toBool());
 
         QQuickItem* previewFrame =
             findItem(m_window->contentItem(), QStringLiteral("sourcePreviewFrame"));
         QQuickItem* previewImage =
             findItem(m_window->contentItem(), QStringLiteral("sourceFramePreviewImage"));
-        QQuickItem* inFrame =
-            findItem(m_window->contentItem(), QStringLiteral("sourceExcerptIn"));
+        QQuickItem* inFrame = findItem(m_window->contentItem(), QStringLiteral("sourceExcerptIn"));
         QQuickItem* outFrame =
             findItem(m_window->contentItem(), QStringLiteral("sourceExcerptOut"));
         QVERIFY(previewFrame);

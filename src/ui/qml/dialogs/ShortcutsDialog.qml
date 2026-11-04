@@ -11,15 +11,16 @@ FtDialog {
     implicitWidth: 520
 
     readonly property var shortcuts: [
-        ["Space", qsTr("Play / pause")],
+        ["Space", qsTr("Play / pause Program (Program tab only)")],
         ["Ctrl+Alt+L", qsTr("Toggle Loop Preview (after v1.4.0)")],
-        ["Left / Right", qsTr("Previous / next frame")],
+        ["Left / Right", qsTr("Step one frame in active Program / Source tab")],
+        ["I / O", qsTr("Set Source In / Out mark (after v1.4.0)")],
         ["Shift+Left / Shift+Right", qsTr("Back / forward one second")],
         ["Ctrl+Left / Ctrl+Right", qsTr("Back / forward five seconds")],
         ["Ctrl+Shift+Left / Right", qsTr("Back / forward ten seconds")],
         ["Up / Down", qsTr("Previous / next edit point")],
-        ["Home / End", qsTr("Go to start / end")],
-        ["Ctrl+G", qsTr("Go to a timecode within the sequence")],
+        ["Home / End", qsTr("Go to start / end of active monitor")],
+        ["Ctrl+G", qsTr("Go to Program sequence timecode")],
         ["Shift+M", qsTr("Add a timeline review marker")],
         ["Ctrl+PgUp / PgDown", qsTr("Previous / next sequence marker")],
         ["S", qsTr("Split at playhead")],

@@ -405,6 +405,28 @@ bool MediaController::copyMediaProperties(const QString& assetId)
     return true;
 }
 
+QString MediaController::sourcePreviewUrl(const QString& assetId, int sourceFrame) const
+{
+    const Project& project = m_project->project();
+    const MediaAsset* asset = project.asset(assetId);
+    if (!asset || asset->info.kind != MediaKind::Video || !asset->info.hasVideo ||
+        asset->status == MediaStatus::Missing || sourceFrame < 0) {
+        return {};
+    }
+    const FrameRate& rate = project.settings().frameRate;
+    const auto total = asset->lengthInFrames(rate);
+    if (!total || sourceFrame >= *total) {
+        return {};
+    }
+    // Only a validated project asset ID is embedded here: file paths are never
+    // exposed to image-provider URLs, and the rate is kept rational (e.g. 30000/1001).
+    return QStringLiteral("image://ft-thumbnail/%1?frame=%2&fpsNum=%3&fpsDen=%4")
+        .arg(assetId)
+        .arg(sourceFrame)
+        .arg(rate.numerator())
+        .arg(rate.denominator());
+}
+
 void MediaController::revealInFolder(const QString& assetId) const
 {
     if (const MediaAsset* asset = m_project->project().asset(assetId)) {

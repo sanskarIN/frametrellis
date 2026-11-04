@@ -284,6 +284,12 @@ PanelFrame {
                     text: qsTr("Audio-only source — no picture available")
                     color: Theme.textMuted
                 }
+                Label {
+                    anchors.centerIn: parent
+                    visible: excerptDialog.hasPicture && sourceFrameImage.status === Image.Error
+                    text: qsTr("Frame preview unavailable. Check the source file.")
+                    color: Theme.danger
+                }
             }
             RowLayout {
                 Layout.fillWidth: true

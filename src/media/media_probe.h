@@ -26,4 +26,10 @@ Result<MediaAsset> createAsset(const QString& filePath);
 /// Renders a representative picture of a video or image file, scaled to fit maxSize.
 Result<QImage> renderThumbnail(const QString& filePath, const MediaInfo& info, QSize maxSize);
 
+/// Render a specified source frame at the project's exact frame rate. Positions are
+/// project-rate source frames, matching appendAssetRange() semantics. Invalid or
+/// out-of-range frames fail without decoding, and audio-only sources are rejected.
+Result<QImage> renderSourceFrame(const QString& filePath, const MediaInfo& info, QSize maxSize,
+                                FrameCount sourceFrame, const FrameRate& projectRate);
+
 } // namespace ft::media

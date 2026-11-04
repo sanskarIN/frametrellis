@@ -173,8 +173,7 @@ every imported file again. Filtering never removes files from the project.
   header and choose **Select all clips on track** to select that track's clips.
   These commands can select locked tracks for inspection, but do not bypass
   lock protection on editing. If no clips match, the existing selection remains.
-  Selection actions never change project edits or undo history and are not in
-  available in the v1.4.0 release.
+  Selection actions never change project edits or undo history.
 
 Every change can be undone (Ctrl+Z) and redone (Ctrl+Shift+Z).
 

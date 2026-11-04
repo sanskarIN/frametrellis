@@ -381,8 +381,7 @@ private slots:
     void mediaPropertiesInspectorIsReadOnly()
     {
         auto* media = m_app->media();
-        const QString assetId =
-            media->model()->get(0).value(QStringLiteral("assetId")).toString();
+        const QString assetId = media->model()->get(0).value(QStringLiteral("assetId")).toString();
         QVERIFY(!assetId.isEmpty());
         const Project before = m_app->project()->project();
         const QString undoBefore = m_app->project()->undoText();

@@ -12,6 +12,7 @@ FtDialog {
 
     readonly property var shortcuts: [
         ["Space", qsTr("Play / pause")],
+        ["Ctrl+Alt+L", qsTr("Toggle Loop Preview (after v1.4.0)")],
         ["Left / Right", qsTr("Previous / next frame")],
         ["Shift+Left / Shift+Right", qsTr("Back / forward one second")],
         ["Ctrl+Left / Ctrl+Right", qsTr("Back / forward five seconds")],

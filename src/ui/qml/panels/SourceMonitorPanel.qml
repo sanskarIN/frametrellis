@@ -1,0 +1,282 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+// SPDX-FileCopyrightText: 2026 Sanskar and FrameTrellis contributors
+import QtQuick
+import QtQuick.Controls.Basic
+import QtQuick.Layouts
+import FrameTrellis
+
+// Independent, silent source monitor. Its position and marks do not affect the program playhead.
+// A successful Append Range is the only operation here that edits the timeline.
+PanelFrame {
+    id: panel
+    objectName: "sourceMonitorPanel"
+    required property AppController app
+
+    property string assetId: ""
+    property string sourceName: ""
+    property int maxFrames: 0
+    property int previewFrame: 0
+    property int pictureFrame: 0
+    property int markInFrame: 0
+    property int markOutFrame: 0
+    property bool hasPicture: false
+    readonly property bool loaded: assetId.length > 0
+    readonly property bool validRange: loaded && markOutFrame > markInFrame
+                                       && markOutFrame <= maxFrames
+
+    title: loaded ? qsTr("Source — %1").arg(sourceName) : qsTr("Source Monitor")
+
+    function clear() {
+        decodeTimer.stop()
+        assetId = ""
+        sourceName = ""
+        maxFrames = 0
+        previewFrame = 0
+        pictureFrame = 0
+        markInFrame = 0
+        markOutFrame = 0
+        hasPicture = false
+    }
+
+    function openFor(id) {
+        const facts = app.media.mediaProperties(id)
+        const duration = Math.floor(app.timeline.assetDuration(id))
+        if (!facts.assetId || (facts.kind !== "video" && facts.kind !== "audio")
+                || facts.status === "Offline (missing)" || !Number.isFinite(duration)
+                || duration < 1 || duration > 2147483647) {
+            app.showStatus(qsTr("This source cannot be opened in the Source Monitor."))
+            return false
+        }
+        decodeTimer.stop()
+        assetId = id
+        sourceName = facts.name
+        maxFrames = duration
+        hasPicture = facts.kind === "video"
+        markInFrame = 0
+        markOutFrame = duration
+        previewFrame = 0
+        pictureFrame = 0
+        return true
+    }
+
+    function step(frames) {
+        if (!loaded || frames === 0)
+            return false
+        const target = Math.max(0, Math.min(maxFrames - 1, previewFrame + frames))
+        if (target === previewFrame)
+            return false
+        previewFrame = target
+        return true
+    }
+
+    function markIn() {
+        if (!loaded || previewFrame >= markOutFrame)
+            return false
+        markInFrame = previewFrame
+        return true
+    }
+
+    function markOut() {
+        if (!loaded || previewFrame < markInFrame)
+            return false
+        // The Out boundary is exclusive. The displayed picture itself is included.
+        markOutFrame = previewFrame + 1
+        return true
+    }
+
+    function appendRange() {
+        return validRange
+               && app.timeline.appendAssetRange(assetId, markInFrame, markOutFrame)
+    }
+
+    // Clear the source on project replacement or removal, so stale asset IDs cannot
+    // become an accidental edit in a different document.
+    Connections {
+        target: panel.app.project
+        function onDocumentReplaced() { panel.clear() }
+        function onProjectChanged() {
+            if (panel.loaded && !panel.app.media.mediaProperties(panel.assetId).assetId)
+                panel.clear()
+        }
+    }
+
+    Timer {
+        id: decodeTimer
+        interval: 100
+        repeat: false
+        onTriggered: panel.pictureFrame = panel.previewFrame
+    }
+    onPreviewFrameChanged: {
+        if (loaded)
+            decodeTimer.restart()
+    }
+
+    ColumnLayout {
+        anchors.fill: parent
+        spacing: Theme.spacingS
+
+        Item {
+            Layout.fillWidth: true
+            Layout.fillHeight: true
+            Rectangle {
+                anchors.fill: parent
+                color: Theme.monitorBackground
+                radius: Theme.radiusSmall
+            }
+            Image {
+                id: sourceImage
+                objectName: "sourceMonitorFrameImage"
+                anchors.fill: parent
+                anchors.margins: Theme.spacingS
+                source: panel.loaded && panel.hasPicture
+                        ? panel.app.media.sourcePreviewUrl(panel.assetId, panel.pictureFrame) : ""
+                sourceSize.width: 640
+                sourceSize.height: 360
+                fillMode: Image.PreserveAspectFit
+                asynchronous: true
+                cache: false
+                Accessible.role: Accessible.Graphic
+                Accessible.name: qsTr("Source frame %1").arg(panel.pictureFrame)
+            }
+            BusyIndicator {
+                anchors.centerIn: parent
+                running: sourceImage.status === Image.Loading
+                visible: running
+            }
+            Label {
+                anchors.centerIn: parent
+                visible: !panel.loaded
+                text: qsTr("Right-click a video or audio file in Media to open it here.")
+                color: Theme.textMuted
+                width: Math.max(0, parent.width - 32)
+                horizontalAlignment: Text.AlignHCenter
+                wrapMode: Text.WordWrap
+            }
+            Label {
+                anchors.centerIn: parent
+                visible: panel.loaded && !panel.hasPicture
+                text: qsTr("Audio source — no picture")
+                color: Theme.textMuted
+            }
+            Label {
+                anchors.centerIn: parent
+                visible: panel.loaded && panel.hasPicture && sourceImage.status === Image.Error
+                text: qsTr("Could not decode this source frame.")
+                color: Theme.danger
+            }
+        }
+
+        RowLayout {
+            Layout.fillWidth: true
+            Layout.leftMargin: Theme.spacingS
+            Layout.rightMargin: Theme.spacingS
+            spacing: Theme.spacingS
+            IconButton {
+                objectName: "sourceMonitorFirst"
+                iconName: "skip-start"
+                tip: qsTr("First source frame")
+                enabled: panel.loaded && panel.previewFrame > 0
+                onClicked: panel.previewFrame = 0
+            }
+            IconButton {
+                objectName: "sourceMonitorBack"
+                iconName: "step-back"
+                tip: qsTr("Previous source frame")
+                enabled: panel.loaded && panel.previewFrame > 0
+                onClicked: panel.step(-1)
+            }
+            SpinBox {
+                id: frameSpin
+                objectName: "sourceMonitorFrame"
+                from: 0
+                to: Math.max(0, panel.maxFrames - 1)
+                value: panel.previewFrame
+                editable: true
+                enabled: panel.loaded
+                Layout.fillWidth: true
+                Accessible.name: qsTr("Source preview frame")
+                onValueModified: panel.previewFrame = value
+            }
+            IconButton {
+                objectName: "sourceMonitorForward"
+                iconName: "step-forward"
+                tip: qsTr("Next source frame")
+                enabled: panel.loaded && panel.previewFrame < panel.maxFrames - 1
+                onClicked: panel.step(1)
+            }
+            IconButton {
+                objectName: "sourceMonitorLast"
+                iconName: "skip-end"
+                tip: qsTr("Last source frame")
+                enabled: panel.loaded && panel.previewFrame < panel.maxFrames - 1
+                onClicked: panel.previewFrame = panel.maxFrames - 1
+            }
+        }
+        Slider {
+            objectName: "sourceMonitorScrubber"
+            Layout.fillWidth: true
+            Layout.leftMargin: Theme.spacingS
+            Layout.rightMargin: Theme.spacingS
+            from: 0
+            to: Math.max(0, panel.maxFrames - 1)
+            stepSize: 1
+            snapMode: Slider.SnapAlways
+            value: panel.previewFrame
+            enabled: panel.loaded
+            onMoved: panel.previewFrame = Math.round(value)
+            Accessible.name: qsTr("Scrub source independently from the sequence")
+        }
+        RowLayout {
+            Layout.fillWidth: true
+            Layout.leftMargin: Theme.spacingS
+            Layout.rightMargin: Theme.spacingS
+            spacing: Theme.spacingS
+            FtButton {
+                objectName: "sourceMonitorMarkIn"
+                text: qsTr("Mark In")
+                enabled: panel.loaded && panel.previewFrame < panel.markOutFrame
+                onClicked: panel.markIn()
+            }
+            Label {
+                color: Theme.textMuted
+                font.family: Theme.monoFamily
+                text: panel.markInFrame + " – " + panel.markOutFrame
+                Accessible.name: qsTr("In %1, exclusive Out %2").arg(panel.markInFrame).arg(panel.markOutFrame)
+                Layout.fillWidth: true
+                horizontalAlignment: Text.AlignHCenter
+            }
+            FtButton {
+                objectName: "sourceMonitorMarkOut"
+                text: qsTr("Mark Out")
+                enabled: panel.loaded && panel.previewFrame >= panel.markInFrame
+                onClicked: panel.markOut()
+            }
+        }
+        RowLayout {
+            Layout.fillWidth: true
+            Layout.leftMargin: Theme.spacingS
+            Layout.rightMargin: Theme.spacingS
+            Layout.bottomMargin: Theme.spacingS
+            spacing: Theme.spacingS
+            Label {
+                Layout.fillWidth: true
+                color: Theme.textFaint
+                text: panel.loaded
+                      ? qsTr("%1 of %2 source frames (Out exclusive)")
+                            .arg(panel.markOutFrame - panel.markInFrame).arg(panel.maxFrames)
+                      : qsTr("Choose media to preview.")
+                elide: Text.ElideRight
+            }
+            FtButton {
+                objectName: "sourceMonitorAppend"
+                text: qsTr("Append range")
+                primary: true
+                enabled: panel.validRange
+                onClicked: {
+                    if (!panel.appendRange())
+                        panel.app.showStatus(qsTr("Could not append this source range."))
+                }
+            }
+        }
+    }
+}

@@ -631,7 +631,10 @@ silent frame-accurate preview of the loaded original media. Switch between tabs
 without seeking the timeline or changing its playback position.
 
 The Source tab offers **First/Previous/Next/Last frame** buttons, a numeric
-frame selector, a scrubber, and **Mark In / Mark Out** actions. Marks are measured
+frame selector, a scrubber, and **Mark In / Mark Out** actions. Use **Left/Right**
+to step the active monitor, **Home/End** for its first/last frame, and **I/O**
+to mark Source In/Out. **Space** plays the Program monitor only (and is disabled
+when the Source tab is active). Marks are measured
 in **project-rate frames**, with an **exclusive Out boundary**; for example,
 marking In on displayed frame 13 and Out on displayed frame 27 selects the
 half-open range [13, 28), exactly 15 frames. Click **Append range** to create

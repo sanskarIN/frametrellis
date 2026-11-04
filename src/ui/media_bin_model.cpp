@@ -117,10 +117,16 @@ QVariant MediaBinModel::data(const QModelIndex& index, int role) const
 
 QHash<int, QByteArray> MediaBinModel::roleNames() const
 {
-    return {{IdRole, "assetId"},        {NameRole, "name"},           {KindRole, "kind"},
-            {DurationRole, "duration"}, {DurationUsRole, "durationUs"},
-            {DetailsRole, "details"},   {StatusRole, "status"},
-            {FilePathRole, "filePath"}, {ThumbnailRole, "thumbnail"}, {UsageRole, "usage"},
+    return {{IdRole, "assetId"},
+            {NameRole, "name"},
+            {KindRole, "kind"},
+            {DurationRole, "duration"},
+            {DurationUsRole, "durationUs"},
+            {DetailsRole, "details"},
+            {StatusRole, "status"},
+            {FilePathRole, "filePath"},
+            {ThumbnailRole, "thumbnail"},
+            {UsageRole, "usage"},
             {TooltipRole, "tooltip"}};
 }
 
@@ -224,13 +230,13 @@ QString MediaBinFilterModel::sortMode() const
 void MediaBinFilterModel::setSortMode(const QString& mode)
 {
     const QString requested = mode.toLower();
-    const QString next =
-        requested == QLatin1String("name-asc") || requested == QLatin1String("name-desc") ||
-                requested == QLatin1String("duration-asc") ||
-                requested == QLatin1String("duration-desc") ||
-                requested == QLatin1String("usage-desc")
-            ? requested
-            : QStringLiteral("import");
+    const QString next = requested == QLatin1String("name-asc") ||
+                                 requested == QLatin1String("name-desc") ||
+                                 requested == QLatin1String("duration-asc") ||
+                                 requested == QLatin1String("duration-desc") ||
+                                 requested == QLatin1String("usage-desc")
+                             ? requested
+                             : QStringLiteral("import");
     if (m_sortMode == next) {
         return;
     }
@@ -238,8 +244,9 @@ void MediaBinFilterModel::setSortMode(const QString& mode)
     if (m_sortMode == QLatin1String("import")) {
         sort(-1); // Restore the original imported order; never reorder project assets.
     } else {
-        sort(0,
-             m_sortMode == QLatin1String("name-desc") ? Qt::DescendingOrder : Qt::AscendingOrder);
+        // lessThan implements the requested direction. Reversing Qt's sort order
+        // would reverse its unknown-duration-last and stable tie policies too.
+        sort(0, Qt::AscendingOrder);
     }
     emit sortModeChanged();
 }
@@ -274,7 +281,10 @@ bool MediaBinFilterModel::lessThan(const QModelIndex& left, const QModelIndex& r
     const QString a = model->data(left, MediaBinModel::NameRole).toString();
     const QString b = model->data(right, MediaBinModel::NameRole).toString();
     const int comparison = QString::compare(a, b, Qt::CaseInsensitive);
-    return comparison == 0 ? left.row() < right.row() : comparison < 0;
+    if (comparison == 0) {
+        return left.row() < right.row();
+    }
+    return m_sortMode == QLatin1String("name-desc") ? comparison > 0 : comparison < 0;
 }
 
 int MediaBinFilterModel::count() const

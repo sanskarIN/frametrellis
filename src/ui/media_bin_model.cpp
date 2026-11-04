@@ -241,11 +241,12 @@ void MediaBinFilterModel::setSortMode(const QString& mode)
         return;
     }
     m_sortMode = next;
-    if (m_sortMode == QLatin1String("import")) {
-        sort(-1); // Restore the original imported order; never reorder project assets.
-    } else {
-        // lessThan implements the requested direction. Reversing Qt's sort order
-        // would reverse its unknown-duration-last and stable tie policies too.
+    // Reset the proxy's active sort column before changing modes: two modes can
+    // use the same Qt direction but a different comparison. Calling sort(0)
+    // again without resetting may keep the previous cached proxy ordering.
+    sort(-1); // Also restores import order when the requested mode is "import".
+    if (m_sortMode != QLatin1String("import")) {
+        // lessThan handles direction and unknown-duration-last consistently.
         sort(0, Qt::AscendingOrder);
     }
     emit sortModeChanged();

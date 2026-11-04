@@ -25,6 +25,7 @@ public:
         NameRole,
         KindRole,
         DurationRole,
+        DurationUsRole,
         DetailsRole,
         StatusRole,
         FilePathRole,
@@ -59,8 +60,8 @@ private:
     int m_revision = 0;
 };
 
-/// Keeps the media bin responsive by filtering model rows before QML creates tiles.
-/// Filtering does not change or reorder the project's actual media collection.
+/// Keeps the media bin responsive by filtering and sorting model rows before QML creates tiles.
+/// Sorting never changes the project's media order; missing durations are sorted last.
 class MediaBinFilterModel : public QSortFilterProxyModel
 {
     Q_OBJECT

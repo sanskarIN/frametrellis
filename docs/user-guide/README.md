@@ -613,6 +613,15 @@ this feature does not yet provide a dedicated source playback monitor, proxy
 generation, or synchronized automatic insertion of separate video/audio lanes.
 It is available in v1.4.0.
 
+**New in post-v1.4.0 development:** the source-excerpt dialog now displays an
+asynchronously decoded picture of the exact video source frame. Scrub the
+slider or enter a **Preview frame** number to inspect the source, then choose
+**Mark In** or **Mark Out**. Out remains exclusive, so marking Out at displayed
+frame 29 means the excerpt ends at boundary 30. Audio-only media has no visual
+preview, but its In/Out fields remain editable. This preview is silent and
+read-only; it never replaces the edited sequence in the Program monitor or
+creates an edit until you click **Append excerpt**.
+
 ### Export a media audit as CSV
 
 Choose **File → Export Media Audit (CSV)…** to save a read-only UTF-8 CSV

@@ -15,6 +15,7 @@ PanelFrame {
     readonly property bool excerptDialogOpen: excerptDialog.visible
     signal importRequested()
     signal relinkRequested(string assetId, string name)
+    signal sourceMonitorRequested(string assetId)
 
     MediaBinFilterModel {
         id: filteredMedia
@@ -597,6 +598,12 @@ PanelFrame {
                     text: qsTr("Add to timeline")
                     enabled: tile.status !== "missing"
                     onTriggered: panel.app.timeline.appendAsset(tile.assetId)
+                }
+                MenuItem {
+                    text: qsTr("Open in Source Monitor")
+                    enabled: tile.status !== "missing" && tile.kind !== "image"
+                             && panel.app.timeline.assetDuration(tile.assetId) > 0
+                    onTriggered: panel.sourceMonitorRequested(tile.assetId)
                 }
                 MenuItem {
                     text: qsTr("Append source excerpt…")

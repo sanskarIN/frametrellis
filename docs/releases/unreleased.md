@@ -16,6 +16,11 @@ their actual tag and packages are verified.
 
 ## Post-v1.4.0 development changes (not in the stable download)
 
+- **Frame-accurate source excerpt preview:** scrub video before appending a
+  non-destructive clip range. Preview frames are decoded asynchronously at the
+  exact project rate, with Mark In / Mark Out controls. Audio-only excerpts
+  retain numeric range editing; the Program monitor and export are unchanged.
+
 - **Find timeline uses from Media Bin:** right-click a used source to select all
   matching timeline clips or jump the playhead to its earliest clip. This works
   across tracks without changing source files, project edits, or Undo history.

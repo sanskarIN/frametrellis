@@ -5,9 +5,9 @@
 #include "media/media_probe.h"
 
 #include <QQuickTextureFactory>
-#include <QUrlQuery>
 #include <QRunnable>
 #include <QThreadPool>
+#include <QUrlQuery>
 
 namespace ft::ui {
 
@@ -38,8 +38,7 @@ class ThumbnailResponse : public QQuickImageResponse, public QRunnable
 public:
     ThumbnailResponse(std::optional<ThumbnailRegistry::Entry> entry,
                       std::shared_ptr<media::ThumbnailCache> cache, QSize size,
-                      std::optional<FrameCount> sourceFrame,
-                      std::optional<FrameRate> projectRate)
+                      std::optional<FrameCount> sourceFrame, std::optional<FrameRate> projectRate)
         : m_entry(std::move(entry))
         , m_cache(std::move(cache))
         , m_size(size)
@@ -52,8 +51,8 @@ public:
     void run() override
     {
         if (m_entry && m_sourceFrame && m_projectRate) {
-            const auto result = media::renderSourceFrame(
-                m_entry->filePath, m_entry->info, m_size, *m_sourceFrame, *m_projectRate);
+            const auto result = media::renderSourceFrame(m_entry->filePath, m_entry->info, m_size,
+                                                         *m_sourceFrame, *m_projectRate);
             if (result) {
                 m_image = *result;
             }
@@ -105,10 +104,8 @@ QQuickImageResponse* ThumbnailProvider::requestImageResponse(const QString& id,
     bool frameOk = false;
     bool numeratorOk = false;
     bool denominatorOk = false;
-    const FrameCount frame =
-        query.queryItemValue(QStringLiteral("frame")).toLongLong(&frameOk);
-    const auto numerator =
-        query.queryItemValue(QStringLiteral("fpsNum")).toLongLong(&numeratorOk);
+    const FrameCount frame = query.queryItemValue(QStringLiteral("frame")).toLongLong(&frameOk);
+    const auto numerator = query.queryItemValue(QStringLiteral("fpsNum")).toLongLong(&numeratorOk);
     const auto denominator =
         query.queryItemValue(QStringLiteral("fpsDen")).toLongLong(&denominatorOk);
     std::optional<FrameCount> sourceFrame;
@@ -119,8 +116,8 @@ QQuickImageResponse* ThumbnailProvider::requestImageResponse(const QString& id,
             sourceFrame = frame;
         }
     }
-    auto* response = new ThumbnailResponse(m_registry->find(assetId), m_cache, size,
-                                           sourceFrame, projectRate);
+    auto* response =
+        new ThumbnailResponse(m_registry->find(assetId), m_cache, size, sourceFrame, projectRate);
     QThreadPool::globalInstance()->start(response);
     return response;
 }

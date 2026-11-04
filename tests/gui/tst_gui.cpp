@@ -229,7 +229,8 @@ private slots:
              {QStringLiteral("duration-asc"), QStringLiteral("duration-desc")}) {
             filter.setSortMode(mode);
             bool sawUnknown = false;
-            qint64 previous = mode == QLatin1String("duration-asc") ? 0 : std::numeric_limits<qint64>::max();
+            qint64 previous =
+                mode == QLatin1String("duration-asc") ? 0 : std::numeric_limits<qint64>::max();
             for (int i = 0; i < total; ++i) {
                 const qint64 current =
                     filter.data(filter.index(i, 0), ui::MediaBinModel::DurationUsRole).toLongLong();
@@ -360,8 +361,8 @@ private slots:
         QVERIFY2(m_qmlWarnings.isEmpty(), "Media-bin tile interaction emitted QML warnings");
         QTRY_COMPARE(usedFilter.count(), 1);
         QTRY_COMPARE(unusedFilter.count(), totalMedia - 1);
-        QTRY_COMPARE(
-            usageSort.data(usageSort.index(0, 0), ui::MediaBinModel::UsageRole).toInt(), 1);
+        QTRY_COMPARE(usageSort.data(usageSort.index(0, 0), ui::MediaBinModel::UsageRole).toInt(),
+                     1);
         // Append the remaining media through the same action.
         for (int row = 1; row < m_app->media()->model()->rowCount(); ++row) {
             QVERIFY(m_app->timeline()->appendAsset(

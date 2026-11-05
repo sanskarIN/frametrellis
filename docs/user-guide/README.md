@@ -622,6 +622,31 @@ preview, but its In/Out fields remain editable. This preview is silent and
 read-only; it never replaces the edited sequence in the Program monitor or
 creates an edit until you click **Append excerpt**.
 
+### Independent Source Monitor (post-v1.4.0 development)
+
+Use **Open in Source Monitor** from the Media Bin's right-click menu for any
+online video or audio source. The monitor workspace now has **Program** and
+**Source** tabs. Program shows the edited timeline; Source displays a separate,
+silent frame-accurate preview of the loaded original media. Switch between tabs
+without seeking the timeline or changing its playback position.
+
+The Source tab offers **First/Previous/Next/Last frame** buttons, a numeric
+frame selector, a scrubber, and **Mark In / Mark Out** actions. Use **Left/Right**
+to step the active monitor, **Home/End** for its first/last frame, and **I/O**
+to mark Source In/Out. **Space** plays the Program monitor only (and is disabled
+when the Source tab is active). Marks are measured
+in **project-rate frames**, with an **exclusive Out boundary**; for example,
+marking In on displayed frame 13 and Out on displayed frame 27 selects the
+half-open range [13, 28), exactly 15 frames. Click **Append range** to create
+one undoable clip on the first compatible unlocked track. Changing the source,
+scrubbing or setting marks alone never modifies the project. The panel clears
+a source when its project is closed/replaced or that media is removed.
+
+This is an independent **silent frame viewer**, not yet a source player with
+audio transport, automatic linked video/audio insertion, overwrite editing, or
+full three-point editing. For those workflows, see the
+[professional-editor gap assessment](../development/pro-editor-assessment.md).
+
 ### Export a media audit as CSV
 
 Choose **File → Export Media Audit (CSV)…** to save a read-only UTF-8 CSV

@@ -16,6 +16,12 @@ their actual tag and packages are verified.
 
 ## Post-v1.4.0 development changes (not in the stable download)
 
+- **Independent Source Monitor:** a separate Source tab opens original video
+  or audio from the Media Bin and keeps its preview position and exact
+  In/Out marks separate from the Program playhead. Frame stepping, scrubbing
+  and a deliberate undoable **Append range** action are available. The
+  viewer is silent, not yet full three-point insert/overwrite editing.
+
 - **Frame-accurate source excerpt preview:** scrub video before appending a
   non-destructive clip range. Preview frames are decoded asynchronously at the
   exact project rate, with Mark In / Mark Out controls. Audio-only excerpts

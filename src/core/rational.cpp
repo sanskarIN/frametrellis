@@ -88,8 +88,7 @@ std::optional<std::int64_t> mulDiv(std::int64_t a, std::int64_t b, std::int64_t 
         case Rounding::Nearest: {
             // Compare against ceil(c / 2) rather than doubling the remainder; doubling
             // can overflow for large positive divisors even when the result fits.
-            const std::int64_t magnitude =
-                fracRemainder < 0 ? -fracRemainder : fracRemainder;
+            const std::int64_t magnitude = fracRemainder < 0 ? -fracRemainder : fracRemainder;
             if (magnitude >= c / 2 + c % 2) {
                 fracQuotient += fracRemainder < 0 ? -1 : 1;
             }

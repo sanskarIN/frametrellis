@@ -109,6 +109,11 @@ public:
     Q_INVOKABLE bool placeSynchronizedAssetRangeAtPlayhead(const QString& assetId,
                                                            const QString& targetTrackId,
                                                            int sourceInFrame, int sourceOutFrame);
+    /// Replace the selected clip's media with an exactly matching source excerpt,
+    /// preserving the selected clip's timeline edges, ID and scalar properties.
+    /// Source-anchored automation is cleared; unsafe transitions are refused.
+    Q_INVOKABLE bool replaceSelectionWithAssetRange(const QString& assetId, int sourceInFrame,
+                                                    int sourceOutFrame);
     /// Whether at least one unlocked video track can receive a new title.
     [[nodiscard]] bool canAppendTitle() const;
     /// Append a title still to the uppermost unlocked video track.

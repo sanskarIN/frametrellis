@@ -800,6 +800,115 @@ private slots:
         playback->seek(static_cast<double>(previousPlayhead));
     }
 
+    void sourceMonitorCanTargetExactAudioTrackWithoutSilentFallback()
+    {
+        auto* timeline = m_app->timeline();
+        auto* playback = m_app->playback();
+        const QString audioId =
+            m_app->media()->model()->get(1).value(QStringLiteral("assetId")).toString();
+        QVERIFY(!audioId.isEmpty());
+
+        const Project before = m_app->project()->project();
+        const FrameCount oldPosition = playback->positionFrames();
+        QVERIFY(timeline->addTrack(QStringLiteral("audio")));
+        const Project withTrack = m_app->project()->project();
+        Id targetTrackId;
+        Id videoTrackId;
+        for (const Track& track : withTrack.timeline().tracks()) {
+            if (track.kind == TrackKind::Video && videoTrackId.isEmpty()) {
+                videoTrackId = track.id;
+            }
+            if (track.kind == TrackKind::Audio && !before.timeline().track(track.id)) {
+                targetTrackId = track.id;
+            }
+        }
+        QVERIFY(!targetTrackId.isEmpty());
+        QVERIFY(!videoTrackId.isEmpty());
+
+        const QVariantList choices = timeline->sourceDestinationTracks(audioId);
+        bool foundAudio = false;
+        for (const QVariant& choice : choices) {
+            const QVariantMap details = choice.toMap();
+            QVERIFY(details.value(QStringLiteral("id")).toString() != videoTrackId);
+            if (details.value(QStringLiteral("id")).toString() == targetTrackId) {
+                foundAudio = true;
+                QVERIFY(!details.value(QStringLiteral("locked")).toBool());
+            }
+        }
+        QVERIFY(foundAudio);
+        playback->goToStart();
+
+        QObject* source = m_window->findChild<QObject*>(QStringLiteral("sourceMonitorPanel"));
+        QQuickItem* picker =
+            findItem(m_window->contentItem(), QStringLiteral("sourceMonitorTargetTrack"));
+        QQuickItem* placeButton =
+            findItem(m_window->contentItem(), QStringLiteral("sourceMonitorPlace"));
+        QQuickItem* tabs = findItem(m_window->contentItem(), QStringLiteral("monitorTabs"));
+        QVERIFY(source);
+        QVERIFY(picker);
+        QVERIFY(placeButton);
+        QVERIFY(tabs);
+        QVERIFY(QMetaObject::invokeMethod(source, "openFor", Q_ARG(QVariant, QVariant(audioId))));
+        QVERIFY(tabs->setProperty("currentIndex", 1));
+        QVERIFY(source->setProperty("markInFrame", 2));
+        QVERIFY(source->setProperty("markOutFrame", 17));
+        QVERIFY(source->setProperty("selectedTrackId", targetTrackId));
+        QTRY_VERIFY(picker->property("currentIndex").toInt() > 0);
+        QTRY_VERIFY(placeButton->isEnabled());
+        QTest::mouseClick(m_window, Qt::LeftButton, Qt::NoModifier, centreOf(placeButton));
+
+        const Project placed = m_app->project()->project();
+        QCOMPARE(placed.timeline().clipCount(), withTrack.timeline().clipCount() + 1);
+        QCOMPARE(timeline->selection().size(), qsizetype{1});
+        const Clip* clip = placed.timeline().clip(timeline->selection().first());
+        QVERIFY(clip);
+        QCOMPARE(clip->assetId, audioId);
+        QCOMPARE(clip->start, FrameCount{0});
+        QCOMPARE(clip->sourceIn, FrameCount{2});
+        QCOMPARE(clip->duration, FrameCount{15});
+        QCOMPARE(placed.timeline().trackOfClip(clip->id)->id, targetTrackId);
+        QCOMPARE(playback->positionFrames(), FrameCount{0});
+
+        const QStringList selectionBefore = timeline->selection();
+        const QString undoBefore = m_app->project()->undoText();
+        QVERIFY(!timeline->placeAssetRangeOnTrackAtPlayhead(audioId, targetTrackId, 2, 17));
+        QVERIFY(!timeline->placeAssetRangeOnTrackAtPlayhead(audioId, videoTrackId, 2, 17));
+        QVERIFY(!timeline->placeAssetRangeOnTrackAtPlayhead(
+            audioId, QStringLiteral("missing-track"), 2, 17));
+        QCOMPARE(m_app->project()->project(), placed);
+        QCOMPARE(timeline->selection(), selectionBefore);
+        QCOMPARE(m_app->project()->undoText(), undoBefore);
+
+        m_app->project()->undo();
+        QCOMPARE(m_app->project()->project(), withTrack);
+        m_app->project()->redo();
+        QCOMPARE(m_app->project()->project(), placed);
+        m_app->project()->undo();
+        QCOMPARE(m_app->project()->project(), withTrack);
+
+        QVERIFY(timeline->setTrackFlag(targetTrackId, QStringLiteral("locked"), true));
+        const Project locked = m_app->project()->project();
+        const QString lockedUndo = m_app->project()->undoText();
+        QTRY_VERIFY(!source->property("selectedTrackAvailable").toBool());
+        QVERIFY(!placeButton->isEnabled());
+        QVERIFY(!timeline->placeAssetRangeOnTrackAtPlayhead(audioId, targetTrackId, 2, 17));
+        QCOMPARE(m_app->project()->project(), locked);
+        QCOMPARE(m_app->project()->undoText(), lockedUndo);
+        m_app->project()->undo();
+        QCOMPARE(m_app->project()->project(), withTrack);
+        QTRY_VERIFY(source->property("selectedTrackAvailable").toBool());
+
+        // Removing the selected target must not redirect placement to automatic mode.
+        m_app->project()->undo();
+        QCOMPARE(m_app->project()->project(), before);
+        QCOMPARE(source->property("selectedTrackId").toString(), targetTrackId);
+        QTRY_VERIFY(!source->property("selectedTrackAvailable").toBool());
+        QVERIFY(!placeButton->isEnabled());
+        QVERIFY(QMetaObject::invokeMethod(source, "clear"));
+        QVERIFY(tabs->setProperty("currentIndex", 0));
+        playback->seek(static_cast<double>(oldPosition));
+    }
+
     void duplicateSelectionAtPlayheadRetainsGroupTimingAndReSelectsCopies()
     {
         auto* timeline = m_app->timeline();

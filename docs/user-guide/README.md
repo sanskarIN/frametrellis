@@ -684,9 +684,15 @@ persistent clip-link relationship. This is a non-rippling placement,
 not a ripple insert or an overwrite.
 
 To replace one existing timeline clip without changing its cut, select that
-clip on an unlocked track, open the replacement media in the Source Monitor,
-and mark an excerpt with **exactly the same frame duration** as the selected
-clip. Click **Replace selected**. The clip stays on its original track at
+clip on an unlocked track and open replacement media in the Source Monitor.
+Set the desired source **In**, then click **Match clip length** to set the
+exclusive **Out** automatically to In plus the selected clip's duration.
+This changes only the source marks, not the Program playhead, project or
+undo history. If the new media has insufficient frames after In, the button
+is disabled and In is never shifted silently. The button is also unavailable
+when the selected clip is locked or the media lacks the required stream.
+Alternatively, mark an excerpt manually with **exactly the same frame
+duration** as the selected clip. Click **Replace selected**. The clip stays on its original track at
 the same start/end frames and keeps its ID, fades, gain, mute and scalar
 picture adjustments. Source-anchored audio, opacity and transform
 keyframes are **cleared**, because those points belong to the previous

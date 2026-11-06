@@ -755,6 +755,55 @@ Status Timeline::slipClip(const Id& clipId, FrameCount newSourceIn, const Source
     return {};
 }
 
+Status Timeline::replaceClipSource(const Id& clipId, const Id& newAssetId, FrameCount newSourceIn,
+                                   const SourceLookup& sources)
+{
+    const auto location = findClip(clipId);
+    if (!location) {
+        return notFound(QStringLiteral("The selected clip"));
+    }
+    const Track& track = m_tracks[static_cast<size_t>(location->track)];
+    if (const Status editable = checkEditable(track); !editable) {
+        return editable;
+    }
+    const Clip& original = track.clips[static_cast<size_t>(location->clip)];
+    const std::optional<SourceLimits> limits = sources ? sources(newAssetId) : std::nullopt;
+    if (!limits || !limits->length) {
+        return makeError(ErrorCode::InvalidArgument,
+                         QStringLiteral("Choose an existing time-based video or audio source."));
+    }
+    if (original.assetId == newAssetId && original.sourceIn == newSourceIn) {
+        return {};
+    }
+    Clip replacement = original;
+    replacement.assetId = newAssetId;
+    replacement.sourceIn = newSourceIn;
+    // Automation point positions belong to the previous source's frame clock.
+    // Preserve the clip's scalar properties, fade lengths and timeline identity,
+    // but never transplant source-anchored curves onto unrelated source frames.
+    replacement.audioKeyframes.clear();
+    replacement.opacityKeyframes.clear();
+    replacement.transformKeyframes.clear();
+    if (const Status shape = checkClipShape(replacement); !shape) {
+        return shape;
+    }
+    if (const Status source = checkSourceRange(replacement, track, sources); !source) {
+        return source;
+    }
+    // Unlike remove-then-add, this preserves transitions and rejects replacements
+    // without enough incoming/outgoing handles instead of silently pruning them.
+    Timeline candidate = *this;
+    candidate.m_tracks[static_cast<size_t>(location->track)]
+        .clips[static_cast<size_t>(location->clip)] = std::move(replacement);
+    if (const Status valid = candidate.validate(sources); !valid) {
+        return makeError(ErrorCode::Conflict,
+                         QStringLiteral("The new source would invalidate a clip transition."),
+                         valid.error().message);
+    }
+    *this = std::move(candidate);
+    return {};
+}
+
 Status Timeline::rollCut(const Id& fromClipId, FrameCount delta, const SourceLookup& sources)
 {
     if (delta == 0) {

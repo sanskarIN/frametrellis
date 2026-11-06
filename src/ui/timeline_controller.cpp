@@ -705,6 +705,50 @@ bool TimelineController::placeSynchronizedAssetRangeAtPlayhead(const QString& as
     return true;
 }
 
+bool TimelineController::replaceSelectionWithAssetRange(const QString& assetId, int sourceInFrame,
+                                                        int sourceOutFrame)
+{
+    if (m_selection.size() != 1) {
+        emit statusMessage(QStringLiteral("Select exactly one timeline clip to replace."));
+        return false;
+    }
+    const Id clipId = *m_selection.cbegin();
+    const Clip* selected = project().timeline().clip(clipId);
+    const Track* target = project().timeline().trackOfClip(clipId);
+    const MediaAsset* asset = project().asset(assetId);
+    if (!selected || !target || target->locked) {
+        emit statusMessage(QStringLiteral("Select a clip on an unlocked track."));
+        return false;
+    }
+    if (!asset || asset->info.kind == MediaKind::Image || asset->status == MediaStatus::Missing) {
+        emit statusMessage(QStringLiteral("Choose an online video or audio source."));
+        return false;
+    }
+    if (!acceptsAsset(target->id, assetId)) {
+        emit statusMessage(
+            QStringLiteral("The source is incompatible with the selected clip's track."));
+        return false;
+    }
+    const std::optional<FrameCount> length = placementLength(*asset);
+    const FrameCount requestedDuration = static_cast<FrameCount>(sourceOutFrame) - sourceInFrame;
+    if (!length || sourceInFrame < 0 || sourceOutFrame <= sourceInFrame ||
+        static_cast<FrameCount>(sourceOutFrame) > *length ||
+        requestedDuration != selected->duration) {
+        emit statusMessage(QStringLiteral("The replacement source range must exactly match "
+                                          "the selected clip's duration."));
+        return false;
+    }
+    if (selected->assetId == assetId && selected->sourceIn == sourceInFrame) {
+        emit statusMessage(QStringLiteral("The clip already uses this source range."));
+        return false;
+    }
+    if (!m_project->execute(edits::replaceClipSource(clipId, assetId, sourceInFrame))) {
+        return false;
+    }
+    emit statusMessage(QStringLiteral("Replaced the selected clip source without moving its cut."));
+    return true;
+}
+
 bool TimelineController::dropAsset(const QString& assetId, const QString& trackId, double frame)
 {
     // Negative drops are clamped to the beginning, but non-finite/huge values

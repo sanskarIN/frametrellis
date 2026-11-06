@@ -139,6 +139,37 @@ private slots:
         QVERIFY(!m_media.blue.isEmpty());
     }
 
+    void replacingClipSourceChangesRenderedPictureWithoutMovingTheCut()
+    {
+        QList<Id> ids;
+        Project project = projectWith({m_media.red, m_media.blue}, &ids);
+        QCOMPARE(ids.size(), qsizetype{2});
+        const Id pictureTrack = project.timeline().tracks()[0].id;
+        Clip clip = clipOf(ids[0], 15, 10, 45);
+        QVERIFY(project.timeline().insertClip(pictureTrack, clip, project.sourceLookup()));
+        const Project original = project;
+        QVERIFY(isCloseTo(averageColor(renderAt(original, 25)), Qt::red));
+
+        ProjectDocument editor(project);
+        QVERIFY(editor.execute(edits::replaceClipSource(clip.id, ids[1], 20)));
+        const Project changed = editor.project();
+        const Clip* swapped = changed.timeline().clip(clip.id);
+        QVERIFY(swapped);
+        QCOMPARE(swapped->id, clip.id);
+        QCOMPARE(swapped->start, clip.start);
+        QCOMPARE(swapped->duration, clip.duration);
+        QCOMPARE(swapped->sourceIn, FrameCount{20});
+        QCOMPARE(swapped->assetId, ids[1]);
+        QVERIFY(isCloseTo(averageColor(renderAt(changed, 25)), Qt::blue));
+
+        QVERIFY(editor.undo());
+        QCOMPARE(editor.project(), original);
+        QVERIFY(isCloseTo(averageColor(renderAt(editor.project(), 25)), Qt::red));
+        QVERIFY(editor.redo());
+        QCOMPARE(editor.project(), changed);
+        QVERIFY(isCloseTo(averageColor(renderAt(editor.project(), 25)), Qt::blue));
+    }
+
     void probeVideo()
     {
         Result<MediaInfo> info = media::probeMedia(m_media.video);

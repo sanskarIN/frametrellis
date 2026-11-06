@@ -1167,6 +1167,96 @@ private slots:
         timeline->clearSelection();
     }
 
+    void sourceMonitorReplacesSelectedClipWithoutChangingTimelineCuts()
+    {
+        auto* timeline = m_app->timeline();
+        const QString videoId =
+            m_app->media()->model()->get(0).value(QStringLiteral("assetId")).toString();
+        const QString audioId =
+            m_app->media()->model()->get(1).value(QStringLiteral("assetId")).toString();
+        QVERIFY(!videoId.isEmpty());
+        QVERIFY(!audioId.isEmpty());
+        const Project before = m_app->project()->project();
+
+        QVERIFY(timeline->appendAssetRange(videoId, 5, 20));
+        const Project inserted = m_app->project()->project();
+        QCOMPARE(timeline->selection().size(), qsizetype{1});
+        const Id clipId = timeline->selection().first();
+        const Clip* original = inserted.timeline().clip(clipId);
+        QVERIFY(original);
+        QCOMPARE(original->duration, FrameCount{15});
+        const Id targetTrack = inserted.timeline().trackOfClip(clipId)->id;
+
+        QObject* monitor = m_window->findChild<QObject*>(QStringLiteral("sourceMonitorPanel"));
+        QQuickItem* tabs = findItem(m_window->contentItem(), QStringLiteral("monitorTabs"));
+        QQuickItem* replaceButton =
+            findItem(m_window->contentItem(), QStringLiteral("sourceMonitorReplaceSelected"));
+        QVERIFY(monitor);
+        QVERIFY(tabs);
+        QVERIFY(replaceButton);
+        QVERIFY(QMetaObject::invokeMethod(monitor, "openFor", Q_ARG(QVariant, QVariant(videoId))));
+        QVERIFY(tabs->setProperty("currentIndex", 1));
+        QVERIFY(monitor->setProperty("markInFrame", 40));
+        QVERIFY(monitor->setProperty("markOutFrame", 55));
+        QTRY_VERIFY(replaceButton->isVisible() && replaceButton->isEnabled());
+        QTest::mouseClick(m_window, Qt::LeftButton, Qt::NoModifier, centreOf(replaceButton));
+
+        const Project replaced = m_app->project()->project();
+        QCOMPARE(replaced.timeline().clipCount(), inserted.timeline().clipCount());
+        const Clip* changed = replaced.timeline().clip(clipId);
+        QVERIFY(changed);
+        QCOMPARE(changed->id, clipId);
+        QCOMPARE(changed->assetId, videoId);
+        QCOMPARE(changed->sourceIn, FrameCount{40});
+        QCOMPARE(changed->start, original->start);
+        QCOMPARE(changed->duration, original->duration);
+        QCOMPARE(changed->properties, original->properties);
+        QCOMPARE(replaced.timeline().trackOfClip(clipId)->id, targetTrack);
+        QCOMPARE(timeline->selection().size(), qsizetype{1});
+        QCOMPARE(timeline->selection().first(), clipId);
+        QCOMPARE(m_app->project()->undoText(), QStringLiteral("Replace Clip Source"));
+
+        m_app->project()->undo();
+        QCOMPARE(m_app->project()->project(), inserted);
+        m_app->project()->redo();
+        QCOMPARE(m_app->project()->project(), replaced);
+        m_app->project()->undo();
+        QCOMPARE(m_app->project()->project(), inserted);
+
+        const QString undoBefore = m_app->project()->undoText();
+        QVERIFY(monitor->setProperty("markOutFrame", 54));
+        QTRY_VERIFY(!replaceButton->isEnabled());
+        QVERIFY(!timeline->replaceSelectionWithAssetRange(videoId, 40, 54));
+        QCOMPARE(m_app->project()->project(), inserted);
+        QCOMPARE(m_app->project()->undoText(), undoBefore);
+        QVERIFY(monitor->setProperty("markOutFrame", 55));
+
+        QVERIFY(QMetaObject::invokeMethod(monitor, "openFor", Q_ARG(QVariant, QVariant(audioId))));
+        QVERIFY(monitor->setProperty("markInFrame", 4));
+        QVERIFY(monitor->setProperty("markOutFrame", 19));
+        QTRY_VERIFY(!replaceButton->isEnabled());
+        QVERIFY(!timeline->replaceSelectionWithAssetRange(audioId, 4, 19));
+        QCOMPARE(m_app->project()->project(), inserted);
+        QCOMPARE(m_app->project()->undoText(), undoBefore);
+
+        QVERIFY(QMetaObject::invokeMethod(monitor, "openFor", Q_ARG(QVariant, QVariant(videoId))));
+        QVERIFY(monitor->setProperty("markInFrame", 40));
+        QVERIFY(monitor->setProperty("markOutFrame", 55));
+        QVERIFY(timeline->setTrackFlag(targetTrack, QStringLiteral("locked"), true));
+        const Project locked = m_app->project()->project();
+        QTRY_VERIFY(!replaceButton->isEnabled());
+        QVERIFY(!timeline->replaceSelectionWithAssetRange(videoId, 40, 55));
+        QCOMPARE(m_app->project()->project(), locked);
+        m_app->project()->undo();
+        QCOMPARE(m_app->project()->project(), inserted);
+
+        QVERIFY(QMetaObject::invokeMethod(monitor, "clear"));
+        QVERIFY(tabs->setProperty("currentIndex", 0));
+        m_app->project()->undo();
+        QCOMPARE(m_app->project()->project(), before);
+        timeline->clearSelection();
+    }
+
     void duplicateSelectionAtPlayheadRetainsGroupTimingAndReSelectsCopies()
     {
         auto* timeline = m_app->timeline();

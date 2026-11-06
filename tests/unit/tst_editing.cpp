@@ -63,6 +63,40 @@ class EditingTest : public QObject
     Q_OBJECT
 
 private slots:
+    void replaceClipSourceIsOneAtomicUndoableCommand()
+    {
+        Fixture f;
+        QVERIFY(f.doc.execute(std::make_unique<AddMediaCommand>(std::vector<MediaAsset>{
+            videoAsset(QStringLiteral("m2"), QStringLiteral("/media/b.mp4"))})));
+        Clip clip = clipOf(QStringLiteral("m1"), 40, 55, QStringLiteral("original"));
+        clip.sourceIn = 15;
+        clip.properties.gain = 0.7;
+        clip.properties.fadeIn = 4;
+        QVERIFY(f.doc.execute(edits::addClip(f.v1, clip)));
+        const Project before = f.doc.project();
+
+        QVERIFY(f.doc.execute(edits::replaceClipSource(clip.id, QStringLiteral("m2"), 23)));
+        const Project after = f.doc.project();
+        const Clip* changed = after.timeline().clip(clip.id);
+        QVERIFY(changed);
+        QCOMPARE(changed->assetId, QStringLiteral("m2"));
+        QCOMPARE(changed->sourceIn, FrameCount{23});
+        QCOMPARE(changed->start, clip.start);
+        QCOMPARE(changed->duration, clip.duration);
+        QCOMPARE(changed->properties, clip.properties);
+        QCOMPARE(f.doc.undoText(), QStringLiteral("Replace Clip Source"));
+        QVERIFY(f.doc.undo());
+        QCOMPARE(f.doc.project(), before);
+        QVERIFY(f.doc.redo());
+        QCOMPARE(f.doc.project(), after);
+
+        const QString undoBefore = f.doc.undoText();
+        QVERIFY(!f.doc.execute(edits::replaceClipSource(clip.id, QStringLiteral("missing"), 0)));
+        QVERIFY(!f.doc.execute(edits::replaceClipSource(clip.id, QStringLiteral("m2"), 560)));
+        QCOMPARE(f.doc.project(), after);
+        QCOMPARE(f.doc.undoText(), undoBefore);
+    }
+
     void synchronizedSourceClipsShareTimeAndUndoAsOneEdit()
     {
         Fixture f;

@@ -16,6 +16,13 @@ their actual tag and packages are verified.
 
 ## Post-v1.4.0 development changes (not in the stable download)
 
+- **Replace the selected clip's media without moving a cut:** Source Monitor
+  **Replace selected** uses an equal-duration source excerpt for one unlocked
+  timeline clip. It preserves clip ID, track, start/end and scalar adjustments,
+  clears source-anchored automation, and refuses insufficient source range,
+  incompatible media or transitions lacking safe handles. One Undo/Redo
+  restores/reapplies the complete change without touching neighbouring clips.
+
 - **Atomic synchronized source picture/audio placement:** for a source containing
   both video and audio, **Place V+A** adds identical source excerpts to distinct
   video/audio tracks at the Program playhead as one undoable edit. Honors a

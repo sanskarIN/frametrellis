@@ -592,14 +592,15 @@ bool TimelineController::placeAssetRangeOnTrackAtPlayhead(const QString& assetId
 }
 
 bool TimelineController::placeSynchronizedAssetRangeAtPlayhead(const QString& assetId,
-                                                                const QString& targetTrackId,
-                                                                int sourceInFrame,
-                                                                int sourceOutFrame)
+                                                               const QString& targetTrackId,
+                                                               int sourceInFrame,
+                                                               int sourceOutFrame)
 {
     const MediaAsset* asset = project().asset(assetId);
     if (!asset || asset->info.kind != MediaKind::Video || !asset->info.hasVideo ||
         !asset->info.hasAudio || asset->status == MediaStatus::Missing) {
-        emit statusMessage(QStringLiteral("Choose an online source containing both video and audio."));
+        emit statusMessage(
+            QStringLiteral("Choose an online source containing both video and audio."));
         return false;
     }
     // A paired picture clip is muted to avoid duplicating the source soundtrack.
@@ -623,8 +624,7 @@ bool TimelineController::placeSynchronizedAssetRangeAtPlayhead(const QString& as
         return false;
     }
     const Timeline& sequence = project().timeline();
-    const Track* preferred =
-        targetTrackId.isEmpty() ? nullptr : sequence.track(targetTrackId);
+    const Track* preferred = targetTrackId.isEmpty() ? nullptr : sequence.track(targetTrackId);
     if (!targetTrackId.isEmpty() && (!preferred || !acceptsAsset(targetTrackId, assetId))) {
         emit statusMessage(QStringLiteral("The chosen track is unavailable or locked."));
         return false;

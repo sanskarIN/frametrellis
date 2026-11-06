@@ -602,6 +602,13 @@ bool TimelineController::placeSynchronizedAssetRangeAtPlayhead(const QString& as
         emit statusMessage(QStringLiteral("Choose an online source containing both video and audio."));
         return false;
     }
+    // A paired picture clip is muted to avoid duplicating the source soundtrack.
+    // Without MLT's volume filter that mute could not be enforced in preview/export.
+    if (!engine::MltRuntime::capabilities().volumeFilter) {
+        emit statusMessage(QStringLiteral("Separate picture/audio placement needs the MLT "
+                                          "volume filter to avoid duplicated sound."));
+        return false;
+    }
     const std::optional<FrameCount> available = placementLength(*asset);
     if (!available || sourceInFrame < 0 || sourceOutFrame <= sourceInFrame ||
         static_cast<FrameCount>(sourceOutFrame) > *available) {

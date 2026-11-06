@@ -621,6 +621,65 @@ bool TimelineController::placeAssetRangeOnTrackAtPlayhead(const QString& assetId
     return false;
 }
 
+bool TimelineController::rippleInsertAssetRangeAtPlayhead(const QString& assetId,
+                                                          const QString& trackId, int sourceInFrame,
+                                                          int sourceOutFrame)
+{
+    const MediaAsset* asset = project().asset(assetId);
+    if (!asset || asset->info.kind == MediaKind::Image) {
+        emit statusMessage(QStringLiteral("Choose a video or audio source for ripple insertion."));
+        return false;
+    }
+    if (asset->status == MediaStatus::Missing) {
+        emit statusMessage(QStringLiteral("Relink missing media before ripple inserting."));
+        return false;
+    }
+    const std::optional<FrameCount> available = placementLength(*asset);
+    if (!available || sourceInFrame < 0 || sourceOutFrame <= sourceInFrame ||
+        static_cast<FrameCount>(sourceOutFrame) > *available) {
+        emit statusMessage(QStringLiteral("Choose valid In and Out frames within the source."));
+        return false;
+    }
+
+    const FrameCount frame = m_playback->positionFrames();
+    const FrameCount duration = static_cast<FrameCount>(sourceOutFrame) - sourceInFrame;
+    if (frame < 0 || frame >= kMaxTimelineFrames || duration > kMaxTimelineFrames - frame) {
+        emit statusMessage(QStringLiteral("This source range exceeds the timeline limit."));
+        return false;
+    }
+    if (!trackId.isEmpty() && !acceptsAsset(trackId, assetId)) {
+        emit statusMessage(QStringLiteral("The selected track is missing, locked, or incompatible "
+                                          "with this source."));
+        return false;
+    }
+    const TrackKind wanted = asset->info.hasVideo ? TrackKind::Video : TrackKind::Audio;
+    for (const Track& track : project().timeline().tracks()) {
+        if ((!trackId.isEmpty() && track.id != trackId) ||
+            (trackId.isEmpty() && track.kind != wanted) || track.locked) {
+            continue;
+        }
+        Clip clip;
+        clip.id = createId();
+        clip.assetId = assetId;
+        clip.start = frame;
+        clip.sourceIn = sourceInFrame;
+        clip.duration = duration;
+        if (!m_project->execute(edits::rippleInsertSourceClip(track.id, clip))) {
+            return false;
+        }
+        setTransitionSelection({});
+        m_selection = {clip.id};
+        m_model.updateSelection(m_selection);
+        emit selectionChanged();
+        emit selectedClipChanged();
+        emit statusMessage(QStringLiteral("Ripple inserted the source range; timeline markers "
+                                          "and subtitles remain at their original times."));
+        return true;
+    }
+    emit statusMessage(QStringLiteral("Add an unlocked, compatible destination track first."));
+    return false;
+}
+
 bool TimelineController::placeSynchronizedAssetRangeAtPlayhead(const QString& assetId,
                                                                const QString& targetTrackId,
                                                                int sourceInFrame,

@@ -223,6 +223,141 @@ private slots:
         QCOMPARE(f.doc.undoText(), priorUndo);
     }
 
+    void rippleInsertRangeShiftsMultipleTracksWithOneUndoAndKeepsTransitions()
+    {
+        Fixture f;
+        Clip first = clipOf(QStringLiteral("m1"), 0, 30, QStringLiteral("before"));
+        Clip second = clipOf(QStringLiteral("m1"), 80, 40, QStringLiteral("after"));
+        Clip third = clipOf(QStringLiteral("m1"), 120, 40, QStringLiteral("later"));
+        Clip sound = clipOf(QStringLiteral("m1"), 95, 30, QStringLiteral("sound"));
+        second.sourceIn = 60;
+        third.sourceIn = 120;
+        third.properties.gain = 0.8;
+        sound.sourceIn = 200;
+        QVERIFY(f.doc.execute(edits::addClip(f.v1, first)));
+        QVERIFY(f.doc.execute(edits::addClip(f.v1, second)));
+        QVERIFY(f.doc.execute(edits::addClip(f.v1, third)));
+        QVERIFY(f.doc.execute(edits::addClip(f.a1, sound)));
+        QVERIFY(f.doc.execute(edits::addTransition(second.id, 10, QStringLiteral("crossfade"))));
+        const Project before = f.doc.project();
+
+        Clip inserted = clipOf(QStringLiteral("m1"), 80, 20, QStringLiteral("ripple-source"));
+        inserted.sourceIn = 12;
+        QVERIFY(f.doc.execute(edits::rippleInsertSourceClip(f.v1, inserted)));
+        const Project after = f.doc.project();
+        const Timeline& timeline = after.timeline();
+        QCOMPARE(timeline.clipCount(), before.timeline().clipCount() + 1);
+        QCOMPARE(*timeline.clip(inserted.id), inserted);
+        QCOMPARE(timeline.clip(first.id)->start, first.start);
+        QCOMPARE(timeline.clip(second.id)->start, FrameCount{100});
+        QCOMPARE(timeline.clip(third.id)->start, FrameCount{140});
+        QCOMPARE(timeline.clip(sound.id)->start, FrameCount{115});
+        QCOMPARE(timeline.clip(third.id)->properties, third.properties);
+        QCOMPARE(timeline.clip(sound.id)->sourceIn, sound.sourceIn);
+        QVERIFY(timeline.track(f.v1)->transitions == before.timeline().track(f.v1)->transitions);
+        QVERIFY(timeline.validate(after.sourceLookup()));
+        QCOMPARE(f.doc.undoText(), QStringLiteral("Ripple Insert Source Range"));
+        QVERIFY(f.doc.undo());
+        QCOMPARE(f.doc.project(), before);
+        QVERIFY(f.doc.redo());
+        QCOMPARE(f.doc.project(), after);
+    }
+
+    void rippleInsertRangeWorksAtEndWithNoFollowingClips()
+    {
+        Fixture f;
+        Clip first = clipOf(QStringLiteral("m1"), 0, 40, QStringLiteral("first"));
+        QVERIFY(f.doc.execute(edits::addClip(f.v1, first)));
+        const Project before = f.doc.project();
+        Clip appended = clipOf(QStringLiteral("m1"), 40, 15, QStringLiteral("at-end"));
+        appended.sourceIn = 25;
+        QVERIFY(f.doc.execute(edits::rippleInsertSourceClip(f.v1, appended)));
+        const Project after = f.doc.project();
+        QCOMPARE(after.timeline().clipCount(), before.timeline().clipCount() + 1);
+        QCOMPARE(*after.timeline().clip(appended.id), appended);
+        QCOMPARE(*after.timeline().clip(first.id), first);
+        QVERIFY(f.doc.undo());
+        QCOMPARE(f.doc.project(), before);
+        QVERIFY(f.doc.redo());
+        QCOMPARE(f.doc.project(), after);
+
+        // Empty projects also admit the initial excerpt, unlike Insert Timeline Gap.
+        Fixture empty;
+        Clip alone = clipOf(QStringLiteral("m1"), 0, 20, QStringLiteral("alone"));
+        const Project emptyBefore = empty.doc.project();
+        QVERIFY(empty.doc.execute(edits::rippleInsertSourceClip(empty.v1, alone)));
+        QCOMPARE(*empty.doc.project().timeline().clip(alone.id), alone);
+        QVERIFY(empty.doc.undo());
+        QCOMPARE(empty.doc.project(), emptyBefore);
+        QVERIFY(!empty.doc.execute(edits::insertGap(0, 20)));
+    }
+
+    void rippleInsertRangeFailuresLeaveAllTracksAndUndoHistoryIntact()
+    {
+        Fixture f;
+        Clip left = clipOf(QStringLiteral("m1"), 0, 60, QStringLiteral("left"));
+        Clip right = clipOf(QStringLiteral("m1"), 60, 40, QStringLiteral("right"));
+        left.sourceIn = 40;
+        right.sourceIn = 120;
+        QVERIFY(f.doc.execute(edits::addClip(f.v1, left)));
+        QVERIFY(f.doc.execute(edits::addClip(f.v1, right)));
+        Clip inserted = clipOf(QStringLiteral("m1"), 60, 15, QStringLiteral("inserted"));
+        inserted.sourceIn = 10;
+        const Project baseline = f.doc.project();
+        const QString undo = f.doc.undoText();
+
+        Clip invalid = inserted;
+        invalid.assetId = QStringLiteral("missing");
+        QVERIFY(!f.doc.execute(edits::rippleInsertSourceClip(f.v1, invalid)));
+        QVERIFY(!f.doc.execute(edits::rippleInsertSourceClip(QStringLiteral("missing"), inserted)));
+        invalid = inserted;
+        invalid.sourceIn = 595;
+        QVERIFY(!f.doc.execute(edits::rippleInsertSourceClip(f.v1, invalid)));
+        QCOMPARE(f.doc.project(), baseline);
+        QCOMPARE(f.doc.undoText(), undo);
+
+        QVERIFY(f.doc.execute(edits::setTrackLocked(f.v1, true)));
+        const Project lockedTarget = f.doc.project();
+        const QString lockedUndo = f.doc.undoText();
+        QVERIFY(!f.doc.execute(edits::rippleInsertSourceClip(f.v1, inserted)));
+        QCOMPARE(f.doc.project(), lockedTarget);
+        QCOMPARE(f.doc.undoText(), lockedUndo);
+        QVERIFY(f.doc.undo());
+        QCOMPARE(f.doc.project(), baseline);
+
+        // A locked, later audio clip blocks the whole cross-track ripple.
+        Clip audio = clipOf(QStringLiteral("m1"), 75, 25, QStringLiteral("audio"));
+        QVERIFY(f.doc.execute(edits::addClip(f.a1, audio)));
+        QVERIFY(f.doc.execute(edits::setTrackLocked(f.a1, true)));
+        const Project lockedAudio = f.doc.project();
+        const QString audioUndo = f.doc.undoText();
+        QVERIFY(!f.doc.execute(edits::rippleInsertSourceClip(f.v1, inserted)));
+        QCOMPARE(f.doc.project(), lockedAudio);
+        QCOMPARE(f.doc.undoText(), audioUndo);
+        QVERIFY(f.doc.undo());
+        QVERIFY(f.doc.undo());
+        QCOMPARE(f.doc.project(), baseline);
+
+        // No implicit split of a clip which crosses the playhead on another lane.
+        Clip spanning = clipOf(QStringLiteral("m1"), 45, 30, QStringLiteral("spanning"));
+        QVERIFY(f.doc.execute(edits::addClip(f.v2, spanning)));
+        const Project crossed = f.doc.project();
+        const QString crossedUndo = f.doc.undoText();
+        QVERIFY(!f.doc.execute(edits::rippleInsertSourceClip(f.v1, inserted)));
+        QCOMPARE(f.doc.project(), crossed);
+        QCOMPARE(f.doc.undoText(), crossedUndo);
+        QVERIFY(f.doc.undo());
+        QCOMPARE(f.doc.project(), baseline);
+
+        // Existing transition attached to the original cut must not be lost.
+        QVERIFY(f.doc.execute(edits::addTransition(left.id, 10, QStringLiteral("cut"))));
+        const Project transitioned = f.doc.project();
+        const QString transitionUndo = f.doc.undoText();
+        QVERIFY(!f.doc.execute(edits::rippleInsertSourceClip(f.v1, inserted)));
+        QCOMPARE(f.doc.project(), transitioned);
+        QCOMPARE(f.doc.undoText(), transitionUndo);
+    }
+
     void insertGapMovesMultipleTracksAndPreservesTransitions()
     {
         Fixture f;

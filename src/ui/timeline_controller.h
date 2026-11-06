@@ -103,6 +103,13 @@ public:
     Q_INVOKABLE bool placeAssetRangeOnTrackAtPlayhead(const QString& assetId,
                                                       const QString& trackId, int sourceInFrame,
                                                       int sourceOutFrame);
+    /// Ripple insert a marked source range at the Program playhead, shifting later
+    /// clips on every affected track as one undoable operation. Does not split
+    /// clips crossing the cut or move markers/subtitles. An explicit destination
+    /// is honored without fallback; empty trackId selects the first compatible lane.
+    Q_INVOKABLE bool rippleInsertAssetRangeAtPlayhead(const QString& assetId,
+                                                      const QString& trackId, int sourceInFrame,
+                                                      int sourceOutFrame);
     /// Place matching picture and sound excerpts on distinct compatible tracks in one
     /// atomic undoable step. The optional target fixes one lane; the other is first-free.
     /// Clips remain independently editable, not persistently linked.

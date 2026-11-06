@@ -683,6 +683,25 @@ but remain **independently editable**: FrameTrellis does not yet store a
 persistent clip-link relationship. This is a non-rippling placement,
 not a ripple insert or an overwrite.
 
+To **ripple insert** a marked source excerpt at the Program playhead, open
+the clip in the Source Monitor, choose **Automatic** or an exact unlocked
+**Target track**, set Source In/Out and click **Ripple Insert**. The new
+video or audio excerpt is placed at the playhead. Every clip beginning
+at or after that frame on **all affected tracks** shifts right by the
+excerpt duration; IDs, media source trims, fades, automation and existing
+unaffected transitions remain intact. It is one atomic, undoable edit:
+a failure cannot leave a partially shifted project. An empty timeline
+or an insertion after the last clip also works as normal placement.
+An exact target track never silently falls back to another track.
+If the playhead cuts **through** any existing clip, split it explicitly
+first. Ripple insertion also refuses a locked track with later clips,
+an invalid source range, end-of-timeline overflow or an existing
+transition that would be invalidated by the new cut. **Sequence markers
+and subtitle cues keep their absolute timecodes**; this is a clip-only
+ripple insert, not a full-sequence metadata ripple. It does not insert
+synchronized picture and audio together: **Place V+A** remains a
+separate, non-rippling operation.
+
 To replace one existing timeline clip without changing its cut, select that
 clip on an unlocked track and open replacement media in the Source Monitor.
 Set the desired source **In**, then click **Match clip length** (or press
@@ -709,8 +728,8 @@ project. The panel clears a source when its project is closed/replaced or
 that media is removed.
 
 This is still an independent **silent frame viewer**, not yet a source player
-with audio transport, persistent linked clip groups, ripple insertion or
-destructive overwrite editing. For those workflows, see the
+with audio transport, persistent linked clip groups, ripple insertion that
+also shifts markers and subtitle cues, or destructive overwrite editing. For those workflows, see the
 [professional-editor gap assessment](../development/pro-editor-assessment.md).
 This post-v1.4.0 improvement is not in the stable v1.4.0 downloads.
 

@@ -683,6 +683,20 @@ but remain **independently editable**: FrameTrellis does not yet store a
 persistent clip-link relationship. This is a non-rippling placement,
 not a ripple insert or an overwrite.
 
+To replace one existing timeline clip without changing its cut, select that
+clip on an unlocked track, open the replacement media in the Source Monitor,
+and mark an excerpt with **exactly the same frame duration** as the selected
+clip. Click **Replace selected**. The clip stays on its original track at
+the same start/end frames and keeps its ID, fades, gain, mute and scalar
+picture adjustments. Source-anchored audio, opacity and transform
+keyframes are **cleared**, because those points belong to the previous
+media's source frame coordinates. The operation refuses incompatible,
+offline or too-short media, locked tracks and replacements that would
+invalidate an existing dissolve or crossfade. It does not move surrounding
+clips, ripple the sequence or alter the original files; Undo restores
+the original media and automation in one step. This command uses the
+selected timeline clip, not the separate Source Monitor Target track picker.
+
 Changing the source, scrubbing or setting marks alone never modifies the
 project. The panel clears a source when its project is closed/replaced or
 that media is removed.

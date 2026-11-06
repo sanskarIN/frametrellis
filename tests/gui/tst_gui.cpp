@@ -919,6 +919,9 @@ private slots:
             m_app->media()->model()->get(1).value(QStringLiteral("assetId")).toString();
         QVERIFY(!videoId.isEmpty());
         QVERIFY(!audioId.isEmpty());
+        if (!engine::MltRuntime::capabilities().volumeFilter) {
+            QSKIP("Synchronized V+A placement needs the MLT volume filter.");
+        }
         QVERIFY(m_app->media()->mediaProperties(videoId).value(QStringLiteral("hasVideo")).toBool());
         QVERIFY(m_app->media()->mediaProperties(videoId).value(QStringLiteral("hasAudio")).toBool());
         QVERIFY(!m_app->media()->mediaProperties(audioId)

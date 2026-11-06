@@ -755,8 +755,8 @@ Status Timeline::slipClip(const Id& clipId, FrameCount newSourceIn, const Source
     return {};
 }
 
-Status Timeline::replaceClipSource(const Id& clipId, const Id& newAssetId,
-                                   FrameCount newSourceIn, const SourceLookup& sources)
+Status Timeline::replaceClipSource(const Id& clipId, const Id& newAssetId, FrameCount newSourceIn,
+                                   const SourceLookup& sources)
 {
     const auto location = findClip(clipId);
     if (!location) {
@@ -767,8 +767,7 @@ Status Timeline::replaceClipSource(const Id& clipId, const Id& newAssetId,
         return editable;
     }
     const Clip& original = track.clips[static_cast<size_t>(location->clip)];
-    const std::optional<SourceLimits> limits =
-        sources ? sources(newAssetId) : std::nullopt;
+    const std::optional<SourceLimits> limits = sources ? sources(newAssetId) : std::nullopt;
     if (!limits || !limits->length) {
         return makeError(ErrorCode::InvalidArgument,
                          QStringLiteral("Choose an existing time-based video or audio source."));

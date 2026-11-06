@@ -364,8 +364,8 @@ private slots:
         Timeline withTransition = timelineWithCut();
         QVERIFY(withTransition.addTransition(QStringLiteral("a"), 10, sources));
         const Timeline beforeTransition = withTransition;
-        QVERIFY(!withTransition.replaceClipSource(QStringLiteral("a"), kAlternateVideoAsset,
-                                                   50, sources));
+        QVERIFY(!withTransition.replaceClipSource(QStringLiteral("a"), kAlternateVideoAsset, 50,
+                                                  sources));
         QCOMPARE(withTransition, beforeTransition);
     }
 

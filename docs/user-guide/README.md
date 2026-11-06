@@ -728,8 +728,8 @@ project. The panel clears a source when its project is closed/replaced or
 that media is removed.
 
 This is still an independent **silent frame viewer**, not yet a source player
-with audio transport, persistent linked clip groups, ripple insertion or
-destructive overwrite editing. For those workflows, see the
+with audio transport, persistent linked clip groups, ripple insertion that
+also shifts markers and subtitle cues, or destructive overwrite editing. For those workflows, see the
 [professional-editor gap assessment](../development/pro-editor-assessment.md).
 This post-v1.4.0 improvement is not in the stable v1.4.0 downloads.
 

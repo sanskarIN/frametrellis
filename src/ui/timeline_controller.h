@@ -108,8 +108,8 @@ public:
     /// clips crossing the cut or move markers/subtitles. An explicit destination
     /// is honored without fallback; empty trackId selects the first compatible lane.
     Q_INVOKABLE bool rippleInsertAssetRangeAtPlayhead(const QString& assetId,
-                                                       const QString& trackId, int sourceInFrame,
-                                                       int sourceOutFrame);
+                                                      const QString& trackId, int sourceInFrame,
+                                                      int sourceOutFrame);
     /// Place matching picture and sound excerpts on distinct compatible tracks in one
     /// atomic undoable step. The optional target fixes one lane; the other is first-free.
     /// Clips remain independently editable, not persistently linked.

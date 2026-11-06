@@ -34,11 +34,12 @@ range placement at the Program playhead
 destination-track selection
 ([#163](https://github.com/sanskarIN/frametrellis/pull/163)) subsequently
 merged as further development milestones. Atomic two-track video/audio
-placement is being developed independently of these single-clip workflows.
+placement and Source Monitor replacement now also exist in post-v1.4.0
+development, alongside clip-only ripple insertion.
 These improvements are **not** included in the v1.4.0 installers, and the
 Source Monitor remains a silent viewer, not a source-audio transport player.
-Full sequence ripple across subtitle/marker metadata, destructive overwrite, persistent clip linking and
-proxy media are still absent. Always distinguish a merged development feature
+Full sequence ripple across subtitle/marker metadata, destructive overwrite,
+persistent clip linking and proxy media are still absent. Always distinguish a merged development feature
 from one present in a tagged release.
 
 The original audit follows unchanged as a record of the gaps and engineering

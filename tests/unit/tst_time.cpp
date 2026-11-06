@@ -81,8 +81,8 @@ private slots:
         // Fraction parsing must not report an unrepresentable Rational as a valid result.
         QVERIFY(!Rational::fromString(QStringLiteral("1/-9223372036854775808")));
         QVERIFY(!Rational::fromString(QStringLiteral("-9223372036854775808/-1")));
-        const auto reduced = Rational::fromString(
-            QStringLiteral("-9223372036854775808/-9223372036854775808"));
+        const auto reduced =
+            Rational::fromString(QStringLiteral("-9223372036854775808/-9223372036854775808"));
         QVERIFY(reduced.has_value());
         QCOMPARE(*reduced, Rational(1, 1));
     }

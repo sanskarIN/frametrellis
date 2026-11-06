@@ -143,19 +143,18 @@ std::unique_ptr<EditCommand> addClip(const Id& trackId, const Clip& clip)
 }
 
 std::unique_ptr<EditCommand> addSynchronizedSourceClips(const Id& videoTrackId,
-                                                         const Clip& videoClip,
-                                                         const Id& audioTrackId,
-                                                         const Clip& audioClip)
+                                                        const Clip& videoClip,
+                                                        const Id& audioTrackId,
+                                                        const Clip& audioClip)
 {
     return command(
         QStringLiteral("Place Synchronized Video and Audio"),
         [videoTrackId, videoClip, audioTrackId, audioClip](Timeline& timeline,
                                                            const SourceLookup& sources) -> Status {
-            if (videoTrackId.isEmpty() || audioTrackId.isEmpty() ||
-                videoTrackId == audioTrackId || videoClip.id.isEmpty() || audioClip.id.isEmpty() ||
-                videoClip.id == audioClip.id || videoClip.assetId.isEmpty() ||
-                videoClip.assetId != audioClip.assetId || videoClip.start != audioClip.start ||
-                videoClip.sourceIn != audioClip.sourceIn ||
+            if (videoTrackId.isEmpty() || audioTrackId.isEmpty() || videoTrackId == audioTrackId ||
+                videoClip.id.isEmpty() || audioClip.id.isEmpty() || videoClip.id == audioClip.id ||
+                videoClip.assetId.isEmpty() || videoClip.assetId != audioClip.assetId ||
+                videoClip.start != audioClip.start || videoClip.sourceIn != audioClip.sourceIn ||
                 videoClip.duration != audioClip.duration) {
                 return makeError(ErrorCode::InvalidArgument,
                                  QStringLiteral("Video and audio must share the same source, "

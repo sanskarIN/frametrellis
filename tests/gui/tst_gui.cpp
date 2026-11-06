@@ -1368,6 +1368,69 @@ private slots:
         QCOMPARE(playback->positionFrames(), programBefore);
     }
 
+    void sourceMonitorMatchesAudioOnlyClipLengthWithoutTouchingProject()
+    {
+        auto* timeline = m_app->timeline();
+        const QString audioId =
+            m_app->media()->model()->get(1).value(QStringLiteral("assetId")).toString();
+        QVERIFY(!audioId.isEmpty());
+        const Project before = m_app->project()->project();
+        QVERIFY(timeline->appendAssetRange(audioId, 3, 17));
+        const Project withClip = m_app->project()->project();
+        const Id id = timeline->selection().first();
+        const Clip* original = withClip.timeline().clip(id);
+        QVERIFY(original);
+        QCOMPARE(original->duration, FrameCount{14});
+        QCOMPARE(withClip.timeline().trackOfClip(id)->kind, TrackKind::Audio);
+
+        QObject* monitor = m_window->findChild<QObject*>(QStringLiteral("sourceMonitorPanel"));
+        QQuickItem* tabs = findItem(m_window->contentItem(), QStringLiteral("monitorTabs"));
+        QQuickItem* match =
+            findItem(m_window->contentItem(), QStringLiteral("sourceMonitorMatchClipLength"));
+        QQuickItem* replace =
+            findItem(m_window->contentItem(), QStringLiteral("sourceMonitorReplaceSelected"));
+        QVERIFY(monitor);
+        QVERIFY(tabs);
+        QVERIFY(match);
+        QVERIFY(replace);
+        QVERIFY(QMetaObject::invokeMethod(monitor, "openFor", Q_ARG(QVariant, QVariant(audioId))));
+        QVERIFY(tabs->setProperty("currentIndex", 1));
+        QVERIFY(!monitor->property("hasPicture").toBool());
+        QVERIFY(monitor->property("hasSourceAudio").toBool());
+        QVERIFY(monitor->setProperty("markInFrame", 40));
+        const int maxFrames = monitor->property("maxFrames").toInt();
+        QVERIFY(maxFrames > 54);
+        QVERIFY(monitor->setProperty("markOutFrame", maxFrames));
+        const QString oldUndo = m_app->project()->undoText();
+        const bool wasModified = m_app->project()->isModified();
+        QTRY_VERIFY(match->isVisible() && match->isEnabled());
+        QVERIFY(!replace->isEnabled());
+        QTest::mouseClick(m_window, Qt::LeftButton, Qt::NoModifier, centreOf(match));
+        QTRY_COMPARE(monitor->property("markOutFrame").toInt(), 54);
+        QCOMPARE(monitor->property("markInFrame").toInt(), 40);
+        QCOMPARE(m_app->project()->project(), withClip);
+        QCOMPARE(m_app->project()->undoText(), oldUndo);
+        QCOMPARE(m_app->project()->isModified(), wasModified);
+        QTRY_VERIFY(replace->isEnabled());
+        QTest::mouseClick(m_window, Qt::LeftButton, Qt::NoModifier, centreOf(replace));
+        const Project replaced = m_app->project()->project();
+        const Clip* changed = replaced.timeline().clip(id);
+        QVERIFY(changed);
+        QCOMPARE(changed->sourceIn, FrameCount{40});
+        QCOMPARE(changed->duration, original->duration);
+        QCOMPARE(changed->start, original->start);
+        QCOMPARE(changed->assetId, audioId);
+        QCOMPARE(m_app->project()->undoText(), QStringLiteral("Replace Clip Source"));
+        m_app->project()->undo();
+        QCOMPARE(m_app->project()->project(), withClip);
+
+        QVERIFY(QMetaObject::invokeMethod(monitor, "clear"));
+        QVERIFY(tabs->setProperty("currentIndex", 0));
+        m_app->project()->undo();
+        QCOMPARE(m_app->project()->project(), before);
+        timeline->clearSelection();
+    }
+
     void duplicateSelectionAtPlayheadRetainsGroupTimingAndReSelectsCopies()
     {
         auto* timeline = m_app->timeline();

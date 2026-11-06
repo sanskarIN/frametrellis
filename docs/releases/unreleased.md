@@ -14,6 +14,8 @@ further cross-platform packaging. See the [professional-editor assessment](../de
 and [roadmap](../roadmap.md). No features are claimed as released until
 their actual tag and packages are verified.
 
+## Post-v1.4.0 development changes (not in the stable download)
+
 - **Atomic ripple source insert:** the Source Monitor's **Ripple Insert**
   places a marked video/audio excerpt at the Program playhead on an exact
   or automatic unlocked destination track, shifting all later clips on
@@ -23,8 +25,6 @@ their actual tag and packages are verified.
   reject the entire edit. Existing clip IDs, trims, properties and transitions
   are retained; markers and subtitles deliberately stay at absolute times.
   This is not a linked V+A ripple or a destructive overwrite.
-
-## Post-v1.4.0 development changes (not in the stable download)
 
 - **Match Source Monitor excerpt to selected clip length:** one click sets
   exclusive Out to the selected timeline clip's duration after the existing
@@ -45,7 +45,7 @@ their actual tag and packages are verified.
   selected destination and chooses the other compatible free lane. A collision,
   lock, invalid range or missing lane rolls back the complete operation.
   The clips remain independently editable, not persistently linked; there is
-  no ripple insertion, overwrite or source audio playback.
+  no *paired* V+A ripple insertion, overwrite or source audio playback.
 
 - **Append a source excerpt to the chosen track:** Source Monitor **Append range**
   now honors its Target track picker; when automatic, it skips compatible

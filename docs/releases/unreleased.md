@@ -24,6 +24,13 @@ their actual tag and packages are verified.
   The clips remain independently editable, not persistently linked; there is
   no ripple insertion, overwrite or source audio playback.
 
+- **Append a source excerpt to the chosen track:** Source Monitor **Append range**
+  now honors its Target track picker; when automatic, it skips compatible
+  tracks that have no timeline capacity. Explicit locked, missing, incompatible
+  or full lanes are refused instead of silently changing the destination.
+  The original video/audio source remains untouched, and one undo reverses
+  the appended clip.
+
 - **Choose an exact Source Monitor destination track:** the source placement
   picker lists compatible video and audio tracks, marks locked destinations,
   and preserves the chosen track across timeline edits. Users can retain

@@ -638,7 +638,13 @@ when the Source tab is active). Marks are measured
 in **project-rate frames**, with an **exclusive Out boundary**; for example,
 marking In on displayed frame 13 and Out on displayed frame 27 selects the
 half-open range [13, 28), exactly 15 frames. Click **Append range** to create
-one undoable clip at the end of the first compatible unlocked track.
+one undoable clip at the end of the **Target track** you selected. With
+**Automatic (first free)**, the editor chooses the first compatible unlocked
+track with enough remaining timeline capacity. An explicitly selected video
+or audio track is never replaced by a different destination: a locked, removed,
+incompatible or full track causes a refusal without changing the project.
+For media containing both video and audio, selecting an audio target appends
+the sound stream as one independent audio clip.
 
 **Place at playhead** uses three edit points: source In, source exclusive Out and
 the **Program** timeline playhead as the destination start. In the **Target

@@ -909,6 +909,110 @@ private slots:
         playback->seek(static_cast<double>(oldPosition));
     }
 
+    void sourceAppendHonorsTargetTrackAndDoesNotSilentlyFallback()
+    {
+        auto* timeline = m_app->timeline();
+        const QString videoId =
+            m_app->media()->model()->get(0).value(QStringLiteral("assetId")).toString();
+        const QString audioId =
+            m_app->media()->model()->get(1).value(QStringLiteral("assetId")).toString();
+        QVERIFY(!videoId.isEmpty());
+        QVERIFY(!audioId.isEmpty());
+        const Project before = m_app->project()->project();
+        QVERIFY(timeline->addTrack(QStringLiteral("audio")));
+        const Project withTrack = m_app->project()->project();
+        Id targetAudio;
+        Id targetVideo;
+        for (const Track& track : withTrack.timeline().tracks()) {
+            if (track.kind == TrackKind::Audio && !before.timeline().track(track.id)) {
+                targetAudio = track.id;
+            }
+            if (track.kind == TrackKind::Video && targetVideo.isEmpty()) {
+                targetVideo = track.id;
+            }
+        }
+        QVERIFY(!targetAudio.isEmpty());
+        QVERIFY(!targetVideo.isEmpty());
+        QObject* source = m_window->findChild<QObject*>(QStringLiteral("sourceMonitorPanel"));
+        QQuickItem* tabs = findItem(m_window->contentItem(), QStringLiteral("monitorTabs"));
+        QQuickItem* picker =
+            findItem(m_window->contentItem(), QStringLiteral("sourceMonitorTargetTrack"));
+        QQuickItem* append =
+            findItem(m_window->contentItem(), QStringLiteral("sourceMonitorAppend"));
+        QVERIFY(source);
+        QVERIFY(tabs);
+        QVERIFY(picker);
+        QVERIFY(append);
+        QVERIFY(QMetaObject::invokeMethod(source, "openFor", Q_ARG(QVariant, QVariant(audioId))));
+        QVERIFY(tabs->setProperty("currentIndex", 1));
+        QVERIFY(source->setProperty("markInFrame", 6));
+        QVERIFY(source->setProperty("markOutFrame", 18));
+        QVERIFY(source->setProperty("selectedTrackId", targetAudio));
+        QTRY_VERIFY(picker->property("currentIndex").toInt() > 0);
+        QTRY_VERIFY(append->isVisible() && append->isEnabled());
+        QTest::mouseClick(m_window, Qt::LeftButton, Qt::NoModifier, centreOf(append));
+
+        const Project appended = m_app->project()->project();
+        QCOMPARE(appended.timeline().clipCount(), withTrack.timeline().clipCount() + 1);
+        QCOMPARE(timeline->selection().size(), qsizetype{1});
+        const Clip* clip = appended.timeline().clip(timeline->selection().first());
+        QVERIFY(clip);
+        QCOMPARE(clip->assetId, audioId);
+        QCOMPARE(clip->sourceIn, FrameCount{6});
+        QCOMPARE(clip->duration, FrameCount{12});
+        QCOMPARE(clip->start, FrameCount{0});
+        QCOMPARE(appended.timeline().trackOfClip(clip->id)->id, targetAudio);
+        QCOMPARE(m_app->project()->undoText(), QStringLiteral("Add Clip"));
+        m_app->project()->undo();
+        QCOMPARE(m_app->project()->project(), withTrack);
+        m_app->project()->redo();
+        QCOMPARE(m_app->project()->project(), appended);
+        m_app->project()->undo();
+        QCOMPARE(m_app->project()->project(), withTrack);
+
+        // A video source with audio may be appended to an explicitly chosen audio lane.
+        QVERIFY(timeline->appendAssetRangeOnTrack(videoId, targetAudio, 4, 15));
+        const Project videoAudio = m_app->project()->project();
+        const Clip* stream = videoAudio.timeline().clip(timeline->selection().first());
+        QVERIFY(stream);
+        QCOMPARE(stream->assetId, videoId);
+        QCOMPARE(stream->sourceIn, FrameCount{4});
+        QCOMPARE(stream->duration, FrameCount{11});
+        QCOMPARE(videoAudio.timeline().trackOfClip(stream->id)->id, targetAudio);
+        m_app->project()->undo();
+        QCOMPARE(m_app->project()->project(), withTrack);
+
+        // An audio-only source cannot be routed to a video lane.
+        const QString undoBefore = m_app->project()->undoText();
+        QVERIFY(!timeline->appendAssetRangeOnTrack(audioId, targetVideo, 0, 10));
+        QVERIFY(
+            !timeline->appendAssetRangeOnTrack(audioId, QStringLiteral("missing-track"), 0, 10));
+        QVERIFY(!timeline->appendAssetRangeOnTrack(audioId, targetAudio, 10, 10));
+        QCOMPARE(m_app->project()->project(), withTrack);
+        QCOMPARE(m_app->project()->undoText(), undoBefore);
+
+        // Locked or removed explicit destinations never fall back to another track.
+        QVERIFY(timeline->setTrackFlag(targetAudio, QStringLiteral("locked"), true));
+        const Project locked = m_app->project()->project();
+        const QString lockedUndo = m_app->project()->undoText();
+        QTRY_VERIFY(!source->property("selectedTrackAvailable").toBool());
+        QVERIFY(!append->isEnabled());
+        QVERIFY(!timeline->appendAssetRangeOnTrack(audioId, targetAudio, 6, 18));
+        QCOMPARE(m_app->project()->project(), locked);
+        QCOMPARE(m_app->project()->undoText(), lockedUndo);
+        m_app->project()->undo();
+        QCOMPARE(m_app->project()->project(), withTrack);
+        QTRY_VERIFY(source->property("selectedTrackAvailable").toBool());
+
+        m_app->project()->undo();
+        QCOMPARE(m_app->project()->project(), before);
+        QCOMPARE(source->property("selectedTrackId").toString(), targetAudio);
+        QTRY_VERIFY(!source->property("selectedTrackAvailable").toBool());
+        QVERIFY(!append->isEnabled());
+        QVERIFY(QMetaObject::invokeMethod(source, "clear"));
+        QVERIFY(tabs->setProperty("currentIndex", 0));
+    }
+
     void sourceMonitorPlacesSynchronizedPictureAndSoundWithOneUndo()
     {
         auto* timeline = m_app->timeline();

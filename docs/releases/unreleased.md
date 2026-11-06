@@ -16,6 +16,14 @@ their actual tag and packages are verified.
 
 ## Post-v1.4.0 development changes (not in the stable download)
 
+- **Atomic synchronized source picture/audio placement:** for a source containing
+  both video and audio, **Place V+A** adds identical source excerpts to distinct
+  video/audio tracks at the Program playhead as one undoable edit. Honors a
+  selected destination and chooses the other compatible free lane. A collision,
+  lock, invalid range or missing lane rolls back the complete operation.
+  The clips remain independently editable, not persistently linked; there is
+  no ripple insertion, overwrite or source audio playback.
+
 - **Choose an exact Source Monitor destination track:** the source placement
   picker lists compatible video and audio tracks, marks locked destinations,
   and preserves the chosen track across timeline edits. Users can retain

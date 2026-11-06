@@ -638,14 +638,27 @@ when the Source tab is active). Marks are measured
 in **project-rate frames**, with an **exclusive Out boundary**; for example,
 marking In on displayed frame 13 and Out on displayed frame 27 selects the
 half-open range [13, 28), exactly 15 frames. Click **Append range** to create
-one undoable clip on the first compatible unlocked track. Changing the source,
-scrubbing or setting marks alone never modifies the project. The panel clears
-a source when its project is closed/replaced or that media is removed.
+one undoable clip at the end of the first compatible unlocked track.
 
-This is an independent **silent frame viewer**, not yet a source player with
-audio transport, automatic linked video/audio insertion, overwrite editing, or
-full three-point editing. For those workflows, see the
+**Place at playhead** uses three edit points: source In, source exclusive Out and
+the **Program** timeline playhead as the destination start. The source range is
+added on the first compatible, unlocked track with free space over its entire
+duration. It does **not** ripple, split or overwrite existing clips, and it never
+moves the Program playhead. An occupied range, unavailable track, invalid source
+excerpt or timeline-limit overflow is rejected without changing the project.
+A successful placement selects the new clip and can be undone or redone as one
+**Add Clip** operation. Video sources currently place only a video clip; audio
+streams are **not** automatically linked or inserted on another track.
+
+Changing the source, scrubbing or setting marks alone never modifies the
+project. The panel clears a source when its project is closed/replaced or
+that media is removed.
+
+This is still an independent **silent frame viewer**, not yet a source player
+with audio transport, synchronized video/audio insertion, ripple insertion or
+destructive overwrite editing. For those workflows, see the
 [professional-editor gap assessment](../development/pro-editor-assessment.md).
+This post-v1.4.0 improvement is not in the stable v1.4.0 downloads.
 
 ### Export a media audit as CSV
 

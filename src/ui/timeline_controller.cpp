@@ -494,6 +494,62 @@ bool TimelineController::appendAssetRange(const QString& assetId, int sourceInFr
     return false;
 }
 
+bool TimelineController::placeAssetRangeAtPlayhead(const QString& assetId, int sourceInFrame,
+                                                   int sourceOutFrame)
+{
+    const MediaAsset* asset = project().asset(assetId);
+    if (!asset || asset->info.kind == MediaKind::Image) {
+        emit statusMessage(QStringLiteral("Choose a video or audio source for placement."));
+        return false;
+    }
+    if (asset->status == MediaStatus::Missing) {
+        emit statusMessage(QStringLiteral("Relink missing media before placing an excerpt."));
+        return false;
+    }
+    const std::optional<FrameCount> available = placementLength(*asset);
+    if (!available || sourceInFrame < 0 || sourceOutFrame <= sourceInFrame ||
+        static_cast<FrameCount>(sourceOutFrame) > *available) {
+        emit statusMessage(QStringLiteral("Choose valid In and Out frames within the source."));
+        return false;
+    }
+
+    const FrameCount start = m_playback->positionFrames();
+    const FrameCount duration = static_cast<FrameCount>(sourceOutFrame) - sourceInFrame;
+    if (start < 0 || start >= kMaxTimelineFrames || duration > kMaxTimelineFrames - start) {
+        emit statusMessage(QStringLiteral("This source range exceeds the timeline limit."));
+        return false;
+    }
+
+    const TrackKind wanted = asset->info.hasVideo ? TrackKind::Video : TrackKind::Audio;
+    // Try each destination without disturbing the sequence. A free higher track can accept
+    // the excerpt when a lower track is occupied, but a locked track is never modified.
+    for (const Track& track : project().timeline().tracks()) {
+        if (track.kind != wanted || track.locked ||
+            !project().timeline().isRangeFree(track.id, start, duration, {})) {
+            continue;
+        }
+        Clip clip;
+        clip.id = createId();
+        clip.assetId = assetId;
+        clip.start = start;
+        clip.sourceIn = sourceInFrame;
+        clip.duration = duration;
+        if (!m_project->execute(edits::addClip(track.id, clip))) {
+            return false; // The edit engine validates all constraints atomically.
+        }
+        setTransitionSelection({});
+        m_selection = {clip.id};
+        m_model.updateSelection(m_selection);
+        emit selectionChanged();
+        emit selectedClipChanged();
+        return true;
+    }
+
+    emit statusMessage(QStringLiteral("No compatible unlocked track has free space at the "
+                                      "playhead. Add a track or move the playhead."));
+    return false;
+}
+
 bool TimelineController::dropAsset(const QString& assetId, const QString& trackId, double frame)
 {
     // Negative drops are clamped to the beginning, but non-finite/huge values

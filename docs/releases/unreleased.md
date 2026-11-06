@@ -16,6 +16,13 @@ their actual tag and packages are verified.
 
 ## Post-v1.4.0 development changes (not in the stable download)
 
+- **Source range placement at playhead:** use Source In/Out plus the Program
+  playhead to place an excerpt without overwriting or rippling clips. The
+  first compatible unlocked track with enough free space receives one
+  undoable clip; occupied ranges, invalid source boundaries and locked tracks
+  are rejected without changing existing edits. Video/audio are not linked
+  automatically. This is development-only, not in v1.4.0 installers.
+
 - **Independent Source Monitor:** a separate Source tab opens original video
   or audio from the Media Bin and keeps its preview position and exact
   In/Out marks separate from the Program playhead. Frame stepping, scrubbing

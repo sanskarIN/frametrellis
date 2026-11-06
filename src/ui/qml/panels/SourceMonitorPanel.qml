@@ -6,7 +6,7 @@ import QtQuick.Layouts
 import FrameTrellis
 
 // Independent, silent source monitor. Its position and marks do not affect the program playhead.
-// A successful Append Range is the only operation here that edits the timeline.
+// Append Range and Place at Playhead are the only operations here that edit the timeline.
 PanelFrame {
     id: panel
     objectName: "sourceMonitorPanel"
@@ -87,6 +87,11 @@ PanelFrame {
     function appendRange() {
         return validRange
                && app.timeline.appendAssetRange(assetId, markInFrame, markOutFrame)
+    }
+
+    function placeAtPlayhead() {
+        return validRange
+               && app.timeline.placeAssetRangeAtPlayhead(assetId, markInFrame, markOutFrame)
     }
 
     // Clear the source on project replacement or removal, so stale asset IDs cannot
@@ -268,9 +273,17 @@ PanelFrame {
                 elide: Text.ElideRight
             }
             FtButton {
+                objectName: "sourceMonitorPlace"
+                text: qsTr("Place at playhead")
+                primary: true
+                enabled: panel.validRange
+                ToolTip.visible: hovered
+                ToolTip.text: qsTr("Place without rippling or overwriting clips; requires free space on an unlocked track.")
+                onClicked: panel.placeAtPlayhead()
+            }
+            FtButton {
                 objectName: "sourceMonitorAppend"
                 text: qsTr("Append range")
-                primary: true
                 enabled: panel.validRange
                 onClicked: {
                     if (!panel.appendRange())

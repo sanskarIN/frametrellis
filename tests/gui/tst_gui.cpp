@@ -1289,16 +1289,18 @@ private slots:
         QVERIFY(replaceButton);
         QVERIFY(QMetaObject::invokeMethod(monitor, "openFor", Q_ARG(QVariant, QVariant(videoId))));
         QVERIFY(tabs->setProperty("currentIndex", 1));
+        const int maxFrames = monitor->property("maxFrames").toInt();
+        QVERIFY(maxFrames > 60);
         QVERIFY(monitor->setProperty("previewFrame", 7));
-        QVERIFY(monitor->setProperty("markInFrame", 40));
-        QVERIFY(monitor->setProperty("markOutFrame", 80));
+        QVERIFY(monitor->setProperty("markInFrame", 30));
+        QVERIFY(monitor->setProperty("markOutFrame", maxFrames));
         const QString undoBefore = m_app->project()->undoText();
         const bool modifiedBefore = m_app->project()->isModified();
         QTRY_VERIFY(matchButton->isVisible() && matchButton->isEnabled());
         QVERIFY(!replaceButton->isEnabled());
         QTest::mouseClick(m_window, Qt::LeftButton, Qt::NoModifier, centreOf(matchButton));
-        QTRY_COMPARE(monitor->property("markOutFrame").toInt(), 55);
-        QCOMPARE(monitor->property("markInFrame").toInt(), 40);
+        QTRY_COMPARE(monitor->property("markOutFrame").toInt(), 45);
+        QCOMPARE(monitor->property("markInFrame").toInt(), 30);
         QCOMPARE(monitor->property("previewFrame").toInt(), 7);
         QCOMPARE(playback->positionFrames(), programBefore);
         QCOMPARE(m_app->project()->project(), withClip);
@@ -1308,8 +1310,6 @@ private slots:
         QTRY_VERIFY(replaceButton->isEnabled());
 
         // Too few remaining source frames: never move a deliberately chosen In.
-        const int maxFrames = monitor->property("maxFrames").toInt();
-        QVERIFY(maxFrames > 80);
         QVERIFY(monitor->setProperty("markInFrame", maxFrames - 14));
         QTRY_VERIFY(!matchButton->isEnabled());
         const int outBefore = monitor->property("markOutFrame").toInt();
@@ -1320,16 +1320,16 @@ private slots:
         QCOMPARE(m_app->project()->undoText(), undoBefore);
 
         // Restoring a feasible In enables a single-click replacement.
-        QVERIFY(monitor->setProperty("markInFrame", 40));
+        QVERIFY(monitor->setProperty("markInFrame", 30));
         QTRY_VERIFY(matchButton->isEnabled());
         QTest::mouseClick(m_window, Qt::LeftButton, Qt::NoModifier, centreOf(matchButton));
-        QTRY_COMPARE(monitor->property("markOutFrame").toInt(), 55);
+        QTRY_COMPARE(monitor->property("markOutFrame").toInt(), 45);
         QTRY_VERIFY(replaceButton->isEnabled());
         QTest::mouseClick(m_window, Qt::LeftButton, Qt::NoModifier, centreOf(replaceButton));
         const Project replaced = m_app->project()->project();
         const Clip* swapped = replaced.timeline().clip(clipId);
         QVERIFY(swapped);
-        QCOMPARE(swapped->sourceIn, FrameCount{40});
+        QCOMPARE(swapped->sourceIn, FrameCount{30});
         QCOMPARE(swapped->duration, original->duration);
         QCOMPARE(swapped->start, original->start);
         QCOMPARE(swapped->id, original->id);

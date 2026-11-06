@@ -6,7 +6,7 @@ import QtQuick.Layouts
 import FrameTrellis
 
 // Independent, silent source monitor. Its position and marks do not affect the program playhead.
-// Append Range and Place at Playhead are the only operations here that edit the timeline.
+// Only Append Range, Place at Playhead and Place V+A modify the timeline.
 PanelFrame {
     id: panel
     objectName: "sourceMonitorPanel"
@@ -20,6 +20,7 @@ PanelFrame {
     property int markInFrame: 0
     property int markOutFrame: 0
     property bool hasPicture: false
+    property bool hasSourceAudio: false
     property string selectedTrackId: ""
     property var destinationTracks: []
     readonly property bool loaded: assetId.length > 0
@@ -57,6 +58,7 @@ PanelFrame {
         markInFrame = 0
         markOutFrame = 0
         hasPicture = false
+        hasSourceAudio = false
         refreshDestinationTracks()
     }
 
@@ -74,6 +76,7 @@ PanelFrame {
         sourceName = facts.name
         maxFrames = duration
         hasPicture = facts.kind === "video"
+        hasSourceAudio = facts.hasAudio === true
         markInFrame = 0
         markOutFrame = duration
         previewFrame = 0
@@ -120,6 +123,12 @@ PanelFrame {
                ? app.timeline.placeAssetRangeOnTrackAtPlayhead(
                      assetId, selectedTrackId, markInFrame, markOutFrame)
                : app.timeline.placeAssetRangeAtPlayhead(assetId, markInFrame, markOutFrame)
+    }
+
+    function placeVideoAndAudio() {
+        return validRange && hasPicture && hasSourceAudio && selectedTrackAvailable
+               && app.timeline.placeSynchronizedAssetRangeAtPlayhead(
+                      assetId, selectedTrackId, markInFrame, markOutFrame)
     }
 
     // Clear the source on project replacement or removal, so stale asset IDs cannot
@@ -308,6 +317,15 @@ PanelFrame {
                                            track => track.id === panel.selectedTrackId))
                 onActivated: index => panel.selectedTrackId = panel.destinationTracks[index].id
                 Accessible.name: qsTr("Source placement destination track")
+            }
+            FtButton {
+                objectName: "sourceMonitorPlaceVideoAudio"
+                text: qsTr("Place V+A")
+                visible: panel.loaded && panel.hasPicture && panel.hasSourceAudio
+                enabled: panel.validRange && panel.selectedTrackAvailable
+                ToolTip.visible: hovered
+                ToolTip.text: qsTr("Place matching picture and sound on free tracks in one undoable edit; clips are not permanently linked.")
+                onClicked: panel.placeVideoAndAudio()
             }
         }
         RowLayout {

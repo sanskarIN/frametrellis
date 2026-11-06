@@ -15,6 +15,7 @@ FtDialog {
         ["Ctrl+Alt+L", qsTr("Toggle Loop Preview (after v1.4.0)")],
         ["Left / Right", qsTr("Step one frame in active Program / Source tab")],
         ["I / O", qsTr("Set Source In / Out mark (after v1.4.0)")],
+        ["Ctrl+Shift+M", qsTr("Match Source Out to selected clip length (Source tab)")],
         ["Shift+Left / Shift+Right", qsTr("Back / forward one second")],
         ["Ctrl+Left / Ctrl+Right", qsTr("Back / forward five seconds")],
         ["Ctrl+Shift+Left / Right", qsTr("Back / forward ten seconds")],

@@ -26,12 +26,20 @@ Media Bin timeline-use navigation
 technical properties
 ([#156](https://github.com/sanskarIN/frametrellis/pull/156)).
 The source-excerpt picture preview
-([#157](https://github.com/sanskarIN/frametrellis/pull/157)) has also merged
-into main as **post-v1.4.0 development**. It provides silent, frame-accurate
-source pictures and In/Out marks, but not a standalone playable source monitor
-or complete three-point editing. These new features are **not** included in
-the v1.4.0 installers. Always distinguish a merged development feature from
-one present in a tagged release.
+([#157](https://github.com/sanskarIN/frametrellis/pull/157)) merged into
+main as **post-v1.4.0 development**. The independent, silent Source Monitor
+([#159](https://github.com/sanskarIN/frametrellis/pull/159)), collision-safe
+range placement at the Program playhead
+([#162](https://github.com/sanskarIN/frametrellis/pull/162)) and explicit
+destination-track selection
+([#163](https://github.com/sanskarIN/frametrellis/pull/163)) subsequently
+merged as further development milestones. Atomic two-track video/audio
+placement is being developed independently of these single-clip workflows.
+These improvements are **not** included in the v1.4.0 installers, and the
+Source Monitor remains a silent viewer, not a source-audio transport player.
+Full ripple insertion, destructive overwrite, persistent clip linking and
+proxy media are still absent. Always distinguish a merged development feature
+from one present in a tagged release.
 
 The original audit follows unchanged as a record of the gaps and engineering
 acceptance criteria at that time.

@@ -760,8 +760,7 @@ private slots:
         const Project paired = editor.project();
         QCOMPARE(paired.timeline().clipCount(), 2);
         const int pairedPeak = audioPeakAt(paired, 10);
-        QVERIFY2(pairedPeak > 0 &&
-                     qAbs(pairedPeak - referencePeak) <= referencePeak / 10 + 50,
+        QVERIFY2(pairedPeak > 0 && qAbs(pairedPeak - referencePeak) <= referencePeak / 10 + 50,
                  qPrintable(QStringLiteral("paired audio peak %1 vs single audio peak %2")
                                 .arg(pairedPeak)
                                 .arg(referencePeak)));

@@ -6,7 +6,7 @@ import QtQuick.Layouts
 import FrameTrellis
 
 // Independent, silent source monitor. Its position and marks do not affect the program playhead.
-// Only Append Range, Place at Playhead, Place V+A and Replace selected modify the timeline.
+// Only Append Range, Place at Playhead, Ripple Insert, Place V+A and Replace selected modify the timeline.
 // Match clip length and all monitor navigation affect source marks only.
 PanelFrame {
     id: panel
@@ -144,6 +144,12 @@ PanelFrame {
                ? app.timeline.placeAssetRangeOnTrackAtPlayhead(
                      assetId, selectedTrackId, markInFrame, markOutFrame)
                : app.timeline.placeAssetRangeAtPlayhead(assetId, markInFrame, markOutFrame)
+    }
+
+    function rippleInsertRange() {
+        return validRange && selectedTrackAvailable
+               && app.timeline.rippleInsertAssetRangeAtPlayhead(
+                      assetId, selectedTrackId, markInFrame, markOutFrame)
     }
 
     function placeVideoAndAudio() {
@@ -375,6 +381,27 @@ PanelFrame {
                 ToolTip.visible: hovered
                 ToolTip.text: qsTr("Place matching picture and sound on free tracks in one undoable edit; clips are not permanently linked.")
                 onClicked: panel.placeVideoAndAudio()
+            }
+        }
+        RowLayout {
+            Layout.fillWidth: true
+            Layout.leftMargin: Theme.spacingS
+            Layout.rightMargin: Theme.spacingS
+            spacing: Theme.spacingS
+            Label {
+                Layout.fillWidth: true
+                color: Theme.textMuted
+                text: qsTr("Moves later clips across tracks; requires a clean cut.")
+                elide: Text.ElideRight
+            }
+            FtButton {
+                objectName: "sourceMonitorRippleInsert"
+                text: qsTr("Ripple Insert")
+                enabled: panel.validRange && panel.selectedTrackAvailable
+                ToolTip.visible: hovered
+                ToolTip.text: qsTr("Insert at the Program playhead; shift later clips on all affected unlocked tracks. Refuses cuts through clips or transitions. Markers and subtitles stay at their original times.")
+                Accessible.name: qsTr("Ripple insert marked source range at playhead")
+                onClicked: panel.rippleInsertRange()
             }
         }
         RowLayout {

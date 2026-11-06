@@ -502,14 +502,15 @@ QVariantList TimelineController::sourceDestinationTracks(const QString& assetId)
         return destinations;
     }
     for (const Track& track : project().timeline().tracks()) {
-        const bool compatible = track.kind == TrackKind::Video ? asset->info.hasVideo
-                                                               : asset->info.hasAudio;
+        const bool compatible =
+            track.kind == TrackKind::Video ? asset->info.hasVideo : asset->info.hasAudio;
         if (!compatible) {
             continue;
         }
         destinations.append(QVariantMap{
             {QStringLiteral("id"), track.id},
-            {QStringLiteral("label"), track.locked ? tr("%1 (locked)").arg(track.name) : track.name},
+            {QStringLiteral("label"),
+             track.locked ? tr("%1 (locked)").arg(track.name) : track.name},
             {QStringLiteral("locked"), track.locked},
         });
     }

@@ -254,7 +254,7 @@ private slots:
         QCOMPARE(timeline.clip(sound.id)->start, FrameCount{115});
         QCOMPARE(timeline.clip(third.id)->properties, third.properties);
         QCOMPARE(timeline.clip(sound.id)->sourceIn, sound.sourceIn);
-        QCOMPARE(timeline.track(f.v1)->transitions, before.timeline().track(f.v1)->transitions);
+        QVERIFY(timeline.track(f.v1)->transitions == before.timeline().track(f.v1)->transitions);
         QVERIFY(timeline.validate(after.sourceLookup()));
         QCOMPARE(f.doc.undoText(), QStringLiteral("Ripple Insert Source Range"));
         QVERIFY(f.doc.undo());

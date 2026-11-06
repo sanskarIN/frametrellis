@@ -1319,10 +1319,16 @@ private slots:
         QCOMPARE(m_app->project()->project(), withClip);
         QCOMPARE(m_app->project()->undoText(), undoBefore);
 
-        // Restoring a feasible In enables a single-click replacement.
+        // Restore a feasible In but an unmatched Out. The shortcut is scoped to
+        // the Source tab and cannot accidentally modify marks in Program mode.
         QVERIFY(monitor->setProperty("markInFrame", 30));
+        QVERIFY(monitor->setProperty("markOutFrame", maxFrames));
         QTRY_VERIFY(matchButton->isEnabled());
-        QTest::mouseClick(m_window, Qt::LeftButton, Qt::NoModifier, centreOf(matchButton));
+        QVERIFY(tabs->setProperty("currentIndex", 0));
+        QTest::keyClick(m_window, Qt::Key_M, Qt::ControlModifier | Qt::ShiftModifier);
+        QCOMPARE(monitor->property("markOutFrame").toInt(), maxFrames);
+        QVERIFY(tabs->setProperty("currentIndex", 1));
+        QTest::keyClick(m_window, Qt::Key_M, Qt::ControlModifier | Qt::ShiftModifier);
         QTRY_COMPARE(monitor->property("markOutFrame").toInt(), 45);
         QTRY_VERIFY(replaceButton->isEnabled());
         QTest::mouseClick(m_window, Qt::LeftButton, Qt::NoModifier, centreOf(replaceButton));

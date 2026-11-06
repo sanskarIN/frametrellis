@@ -12,6 +12,7 @@ using namespace ft;
 namespace {
 
 const Id kVideoAsset = QStringLiteral("asset-video");
+const Id kAlternateVideoAsset = QStringLiteral("asset-video-alternate");
 const Id kAudioAsset = QStringLiteral("asset-audio");
 const Id kStillAsset = QStringLiteral("asset-still");
 
@@ -20,6 +21,9 @@ SourceLookup testSources()
     return [](const Id& id) -> std::optional<SourceLimits> {
         if (id == kVideoAsset) {
             return SourceLimits{FrameCount{250}, true, true};
+        }
+        if (id == kAlternateVideoAsset) {
+            return SourceLimits{FrameCount{150}, true, true};
         }
         if (id == kAudioAsset) {
             return SourceLimits{FrameCount{500}, false, true};
@@ -300,6 +304,69 @@ private slots:
         QVERIFY(!t.trimClipEnd(QStringLiteral("c1"), 80, testSources())); // zero length
         QVERIFY(t.trimClipEnd(QStringLiteral("c1"), 81, testSources()));
         QCOMPARE(t.clip(QStringLiteral("c1"))->duration, FrameCount{1});
+    }
+
+    void replacingSourceRetainsCutPropertiesAndClearsSourceAutomation()
+    {
+        Timeline t = makeTimeline();
+        const SourceLookup sources = testSources();
+        Clip clip = makeClip(QStringLiteral("clip"), kVideoAsset, 80, 20, 40);
+        clip.properties.gain = 0.75;
+        clip.properties.fadeIn = 4;
+        clip.properties.fadeOut = 6;
+        QVERIFY(t.insertClip(QStringLiteral("v1"), clip, sources));
+        QVERIFY(t.setAudioKeyframe(clip.id, 25, -9.0, sources));
+        QVERIFY(t.setOpacityKeyframe(clip.id, 30, 0.5, sources));
+        const Clip original = *t.clip(clip.id);
+        QVERIFY(!original.audioKeyframes.empty());
+        QVERIFY(!original.opacityKeyframes.empty());
+
+        QVERIFY(t.replaceClipSource(clip.id, kAlternateVideoAsset, 70, sources));
+        const Clip* replaced = t.clip(clip.id);
+        QVERIFY(replaced);
+        QCOMPARE(replaced->id, original.id);
+        QCOMPARE(replaced->assetId, kAlternateVideoAsset);
+        QCOMPARE(replaced->sourceIn, FrameCount{70});
+        QCOMPARE(replaced->start, original.start);
+        QCOMPARE(replaced->duration, original.duration);
+        QCOMPARE(replaced->properties, original.properties);
+        QVERIFY(replaced->audioKeyframes.empty());
+        QVERIFY(replaced->opacityKeyframes.empty());
+        QVERIFY(replaced->transformKeyframes.empty());
+        QCOMPARE(t.trackOfClip(clip.id)->id, QStringLiteral("v1"));
+        QVERIFY(t.validate(sources));
+        const Timeline after = t;
+        QVERIFY(t.replaceClipSource(clip.id, kAlternateVideoAsset, 70, sources));
+        QCOMPARE(t, after);
+    }
+
+    void replacingSourceRejectsIncompatibleLockedMissingAndInvalidHandles()
+    {
+        const SourceLookup sources = testSources();
+        Timeline t = makeTimeline();
+        const Clip clip = makeClip(QStringLiteral("clip"), kVideoAsset, 80, 20, 40);
+        QVERIFY(t.insertClip(QStringLiteral("v1"), clip, sources));
+        const Timeline original = t;
+        QVERIFY(!t.replaceClipSource(QStringLiteral("absent"), kAlternateVideoAsset, 10, sources));
+        QVERIFY(!t.replaceClipSource(clip.id, QStringLiteral("absent"), 10, sources));
+        QVERIFY(!t.replaceClipSource(clip.id, kAudioAsset, 10, sources));
+        QVERIFY(!t.replaceClipSource(clip.id, kStillAsset, 0, sources));
+        QVERIFY(!t.replaceClipSource(clip.id, kAlternateVideoAsset, -1, sources));
+        QVERIFY(!t.replaceClipSource(clip.id, kAlternateVideoAsset, 120, sources));
+        QCOMPARE(t, original);
+        QVERIFY(t.setTrackLocked(QStringLiteral("v1"), true));
+        const Timeline locked = t;
+        QVERIFY(!t.replaceClipSource(clip.id, kAlternateVideoAsset, 10, sources));
+        QCOMPARE(t, locked);
+
+        // The new media's exact visible range fits, but a dissolve would need
+        // additional outgoing frames, so it must never be silently destroyed.
+        Timeline withTransition = timelineWithCut();
+        QVERIFY(withTransition.addTransition(QStringLiteral("a"), 10, sources));
+        const Timeline beforeTransition = withTransition;
+        QVERIFY(!withTransition.replaceClipSource(QStringLiteral("a"), kAlternateVideoAsset,
+                                                   50, sources));
+        QCOMPARE(withTransition, beforeTransition);
     }
 
     void slipPreservesPlacementAndDuration()

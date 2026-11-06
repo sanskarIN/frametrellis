@@ -142,6 +142,43 @@ std::unique_ptr<EditCommand> addClip(const Id& trackId, const Clip& clip)
                    });
 }
 
+std::unique_ptr<EditCommand> addSynchronizedSourceClips(const Id& videoTrackId,
+                                                         const Clip& videoClip,
+                                                         const Id& audioTrackId,
+                                                         const Clip& audioClip)
+{
+    return command(
+        QStringLiteral("Place Synchronized Video and Audio"),
+        [videoTrackId, videoClip, audioTrackId, audioClip](Timeline& timeline,
+                                                           const SourceLookup& sources) -> Status {
+            if (videoTrackId.isEmpty() || audioTrackId.isEmpty() ||
+                videoTrackId == audioTrackId || videoClip.id.isEmpty() || audioClip.id.isEmpty() ||
+                videoClip.id == audioClip.id || videoClip.assetId.isEmpty() ||
+                videoClip.assetId != audioClip.assetId || videoClip.start != audioClip.start ||
+                videoClip.sourceIn != audioClip.sourceIn ||
+                videoClip.duration != audioClip.duration) {
+                return makeError(ErrorCode::InvalidArgument,
+                                 QStringLiteral("Video and audio must share the same source, "
+                                                "time range and start on different tracks."));
+            }
+            const Track* pictureTrack = timeline.track(videoTrackId);
+            const Track* soundTrack = timeline.track(audioTrackId);
+            if (!pictureTrack || !soundTrack || pictureTrack->kind != TrackKind::Video ||
+                soundTrack->kind != TrackKind::Audio) {
+                return makeError(ErrorCode::InvalidArgument,
+                                 QStringLiteral("Choose a video track and an audio track."));
+            }
+
+            // A TimelineCommand operates on a copy; if either insertion fails, neither
+            // clip becomes visible and the undo history remains unchanged.
+            if (const Status picture = timeline.insertClip(videoTrackId, videoClip, sources);
+                !picture) {
+                return picture;
+            }
+            return timeline.insertClip(audioTrackId, audioClip, sources);
+        });
+}
+
 std::unique_ptr<EditCommand> duplicateClip(const Id& clipId, const Id& newClipId)
 {
     const Id id = newClipId.isEmpty() ? createId() : newClipId;

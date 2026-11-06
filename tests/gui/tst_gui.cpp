@@ -1257,6 +1257,111 @@ private slots:
         timeline->clearSelection();
     }
 
+    void sourceMonitorMatchesSelectedClipLengthBeforeReplacing()
+    {
+        auto* timeline = m_app->timeline();
+        auto* playback = m_app->playback();
+        const QString videoId =
+            m_app->media()->model()->get(0).value(QStringLiteral("assetId")).toString();
+        const QString audioId =
+            m_app->media()->model()->get(1).value(QStringLiteral("assetId")).toString();
+        QVERIFY(!videoId.isEmpty());
+        QVERIFY(!audioId.isEmpty());
+        const Project before = m_app->project()->project();
+        const FrameCount programBefore = playback->positionFrames();
+        QVERIFY(timeline->appendAssetRange(videoId, 5, 20));
+        const Project withClip = m_app->project()->project();
+        const Id clipId = timeline->selection().first();
+        const Clip* original = withClip.timeline().clip(clipId);
+        QVERIFY(original);
+        QCOMPARE(original->duration, FrameCount{15});
+        const Id trackId = withClip.timeline().trackOfClip(clipId)->id;
+
+        QObject* monitor = m_window->findChild<QObject*>(QStringLiteral("sourceMonitorPanel"));
+        QQuickItem* tabs = findItem(m_window->contentItem(), QStringLiteral("monitorTabs"));
+        QQuickItem* matchButton =
+            findItem(m_window->contentItem(), QStringLiteral("sourceMonitorMatchClipLength"));
+        QQuickItem* replaceButton =
+            findItem(m_window->contentItem(), QStringLiteral("sourceMonitorReplaceSelected"));
+        QVERIFY(monitor);
+        QVERIFY(tabs);
+        QVERIFY(matchButton);
+        QVERIFY(replaceButton);
+        QVERIFY(QMetaObject::invokeMethod(monitor, "openFor", Q_ARG(QVariant, QVariant(videoId))));
+        QVERIFY(tabs->setProperty("currentIndex", 1));
+        QVERIFY(monitor->setProperty("previewFrame", 7));
+        QVERIFY(monitor->setProperty("markInFrame", 40));
+        QVERIFY(monitor->setProperty("markOutFrame", 80));
+        const QString undoBefore = m_app->project()->undoText();
+        const bool modifiedBefore = m_app->project()->isModified();
+        QTRY_VERIFY(matchButton->isVisible() && matchButton->isEnabled());
+        QVERIFY(!replaceButton->isEnabled());
+        QTest::mouseClick(m_window, Qt::LeftButton, Qt::NoModifier, centreOf(matchButton));
+        QTRY_COMPARE(monitor->property("markOutFrame").toInt(), 55);
+        QCOMPARE(monitor->property("markInFrame").toInt(), 40);
+        QCOMPARE(monitor->property("previewFrame").toInt(), 7);
+        QCOMPARE(playback->positionFrames(), programBefore);
+        QCOMPARE(m_app->project()->project(), withClip);
+        QCOMPARE(m_app->project()->undoText(), undoBefore);
+        QCOMPARE(m_app->project()->isModified(), modifiedBefore);
+        QTRY_VERIFY(!matchButton->isEnabled());
+        QTRY_VERIFY(replaceButton->isEnabled());
+
+        // Too few remaining source frames: never move a deliberately chosen In.
+        const int maxFrames = monitor->property("maxFrames").toInt();
+        QVERIFY(maxFrames > 80);
+        QVERIFY(monitor->setProperty("markInFrame", maxFrames - 14));
+        QTRY_VERIFY(!matchButton->isEnabled());
+        const int outBefore = monitor->property("markOutFrame").toInt();
+        QVERIFY(QMetaObject::invokeMethod(monitor, "matchSelectedClipLength"));
+        QCOMPARE(monitor->property("markInFrame").toInt(), maxFrames - 14);
+        QCOMPARE(monitor->property("markOutFrame").toInt(), outBefore);
+        QCOMPARE(m_app->project()->project(), withClip);
+        QCOMPARE(m_app->project()->undoText(), undoBefore);
+
+        // Restoring a feasible In enables a single-click replacement.
+        QVERIFY(monitor->setProperty("markInFrame", 40));
+        QTRY_VERIFY(matchButton->isEnabled());
+        QTest::mouseClick(m_window, Qt::LeftButton, Qt::NoModifier, centreOf(matchButton));
+        QTRY_COMPARE(monitor->property("markOutFrame").toInt(), 55);
+        QTRY_VERIFY(replaceButton->isEnabled());
+        QTest::mouseClick(m_window, Qt::LeftButton, Qt::NoModifier, centreOf(replaceButton));
+        const Project replaced = m_app->project()->project();
+        const Clip* swapped = replaced.timeline().clip(clipId);
+        QVERIFY(swapped);
+        QCOMPARE(swapped->sourceIn, FrameCount{40});
+        QCOMPARE(swapped->duration, original->duration);
+        QCOMPARE(swapped->start, original->start);
+        QCOMPARE(swapped->id, original->id);
+        QCOMPARE(m_app->project()->undoText(), QStringLiteral("Replace Clip Source"));
+        m_app->project()->undo();
+        QCOMPARE(m_app->project()->project(), withClip);
+
+        // Audio-only media is not compatible with the selected video clip.
+        QVERIFY(QMetaObject::invokeMethod(monitor, "openFor", Q_ARG(QVariant, QVariant(audioId))));
+        QVERIFY(monitor->setProperty("markInFrame", 3));
+        QTRY_VERIFY(!matchButton->isEnabled());
+        QTRY_VERIFY(!replaceButton->isEnabled());
+        QVERIFY(QMetaObject::invokeMethod(monitor, "openFor", Q_ARG(QVariant, QVariant(videoId))));
+
+        // A locked destination prevents mark-matching just as it prevents replacement.
+        QVERIFY(timeline->setTrackFlag(trackId, QStringLiteral("locked"), true));
+        const Project locked = m_app->project()->project();
+        QVERIFY(monitor->setProperty("markInFrame", 40));
+        QTRY_VERIFY(!matchButton->isEnabled());
+        QCOMPARE(m_app->project()->project(), locked);
+        m_app->project()->undo();
+        QCOMPARE(m_app->project()->project(), withClip);
+
+        timeline->clearSelection();
+        QTRY_VERIFY(!matchButton->isVisible());
+        QVERIFY(QMetaObject::invokeMethod(monitor, "clear"));
+        QVERIFY(tabs->setProperty("currentIndex", 0));
+        m_app->project()->undo();
+        QCOMPARE(m_app->project()->project(), before);
+        QCOMPARE(playback->positionFrames(), programBefore);
+    }
+
     void duplicateSelectionAtPlayheadRetainsGroupTimingAndReSelectsCopies()
     {
         auto* timeline = m_app->timeline();

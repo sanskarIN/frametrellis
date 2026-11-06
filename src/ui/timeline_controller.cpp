@@ -502,6 +502,10 @@ bool TimelineController::placeAssetRangeAtPlayhead(const QString& assetId, int s
         emit statusMessage(QStringLiteral("Choose a video or audio source for placement."));
         return false;
     }
+    if (asset->status == MediaStatus::Missing) {
+        emit statusMessage(QStringLiteral("Relink missing media before placing an excerpt."));
+        return false;
+    }
     const std::optional<FrameCount> available = placementLength(*asset);
     if (!available || sourceInFrame < 0 || sourceOutFrame <= sourceInFrame ||
         static_cast<FrameCount>(sourceOutFrame) > *available) {
@@ -533,6 +537,7 @@ bool TimelineController::placeAssetRangeAtPlayhead(const QString& assetId, int s
         if (!m_project->execute(edits::addClip(track.id, clip))) {
             return false; // The edit engine validates all constraints atomically.
         }
+        setTransitionSelection({});
         m_selection = {clip.id};
         m_model.updateSelection(m_selection);
         emit selectionChanged();

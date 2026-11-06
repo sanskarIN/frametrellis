@@ -668,9 +668,11 @@ choose a target track, that track is honored for its stream; the other stream
 uses the first compatible unlocked track with room. Automatic selection
 chooses both free tracks. The paired operation is **atomic**, so if either
 destination is missing, locked or occupied, neither clip is added. A single
-Undo/Redo reverses or restores both clips together. The two resulting clips
-are selected but remain **independently editable**: FrameTrellis does not yet
-store a persistent clip-link relationship. This is a non-rippling placement,
+Undo/Redo reverses or restores both clips together. The picture clip's
+audio is **muted**, so the source soundtrack plays only from the dedicated
+audio-track clip, avoiding doubled sound. The two resulting clips are selected
+but remain **independently editable**: FrameTrellis does not yet store a
+persistent clip-link relationship. This is a non-rippling placement,
 not a ripple insert or an overwrite.
 
 Changing the source, scrubbing or setting marks alone never modifies the

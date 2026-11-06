@@ -559,13 +559,13 @@ std::unique_ptr<EditCommand> trimClipEnd(const Id& clipId, FrameCount newEnd)
 }
 
 std::unique_ptr<EditCommand> replaceClipSource(const Id& clipId, const Id& newAssetId,
-                                                FrameCount newSourceIn)
+                                               FrameCount newSourceIn)
 {
-    return command(QStringLiteral("Replace Clip Source"),
-                   [clipId, newAssetId, newSourceIn](Timeline& timeline,
-                                                     const SourceLookup& sources) {
-                       return timeline.replaceClipSource(clipId, newAssetId, newSourceIn, sources);
-                   });
+    return command(
+        QStringLiteral("Replace Clip Source"),
+        [clipId, newAssetId, newSourceIn](Timeline& timeline, const SourceLookup& sources) {
+            return timeline.replaceClipSource(clipId, newAssetId, newSourceIn, sources);
+        });
 }
 
 std::unique_ptr<EditCommand> slipClips(const QList<Id>& clipIds, FrameCount delta)

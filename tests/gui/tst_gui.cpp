@@ -675,6 +675,98 @@ private slots:
         m_app->project()->undo();
     }
 
+    void placeSourceRangeAtPlayheadNeverOverwritesAndIsUndoable()
+    {
+        auto* timeline = m_app->timeline();
+        auto* playback = m_app->playback();
+        const QString videoId =
+            m_app->media()->model()->get(0).value(QStringLiteral("assetId")).toString();
+        const QString audioId =
+            m_app->media()->model()->get(1).value(QStringLiteral("assetId")).toString();
+        const QString stillId =
+            m_app->media()->model()->get(2).value(QStringLiteral("assetId")).toString();
+        QVERIFY(!videoId.isEmpty());
+        QVERIFY(!audioId.isEmpty());
+        QVERIFY(!stillId.isEmpty());
+
+        const Project before = m_app->project()->project();
+        const FrameCount previousPlayhead = playback->positionFrames();
+        // A fresh lane guarantees an available destination even if earlier video
+        // tracks have footage at frame zero. Only the new clip is undoable.
+        QVERIFY(timeline->addTrack(QStringLiteral("video")));
+        const Project withTrack = m_app->project()->project();
+        playback->goToStart();
+        const QStringList previousSelection = timeline->selection();
+        const QString oldUndo = m_app->project()->undoText();
+
+        // All invalid placements must preserve the document, selection and undo history.
+        QVERIFY(!timeline->placeAssetRangeAtPlayhead(videoId, -1, 12));
+        QVERIFY(!timeline->placeAssetRangeAtPlayhead(videoId, 12, 12));
+        QVERIFY(!timeline->placeAssetRangeAtPlayhead(videoId, 20, 10));
+        QVERIFY(!timeline->placeAssetRangeAtPlayhead(QStringLiteral("missing"), 0, 12));
+        QVERIFY(!timeline->placeAssetRangeAtPlayhead(stillId, 0, 12));
+        QCOMPARE(m_app->project()->project(), withTrack);
+        QCOMPARE(timeline->selection(), previousSelection);
+        QCOMPARE(m_app->project()->undoText(), oldUndo);
+
+        QObject* source = m_window->findChild<QObject*>(QStringLiteral("sourceMonitorPanel"));
+        QVERIFY(source);
+        QVERIFY(QMetaObject::invokeMethod(source, "openFor", Q_ARG(QVariant, QVariant(videoId))));
+        QVERIFY(source->setProperty("markInFrame", 13));
+        QVERIFY(source->setProperty("markOutFrame", 28));
+        const FrameCount position = playback->positionFrames();
+        QVERIFY(QMetaObject::invokeMethod(source, "placeAtPlayhead"));
+        const Project placed = m_app->project()->project();
+        QCOMPARE(placed.timeline().clipCount(), withTrack.timeline().clipCount() + 1);
+        QCOMPARE(timeline->selection().size(), qsizetype{1});
+        const Id createdId = timeline->selection().first();
+        const Clip* created = placed.timeline().clip(createdId);
+        QVERIFY(created);
+        QCOMPARE(created->assetId, videoId);
+        QCOMPARE(created->start, position);
+        QCOMPARE(created->sourceIn, FrameCount{13});
+        QCOMPARE(created->duration, FrameCount{15});
+        QCOMPARE(playback->positionFrames(), position);
+        QCOMPARE(m_app->project()->undoText(), QStringLiteral("Add Clip"));
+
+        Id expectedTrack;
+        for (const Track& track : withTrack.timeline().tracks()) {
+            if (track.kind == TrackKind::Video && !track.locked &&
+                withTrack.timeline().isRangeFree(track.id, position, 15, {})) {
+                expectedTrack = track.id;
+                break;
+            }
+        }
+        QVERIFY(!expectedTrack.isEmpty());
+        QCOMPARE(placed.timeline().trackOfClip(createdId)->id, expectedTrack);
+        // The clip is added without trimming, moving or overwriting existing content.
+        m_app->project()->undo();
+        QCOMPARE(m_app->project()->project(), withTrack);
+        m_app->project()->redo();
+        QCOMPARE(m_app->project()->project(), placed);
+        m_app->project()->undo();
+        QCOMPARE(m_app->project()->project(), withTrack);
+
+        // Locking every track must reject placement without touching the project.
+        QVERIFY(timeline->setAllTracksLocked(true));
+        const Project locked = m_app->project()->project();
+        const QString lockedUndo = m_app->project()->undoText();
+        const QStringList lockedSelection = timeline->selection();
+        QVERIFY(!timeline->placeAssetRangeAtPlayhead(videoId, 0, 15));
+        QVERIFY(!timeline->placeAssetRangeAtPlayhead(audioId, 0, 15));
+        QCOMPARE(m_app->project()->project(), locked);
+        QCOMPARE(timeline->selection(), lockedSelection);
+        QCOMPARE(m_app->project()->undoText(), lockedUndo);
+        m_app->project()->undo();
+        QCOMPARE(m_app->project()->project(), withTrack);
+
+        // Roll back the temporary extra track and source-monitor state.
+        m_app->project()->undo();
+        QCOMPARE(m_app->project()->project(), before);
+        QVERIFY(QMetaObject::invokeMethod(source, "clear"));
+        playback->seek(static_cast<double>(previousPlayhead));
+    }
+
     void duplicateSelectionAtPlayheadRetainsGroupTimingAndReSelectsCopies()
     {
         auto* timeline = m_app->timeline();

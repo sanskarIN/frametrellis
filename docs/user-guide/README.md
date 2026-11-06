@@ -670,7 +670,9 @@ chooses both free tracks. The paired operation is **atomic**, so if either
 destination is missing, locked or occupied, neither clip is added. A single
 Undo/Redo reverses or restores both clips together. The picture clip's
 audio is **muted**, so the source soundtrack plays only from the dedicated
-audio-track clip, avoiding doubled sound. The two resulting clips are selected
+audio-track clip, avoiding doubled sound. If this MLT installation lacks
+the optional **volume filter**, paired placement is refused instead of
+risking doubled sound in preview or export. The two resulting clips are selected
 but remain **independently editable**: FrameTrellis does not yet store a
 persistent clip-link relationship. This is a non-rippling placement,
 not a ripple insert or an overwrite.

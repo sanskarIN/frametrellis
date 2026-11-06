@@ -18,6 +18,61 @@ std::unique_ptr<EditCommand> command(const QString& text, TimelineCommand::Opera
     return std::make_unique<TimelineCommand>(text, std::move(op), mergeKey);
 }
 
+// Shared by the explicit gap edit and source ripple insert. A cut through any
+// clip is deliberately rejected rather than silently truncating picture or sound.
+// TimelineCommand provides the transactional boundary for both callers.
+Status shiftTracksForInsertion(Timeline& timeline, FrameCount frame, FrameCount duration,
+                               const SourceLookup& sources, bool requireFollowingClips)
+{
+    if (frame < 0 || frame >= kMaxTimelineFrames || duration <= 0 ||
+        duration > kMaxTimelineFrames - frame) {
+        return makeError(ErrorCode::OutOfRange,
+                         QStringLiteral("The insertion is outside the timeline limits."));
+    }
+
+    std::vector<Track> tracks = timeline.tracks();
+    bool moved = false;
+    for (Track& track : tracks) {
+        bool affectsTrack = false;
+        for (const Clip& clip : track.clips) {
+            if (clip.start < frame && clip.end() > frame) {
+                return makeError(ErrorCode::Conflict,
+                                 QStringLiteral("Split clips crossing the playhead first."));
+            }
+            affectsTrack |= clip.start >= frame;
+        }
+        if (!affectsTrack) {
+            continue;
+        }
+        if (track.locked) {
+            return makeError(ErrorCode::Conflict,
+                             QStringLiteral("Unlock affected tracks before ripple inserting."));
+        }
+        for (Clip& clip : track.clips) {
+            if (clip.start >= frame) {
+                if (clip.end() > kMaxTimelineFrames - duration) {
+                    return makeError(ErrorCode::OutOfRange,
+                                     QStringLiteral("The insertion would exceed the timeline limit."));
+                }
+                clip.start += duration;
+                moved = true;
+            }
+        }
+    }
+    if (!moved) {
+        if (requireFollowingClips) {
+            return makeError(ErrorCode::InvalidArgument,
+                             QStringLiteral("No clips follow the playhead."));
+        }
+        return {};
+    }
+
+    // Preserve original clip IDs, trims, automation and transition objects.
+    // Full validation rejects a transition that would span this new cut.
+    timeline.restoreTracks(std::move(tracks));
+    return timeline.validate(sources);
+}
+
 } // namespace
 
 std::unique_ptr<EditCommand> addTrack(TrackKind kind, const QString& name, int index,
@@ -328,54 +383,24 @@ std::unique_ptr<EditCommand> insertGap(FrameCount frame, FrameCount duration)
 {
     return command(
         QStringLiteral("Insert Timeline Gap"),
-        [frame, duration](Timeline& timeline, const SourceLookup& sources) -> Status {
-            if (frame < 0 || frame >= kMaxTimelineFrames || duration <= 0 ||
-                duration > kMaxTimelineFrames - frame) {
-                return makeError(ErrorCode::OutOfRange,
-                                 QStringLiteral("The gap is outside the timeline limits."));
-            }
+        [frame, duration](Timeline& timeline, const SourceLookup& sources) {
+            return shiftTracksForInsertion(timeline, frame, duration, sources, true);
+        });
+}
 
-            std::vector<Track> tracks = timeline.tracks();
-            bool moved = false;
-            for (Track& track : tracks) {
-                bool affectsTrack = false;
-                for (const Clip& clip : track.clips) {
-                    if (clip.start < frame && clip.end() > frame) {
-                        return makeError(
-                            ErrorCode::Conflict,
-                            QStringLiteral("Split clips crossing the playhead first."));
-                    }
-                    affectsTrack |= clip.start >= frame;
-                }
-                if (!affectsTrack) {
-                    continue;
-                }
-                if (track.locked) {
-                    return makeError(
-                        ErrorCode::Conflict,
-                        QStringLiteral("Unlock affected tracks before inserting a gap."));
-                }
-                for (Clip& clip : track.clips) {
-                    if (clip.start >= frame) {
-                        if (clip.end() > kMaxTimelineFrames - duration) {
-                            return makeError(
-                                ErrorCode::OutOfRange,
-                                QStringLiteral("The gap would exceed the timeline limit."));
-                        }
-                        clip.start += duration;
-                        moved = true;
-                    }
-                }
+std::unique_ptr<EditCommand> rippleInsertSourceClip(const Id& trackId, const Clip& clip)
+{
+    return command(
+        QStringLiteral("Ripple Insert Source Range"),
+        [trackId, clip](Timeline& timeline, const SourceLookup& sources) -> Status {
+            // The new source clip and all later shifted clips are committed as
+            // one undo step, or none are committed if any validation fails.
+            if (const Status gap = shiftTracksForInsertion(
+                    timeline, clip.start, clip.duration, sources, false);
+                !gap) {
+                return gap;
             }
-            if (!moved) {
-                return makeError(ErrorCode::InvalidArgument,
-                                 QStringLiteral("No clips follow the playhead."));
-            }
-
-            // A transition across this boundary is rejected by validation;
-            // transitions shifted on both sides keep their original identities.
-            timeline.restoreTracks(std::move(tracks));
-            return timeline.validate(sources);
+            return timeline.insertClip(trackId, clip, sources);
         });
 }
 

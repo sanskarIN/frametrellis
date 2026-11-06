@@ -1013,6 +1013,160 @@ private slots:
         QVERIFY(tabs->setProperty("currentIndex", 0));
     }
 
+    void sourceMonitorPlacesSynchronizedPictureAndSoundWithOneUndo()
+    {
+        auto* timeline = m_app->timeline();
+        auto* playback = m_app->playback();
+        const QString videoId =
+            m_app->media()->model()->get(0).value(QStringLiteral("assetId")).toString();
+        const QString audioId =
+            m_app->media()->model()->get(1).value(QStringLiteral("assetId")).toString();
+        QVERIFY(!videoId.isEmpty());
+        QVERIFY(!audioId.isEmpty());
+        if (!engine::MltRuntime::capabilities().volumeFilter) {
+            QSKIP("Synchronized V+A placement needs the MLT volume filter.");
+        }
+        QVERIFY(
+            m_app->media()->mediaProperties(videoId).value(QStringLiteral("hasVideo")).toBool());
+        QVERIFY(
+            m_app->media()->mediaProperties(videoId).value(QStringLiteral("hasAudio")).toBool());
+        QVERIFY(
+            !m_app->media()->mediaProperties(audioId).value(QStringLiteral("hasVideo")).toBool());
+
+        const Project before = m_app->project()->project();
+        const FrameCount previousPlayhead = playback->positionFrames();
+        QVERIFY(timeline->addTrack(QStringLiteral("video")));
+        QVERIFY(timeline->addTrack(QStringLiteral("audio")));
+        const Project withTracks = m_app->project()->project();
+        Id videoTarget;
+        Id audioTarget;
+        for (const Track& track : withTracks.timeline().tracks()) {
+            if (before.timeline().track(track.id)) {
+                continue;
+            }
+            if (track.kind == TrackKind::Video) {
+                videoTarget = track.id;
+            } else {
+                audioTarget = track.id;
+            }
+        }
+        QVERIFY(!videoTarget.isEmpty());
+        QVERIFY(!audioTarget.isEmpty());
+        playback->goToStart();
+
+        QObject* monitor = m_window->findChild<QObject*>(QStringLiteral("sourceMonitorPanel"));
+        QQuickItem* tabs = findItem(m_window->contentItem(), QStringLiteral("monitorTabs"));
+        QQuickItem* avButton =
+            findItem(m_window->contentItem(), QStringLiteral("sourceMonitorPlaceVideoAudio"));
+        QVERIFY(monitor);
+        QVERIFY(tabs);
+        QVERIFY(avButton);
+        QVERIFY(QMetaObject::invokeMethod(monitor, "openFor", Q_ARG(QVariant, QVariant(videoId))));
+        QVERIFY(tabs->setProperty("currentIndex", 1));
+        QVERIFY(monitor->property("hasSourceAudio").toBool());
+        QVERIFY(monitor->setProperty("markInFrame", 13));
+        QVERIFY(monitor->setProperty("markOutFrame", 28));
+        QVERIFY(monitor->setProperty("selectedTrackId", videoTarget));
+        QTRY_VERIFY(avButton->isVisible());
+        QVERIFY(avButton->isEnabled());
+        const FrameCount at = playback->positionFrames();
+        QTest::mouseClick(m_window, Qt::LeftButton, Qt::NoModifier, centreOf(avButton));
+
+        const Project placed = m_app->project()->project();
+        QCOMPARE(placed.timeline().clipCount(), withTracks.timeline().clipCount() + 2);
+        QCOMPARE(timeline->selection().size(), qsizetype{2});
+        QCOMPARE(playback->positionFrames(), at);
+        QCOMPARE(m_app->project()->undoText(),
+                 QStringLiteral("Place Synchronized Video and Audio"));
+        bool foundVideo = false;
+        bool foundAudio = false;
+        for (const Id& id : timeline->selection()) {
+            const Clip* clip = placed.timeline().clip(id);
+            const Track* track = placed.timeline().trackOfClip(id);
+            QVERIFY(clip);
+            QVERIFY(track);
+            QCOMPARE(clip->assetId, videoId);
+            QCOMPARE(clip->start, at);
+            QCOMPARE(clip->sourceIn, FrameCount{13});
+            QCOMPARE(clip->duration, FrameCount{15});
+            if (track->kind == TrackKind::Video) {
+                foundVideo = true;
+                QCOMPARE(track->id, videoTarget);
+                QVERIFY(clip->properties.muted); // Audio must not play twice.
+            } else {
+                foundAudio = true;
+                QVERIFY(!clip->properties.muted);
+            }
+        }
+        QVERIFY(foundVideo && foundAudio);
+        m_app->project()->undo();
+        QCOMPARE(m_app->project()->project(), withTracks);
+        m_app->project()->redo();
+        QCOMPARE(m_app->project()->project(), placed);
+        m_app->project()->undo();
+        QCOMPARE(m_app->project()->project(), withTracks);
+
+        // The selected audio destination must be honored rather than swapped out.
+        QVERIFY(monitor->setProperty("selectedTrackId", audioTarget));
+        QTRY_VERIFY(avButton->isEnabled());
+        QVERIFY(QMetaObject::invokeMethod(monitor, "placeVideoAndAudio"));
+        const Project audioPreferred = m_app->project()->project();
+        QCOMPARE(audioPreferred.timeline().clipCount(), withTracks.timeline().clipCount() + 2);
+        bool targetedSound = false;
+        for (const Id& id : timeline->selection()) {
+            const Track* track = audioPreferred.timeline().trackOfClip(id);
+            QVERIFY(track);
+            targetedSound |= track->id == audioTarget;
+        }
+        QVERIFY(targetedSound);
+        m_app->project()->undo();
+        QCOMPARE(m_app->project()->project(), withTracks);
+
+        // An occupied exact video destination must not silently fall back.
+        QVERIFY(timeline->placeAssetRangeOnTrackAtPlayhead(videoId, videoTarget, 13, 28));
+        const Project occupied = m_app->project()->project();
+        const QString undoBefore = m_app->project()->undoText();
+        const QStringList selectionBefore = timeline->selection();
+        QVERIFY(!timeline->placeSynchronizedAssetRangeAtPlayhead(videoId, videoTarget, 13, 28));
+        QCOMPARE(m_app->project()->project(), occupied);
+        QCOMPARE(m_app->project()->undoText(), undoBefore);
+        QCOMPARE(timeline->selection(), selectionBefore);
+        m_app->project()->undo();
+        QCOMPARE(m_app->project()->project(), withTracks);
+
+        // Bad source boundaries and a locked selected destination must be refused
+        // without changing the project, clip selection or undo history.
+        const QString validUndo = m_app->project()->undoText();
+        QVERIFY(!timeline->placeSynchronizedAssetRangeAtPlayhead(videoId, videoTarget, -1, 17));
+        QVERIFY(!timeline->placeSynchronizedAssetRangeAtPlayhead(videoId, videoTarget, 12, 12));
+        QCOMPARE(m_app->project()->project(), withTracks);
+        QCOMPARE(m_app->project()->undoText(), validUndo);
+        QVERIFY(timeline->setTrackFlag(videoTarget, QStringLiteral("locked"), true));
+        const Project locked = m_app->project()->project();
+        const QString lockedUndo = m_app->project()->undoText();
+        QVERIFY(!timeline->placeSynchronizedAssetRangeAtPlayhead(videoId, videoTarget, 13, 28));
+        QCOMPARE(m_app->project()->project(), locked);
+        QCOMPARE(m_app->project()->undoText(), lockedUndo);
+        m_app->project()->undo();
+        QCOMPARE(m_app->project()->project(), withTracks);
+
+        // Clearing or switching sources must not leave an enabled A/V action.
+        QVERIFY(QMetaObject::invokeMethod(monitor, "openFor", Q_ARG(QVariant, QVariant(audioId))));
+        QVERIFY(!monitor->property("hasSourceAudio").toBool() ||
+                !monitor->property("hasPicture").toBool());
+        QVERIFY(!avButton->isVisible());
+        QVERIFY(!timeline->placeSynchronizedAssetRangeAtPlayhead(audioId, {}, 0, 15));
+        QCOMPARE(m_app->project()->project(), withTracks);
+
+        m_app->project()->undo();
+        m_app->project()->undo();
+        QCOMPARE(m_app->project()->project(), before);
+        QVERIFY(QMetaObject::invokeMethod(monitor, "clear"));
+        QVERIFY(tabs->setProperty("currentIndex", 0));
+        playback->seek(static_cast<double>(previousPlayhead));
+        timeline->clearSelection();
+    }
+
     void duplicateSelectionAtPlayheadRetainsGroupTimingAndReSelectsCopies()
     {
         auto* timeline = m_app->timeline();

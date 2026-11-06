@@ -641,14 +641,25 @@ half-open range [13, 28), exactly 15 frames. Click **Append range** to create
 one undoable clip at the end of the first compatible unlocked track.
 
 **Place at playhead** uses three edit points: source In, source exclusive Out and
-the **Program** timeline playhead as the destination start. The source range is
-added on the first compatible, unlocked track with free space over its entire
-duration. It does **not** ripple, split or overwrite existing clips, and it never
-moves the Program playhead. An occupied range, unavailable track, invalid source
-excerpt or timeline-limit overflow is rejected without changing the project.
+the **Program** timeline playhead as the destination start. In the **Target
+track** selector, leave **Automatic (first free)** selected to place on the
+first compatible unlocked video track (or audio track for audio-only sources)
+with sufficient free space. Alternatively select an exact video or audio
+track to place the range **only on that track**. A source carrying both
+picture and sound may be placed on a compatible audio track as an audio clip,
+but separate video/audio clips are **not linked or inserted automatically**.
+
+The target picker lists compatible tracks and marks locked tracks; an
+unavailable, locked or removed selection disables placement instead of
+silently switching to another track. After a project edit, the picker refreshes
+without changing an existing selected target. You can explicitly return to
+automatic selection at any time.
+
+Placement does **not** ripple, split or overwrite existing clips, and it never
+moves the Program playhead. An occupied target range, invalid source excerpt
+or timeline-limit overflow is rejected without changing the project.
 A successful placement selects the new clip and can be undone or redone as one
-**Add Clip** operation. Video sources currently place only a video clip; audio
-streams are **not** automatically linked or inserted on another track.
+**Add Clip** operation.
 
 Changing the source, scrubbing or setting marks alone never modifies the
 project. The panel clears a source when its project is closed/replaced or

@@ -139,6 +139,33 @@ private slots:
         QVERIFY(!m_media.blue.isEmpty());
     }
 
+    void rippleInsertSourceRangeChangesRenderedCutAndUndoRestoresPicture()
+    {
+        QList<Id> ids;
+        Project project = projectWith({m_media.red, m_media.blue}, &ids);
+        QCOMPARE(ids.size(), qsizetype{2});
+        const Id trackId = project.timeline().tracks()[0].id;
+        const Clip later = clipOf(ids[1], 40, 5, 30);
+        QVERIFY(project.timeline().insertClip(trackId, later, project.sourceLookup()));
+        const Project original = project;
+        QVERIFY(isCloseTo(averageColor(renderAt(original, 45)), Qt::blue));
+
+        Clip inserted = clipOf(ids[0], 40, 10, 20);
+        ProjectDocument doc(project);
+        QVERIFY(doc.execute(edits::rippleInsertSourceClip(trackId, inserted)));
+        const Project changed = doc.project();
+        QCOMPARE(changed.timeline().clip(later.id)->start, FrameCount{60});
+        QCOMPARE(changed.timeline().clip(inserted.id)->start, FrameCount{40});
+        QVERIFY(isCloseTo(averageColor(renderAt(changed, 45)), Qt::red));
+        QVERIFY(isCloseTo(averageColor(renderAt(changed, 65)), Qt::blue));
+        QVERIFY(doc.undo());
+        QCOMPARE(doc.project(), original);
+        QVERIFY(isCloseTo(averageColor(renderAt(doc.project(), 45)), Qt::blue));
+        QVERIFY(doc.redo());
+        QCOMPARE(doc.project(), changed);
+        QVERIFY(isCloseTo(averageColor(renderAt(doc.project(), 45)), Qt::red));
+    }
+
     void replacingClipSourceChangesRenderedPictureWithoutMovingTheCut()
     {
         QList<Id> ids;

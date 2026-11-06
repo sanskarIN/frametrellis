@@ -57,6 +57,12 @@ std::unique_ptr<EditCommand> nudgeClips(const QList<Id>& clipIds, FrameCount del
 /// without changing their source trims, automation or transition identities.
 /// Affected locked tracks, intersecting clips and invalid cuts reject the operation.
 std::unique_ptr<EditCommand> insertGap(FrameCount frame, FrameCount duration);
+/// Insert a source excerpt at its timeline start and shift all following clips on
+/// every affected, unlocked track. No clip may span the insertion point.
+/// Handles the no-following-clips case (normal placement). Existing cuts,
+/// clip IDs and transitions are preserved, and one undo restores the project.
+/// Sequence markers and subtitles retain their absolute times.
+std::unique_ptr<EditCommand> rippleInsertSourceClip(const Id& trackId, const Clip& clip);
 /// Remove an interval that contains no clip frames on any track, moving later
 /// clips earlier as one undoable change. Locked affected tracks and intersecting
 /// clips reject the operation without modifying the project.

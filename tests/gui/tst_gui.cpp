@@ -1030,12 +1030,30 @@ private slots:
         m_app->project()->undo();
         QCOMPARE(m_app->project()->project(), withTracks);
 
+        // Bad source boundaries and a locked selected destination must be refused
+        // without changing the project, clip selection or undo history.
+        const QString validUndo = m_app->project()->undoText();
+        QVERIFY(!timeline->placeSynchronizedAssetRangeAtPlayhead(videoId, videoTarget, -1, 17));
+        QVERIFY(!timeline->placeSynchronizedAssetRangeAtPlayhead(videoId, videoTarget, 12, 12));
+        QCOMPARE(m_app->project()->project(), withTracks);
+        QCOMPARE(m_app->project()->undoText(), validUndo);
+        QVERIFY(timeline->setTrackFlag(videoTarget, QStringLiteral("locked"), true));
+        const Project locked = m_app->project()->project();
+        const QString lockedUndo = m_app->project()->undoText();
+        QVERIFY(!timeline->placeSynchronizedAssetRangeAtPlayhead(videoId, videoTarget, 13, 28));
+        QCOMPARE(m_app->project()->project(), locked);
+        QCOMPARE(m_app->project()->undoText(), lockedUndo);
+        m_app->project()->undo();
+        QCOMPARE(m_app->project()->project(), withTracks);
+
         // Clearing or switching sources must not leave an enabled A/V action.
         QVERIFY(QMetaObject::invokeMethod(monitor, "openFor",
                                           Q_ARG(QVariant, QVariant(audioId))));
         QVERIFY(!monitor->property("hasSourceAudio").toBool() ||
                 !monitor->property("hasPicture").toBool());
         QVERIFY(!avButton->isVisible());
+        QVERIFY(!timeline->placeSynchronizedAssetRangeAtPlayhead(audioId, {}, 0, 15));
+        QCOMPARE(m_app->project()->project(), withTracks);
 
         m_app->project()->undo();
         m_app->project()->undo();

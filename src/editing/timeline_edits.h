@@ -66,7 +66,7 @@ std::unique_ptr<EditCommand> trimClipEnd(const Id& clipId, FrameCount newEnd);
 /// Replaces one clip's source in-place, preserving timing, track, ID and scalar clip
 /// properties, clearing source-anchored automation. One undo/redo restores everything.
 std::unique_ptr<EditCommand> replaceClipSource(const Id& clipId, const Id& newAssetId,
-                                                FrameCount newSourceIn);
+                                               FrameCount newSourceIn);
 /// Slip selected time-based clips through their source without moving their timeline edges.
 /// All clips must fit, keep required transition handles and be on unlocked tracks.
 /// The command is atomic and undoable, even for multi-track selections.

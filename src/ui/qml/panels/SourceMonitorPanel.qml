@@ -340,6 +340,7 @@ PanelFrame {
                                                   + panel.selectedTimelineClip.duration
                 ToolTip.visible: hovered
                 ToolTip.text: qsTr("Set exclusive source Out to In plus the selected timeline clip's duration. Never move In or modify the timeline.")
+                Accessible.name: qsTr("Match source range to selected timeline clip length")
                 onClicked: panel.matchSelectedClipLength()
             }
         }

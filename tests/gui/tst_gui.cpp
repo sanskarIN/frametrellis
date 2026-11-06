@@ -6,6 +6,7 @@
 // (they are used for the documentation).
 
 #include "core/timecode.h"
+#include "editing/timeline_edits.h"
 #include "engine/mlt_runtime.h"
 #include "media_fixtures.h"
 #include "ui/app_controller.h"
@@ -1255,6 +1256,118 @@ private slots:
         m_app->project()->undo();
         QCOMPARE(m_app->project()->project(), before);
         timeline->clearSelection();
+    }
+
+    void sourceMonitorRippleInsertShiftsVideoAndAudioWithOneUndo()
+    {
+        auto* timeline = m_app->timeline();
+        auto* playback = m_app->playback();
+        const QString videoId =
+            m_app->media()->model()->get(0).value(QStringLiteral("assetId")).toString();
+        const QString audioId =
+            m_app->media()->model()->get(1).value(QStringLiteral("assetId")).toString();
+        QVERIFY(!videoId.isEmpty());
+        QVERIFY(!audioId.isEmpty());
+        const Project initial = m_app->project()->project();
+        const FrameCount oldPlayhead = playback->positionFrames();
+        const FrameCount cut = initial.timeline().duration() + 20;
+        const Id videoTrack = track(0).id;
+        const Id audioTrack = track(2).id;
+
+        Clip video;
+        video.id = createId();
+        video.assetId = videoId;
+        video.start = cut;
+        video.sourceIn = 5;
+        video.duration = 30;
+        Clip audio;
+        audio.id = createId();
+        audio.assetId = audioId;
+        audio.start = cut + 10;
+        audio.sourceIn = 2;
+        audio.duration = 20;
+        QVERIFY(m_app->project()->execute(edits::addClip(videoTrack, video)));
+        QVERIFY(m_app->project()->execute(edits::addClip(audioTrack, audio)));
+        const Project prepared = m_app->project()->project();
+
+        playback->seek(static_cast<double>(cut));
+        QObject* source = m_window->findChild<QObject*>(QStringLiteral("sourceMonitorPanel"));
+        QQuickItem* tabs = findItem(m_window->contentItem(), QStringLiteral("monitorTabs"));
+        QQuickItem* insertButton =
+            findItem(m_window->contentItem(), QStringLiteral("sourceMonitorRippleInsert"));
+        QVERIFY(source);
+        QVERIFY(tabs);
+        QVERIFY(insertButton);
+        QVERIFY(QMetaObject::invokeMethod(source, "openFor", Q_ARG(QVariant, QVariant(videoId))));
+        QVERIFY(tabs->setProperty("currentIndex", 1));
+        QVERIFY(source->setProperty("selectedTrackId", videoTrack));
+        QVERIFY(source->setProperty("markInFrame", 40));
+        QVERIFY(source->setProperty("markOutFrame", 55));
+        QTRY_VERIFY(insertButton->isVisible() && insertButton->isEnabled());
+        QTest::mouseClick(m_window, Qt::LeftButton, Qt::NoModifier, centreOf(insertButton));
+        const Project inserted = m_app->project()->project();
+        QCOMPARE(inserted.timeline().clipCount(), prepared.timeline().clipCount() + 1);
+        QCOMPARE(inserted.timeline().clip(video.id)->start, cut + 15);
+        QCOMPARE(inserted.timeline().clip(audio.id)->start, cut + 25);
+        QCOMPARE(inserted.timeline().clip(audio.id)->sourceIn, audio.sourceIn);
+        QCOMPARE(inserted.timeline().clip(video.id)->sourceIn, video.sourceIn);
+        QCOMPARE(timeline->selection().size(), qsizetype{1});
+        const Id placedId = timeline->selection().first();
+        const Clip* placed = inserted.timeline().clip(placedId);
+        QVERIFY(placed);
+        QCOMPARE(placed->assetId, videoId);
+        QCOMPARE(placed->start, cut);
+        QCOMPARE(placed->sourceIn, FrameCount{40});
+        QCOMPARE(placed->duration, FrameCount{15});
+        QCOMPARE(inserted.timeline().trackOfClip(placedId)->id, videoTrack);
+        QCOMPARE(m_app->project()->undoText(), QStringLiteral("Ripple Insert Source Range"));
+        m_app->project()->undo();
+        QCOMPARE(m_app->project()->project(), prepared);
+        m_app->project()->redo();
+        QCOMPARE(m_app->project()->project(), inserted);
+        m_app->project()->undo();
+        QCOMPARE(m_app->project()->project(), prepared);
+
+        // A locked later lane blocks the whole cross-track insertion, never
+        // allowing only the picture lane to move.
+        QVERIFY(timeline->setTrackFlag(audioTrack, QStringLiteral("locked"), true));
+        const Project locked = m_app->project()->project();
+        const QString lockedUndo = m_app->project()->undoText();
+        QVERIFY(!timeline->rippleInsertAssetRangeAtPlayhead(videoId, videoTrack, 40, 55));
+        QCOMPARE(m_app->project()->project(), locked);
+        QCOMPARE(m_app->project()->undoText(), lockedUndo);
+        m_app->project()->undo();
+        QCOMPARE(m_app->project()->project(), prepared);
+
+        // A clip spanning the edit on a third lane is never silently split.
+        Clip spanning;
+        spanning.id = createId();
+        spanning.assetId = videoId;
+        spanning.start = cut - 5;
+        spanning.sourceIn = 15;
+        spanning.duration = 10;
+        QVERIFY(m_app->project()->execute(edits::addClip(track(1).id, spanning)));
+        const Project crossed = m_app->project()->project();
+        const QString crossedUndo = m_app->project()->undoText();
+        QVERIFY(!timeline->rippleInsertAssetRangeAtPlayhead(videoId, videoTrack, 40, 55));
+        QCOMPARE(m_app->project()->project(), crossed);
+        QCOMPARE(m_app->project()->undoText(), crossedUndo);
+        m_app->project()->undo();
+        QCOMPARE(m_app->project()->project(), prepared);
+
+        // The selected destination never falls back when it has been removed.
+        QVERIFY(source->setProperty("selectedTrackId", QStringLiteral("unavailable-track")));
+        QVERIFY(!timeline->rippleInsertAssetRangeAtPlayhead(
+            videoId, QStringLiteral("unavailable-track"), 40, 55));
+        QCOMPARE(m_app->project()->project(), prepared);
+
+        QVERIFY(QMetaObject::invokeMethod(source, "clear"));
+        QVERIFY(tabs->setProperty("currentIndex", 0));
+        m_app->project()->undo();
+        m_app->project()->undo();
+        QCOMPARE(m_app->project()->project(), initial);
+        timeline->clearSelection();
+        playback->seek(static_cast<double>(oldPlayhead));
     }
 
     void sourceMonitorMatchesSelectedClipLengthBeforeReplacing()

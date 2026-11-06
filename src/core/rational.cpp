@@ -44,6 +44,14 @@ bool addOverflows(std::int64_t a, std::int64_t b, std::int64_t* out)
 #endif
 }
 
+// std::abs(INT64_MIN) and std::gcd(INT64_MIN, ...) are not defined for signed int64_t.
+// Unsigned subtraction computes the magnitude without overflowing a signed operand.
+std::uint64_t unsignedMagnitude(std::int64_t value)
+{
+    const auto bits = static_cast<std::uint64_t>(value);
+    return value < 0 ? std::uint64_t{0} - bits : bits;
+}
+
 } // namespace
 
 std::optional<std::int64_t> mulDiv(std::int64_t a, std::int64_t b, std::int64_t c,
@@ -108,13 +116,28 @@ Rational::Rational(std::int64_t numerator, std::int64_t denominator)
     if (denominator == 0) {
         return; // invalid rational: 0/0
     }
-    if (denominator < 0) {
-        numerator = -numerator;
-        denominator = -denominator;
+
+    // Reduce unsigned magnitudes first: negating INT64_MIN or using it with
+    // std::gcd(int64_t, int64_t) would invoke undefined behavior.
+    const auto divisor = std::gcd(unsignedMagnitude(numerator), unsignedMagnitude(denominator));
+    const auto reducedNum = unsignedMagnitude(numerator) / divisor;
+    const auto reducedDen = unsignedMagnitude(denominator) / divisor;
+    const auto signedMax = static_cast<std::uint64_t>(std::numeric_limits<std::int64_t>::max());
+    const bool negative = (numerator < 0) != (denominator < 0);
+
+    // A positive denominator and numerator must fit the stored int64_t fields.
+    // Only a negative numerator may have magnitude INT64_MAX + 1.
+    if (reducedDen > signedMax || reducedNum > signedMax + (negative ? 1u : 0u)) {
+        return;
     }
-    const std::int64_t divisor = std::gcd(numerator, denominator);
-    m_num = divisor != 0 ? numerator / divisor : numerator;
-    m_den = divisor != 0 ? denominator / divisor : denominator;
+
+    m_den = static_cast<std::int64_t>(reducedDen);
+    if (negative && reducedNum == signedMax + 1u) {
+        m_num = std::numeric_limits<std::int64_t>::min();
+    } else {
+        const auto value = static_cast<std::int64_t>(reducedNum);
+        m_num = negative ? -value : value;
+    }
 }
 
 double Rational::toDouble() const
@@ -152,7 +175,11 @@ std::optional<Rational> Rational::fromString(const QString& text)
         if (!okNum || !okDen || den == 0) {
             return std::nullopt;
         }
-        return Rational(num, den);
+        const Rational parsed(num, den);
+        if (!parsed.isValid()) {
+            return std::nullopt;
+        }
+        return parsed;
     }
     bool ok = false;
     const qlonglong integer = trimmed.toLongLong(&ok);

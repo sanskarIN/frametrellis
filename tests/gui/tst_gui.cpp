@@ -985,8 +985,8 @@ private slots:
         // An audio-only source cannot be routed to a video lane.
         const QString undoBefore = m_app->project()->undoText();
         QVERIFY(!timeline->appendAssetRangeOnTrack(audioId, targetVideo, 0, 10));
-        QVERIFY(!timeline->appendAssetRangeOnTrack(
-            audioId, QStringLiteral("missing-track"), 0, 10));
+        QVERIFY(
+            !timeline->appendAssetRangeOnTrack(audioId, QStringLiteral("missing-track"), 0, 10));
         QVERIFY(!timeline->appendAssetRangeOnTrack(audioId, targetAudio, 10, 10));
         QCOMPARE(m_app->project()->project(), withTrack);
         QCOMPARE(m_app->project()->undoText(), undoBefore);

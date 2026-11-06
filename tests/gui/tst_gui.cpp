@@ -985,8 +985,10 @@ private slots:
             if (track->kind == TrackKind::Video) {
                 foundVideo = true;
                 QCOMPARE(track->id, videoTarget);
+                QVERIFY(clip->properties.muted); // Audio must not play twice.
             } else {
                 foundAudio = true;
+                QVERIFY(!clip->properties.muted);
             }
         }
         QVERIFY(foundVideo && foundAudio);

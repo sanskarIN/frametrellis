@@ -37,7 +37,7 @@ merged as further development milestones. Atomic two-track video/audio
 placement is being developed independently of these single-clip workflows.
 These improvements are **not** included in the v1.4.0 installers, and the
 Source Monitor remains a silent viewer, not a source-audio transport player.
-Full ripple insertion, destructive overwrite, persistent clip linking and
+Full sequence ripple across subtitle/marker metadata, destructive overwrite, persistent clip linking and
 proxy media are still absent. Always distinguish a merged development feature
 from one present in a tagged release.
 

@@ -650,8 +650,12 @@ bool TimelineController::placeSynchronizedAssetRangeAtPlayhead(const QString& as
     video.start = start;
     video.sourceIn = sourceInFrame;
     video.duration = duration;
+    // The separate audio lane carries the source sound. The picture lane must
+    // not replay that audio or the export/preview would mix the same sound twice.
+    video.properties.muted = true;
     Clip audio = video;
     audio.id = createId();
+    audio.properties.muted = false;
     if (!m_project->execute(
             edits::addSynchronizedSourceClips(videoTrack->id, video, audioTrack->id, audio))) {
         return false;

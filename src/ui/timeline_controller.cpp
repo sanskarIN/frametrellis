@@ -597,8 +597,8 @@ bool TimelineController::placeSynchronizedAssetRangeAtPlayhead(const QString& as
                                                                 int sourceOutFrame)
 {
     const MediaAsset* asset = project().asset(assetId);
-    if (!asset || !asset->info.hasVideo || !asset->info.hasAudio ||
-        asset->status == MediaStatus::Missing) {
+    if (!asset || asset->info.kind != MediaKind::Video || !asset->info.hasVideo ||
+        !asset->info.hasAudio || asset->status == MediaStatus::Missing) {
         emit statusMessage(QStringLiteral("Choose an online source containing both video and audio."));
         return false;
     }

@@ -19,7 +19,8 @@ enum class Rounding { Down, Nearest, Up };
 std::optional<std::int64_t> mulDiv(std::int64_t a, std::int64_t b, std::int64_t c,
                                    Rounding rounding = Rounding::Down);
 
-/// An exact, normalised rational number (denominator always positive).
+/// An exact, normalised rational number. Valid values have a positive denominator;
+/// zero divisors or fractions not representable in signed 64-bit fields remain invalid.
 class Rational
 {
 public:

@@ -622,8 +622,8 @@ bool TimelineController::placeAssetRangeOnTrackAtPlayhead(const QString& assetId
 }
 
 bool TimelineController::rippleInsertAssetRangeAtPlayhead(const QString& assetId,
-                                                        const QString& trackId, int sourceInFrame,
-                                                        int sourceOutFrame)
+                                                          const QString& trackId, int sourceInFrame,
+                                                          int sourceOutFrame)
 {
     const MediaAsset* asset = project().asset(assetId);
     if (!asset || asset->info.kind == MediaKind::Image) {

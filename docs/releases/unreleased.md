@@ -16,6 +16,12 @@ their actual tag and packages are verified.
 
 ## Post-v1.4.0 development changes (not in the stable download)
 
+- **Match Source Monitor excerpt to selected clip length:** one click sets
+  exclusive Out to the selected timeline clip's duration after the existing
+  source In. It never moves In, touches the timeline or adds an undo step.
+  Locked, incompatible or too-short sources disable the action. This helps
+  prepare an equal-duration **Replace selected** edit without frame arithmetic.
+
 - **Replace the selected clip's media without moving a cut:** Source Monitor
   **Replace selected** uses an equal-duration source excerpt for one unlocked
   timeline clip. It preserves clip ID, track, start/end and scalar adjustments,

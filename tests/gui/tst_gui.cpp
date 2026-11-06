@@ -922,11 +922,12 @@ private slots:
         if (!engine::MltRuntime::capabilities().volumeFilter) {
             QSKIP("Synchronized V+A placement needs the MLT volume filter.");
         }
-        QVERIFY(m_app->media()->mediaProperties(videoId).value(QStringLiteral("hasVideo")).toBool());
-        QVERIFY(m_app->media()->mediaProperties(videoId).value(QStringLiteral("hasAudio")).toBool());
-        QVERIFY(!m_app->media()->mediaProperties(audioId)
-                     .value(QStringLiteral("hasVideo"))
-                     .toBool());
+        QVERIFY(
+            m_app->media()->mediaProperties(videoId).value(QStringLiteral("hasVideo")).toBool());
+        QVERIFY(
+            m_app->media()->mediaProperties(videoId).value(QStringLiteral("hasAudio")).toBool());
+        QVERIFY(
+            !m_app->media()->mediaProperties(audioId).value(QStringLiteral("hasVideo")).toBool());
 
         const Project before = m_app->project()->project();
         const FrameCount previousPlayhead = playback->positionFrames();
@@ -956,8 +957,7 @@ private slots:
         QVERIFY(monitor);
         QVERIFY(tabs);
         QVERIFY(avButton);
-        QVERIFY(QMetaObject::invokeMethod(monitor, "openFor",
-                                          Q_ARG(QVariant, QVariant(videoId))));
+        QVERIFY(QMetaObject::invokeMethod(monitor, "openFor", Q_ARG(QVariant, QVariant(videoId))));
         QVERIFY(tabs->setProperty("currentIndex", 1));
         QVERIFY(monitor->property("hasSourceAudio").toBool());
         QVERIFY(monitor->setProperty("markInFrame", 13));
@@ -1047,8 +1047,7 @@ private slots:
         QCOMPARE(m_app->project()->project(), withTracks);
 
         // Clearing or switching sources must not leave an enabled A/V action.
-        QVERIFY(QMetaObject::invokeMethod(monitor, "openFor",
-                                          Q_ARG(QVariant, QVariant(audioId))));
+        QVERIFY(QMetaObject::invokeMethod(monitor, "openFor", Q_ARG(QVariant, QVariant(audioId))));
         QVERIFY(!monitor->property("hasSourceAudio").toBool() ||
                 !monitor->property("hasPicture").toBool());
         QVERIFY(!avButton->isVisible());

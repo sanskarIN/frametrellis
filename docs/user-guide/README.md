@@ -685,8 +685,9 @@ not a ripple insert or an overwrite.
 
 To replace one existing timeline clip without changing its cut, select that
 clip on an unlocked track and open replacement media in the Source Monitor.
-Set the desired source **In**, then click **Match clip length** to set the
-exclusive **Out** automatically to In plus the selected clip's duration.
+Set the desired source **In**, then click **Match clip length** (or press
+**Ctrl+Shift+M** with the Source tab active) to set the exclusive **Out**
+automatically to In plus the selected clip's duration.
 This changes only the source marks, not the Program playhead, project or
 undo history. If the new media has insufficient frames after In, the button
 is disabled and In is never shifted silently. The button is also unavailable

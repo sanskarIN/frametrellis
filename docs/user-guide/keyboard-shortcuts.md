@@ -10,6 +10,7 @@
 | Home / End | Go to start / end of the active Program or Source monitor |
 | Ctrl+G | Jump to a SMPTE timecode within the sequence (Program tab only) |
 | I / O | Mark In / Out at the displayed Source frame (post-v1.4.0 development) |
+| Ctrl+Shift+M | Match exclusive Source Out to the selected timeline clip's duration after Source In (Source tab, post-v1.4.0 development) |
 | Shift+M | Add a named timeline marker |
 | Ctrl+PageUp / Ctrl+PageDown | Jump to previous / next timeline marker |
 | S | Split at playhead |

@@ -6,7 +6,8 @@ import QtQuick.Layouts
 import FrameTrellis
 
 // Independent, silent source monitor. Its position and marks do not affect the program playhead.
-// Only Append Range, Place at Playhead and Place V+A modify the timeline.
+// Only Append Range, Place at Playhead, Place V+A and Replace selected modify the timeline.
+// Match clip length and all monitor navigation affect source marks only.
 PanelFrame {
     id: panel
     objectName: "sourceMonitorPanel"
@@ -31,12 +32,21 @@ PanelFrame {
     readonly property bool validRange: loaded && markOutFrame > markInFrame
                                        && markOutFrame <= maxFrames
     readonly property var selectedTimelineClip: app.timeline.selectedClip
-    readonly property bool canReplaceSelected: validRange && selectedTimelineClip.count === 1
-                                               && !selectedTimelineClip.locked
-                                               && selectedTimelineClip.duration ===
-                                                  markOutFrame - markInFrame
-                                               && (selectedTimelineClip.trackKind === "video"
-                                                   ? hasPicture : hasSourceAudio)
+    readonly property bool selectedClipCompatible: loaded && selectedTimelineClip.count === 1
+                                                   && !selectedTimelineClip.locked
+                                                   && (selectedTimelineClip.trackKind === "video"
+                                                       ? hasPicture : hasSourceAudio)
+    // The Out mark is exclusive, and the In mark always wins: never shift a
+    // deliberately chosen source start to make a too-short remainder fit.
+    readonly property bool canMatchClipLength: selectedClipCompatible
+                                                && Number.isInteger(selectedTimelineClip.duration)
+                                                && selectedTimelineClip.duration > 0
+                                                && markInFrame >= 0
+                                                && markInFrame <=
+                                                   maxFrames - selectedTimelineClip.duration
+    readonly property bool canReplaceSelected: validRange && canMatchClipLength
+                                               && markOutFrame ===
+                                                  markInFrame + selectedTimelineClip.duration
 
     title: loaded ? qsTr("Source — %1").arg(sourceName) : qsTr("Source Monitor")
 
@@ -140,6 +150,16 @@ PanelFrame {
         return validRange && hasPicture && hasSourceAudio && selectedTrackAvailable
                && app.timeline.placeSynchronizedAssetRangeAtPlayhead(
                       assetId, selectedTrackId, markInFrame, markOutFrame)
+    }
+
+    function matchSelectedClipLength() {
+        if (!canMatchClipLength)
+            return false
+        const end = markInFrame + selectedTimelineClip.duration
+        if (markOutFrame === end)
+            return false
+        markOutFrame = end
+        return true
     }
 
     function replaceSelected() {
@@ -311,6 +331,18 @@ PanelFrame {
                 text: qsTr("Mark Out")
                 enabled: panel.loaded && panel.previewFrame >= panel.markInFrame
                 onClicked: panel.markOut()
+            }
+            FtButton {
+                objectName: "sourceMonitorMatchClipLength"
+                text: qsTr("Match clip length")
+                visible: panel.loaded && panel.selectedTimelineClip.count === 1
+                enabled: panel.canMatchClipLength
+                         && panel.markOutFrame !== panel.markInFrame
+                                                  + panel.selectedTimelineClip.duration
+                ToolTip.visible: hovered
+                ToolTip.text: qsTr("Set exclusive source Out to In plus the selected timeline clip's duration. Never move In or modify the timeline.")
+                Accessible.name: qsTr("Match source range to selected timeline clip length")
+                onClicked: panel.matchSelectedClipLength()
             }
         }
         RowLayout {

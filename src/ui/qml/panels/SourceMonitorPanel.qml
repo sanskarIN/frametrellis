@@ -6,7 +6,8 @@ import QtQuick.Layouts
 import FrameTrellis
 
 // Independent, silent source monitor. Its position and marks do not affect the program playhead.
-// Only Append Range, Place at Playhead and Place V+A modify the timeline.
+// Only Append Range, Place at Playhead, Place V+A and Replace selected modify the timeline.
+// Match clip length and all monitor navigation affect source marks only.
 PanelFrame {
     id: panel
     objectName: "sourceMonitorPanel"

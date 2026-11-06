@@ -715,7 +715,15 @@ private slots:
         QVERIFY(source->setProperty("markInFrame", 13));
         QVERIFY(source->setProperty("markOutFrame", 28));
         const FrameCount position = playback->positionFrames();
-        QVERIFY(QMetaObject::invokeMethod(source, "placeAtPlayhead"));
+        QQuickItem* tabs = findItem(m_window->contentItem(), QStringLiteral("monitorTabs"));
+        QQuickItem* placeButton =
+            findItem(m_window->contentItem(), QStringLiteral("sourceMonitorPlace"));
+        QVERIFY(tabs);
+        QVERIFY(placeButton);
+        QVERIFY(tabs->setProperty("currentIndex", 1));
+        QTRY_VERIFY(placeButton->isVisible());
+        QVERIFY(placeButton->isEnabled());
+        QTest::mouseClick(m_window, Qt::LeftButton, Qt::NoModifier, centreOf(placeButton));
         const Project placed = m_app->project()->project();
         QCOMPARE(placed.timeline().clipCount(), withTrack.timeline().clipCount() + 1);
         QCOMPARE(timeline->selection().size(), qsizetype{1});
@@ -739,6 +747,29 @@ private slots:
         }
         QVERIFY(!expectedTrack.isEmpty());
         QCOMPARE(placed.timeline().trackOfClip(createdId)->id, expectedTrack);
+
+        // Occupy every other compatible free lane. The next placement must reject
+        // the collision without modifying a clip, selection or undo history.
+        int additionalPlacements = 0;
+        for (const Track& track : placed.timeline().tracks()) {
+            if (track.kind == TrackKind::Video && !track.locked &&
+                placed.timeline().isRangeFree(track.id, position, 15, {})) {
+                QVERIFY(timeline->placeAssetRangeAtPlayhead(videoId, 13, 28));
+                ++additionalPlacements;
+            }
+        }
+        const Project full = m_app->project()->project();
+        const QStringList fullSelection = timeline->selection();
+        const QString fullUndo = m_app->project()->undoText();
+        QVERIFY(!timeline->placeAssetRangeAtPlayhead(videoId, 13, 28));
+        QCOMPARE(m_app->project()->project(), full);
+        QCOMPARE(timeline->selection(), fullSelection);
+        QCOMPARE(m_app->project()->undoText(), fullUndo);
+        for (int i = 0; i < additionalPlacements; ++i) {
+            m_app->project()->undo();
+        }
+        QCOMPARE(m_app->project()->project(), placed);
+
         // The clip is added without trimming, moving or overwriting existing content.
         m_app->project()->undo();
         QCOMPARE(m_app->project()->project(), withTrack);
@@ -764,6 +795,8 @@ private slots:
         m_app->project()->undo();
         QCOMPARE(m_app->project()->project(), before);
         QVERIFY(QMetaObject::invokeMethod(source, "clear"));
+        QVERIFY(!placeButton->isEnabled());
+        QVERIFY(tabs->setProperty("currentIndex", 0));
         playback->seek(static_cast<double>(previousPlayhead));
     }
 

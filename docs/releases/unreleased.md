@@ -16,6 +16,14 @@ their actual tag and packages are verified.
 
 ## Post-v1.4.0 development changes (not in the stable download)
 
+- **Choose an exact Source Monitor destination track:** the source placement
+  picker lists compatible video and audio tracks, marks locked destinations,
+  and preserves the chosen track across timeline edits. Users can retain
+  automatic first-free placement or explicitly target one track. Explicit
+  placement never falls back to another track when the chosen destination is
+  locked, removed or occupied; an audio-bearing video source may also be
+  placed on a compatible audio track without linking streams.
+
 - **Source range placement at playhead:** use Source In/Out plus the Program
   playhead to place an excerpt without overwriting or rippling clips. The
   first compatible unlocked track with enough free space receives one

@@ -91,6 +91,14 @@ public:
     /// Never ripples, trims, overwrites or changes other clips; one undoable add.
     Q_INVOKABLE bool placeAssetRangeAtPlayhead(const QString& assetId, int sourceInFrame,
                                                int sourceOutFrame);
+    /// Source-compatible video/audio destinations, including locked tracks for UI feedback.
+    /// Each entry contains id, label and locked; the list does not edit the document.
+    Q_INVOKABLE QVariantList sourceDestinationTracks(const QString& assetId) const;
+    /// Explicit destination variant of the non-overwriting source placement.
+    /// Unlike automatic placement, never silently falls back to another track.
+    Q_INVOKABLE bool placeAssetRangeOnTrackAtPlayhead(const QString& assetId,
+                                                      const QString& trackId, int sourceInFrame,
+                                                      int sourceOutFrame);
     /// Whether at least one unlocked video track can receive a new title.
     [[nodiscard]] bool canAppendTitle() const;
     /// Append a title still to the uppermost unlocked video track.

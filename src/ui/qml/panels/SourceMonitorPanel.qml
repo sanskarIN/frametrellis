@@ -20,14 +20,35 @@ PanelFrame {
     property int markInFrame: 0
     property int markOutFrame: 0
     property bool hasPicture: false
+    property string selectedTrackId: ""
+    property var destinationTracks: []
     readonly property bool loaded: assetId.length > 0
+    readonly property bool selectedTrackAvailable: selectedTrackId.length === 0
+                                                   || destinationTracks.some(
+                                                       track => track.id === selectedTrackId
+                                                                && !track.locked)
     readonly property bool validRange: loaded && markOutFrame > markInFrame
                                        && markOutFrame <= maxFrames
 
     title: loaded ? qsTr("Source — %1").arg(sourceName) : qsTr("Source Monitor")
 
+    function refreshDestinationTracks() {
+        const tracks = [{id: "", label: qsTr("Automatic (first free)"), locked: false}]
+        if (loaded) {
+            const available = app.timeline.sourceDestinationTracks(assetId)
+            for (let i = 0; i < available.length; ++i)
+                tracks.push(available[i])
+        }
+        // A removed or newly locked target must never silently redirect an edit.
+        if (selectedTrackId.length > 0 && !tracks.some(track => track.id === selectedTrackId))
+            tracks.push({id: selectedTrackId, label: qsTr("Selected track unavailable"),
+                         locked: true})
+        destinationTracks = tracks
+    }
+
     function clear() {
         decodeTimer.stop()
+        selectedTrackId = ""
         assetId = ""
         sourceName = ""
         maxFrames = 0
@@ -36,6 +57,7 @@ PanelFrame {
         markInFrame = 0
         markOutFrame = 0
         hasPicture = false
+        refreshDestinationTracks()
     }
 
     function openFor(id) {
@@ -56,6 +78,8 @@ PanelFrame {
         markOutFrame = duration
         previewFrame = 0
         pictureFrame = 0
+        selectedTrackId = ""
+        refreshDestinationTracks()
         return true
     }
 
@@ -90,8 +114,12 @@ PanelFrame {
     }
 
     function placeAtPlayhead() {
-        return validRange
-               && app.timeline.placeAssetRangeAtPlayhead(assetId, markInFrame, markOutFrame)
+        if (!validRange || !selectedTrackAvailable)
+            return false
+        return selectedTrackId.length > 0
+               ? app.timeline.placeAssetRangeOnTrackAtPlayhead(
+                     assetId, selectedTrackId, markInFrame, markOutFrame)
+               : app.timeline.placeAssetRangeAtPlayhead(assetId, markInFrame, markOutFrame)
     }
 
     // Clear the source on project replacement or removal, so stale asset IDs cannot
@@ -102,6 +130,8 @@ PanelFrame {
         function onProjectChanged() {
             if (panel.loaded && !panel.app.media.mediaProperties(panel.assetId).assetId)
                 panel.clear()
+            else if (panel.loaded)
+                panel.refreshDestinationTracks()
         }
     }
 
@@ -261,6 +291,29 @@ PanelFrame {
             Layout.fillWidth: true
             Layout.leftMargin: Theme.spacingS
             Layout.rightMargin: Theme.spacingS
+            spacing: Theme.spacingS
+            Label {
+                text: qsTr("Target track")
+                color: Theme.textMuted
+            }
+            ComboBox {
+                id: destinationPicker
+                objectName: "sourceMonitorTargetTrack"
+                Layout.fillWidth: true
+                enabled: panel.loaded
+                model: panel.destinationTracks
+                textRole: "label"
+                valueRole: "id"
+                currentIndex: Math.max(0, panel.destinationTracks.findIndex(
+                                           track => track.id === panel.selectedTrackId))
+                onActivated: index => panel.selectedTrackId = panel.destinationTracks[index].id
+                Accessible.name: qsTr("Source placement destination track")
+            }
+        }
+        RowLayout {
+            Layout.fillWidth: true
+            Layout.leftMargin: Theme.spacingS
+            Layout.rightMargin: Theme.spacingS
             Layout.bottomMargin: Theme.spacingS
             spacing: Theme.spacingS
             Label {
@@ -276,7 +329,7 @@ PanelFrame {
                 objectName: "sourceMonitorPlace"
                 text: qsTr("Place at playhead")
                 primary: true
-                enabled: panel.validRange
+                enabled: panel.validRange && panel.selectedTrackAvailable
                 ToolTip.visible: hovered
                 ToolTip.text: qsTr("Place without rippling or overwriting clips; requires free space on an unlocked track.")
                 onClicked: panel.placeAtPlayhead()

@@ -733,6 +733,47 @@ private slots:
         QVERIFY(isCloseTo(averageColor(renderAt(p, 10)), Qt::white));
     }
 
+    void synchronizedVideoAndAudioKeepsOneAudibleSourceInTheEngine()
+    {
+        if (!engine::MltRuntime::capabilities().volumeFilter) {
+            QSKIP("Synchronized source audio requires the MLT volume filter.");
+        }
+        QList<Id> ids;
+        Project base = projectWith({m_media.video}, &ids);
+        QCOMPARE(ids.size(), qsizetype{1});
+        const Id videoTrack = base.timeline().tracks()[0].id;
+        const Id audioTrack = base.timeline().tracks()[2].id;
+
+        Clip picture = clipOf(ids[0], 0, 5, 45);
+        Clip sound = picture;
+        sound.id = createId();
+        Project reference = base;
+        QVERIFY(reference.timeline().insertClip(audioTrack, sound, reference.sourceLookup()));
+        const int referencePeak = audioPeakAt(reference, 10);
+        QVERIFY2(referencePeak > 1000, qPrintable(QString::number(referencePeak)));
+
+        // The video track must not play the same source audio a second time.
+        picture.properties.muted = true;
+        ProjectDocument editor(base);
+        QVERIFY(editor.execute(
+            edits::addSynchronizedSourceClips(videoTrack, picture, audioTrack, sound)));
+        const Project paired = editor.project();
+        QCOMPARE(paired.timeline().clipCount(), 2);
+        const int pairedPeak = audioPeakAt(paired, 10);
+        QVERIFY2(pairedPeak > 0 &&
+                     qAbs(pairedPeak - referencePeak) <= referencePeak / 10 + 50,
+                 qPrintable(QStringLiteral("paired audio peak %1 vs single audio peak %2")
+                                .arg(pairedPeak)
+                                .arg(referencePeak)));
+        QVERIFY(isCloseTo(averageColor(renderAt(paired, 10)), Qt::red));
+
+        QCOMPARE(editor.undoText(), QStringLiteral("Place Synchronized Video and Audio"));
+        QVERIFY(editor.undo());
+        QCOMPARE(editor.project(), base);
+        QVERIFY(editor.redo());
+        QCOMPARE(editor.project(), paired);
+    }
+
     void volumeKeyframesFollowSourceTimeAndCombineWithGainAndMute()
     {
         QList<Id> ids;

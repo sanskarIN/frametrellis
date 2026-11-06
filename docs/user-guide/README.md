@@ -661,12 +661,24 @@ or timeline-limit overflow is rejected without changing the project.
 A successful placement selects the new clip and can be undone or redone as one
 **Add Clip** operation.
 
+For a video source that also contains audio, the **Place V+A** button inserts
+two excerpts from that same file at the **same program frame**, with identical
+source In/Out boundaries: one on a video track, one on an audio track. If you
+choose a target track, that track is honored for its stream; the other stream
+uses the first compatible unlocked track with room. Automatic selection
+chooses both free tracks. The paired operation is **atomic**, so if either
+destination is missing, locked or occupied, neither clip is added. A single
+Undo/Redo reverses or restores both clips together. The two resulting clips
+are selected but remain **independently editable**: FrameTrellis does not yet
+store a persistent clip-link relationship. This is a non-rippling placement,
+not a ripple insert or an overwrite.
+
 Changing the source, scrubbing or setting marks alone never modifies the
 project. The panel clears a source when its project is closed/replaced or
 that media is removed.
 
 This is still an independent **silent frame viewer**, not yet a source player
-with audio transport, synchronized video/audio insertion, ripple insertion or
+with audio transport, persistent linked clip groups, ripple insertion or
 destructive overwrite editing. For those workflows, see the
 [professional-editor gap assessment](../development/pro-editor-assessment.md).
 This post-v1.4.0 improvement is not in the stable v1.4.0 downloads.

@@ -348,6 +348,8 @@ QVariantMap MediaController::mediaProperties(const QString& assetId) const
         {QStringLiteral("name"), asset->name},
         {QStringLiteral("filePath"), asset->filePath},
         {QStringLiteral("kind"), mediaKindToString(info.kind)},
+        {QStringLiteral("hasVideo"), info.hasVideo},
+        {QStringLiteral("hasAudio"), info.hasAudio},
         {QStringLiteral("status"), status},
         {QStringLiteral("duration"), duration},
         {QStringLiteral("resolution"), resolution},

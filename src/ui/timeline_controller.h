@@ -86,6 +86,11 @@ public:
     /// The out-frame is exclusive; still images and invalid excerpts are refused.
     Q_INVOKABLE bool appendAssetRange(const QString& assetId, int sourceInFrame,
                                       int sourceOutFrame);
+    /// Three-point placement: source [In, Out) begins at the program playhead.
+    /// Picks the first compatible, unlocked track with a free destination range.
+    /// Never ripples, trims, overwrites or changes other clips; one undoable add.
+    Q_INVOKABLE bool placeAssetRangeAtPlayhead(const QString& assetId, int sourceInFrame,
+                                               int sourceOutFrame);
     /// Whether at least one unlocked video track can receive a new title.
     [[nodiscard]] bool canAppendTitle() const;
     /// Append a title still to the uppermost unlocked video track.

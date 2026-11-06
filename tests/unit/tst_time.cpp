@@ -71,6 +71,19 @@ private slots:
         // A large value that would overflow a naive a*b but fits after division.
         const std::int64_t big = std::int64_t{1} << 40;
         QCOMPARE(*mulDiv(big, 1'000'000, 1'000'000), big);
+
+        // A negative divisor must not negate INT64_MIN (undefined behavior).
+        const auto minimum = std::numeric_limits<std::int64_t>::min();
+        const auto maximum = std::numeric_limits<std::int64_t>::max();
+        QCOMPARE(*mulDiv(minimum, 1, -2), std::int64_t{1} << 62);
+        QCOMPARE(*mulDiv(-7, 3, -2, Rounding::Down), std::int64_t{10});
+        QCOMPARE(*mulDiv(-7, 3, -2, Rounding::Up), std::int64_t{11});
+        QVERIFY(!mulDiv(minimum, 1, -1).has_value());
+        QVERIFY(!mulDiv(1, 1, minimum).has_value());
+
+        // Nearest rounding must not double a remainder near INT64_MAX.
+        QCOMPARE(*mulDiv(maximum - 1, 1, maximum, Rounding::Nearest), std::int64_t{1});
+        QCOMPARE(*mulDiv(-(maximum - 1), 1, maximum, Rounding::Nearest), std::int64_t{-1});
     }
 
     void frameRateValidation()

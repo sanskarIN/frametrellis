@@ -53,7 +53,13 @@ std::optional<std::int64_t> mulDiv(std::int64_t a, std::int64_t b, std::int64_t 
         return std::nullopt;
     }
     if (c < 0) {
-        a = -a;
+        // Flip the multiplier rather than a: a may be INT64_MIN and cannot be negated.
+        // INT64_MIN divisors and multipliers cannot be sign-normalised in int64_t.
+        if (c == std::numeric_limits<std::int64_t>::min() ||
+            b == std::numeric_limits<std::int64_t>::min()) {
+            return std::nullopt;
+        }
+        b = -b;
         c = -c;
     }
     // Split a into quotient and remainder by c so that the partial products stay small:
@@ -80,8 +86,10 @@ std::optional<std::int64_t> mulDiv(std::int64_t a, std::int64_t b, std::int64_t 
             }
             break;
         case Rounding::Nearest: {
-            const std::int64_t twice = (fracRemainder < 0 ? -fracRemainder : fracRemainder) * 2;
-            if (twice >= c) {
+            // Compare against ceil(c / 2) rather than doubling the remainder; doubling
+            // can overflow for large positive divisors even when the result fits.
+            const std::int64_t magnitude = fracRemainder < 0 ? -fracRemainder : fracRemainder;
+            if (magnitude >= c / 2 + c % 2) {
                 fracQuotient += fracRemainder < 0 ? -1 : 1;
             }
             break;

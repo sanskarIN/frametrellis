@@ -99,6 +99,12 @@ public:
     Q_INVOKABLE bool placeAssetRangeOnTrackAtPlayhead(const QString& assetId,
                                                       const QString& trackId, int sourceInFrame,
                                                       int sourceOutFrame);
+    /// Place matching picture and sound excerpts on distinct compatible tracks in one
+    /// atomic undoable step. The optional target fixes one lane; the other is first-free.
+    /// Clips remain independently editable, not persistently linked.
+    Q_INVOKABLE bool placeSynchronizedAssetRangeAtPlayhead(const QString& assetId,
+                                                           const QString& targetTrackId,
+                                                           int sourceInFrame, int sourceOutFrame);
     /// Whether at least one unlocked video track can receive a new title.
     [[nodiscard]] bool canAppendTitle() const;
     /// Append a title still to the uppermost unlocked video track.

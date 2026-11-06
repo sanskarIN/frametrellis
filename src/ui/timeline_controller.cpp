@@ -705,8 +705,8 @@ bool TimelineController::placeSynchronizedAssetRangeAtPlayhead(const QString& as
     return true;
 }
 
-bool TimelineController::replaceSelectionWithAssetRange(const QString& assetId,
-                                                       int sourceInFrame, int sourceOutFrame)
+bool TimelineController::replaceSelectionWithAssetRange(const QString& assetId, int sourceInFrame,
+                                                        int sourceOutFrame)
 {
     if (m_selection.size() != 1) {
         emit statusMessage(QStringLiteral("Select exactly one timeline clip to replace."));
@@ -720,18 +720,17 @@ bool TimelineController::replaceSelectionWithAssetRange(const QString& assetId,
         emit statusMessage(QStringLiteral("Select a clip on an unlocked track."));
         return false;
     }
-    if (!asset || asset->info.kind == MediaKind::Image ||
-        asset->status == MediaStatus::Missing) {
+    if (!asset || asset->info.kind == MediaKind::Image || asset->status == MediaStatus::Missing) {
         emit statusMessage(QStringLiteral("Choose an online video or audio source."));
         return false;
     }
     if (!acceptsAsset(target->id, assetId)) {
-        emit statusMessage(QStringLiteral("The source is incompatible with the selected clip's track."));
+        emit statusMessage(
+            QStringLiteral("The source is incompatible with the selected clip's track."));
         return false;
     }
     const std::optional<FrameCount> length = placementLength(*asset);
-    const FrameCount requestedDuration =
-        static_cast<FrameCount>(sourceOutFrame) - sourceInFrame;
+    const FrameCount requestedDuration = static_cast<FrameCount>(sourceOutFrame) - sourceInFrame;
     if (!length || sourceInFrame < 0 || sourceOutFrame <= sourceInFrame ||
         static_cast<FrameCount>(sourceOutFrame) > *length ||
         requestedDuration != selected->duration) {

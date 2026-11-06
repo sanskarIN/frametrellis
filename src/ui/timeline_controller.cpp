@@ -495,7 +495,7 @@ bool TimelineController::appendAssetRange(const QString& assetId, int sourceInFr
 }
 
 bool TimelineController::placeAssetRangeAtPlayhead(const QString& assetId, int sourceInFrame,
-                                                       int sourceOutFrame)
+                                                   int sourceOutFrame)
 {
     const MediaAsset* asset = project().asset(assetId);
     if (!asset || asset->info.kind == MediaKind::Image) {
@@ -540,8 +540,8 @@ bool TimelineController::placeAssetRangeAtPlayhead(const QString& assetId, int s
         return true;
     }
 
-    emit statusMessage(QStringLiteral(
-        "No compatible unlocked track has free space at the playhead. Add a track or move the playhead."));
+    emit statusMessage(QStringLiteral("No compatible unlocked track has free space at the "
+                                      "playhead. Add a track or move the playhead."));
     return false;
 }
 

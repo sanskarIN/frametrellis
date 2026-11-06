@@ -26,6 +26,13 @@ std::unique_ptr<EditCommand> setAllTracksLocked(bool locked);
 
 /// Places a new clip; fails if the range is occupied.
 std::unique_ptr<EditCommand> addClip(const Id& trackId, const Clip& clip);
+/// Add matched video/audio excerpts in one atomic, undoable edit.
+/// Both clips must use the same source and exact [start, sourceIn, duration] and
+/// target distinct tracks of the appropriate kind. Does not persist a linked group.
+std::unique_ptr<EditCommand> addSynchronizedSourceClips(const Id& videoTrackId,
+                                                        const Clip& videoClip,
+                                                        const Id& audioTrackId,
+                                                        const Clip& audioClip);
 /// Copies a clip to the end of its current track, retaining source trims and effects. The
 /// source clip's transitions are not copied. The operation is a single undoable edit.
 std::unique_ptr<EditCommand> duplicateClip(const Id& clipId, const Id& newClipId = {});

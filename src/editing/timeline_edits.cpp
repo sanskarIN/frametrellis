@@ -51,8 +51,9 @@ Status shiftTracksForInsertion(Timeline& timeline, FrameCount frame, FrameCount 
         for (Clip& clip : track.clips) {
             if (clip.start >= frame) {
                 if (clip.end() > kMaxTimelineFrames - duration) {
-                    return makeError(ErrorCode::OutOfRange,
-                                     QStringLiteral("The insertion would exceed the timeline limit."));
+                    return makeError(
+                        ErrorCode::OutOfRange,
+                        QStringLiteral("The insertion would exceed the timeline limit."));
                 }
                 clip.start += duration;
                 moved = true;
@@ -381,27 +382,25 @@ std::unique_ptr<EditCommand> duplicateClipsAt(const QList<Id>& clipIds, const QL
 
 std::unique_ptr<EditCommand> insertGap(FrameCount frame, FrameCount duration)
 {
-    return command(
-        QStringLiteral("Insert Timeline Gap"),
-        [frame, duration](Timeline& timeline, const SourceLookup& sources) {
-            return shiftTracksForInsertion(timeline, frame, duration, sources, true);
-        });
+    return command(QStringLiteral("Insert Timeline Gap"),
+                   [frame, duration](Timeline& timeline, const SourceLookup& sources) {
+                       return shiftTracksForInsertion(timeline, frame, duration, sources, true);
+                   });
 }
 
 std::unique_ptr<EditCommand> rippleInsertSourceClip(const Id& trackId, const Clip& clip)
 {
-    return command(
-        QStringLiteral("Ripple Insert Source Range"),
-        [trackId, clip](Timeline& timeline, const SourceLookup& sources) -> Status {
-            // The new source clip and all later shifted clips are committed as
-            // one undo step, or none are committed if any validation fails.
-            if (const Status gap = shiftTracksForInsertion(
-                    timeline, clip.start, clip.duration, sources, false);
-                !gap) {
-                return gap;
-            }
-            return timeline.insertClip(trackId, clip, sources);
-        });
+    return command(QStringLiteral("Ripple Insert Source Range"),
+                   [trackId, clip](Timeline& timeline, const SourceLookup& sources) -> Status {
+                       // The new source clip and all later shifted clips are committed as
+                       // one undo step, or none are committed if any validation fails.
+                       if (const Status gap = shiftTracksForInsertion(
+                               timeline, clip.start, clip.duration, sources, false);
+                           !gap) {
+                           return gap;
+                       }
+                       return timeline.insertClip(trackId, clip, sources);
+                   });
 }
 
 std::unique_ptr<EditCommand> removeEmptyTime(FrameCount frame, FrameCount duration)

@@ -496,8 +496,7 @@ bool TimelineController::appendAssetRangeOnTrack(const QString& assetId, const Q
         const FrameCount start = track.end();
         // Automatic mode can use another lane if this one is at the timeline cap.
         // An explicitly selected track must never silently redirect the excerpt.
-        if (start < 0 || start >= kMaxTimelineFrames ||
-            duration > kMaxTimelineFrames - start) {
+        if (start < 0 || start >= kMaxTimelineFrames || duration > kMaxTimelineFrames - start) {
             continue;
         }
         Clip clip;

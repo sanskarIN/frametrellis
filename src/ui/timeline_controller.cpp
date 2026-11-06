@@ -458,9 +458,19 @@ bool TimelineController::appendAsset(const QString& assetId)
 bool TimelineController::appendAssetRange(const QString& assetId, int sourceInFrame,
                                           int sourceOutFrame)
 {
+    return appendAssetRangeOnTrack(assetId, {}, sourceInFrame, sourceOutFrame);
+}
+
+bool TimelineController::appendAssetRangeOnTrack(const QString& assetId, const QString& trackId,
+                                                 int sourceInFrame, int sourceOutFrame)
+{
     const MediaAsset* asset = project().asset(assetId);
     if (!asset || asset->info.kind == MediaKind::Image) {
         emit statusMessage(QStringLiteral("Choose a video or audio source for an excerpt."));
+        return false;
+    }
+    if (asset->status == MediaStatus::Missing) {
+        emit statusMessage(QStringLiteral("Relink missing media before appending an excerpt."));
         return false;
     }
     const std::optional<FrameCount> available = placementLength(*asset);
@@ -470,27 +480,47 @@ bool TimelineController::appendAssetRange(const QString& assetId, int sourceInFr
         return false;
     }
 
+    const FrameCount duration = static_cast<FrameCount>(sourceOutFrame) - sourceInFrame;
     const TrackKind wanted = asset->info.hasVideo ? TrackKind::Video : TrackKind::Audio;
+    if (!trackId.isEmpty() && !acceptsAsset(trackId, assetId)) {
+        emit statusMessage(QStringLiteral("The selected track is missing, locked, or incompatible "
+                                          "with this source."));
+        return false;
+    }
+
     for (const Track& track : project().timeline().tracks()) {
-        if (track.kind != wanted || track.locked) {
+        if ((!trackId.isEmpty() && track.id != trackId) ||
+            (trackId.isEmpty() && track.kind != wanted) || track.locked) {
+            continue;
+        }
+        const FrameCount start = track.end();
+        // Automatic mode can use another lane if this one is at the timeline cap.
+        // An explicitly selected track must never silently redirect the excerpt.
+        if (start < 0 || start >= kMaxTimelineFrames || duration > kMaxTimelineFrames - start) {
             continue;
         }
         Clip clip;
         clip.id = createId();
         clip.assetId = assetId;
-        clip.start = track.end();
+        clip.start = start;
         clip.sourceIn = sourceInFrame;
-        clip.duration = sourceOutFrame - sourceInFrame;
+        clip.duration = duration;
         if (!m_project->execute(edits::addClip(track.id, clip))) {
             return false;
         }
+        setTransitionSelection({});
         m_selection = {clip.id};
         m_model.updateSelection(m_selection);
         emit selectionChanged();
         emit selectedClipChanged();
         return true;
     }
-    emit statusMessage(QStringLiteral("Add an unlocked track for this media first."));
+
+    emit statusMessage(trackId.isEmpty()
+                           ? QStringLiteral("No compatible unlocked track has enough room to "
+                                            "append this range.")
+                           : QStringLiteral("This source range would exceed the selected "
+                                            "track's timeline limit."));
     return false;
 }
 

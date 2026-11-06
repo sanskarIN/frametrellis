@@ -86,6 +86,10 @@ public:
     /// The out-frame is exclusive; still images and invalid excerpts are refused.
     Q_INVOKABLE bool appendAssetRange(const QString& assetId, int sourceInFrame,
                                       int sourceOutFrame);
+    /// Append on a specific compatible track, or choose first fitting track when
+    /// trackId is empty. Never redirects an explicitly selected destination.
+    Q_INVOKABLE bool appendAssetRangeOnTrack(const QString& assetId, const QString& trackId,
+                                             int sourceInFrame, int sourceOutFrame);
     /// Three-point placement: source [In, Out) begins at the program playhead.
     /// Picks the first compatible, unlocked track with a free destination range.
     /// Never ripples, trims, overwrites or changes other clips; one undoable add.

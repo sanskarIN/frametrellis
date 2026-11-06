@@ -63,6 +63,81 @@ class EditingTest : public QObject
     Q_OBJECT
 
 private slots:
+    void synchronizedSourceClipsShareTimeAndUndoAsOneEdit()
+    {
+        Fixture f;
+        Clip picture = clipOf(QStringLiteral("m1"), 120, 45, QStringLiteral("sync-picture"));
+        picture.sourceIn = 22;
+        Clip sound = clipOf(QStringLiteral("m1"), 120, 45, QStringLiteral("sync-sound"));
+        sound.sourceIn = 22;
+        const Project before = f.doc.project();
+
+        QVERIFY(f.doc.execute(edits::addSynchronizedSourceClips(f.v1, picture, f.a1, sound)));
+        const Project placed = f.doc.project();
+        QCOMPARE(placed.timeline().clipCount(), before.timeline().clipCount() + 2);
+        const Clip* video = placed.timeline().clip(picture.id);
+        const Clip* audio = placed.timeline().clip(sound.id);
+        QVERIFY(video);
+        QVERIFY(audio);
+        QCOMPARE(*video, picture);
+        QCOMPARE(*audio, sound);
+        QCOMPARE(placed.timeline().trackOfClip(picture.id)->id, f.v1);
+        QCOMPARE(placed.timeline().trackOfClip(sound.id)->id, f.a1);
+        QCOMPARE(f.doc.undoText(), QStringLiteral("Place Synchronized Video and Audio"));
+        QVERIFY(f.doc.undo());
+        QCOMPARE(f.doc.project(), before);
+        QVERIFY(f.doc.redo());
+        QCOMPARE(f.doc.project(), placed);
+        QVERIFY(f.doc.undo());
+        QCOMPARE(f.doc.project(), before);
+    }
+
+    void synchronizedSourceClipsRejectFailureWithoutPartialPlacement()
+    {
+        Fixture f;
+        Clip picture = clipOf(QStringLiteral("m1"), 140, 30, QStringLiteral("sync-picture"));
+        picture.sourceIn = 20;
+        Clip sound = clipOf(QStringLiteral("m1"), 140, 30, QStringLiteral("sync-sound"));
+        sound.sourceIn = 20;
+
+        // Second-lane collision must also undo the otherwise valid first insertion.
+        QVERIFY(f.doc.execute(edits::addClip(
+            f.a1, clipOf(QStringLiteral("m1"), 125, 60, QStringLiteral("occupied-audio")))));
+        const Project occupied = f.doc.project();
+        const QString occupiedUndo = f.doc.undoText();
+        QVERIFY(!f.doc.execute(edits::addSynchronizedSourceClips(f.v1, picture, f.a1, sound)));
+        QCOMPARE(f.doc.project(), occupied);
+        QCOMPARE(f.doc.undoText(), occupiedUndo);
+        QVERIFY(!f.doc.project().timeline().clip(picture.id));
+
+        // Both destinations exist, but locks always prevent the whole operation.
+        QVERIFY(f.doc.execute(edits::setTrackLocked(f.v1, true)));
+        const Project locked = f.doc.project();
+        const QString lockedUndo = f.doc.undoText();
+        QVERIFY(!f.doc.execute(edits::addSynchronizedSourceClips(f.v1, picture, f.a1, sound)));
+        QCOMPARE(f.doc.project(), locked);
+        QCOMPARE(f.doc.undoText(), lockedUndo);
+        QVERIFY(f.doc.undo());
+        QCOMPARE(f.doc.project(), occupied);
+
+        // Malformed/mismatched clips must never be accepted as a synchronized pair.
+        Clip mismatched = sound;
+        mismatched.sourceIn++;
+        QVERIFY(!f.doc.execute(edits::addSynchronizedSourceClips(f.v1, picture, f.a1, mismatched)));
+        mismatched = sound;
+        mismatched.duration++;
+        QVERIFY(!f.doc.execute(edits::addSynchronizedSourceClips(f.v1, picture, f.a1, mismatched)));
+        mismatched = sound;
+        mismatched.id = picture.id;
+        QVERIFY(!f.doc.execute(edits::addSynchronizedSourceClips(f.v1, picture, f.a1, mismatched)));
+        QVERIFY(!f.doc.execute(edits::addSynchronizedSourceClips(f.a1, picture, f.v1, sound)));
+        QVERIFY(!f.doc.execute(edits::addSynchronizedSourceClips(f.v1, picture, f.v1, sound)));
+        QVERIFY(!f.doc.execute(
+            edits::addSynchronizedSourceClips(f.v1, picture, QStringLiteral("missing"), sound)));
+        QCOMPARE(f.doc.project(), occupied);
+        QCOMPARE(f.doc.undoText(), occupiedUndo);
+    }
+
     void removeUnusedMediaPreservesTimelineFilesAndUndoOrder()
     {
         Fixture f;

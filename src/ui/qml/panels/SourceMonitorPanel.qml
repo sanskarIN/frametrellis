@@ -109,8 +109,12 @@ PanelFrame {
     }
 
     function appendRange() {
-        return validRange
-               && app.timeline.appendAssetRange(assetId, markInFrame, markOutFrame)
+        if (!validRange || !selectedTrackAvailable)
+            return false
+        return selectedTrackId.length > 0
+               ? app.timeline.appendAssetRangeOnTrack(
+                     assetId, selectedTrackId, markInFrame, markOutFrame)
+               : app.timeline.appendAssetRange(assetId, markInFrame, markOutFrame)
     }
 
     function placeAtPlayhead() {
@@ -337,7 +341,9 @@ PanelFrame {
             FtButton {
                 objectName: "sourceMonitorAppend"
                 text: qsTr("Append range")
-                enabled: panel.validRange
+                enabled: panel.validRange && panel.selectedTrackAvailable
+                ToolTip.visible: hovered
+                ToolTip.text: qsTr("Append to the selected track or use the first compatible track with room.")
                 onClicked: {
                     if (!panel.appendRange())
                         panel.app.showStatus(qsTr("Could not append this source range."))

@@ -384,6 +384,14 @@ ApplicationWindow {
             Action { text: window.sourceMode ? qsTr("Go to Source End") : qsTr("Go to End"); shortcut: "End"; enabled: window.editKeys && (!window.sourceMode || sourceMonitor.loaded); onTriggered: window.sourceMode ? (sourceMonitor.previewFrame = sourceMonitor.maxFrames - 1) : window.app.playback.goToEnd() }
             Action { text: qsTr("Mark Source In"); shortcut: "I"; enabled: window.editKeys && window.sourceMode && sourceMonitor.loaded; onTriggered: sourceMonitor.markIn() }
             Action { text: qsTr("Mark Source Out"); shortcut: "O"; enabled: window.editKeys && window.sourceMode && sourceMonitor.loaded; onTriggered: sourceMonitor.markOut() }
+            Action {
+                text: qsTr("Match Source Range to Selected Clip Length")
+                shortcut: "Ctrl+Shift+M"
+                enabled: window.editKeys && window.sourceMode && sourceMonitor.canMatchClipLength
+                         && sourceMonitor.markOutFrame !== sourceMonitor.markInFrame
+                                                          + sourceMonitor.selectedTimelineClip.duration
+                onTriggered: sourceMonitor.matchSelectedClipLength()
+            }
             Action { text: qsTr("Go to Sequence Midpoint"); enabled: window.editKeys && !window.app.timeline.empty; onTriggered: window.app.playback.goToSequenceMidpoint() }
             MenuSeparator {}
             Action { text: qsTr("Loop Preview"); shortcut: "Ctrl+Alt+L"; checkable: true; checked: window.app.playback.loopPreview; enabled: window.editKeys && !window.app.timeline.empty; onTriggered: window.app.playback.loopPreview = checked }

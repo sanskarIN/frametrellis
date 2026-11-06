@@ -494,8 +494,37 @@ bool TimelineController::appendAssetRange(const QString& assetId, int sourceInFr
     return false;
 }
 
+QVariantList TimelineController::sourceDestinationTracks(const QString& assetId) const
+{
+    QVariantList destinations;
+    const MediaAsset* asset = project().asset(assetId);
+    if (!asset || asset->info.kind == MediaKind::Image) {
+        return destinations;
+    }
+    for (const Track& track : project().timeline().tracks()) {
+        const bool compatible = track.kind == TrackKind::Video ? asset->info.hasVideo
+                                                               : asset->info.hasAudio;
+        if (!compatible) {
+            continue;
+        }
+        destinations.append(QVariantMap{
+            {QStringLiteral("id"), track.id},
+            {QStringLiteral("label"), track.locked ? tr("%1 (locked)").arg(track.name) : track.name},
+            {QStringLiteral("locked"), track.locked},
+        });
+    }
+    return destinations;
+}
+
 bool TimelineController::placeAssetRangeAtPlayhead(const QString& assetId, int sourceInFrame,
                                                    int sourceOutFrame)
+{
+    return placeAssetRangeOnTrackAtPlayhead(assetId, {}, sourceInFrame, sourceOutFrame);
+}
+
+bool TimelineController::placeAssetRangeOnTrackAtPlayhead(const QString& assetId,
+                                                          const QString& trackId, int sourceInFrame,
+                                                          int sourceOutFrame)
 {
     const MediaAsset* asset = project().asset(assetId);
     if (!asset || asset->info.kind == MediaKind::Image) {
@@ -521,10 +550,16 @@ bool TimelineController::placeAssetRangeAtPlayhead(const QString& assetId, int s
     }
 
     const TrackKind wanted = asset->info.hasVideo ? TrackKind::Video : TrackKind::Audio;
-    // Try each destination without disturbing the sequence. A free higher track can accept
-    // the excerpt when a lower track is occupied, but a locked track is never modified.
+    if (!trackId.isEmpty() && !acceptsAsset(trackId, assetId)) {
+        emit statusMessage(QStringLiteral("The selected track is missing, locked, or incompatible "
+                                          "with this source."));
+        return false;
+    }
+    // Automatic placement retains its existing first-free video/audio preference.
+    // An explicit destination may also be an audio track for a source with audio.
     for (const Track& track : project().timeline().tracks()) {
-        if (track.kind != wanted || track.locked ||
+        if ((!trackId.isEmpty() && track.id != trackId) ||
+            (trackId.isEmpty() && track.kind != wanted) || track.locked ||
             !project().timeline().isRangeFree(track.id, start, duration, {})) {
             continue;
         }
@@ -545,8 +580,13 @@ bool TimelineController::placeAssetRangeAtPlayhead(const QString& assetId, int s
         return true;
     }
 
-    emit statusMessage(QStringLiteral("No compatible unlocked track has free space at the "
-                                      "playhead. Add a track or move the playhead."));
+    if (!trackId.isEmpty()) {
+        emit statusMessage(QStringLiteral("The selected track is occupied at the playhead. "
+                                          "Choose another track or move the playhead."));
+    } else {
+        emit statusMessage(QStringLiteral("No compatible unlocked track has free space at the "
+                                          "playhead. Add a track or move the playhead."));
+    }
     return false;
 }
 

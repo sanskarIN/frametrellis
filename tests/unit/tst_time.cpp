@@ -26,6 +26,27 @@ private slots:
         QVERIFY(Rational(30, 1) > Rational(30000, 1001));
     }
 
+    void rationalHandlesInt64Limits()
+    {
+        const auto minimum = std::numeric_limits<std::int64_t>::min();
+        const auto maximum = std::numeric_limits<std::int64_t>::max();
+
+        // Normalization must never negate INT64_MIN or take its signed absolute value.
+        QCOMPARE(Rational(minimum, 1).numerator(), minimum);
+        QCOMPARE(Rational(minimum, 1).denominator(), std::int64_t{1});
+        QCOMPARE(Rational(minimum, minimum), Rational(1, 1));
+        QCOMPARE(Rational(minimum, -2), Rational(std::int64_t{1} << 62, 1));
+        QCOMPARE(Rational(-2, minimum), Rational(1, std::int64_t{1} << 62));
+        QCOMPARE(Rational(0, minimum), Rational(0, 1));
+        QCOMPARE(Rational(minimum, maximum).numerator(), minimum);
+
+        // Mathematically valid fractions are invalid as Rational if their normalized
+        // numerator or positive denominator cannot fit in signed 64-bit storage.
+        QVERIFY(!Rational(minimum, -1).isValid());
+        QVERIFY(!Rational(1, minimum).isValid());
+        QVERIFY(!Rational(-1, minimum).isValid());
+    }
+
     void rationalParsing_data()
     {
         QTest::addColumn<QString>("text");
@@ -57,6 +78,13 @@ private slots:
         QVERIFY(!Rational::fromString(QStringLiteral("1/0")));
         QVERIFY(!Rational::fromString(QStringLiteral("1/2/3")));
         QVERIFY(!Rational::fromString(QStringLiteral("-5.5")));
+        // Fraction parsing must not report an unrepresentable Rational as a valid result.
+        QVERIFY(!Rational::fromString(QStringLiteral("1/-9223372036854775808")));
+        QVERIFY(!Rational::fromString(QStringLiteral("-9223372036854775808/-1")));
+        const auto reduced = Rational::fromString(
+            QStringLiteral("-9223372036854775808/-9223372036854775808"));
+        QVERIFY(reduced.has_value());
+        QCOMPARE(*reduced, Rational(1, 1));
     }
 
     void mulDivRoundsAndDetectsOverflow()

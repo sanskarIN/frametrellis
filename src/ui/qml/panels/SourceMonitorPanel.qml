@@ -30,6 +30,13 @@ PanelFrame {
                                                                 && !track.locked)
     readonly property bool validRange: loaded && markOutFrame > markInFrame
                                        && markOutFrame <= maxFrames
+    readonly property var selectedTimelineClip: app.timeline.selectedClip
+    readonly property bool canReplaceSelected: validRange && selectedTimelineClip.count === 1
+                                               && !selectedTimelineClip.locked
+                                               && selectedTimelineClip.duration ===
+                                                  markOutFrame - markInFrame
+                                               && (selectedTimelineClip.trackKind === "video"
+                                                   ? hasPicture : hasSourceAudio)
 
     title: loaded ? qsTr("Source — %1").arg(sourceName) : qsTr("Source Monitor")
 
@@ -133,6 +140,12 @@ PanelFrame {
         return validRange && hasPicture && hasSourceAudio && selectedTrackAvailable
                && app.timeline.placeSynchronizedAssetRangeAtPlayhead(
                       assetId, selectedTrackId, markInFrame, markOutFrame)
+    }
+
+    function replaceSelected() {
+        return canReplaceSelected
+               && app.timeline.replaceSelectionWithAssetRange(
+                      assetId, markInFrame, markOutFrame)
     }
 
     // Clear the source on project replacement or removal, so stale asset IDs cannot
@@ -346,6 +359,15 @@ PanelFrame {
                             .arg(panel.markOutFrame - panel.markInFrame).arg(panel.maxFrames)
                       : qsTr("Choose media to preview.")
                 elide: Text.ElideRight
+            }
+            FtButton {
+                objectName: "sourceMonitorReplaceSelected"
+                text: qsTr("Replace selected")
+                visible: panel.loaded
+                enabled: panel.canReplaceSelected
+                ToolTip.visible: hovered
+                ToolTip.text: qsTr("Replace one selected unlocked timeline clip. Source range must match its duration. Keeps its cut and scalar adjustments; clears source-anchored automation.")
+                onClicked: panel.replaceSelected()
             }
             FtButton {
                 objectName: "sourceMonitorPlace"

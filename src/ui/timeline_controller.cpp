@@ -591,6 +591,79 @@ bool TimelineController::placeAssetRangeOnTrackAtPlayhead(const QString& assetId
     return false;
 }
 
+bool TimelineController::placeSynchronizedAssetRangeAtPlayhead(const QString& assetId,
+                                                                const QString& targetTrackId,
+                                                                int sourceInFrame,
+                                                                int sourceOutFrame)
+{
+    const MediaAsset* asset = project().asset(assetId);
+    if (!asset || !asset->info.hasVideo || !asset->info.hasAudio ||
+        asset->status == MediaStatus::Missing) {
+        emit statusMessage(QStringLiteral("Choose an online source containing both video and audio."));
+        return false;
+    }
+    const std::optional<FrameCount> available = placementLength(*asset);
+    if (!available || sourceInFrame < 0 || sourceOutFrame <= sourceInFrame ||
+        static_cast<FrameCount>(sourceOutFrame) > *available) {
+        emit statusMessage(QStringLiteral("Choose valid source In and Out frames."));
+        return false;
+    }
+
+    const FrameCount start = m_playback->positionFrames();
+    const FrameCount duration = static_cast<FrameCount>(sourceOutFrame) - sourceInFrame;
+    if (start < 0 || start >= kMaxTimelineFrames || duration > kMaxTimelineFrames - start) {
+        emit statusMessage(QStringLiteral("The source range would exceed the timeline limit."));
+        return false;
+    }
+    const Timeline& sequence = project().timeline();
+    const Track* preferred =
+        targetTrackId.isEmpty() ? nullptr : sequence.track(targetTrackId);
+    if (!targetTrackId.isEmpty() && (!preferred || !acceptsAsset(targetTrackId, assetId))) {
+        emit statusMessage(QStringLiteral("The chosen track is unavailable or locked."));
+        return false;
+    }
+
+    const Track* videoTrack = nullptr;
+    const Track* audioTrack = nullptr;
+    for (const Track& track : sequence.tracks()) {
+        if (track.locked || !sequence.isRangeFree(track.id, start, duration, {})) {
+            continue;
+        }
+        if (track.kind == TrackKind::Video && !videoTrack &&
+            (!preferred || preferred->kind != TrackKind::Video || track.id == preferred->id)) {
+            videoTrack = &track;
+        } else if (track.kind == TrackKind::Audio && !audioTrack &&
+                   (!preferred || preferred->kind != TrackKind::Audio ||
+                    track.id == preferred->id)) {
+            audioTrack = &track;
+        }
+    }
+    if (!videoTrack || !audioTrack) {
+        emit statusMessage(QStringLiteral("Placing picture and sound requires free space on an "
+                                          "unlocked video track and an unlocked audio track."));
+        return false;
+    }
+
+    Clip video;
+    video.id = createId();
+    video.assetId = assetId;
+    video.start = start;
+    video.sourceIn = sourceInFrame;
+    video.duration = duration;
+    Clip audio = video;
+    audio.id = createId();
+    if (!m_project->execute(
+            edits::addSynchronizedSourceClips(videoTrack->id, video, audioTrack->id, audio))) {
+        return false;
+    }
+    setTransitionSelection({});
+    m_selection = {video.id, audio.id};
+    m_model.updateSelection(m_selection);
+    emit selectionChanged();
+    emit selectedClipChanged();
+    return true;
+}
+
 bool TimelineController::dropAsset(const QString& assetId, const QString& trackId, double frame)
 {
     // Negative drops are clamped to the beginning, but non-finite/huge values

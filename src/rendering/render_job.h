@@ -66,6 +66,7 @@ private:
     void setState(State state);
     void fail(const QString& message, const QString& detail = {});
     void onReadyRead();
+    void drainStandardError();
     void onProcessFinished(int exitCode, QProcess::ExitStatus status);
     void onProcessError(QProcess::ProcessError error);
     void handleEvent(const QJsonObject& event);

@@ -88,6 +88,9 @@ private slots:
         QCOMPARE(*outputFrameRate(settings, project.settings()), ntsc);
         QCOMPARE(*outputFrameCount(50, FrameRate::integer(25), ntsc), FrameCount{60});
         QCOMPARE(*outputFrameCount(50, FrameRate::integer(25), twentyFour), FrameCount{48});
+        QCOMPARE(*outputFrameCount(1, ntsc, ntsc), FrameCount{1});
+        QCOMPARE(*outputFrameCount(1001, ntsc, ntsc), FrameCount{1001});
+        QCOMPARE(*outputFrameCount(1, ntsc, *FrameRate::create(60000, 1001)), FrameCount{2});
         QVERIFY(
             !outputFrameCount(kMaxTimelineFrames, FrameRate::integer(1), FrameRate::integer(240)));
         for (const QString& bad : {QString(), QStringLiteral("0"), QStringLiteral("-1"),

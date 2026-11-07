@@ -9,6 +9,7 @@
 #include <QStorageInfo>
 
 #include <cmath>
+#include <numeric>
 
 namespace ft::rendering {
 
@@ -93,9 +94,19 @@ Result<FrameRate> outputFrameRate(const ExportSettings& settings, const ProjectS
 Result<FrameCount> outputFrameCount(FrameCount projectFrames, const FrameRate& projectRate,
                                     const FrameRate& exportRate)
 {
-    const auto durationUs = projectRate.framesToMicroseconds(projectFrames);
+    if (projectFrames < 1 || projectFrames > kMaxTimelineFrames) {
+        return makeError(ErrorCode::OutOfRange, QStringLiteral("The sequence length is invalid."));
+    }
+    if (projectRate == exportRate) {
+        return projectFrames;
+    }
+    // Exact cross multiplication avoids rounding an intermediate microsecond clock.
+    // Such rounding could incorrectly add a frame even when input and output rates match.
+    const std::int64_t numerator = exportRate.numerator() * projectRate.denominator();
+    const std::int64_t denominator = exportRate.denominator() * projectRate.numerator();
+    const std::int64_t divisor = std::gcd(numerator, denominator);
     const auto frames =
-        durationUs ? exportRate.microsecondsToFrames(*durationUs, Rounding::Up) : std::nullopt;
+        mulDiv(projectFrames, numerator / divisor, denominator / divisor, Rounding::Up);
     if (!frames || *frames < 1 || *frames > kMaxTimelineFrames) {
         return makeError(
             ErrorCode::OutOfRange,

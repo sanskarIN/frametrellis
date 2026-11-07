@@ -154,7 +154,7 @@ Status RenderJob::start(const Project& project, const ExportSettings& settings,
         if (!output.isEmpty()) {
             // A runaway FFmpeg log must not grow memory without bound. Preserve the
             // last diagnostic lines so an encoder crash has an actionable error.
-            constexpr qsizetype kMaxStderrBytes = 16 * 1024;
+            constexpr qsizetype kMaxStderrBytes = 16'384;
             m_stderrTail += output.right(kMaxStderrBytes);
             if (m_stderrTail.size() > kMaxStderrBytes) {
                 m_stderrTail.remove(0, m_stderrTail.size() - kMaxStderrBytes);
@@ -284,7 +284,7 @@ void RenderJob::onProcessFinished(int exitCode, QProcess::ExitStatus status)
     // decoder/encoder diagnostics that explain why a Windows export failed.
     const QByteArray remainingStderr = m_process->readAllStandardError();
     if (!remainingStderr.isEmpty()) {
-        constexpr qsizetype kMaxStderrBytes = 16 * 1024;
+        constexpr qsizetype kMaxStderrBytes = 16'384;
         m_stderrTail += remainingStderr.right(kMaxStderrBytes);
         if (m_stderrTail.size() > kMaxStderrBytes) {
             m_stderrTail.remove(0, m_stderrTail.size() - kMaxStderrBytes);

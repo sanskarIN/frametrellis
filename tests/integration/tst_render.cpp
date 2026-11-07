@@ -251,6 +251,34 @@ private slots:
         QVERIFY(partFiles().isEmpty());
     }
 
+    void cancelBeforeProcessStartedStillReachesHelper()
+    {
+        const Project original = project(25);
+        ExportSettings settings;
+        settings.outputPath = m_dir.filePath(QStringLiteral("early-cancel.mp4"));
+        RenderJob job(QStringLiteral(FT_CANCEL_RENDER_HELPER));
+        QSignalSpy finished(&job, &RenderJob::finished);
+        bool cancelAtStarting = true;
+        QObject::connect(&job, &RenderJob::stateChanged, &job,
+                         [&job, &cancelAtStarting](RenderJob::State state) {
+                             if ((cancelAtStarting && state == RenderJob::State::Starting) ||
+                                 (!cancelAtStarting && state == RenderJob::State::Running)) {
+                                 job.cancel();
+                             }
+                         });
+        // Exercise the synchronous Starting callback (before the OS process
+        // starts) and a normal Running cancellation on the same reusable job.
+        for (int attempt = 0; attempt < 2; ++attempt) {
+            cancelAtStarting = attempt == 0;
+            QVERIFY(job.start(original, settings));
+            QVERIFY(finished.count() > 0 || finished.wait(15'000));
+            QCOMPARE(job.state(), RenderJob::State::Cancelled);
+            QVERIFY(!QFile::exists(settings.outputPath));
+            QVERIFY(partFiles().isEmpty());
+            finished.clear();
+        }
+    }
+
     void helperDiscardsLargeUnframedStdoutAndRecoversProtocol()
     {
         const Project original = project(25);

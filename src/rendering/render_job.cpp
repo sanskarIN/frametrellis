@@ -61,8 +61,7 @@ RenderJob::~RenderJob()
     }
     // Never delete an in-use file: if the child did not actually stop, leave the
     // partial file untouched. Otherwise clean up only this job's random token.
-    if ((!m_process || m_process->state() == QProcess::NotRunning) &&
-        m_state != State::Succeeded) {
+    if ((!m_process || m_process->state() == QProcess::NotRunning) && m_state != State::Succeeded) {
         removeOwnedPartialOutput();
     }
 }

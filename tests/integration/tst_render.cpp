@@ -584,6 +584,27 @@ private slots:
         QVERIFY(partFiles().isEmpty());
     }
 
+    void helperRejectsUnsafeOrMalformedRenderToken()
+    {
+        const QString source = m_dir.filePath(QStringLiteral("token-source.ftproj"));
+        const QString output = m_dir.filePath(QStringLiteral("token-test.mp4"));
+        QVERIFY(project_format::saveToFile(project(25), source));
+        for (const QString& token : {QStringLiteral("../outside"), QStringLiteral("1234"),
+                                     QString(32, QLatin1Char('z'))}) {
+            QProcess helper;
+            helper.start(QStringLiteral(FT_RENDER_HELPER),
+                         {QStringLiteral("--project"), source, QStringLiteral("--output"), output,
+                          QStringLiteral("--render-token"), token});
+            QVERIFY2(helper.waitForStarted(10'000), qPrintable(helper.errorString()));
+            QVERIFY2(helper.waitForFinished(15'000), qPrintable(helper.errorString()));
+            QCOMPARE(helper.exitStatus(), QProcess::NormalExit);
+            QCOMPARE(helper.exitCode(), int(protocol::BadArguments));
+            QVERIFY(helper.readAllStandardOutput().contains("Invalid internal render token"));
+            QVERIFY(!QFile::exists(output));
+            QVERIFY(partFiles().isEmpty());
+        }
+    }
+
     void helperInspectsProjectWithoutProducingAnExport()
     {
         const QString source = m_dir.filePath(QStringLiteral("inspect-source.ftproj"));

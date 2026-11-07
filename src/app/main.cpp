@@ -99,8 +99,8 @@ int main(int argc, char* argv[])
                 // Distinguish the actual Qt Quick graphics backend in a native Windows
                 // crash report. A software-versus-default comparison is otherwise
                 // ambiguous when the app exits before its screenshot callback.
-                qCInfo(lcUi) << "Qt Quick graphics API" << static_cast<int>(QQuickWindow::graphicsApi())
-                             << "backend override"
+                qCInfo(lcUi) << "Qt Quick graphics API"
+                             << static_cast<int>(QQuickWindow::graphicsApi()) << "backend override"
                              << qEnvironmentVariable("QT_QUICK_BACKEND", "default");
                 const QStringList positional = parser.positionalArguments();
                 if (!positional.isEmpty()) {

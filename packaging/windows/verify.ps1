@@ -27,7 +27,8 @@ param(
     [Parameter(Mandatory)] [string] $WorkDir,
     [string] $Label = 'windows',
     [string] $Artifacts,
-    [ValidateRange(1, 5)] [int] $PortableGuiRuns = 1
+    [ValidateRange(1, 5)] [int] $PortableGuiRuns = 1,
+    [switch] $SoftwareBackendDiagnostics
 )
 
 . (Join-Path $PSScriptRoot 'module-paths.ps1')
@@ -50,7 +51,8 @@ Write-Host "Independent portable GUI launches required: $PortableGuiRuns"
 $env:PATH = @("$env:SystemRoot\System32", $env:SystemRoot, "$env:SystemRoot\System32\Wbem",
     "$env:SystemRoot\System32\WindowsPowerShell\v1.0") -join ';'
 foreach ($name in 'QT_PLUGIN_PATH', 'QML_IMPORT_PATH', 'QML2_IMPORT_PATH', 'QT_QPA_PLATFORM',
-    'MLT_REPOSITORY', 'MLT_DATA', 'FRAMETRELLIS_MLT_REPOSITORY') {
+    'QT_QUICK_BACKEND', 'QSG_RHI_BACKEND', 'MLT_REPOSITORY', 'MLT_DATA',
+    'FRAMETRELLIS_MLT_REPOSITORY') {
     Remove-Item "Env:$name" -ErrorAction SilentlyContinue
 }
 
@@ -99,6 +101,8 @@ function Test-Editor([string] $Folder, [string] $Project, [string] $What) {
     $stdout = Join-Path $Artifacts "editor-$Label-$What.stdout.log"
     $stderr = Join-Path $Artifacts "editor-$Label-$What.stderr.log"
     $arguments = @('--screenshot', "`"$shot`"", '--screenshot-delay', '15000', "`"$Project`"")
+    $backend = if ($env:QT_QUICK_BACKEND) { $env:QT_QUICK_BACKEND } else { 'default' }
+    Write-Host "Starting independent GUI verification: $What (Qt Quick backend: $backend)"
     # A repeated manual verification must not accept artifacts from an earlier run.
     foreach ($file in @($shot, $stdout, $stderr)) {
         Remove-Item -LiteralPath $file -Force -ErrorAction SilentlyContinue
@@ -196,6 +200,28 @@ if (Test-Path $project) {
         # Every launch has its own screenshot and results. A later success never
         # cancels out an earlier failure in the check accumulator.
         Test-Editor $portable $project $name
+    }
+}
+
+# Diagnostic launches are additional, independent checks; they do not turn a failed
+# default-backend launch into a passing verification. On ARM64 Windows, x64 emulation,
+# Qt Quick graphics and native decoder startup are all plausible crash variables.
+# Compare each backend using the exact same synthetic self-test project.
+if ($SoftwareBackendDiagnostics -and (Test-Path $project)) {
+    Write-Host 'Running two additional Qt Quick software-backend GUI launch checks.'
+    $previousBackend = [Environment]::GetEnvironmentVariable('QT_QUICK_BACKEND', 'Process')
+    try {
+        $env:QT_QUICK_BACKEND = 'software'
+        for ($run = 1; $run -le 2; ++$run) {
+            Test-Editor $portable $project "software-$run"
+        }
+    }
+    finally {
+        if ($null -eq $previousBackend) {
+            Remove-Item Env:QT_QUICK_BACKEND -ErrorAction SilentlyContinue
+        } else {
+            $env:QT_QUICK_BACKEND = $previousBackend
+        }
     }
 }
 

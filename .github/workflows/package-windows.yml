@@ -119,10 +119,13 @@ jobs:
           $setup = Get-ChildItem dist\*-setup.exe | Select-Object -First 1
           # The ARM64 host exercises the x64 portable GUI twice independently.
           # We do not retry an individual failure as a passing smoke test.
-          $portableRuns = if ("${{ matrix.os }}" -eq "windows-11-arm") { 2 } else { 1 }
+          $isArm = "${{ matrix.os }}" -eq "windows-11-arm"
+          $portableRuns = if ($isArm) { 2 } else { 1 }
+          # On ARM add independent software-backend launches; preserve all default GUI failures.
           ./packaging/windows/verify.ps1 -Zip $zip.FullName -Installer $setup.FullName `
             -WorkDir "$env:RUNNER_TEMP\ft" -Artifacts "$env:RUNNER_TEMP\ft-artifacts" `
-            -Label "${{ matrix.os }}" -PortableGuiRuns $portableRuns
+            -Label "${{ matrix.os }}" -PortableGuiRuns $portableRuns `
+            -SoftwareBackendDiagnostics:$isArm
       - name: Upload screenshots and logs
         if: always()
         uses: actions/upload-artifact@v6

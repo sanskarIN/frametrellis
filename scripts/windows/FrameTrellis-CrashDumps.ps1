@@ -97,7 +97,9 @@ if ($Enable) {
         throw 'Use a local folder for crash dumps, not a network share.'
     }
     New-Item -ItemType Directory -Path $absoluteFolder -Force | Out-Null
-    New-Item -Path $werBase -Force | Out-Null
+    if (-not (Test-Path -LiteralPath $werBase)) {
+        New-Item -Path $werBase | Out-Null
+    }
     foreach ($appName in $appNames) {
         $key = Join-Path $werBase $appName
         New-Item -Path $key -Force | Out-Null

@@ -21,6 +21,12 @@ target_link_libraries(ft_render_stdout_fixture PRIVATE ft_compile_options)
 target_compile_definitions(tst_render PRIVATE
     FT_STDOUT_RENDER_HELPER="$<TARGET_FILE:ft_render_stdout_fixture>")
 add_dependencies(tst_render ft_render_stdout_fixture)
+
+add_executable(ft_render_cancel_fixture ../support/render_cancel_fixture.cpp)
+target_link_libraries(ft_render_cancel_fixture PRIVATE ft_compile_options)
+target_compile_definitions(tst_render PRIVATE
+    FT_CANCEL_RENDER_HELPER="$<TARGET_FILE:ft_render_cancel_fixture>")
+add_dependencies(tst_render ft_render_cancel_fixture)
 ft_add_test(tst_playback SOURCES tst_playback.cpp LIBS ft_playback ft_media ft_test_fixtures LABELS integration)
 ft_add_test(tst_engine_threads SOURCES tst_engine_threads.cpp LIBS ft_test_fixtures FrameTrellis::Mlt LABELS integration)
 

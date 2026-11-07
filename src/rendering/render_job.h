@@ -69,6 +69,7 @@ private:
     void drainStandardError();
     void onProcessFinished(int exitCode, QProcess::ExitStatus status);
     void onProcessError(QProcess::ProcessError error);
+    void sendPendingCancel();
     void handleEvent(const QJsonObject& event);
     void removeOwnedPartialOutput();
 
@@ -91,6 +92,7 @@ private:
     QString m_errorMessage;
     QString m_errorDetail;
     bool m_sawFinished = false;
+    bool m_cancelSent = false;
 };
 
 } // namespace ft::rendering

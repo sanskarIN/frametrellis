@@ -21,6 +21,7 @@
 #include <QJsonArray>
 #include <QJsonDocument>
 #include <QJsonObject>
+#include <QRegularExpression>
 #include <QSet>
 
 #include <atomic>
@@ -161,6 +162,10 @@ int main(int argc, char** argv)
     const QCommandLineOption audioOption(QStringLiteral("audio-bitrate"),
                                          QStringLiteral("AAC bitrate in kbit/s."),
                                          QStringLiteral("kbps"), QStringLiteral("192"));
+    const QCommandLineOption renderTokenOption(
+        QStringLiteral("render-token"),
+        QStringLiteral("Internal unique identifier for an editor-owned temporary export file."),
+        QStringLiteral("token"));
     const QCommandLineOption noAudioOption(QStringLiteral("no-audio"),
                                            QStringLiteral("Export without audio."));
     const QCommandLineOption noUpscaleOption(
@@ -178,8 +183,8 @@ int main(int argc, char** argv)
                        "export it, and report each step. Exits with 0 when everything works."),
         QStringLiteral("directory"));
     parser.addOptions({projectOption, outputOption, shortSideOption, fpsOption, crfOption,
-                       presetOption, audioOption, noAudioOption, noUpscaleOption, watchStdinOption,
-                       selfTestOption, inspectProjectOption, listPresetsOption});
+                       presetOption, audioOption, renderTokenOption, noAudioOption, noUpscaleOption,
+                       watchStdinOption, selfTestOption, inspectProjectOption, listPresetsOption});
     parser.process(app);
 
     if (parser.isSet(listPresetsOption)) {
@@ -301,6 +306,15 @@ int main(int argc, char** argv)
                             QStringLiteral("Numeric options must be whole numbers.")));
         return protocol::BadArguments;
     }
+    const QString renderToken = parser.value(renderTokenOption);
+    if (parser.isSet(renderTokenOption)) {
+        static const QRegularExpression validToken(QStringLiteral("^[0-9a-fA-F]{32}$"));
+        if (!validToken.match(renderToken).hasMatch()) {
+            emitError(makeError(ErrorCode::InvalidArgument,
+                                QStringLiteral("Invalid internal render token.")));
+            return protocol::BadArguments;
+        }
+    }
 
     std::signal(SIGINT, handleSignal);
     std::signal(SIGTERM, handleSignal);
@@ -322,7 +336,7 @@ int main(int argc, char** argv)
     Status result;
     {
         RenderRunner runner(std::move(project).value(), settings,
-                            QFileInfo(projectPath).absoluteFilePath());
+                            QFileInfo(projectPath).absoluteFilePath(), renderToken);
         result = runner.run(
             g_cancel,
             [](const QString& encoder, FrameCount total) {

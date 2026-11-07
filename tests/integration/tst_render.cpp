@@ -217,6 +217,14 @@ private slots:
         }
         settings.outputPath = existing;
         settings.speedPreset = QStringLiteral("ultrafast");
+        // A previous render's similarly named partial file must not be touched.
+        const QString unrelated =
+            m_dir.filePath(QStringLiteral(".failed-helper-existing.unrelated.part.mp4"));
+        {
+            QFile untouched(unrelated);
+            QVERIFY(untouched.open(QIODevice::WriteOnly));
+            QCOMPARE(untouched.write("unrelated partial"), qint64{17});
+        }
         RenderJob job(QStringLiteral(FT_FAKE_RENDER_HELPER));
         QSignalSpy finished(&job, &RenderJob::finished);
         for (int attempt = 0; attempt < 2; ++attempt) {
@@ -232,9 +240,15 @@ private slots:
             QFile preserved(existing);
             QVERIFY(preserved.open(QIODevice::ReadOnly));
             QCOMPARE(preserved.readAll(), QByteArray("previous successful output"));
-            QVERIFY(partFiles().isEmpty());
+            QFile untouched(unrelated);
+            QVERIFY(untouched.open(QIODevice::ReadOnly));
+            QCOMPARE(untouched.readAll(), QByteArray("unrelated partial"));
+            QCOMPARE(partFiles(),
+                     QStringList{QStringLiteral(".failed-helper-existing.unrelated.part.mp4")});
             finished.clear();
         }
+        QVERIFY(QFile::remove(unrelated));
+        QVERIFY(partFiles().isEmpty());
     }
 
     void renderHelperReceivesExportFpsAndRejectsInvalidFps()
@@ -568,6 +582,27 @@ private slots:
         QVERIFY(preserved.open(QIODevice::ReadOnly));
         QCOMPARE(preserved.readAll(), before);
         QVERIFY(partFiles().isEmpty());
+    }
+
+    void helperRejectsUnsafeOrMalformedRenderToken()
+    {
+        const QString source = m_dir.filePath(QStringLiteral("token-source.ftproj"));
+        const QString output = m_dir.filePath(QStringLiteral("token-test.mp4"));
+        QVERIFY(project_format::saveToFile(project(25), source));
+        for (const QString& token : {QStringLiteral("../outside"), QStringLiteral("1234"),
+                                     QString(32, QLatin1Char('z'))}) {
+            QProcess helper;
+            helper.start(QStringLiteral(FT_RENDER_HELPER),
+                         {QStringLiteral("--project"), source, QStringLiteral("--output"), output,
+                          QStringLiteral("--render-token"), token});
+            QVERIFY2(helper.waitForStarted(10'000), qPrintable(helper.errorString()));
+            QVERIFY2(helper.waitForFinished(15'000), qPrintable(helper.errorString()));
+            QCOMPARE(helper.exitStatus(), QProcess::NormalExit);
+            QCOMPARE(helper.exitCode(), int(protocol::BadArguments));
+            QVERIFY(helper.readAllStandardOutput().contains("Invalid internal render token"));
+            QVERIFY(!QFile::exists(output));
+            QVERIFY(partFiles().isEmpty());
+        }
     }
 
     void helperInspectsProjectWithoutProducingAnExport()

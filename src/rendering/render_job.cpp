@@ -7,8 +7,10 @@
 #include "rendering/render_protocol.h"
 
 #include <QDir>
+#include <QFile>
 #include <QFileInfo>
 #include <QJsonObject>
+#include <QUuid>
 
 namespace ft::rendering {
 
@@ -56,6 +58,20 @@ RenderJob::~RenderJob()
         m_process->disconnect(this);
         m_process->kill();
         m_process->waitForFinished(3000);
+    }
+    // Never delete an in-use file: if the child did not actually stop, leave the
+    // partial file untouched. Otherwise clean up only this job's random token.
+    if ((!m_process || m_process->state() == QProcess::NotRunning) && m_state != State::Succeeded) {
+        removeOwnedPartialOutput();
+    }
+}
+
+void RenderJob::removeOwnedPartialOutput()
+{
+    if (!m_partialOutputPath.isEmpty() && QFileInfo::exists(m_partialOutputPath) &&
+        !QFile::remove(m_partialOutputPath)) {
+        qCWarning(lcRender) << "Could not remove this export's partial output:"
+                            << m_partialOutputPath;
     }
 }
 
@@ -116,6 +132,11 @@ Status RenderJob::start(const Project& project, const ExportSettings& settings,
 
     m_snapshotDir = std::move(snapshotDir);
     m_settings = settings;
+    const QString token = QUuid::createUuid().toString(QUuid::Id128);
+    const QFileInfo outputInfo(settings.outputPath);
+    m_partialOutputPath =
+        QDir(outputInfo.absolutePath())
+            .filePath(QStringLiteral(".%1.%2.part.mp4").arg(outputInfo.completeBaseName(), token));
     m_framesDone = 0;
     m_totalFrames = project.timeline().duration();
     m_lastLoggedProgressBucket = -1;
@@ -137,6 +158,7 @@ Status RenderJob::start(const Project& project, const ExportSettings& settings,
         QStringLiteral("--preset"),        settings.speedPreset,
         QStringLiteral("--audio-bitrate"), QString::number(settings.audioBitrateKbps),
         QStringLiteral("--fps"),           settings.frameRate,
+        QStringLiteral("--render-token"),  token,
         QStringLiteral("--watch-stdin")};
     if (!settings.includeAudio) {
         arguments << QStringLiteral("--no-audio");
@@ -321,9 +343,12 @@ void RenderJob::onProcessFinished(int exitCode, QProcess::ExitStatus status)
         if (m_state != State::Cancelling) {
             setState(State::Cancelling);
         }
-        // A killed helper may leave its temporary file behind; it never touches the destination.
+        // The process has exited. Clean up this job's partial MP4 even when the helper
+        // could not execute its own cancellation cleanup.
+        removeOwnedPartialOutput();
         setState(State::Cancelled);
     } else {
+        removeOwnedPartialOutput();
         QString detail = QStringLiteral("Renderer exit code: %1 (0x%2)")
                              .arg(exitCode)
                              .arg(QString::number(static_cast<quint32>(exitCode), 16)
@@ -350,6 +375,7 @@ void RenderJob::onProcessFinished(int exitCode, QProcess::ExitStatus status)
 void RenderJob::onProcessError(QProcess::ProcessError error)
 {
     if (error == QProcess::FailedToStart) {
+        removeOwnedPartialOutput();
         fail(QStringLiteral("The render helper could not be started."),
              m_helperProgram + QStringLiteral(": ") + m_process->errorString());
     }

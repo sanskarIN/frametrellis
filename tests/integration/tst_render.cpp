@@ -65,8 +65,7 @@ private:
         return p;
     }
 
-    QImage frameOf(const QString& path, int position,
-                   FrameRate rate = FrameRate::integer(25))
+    QImage frameOf(const QString& path, int position, FrameRate rate = FrameRate::integer(25))
     {
         auto profile = engine::createProfile(160, 90, rate);
         const QByteArray resource = QByteArrayLiteral("avformat:") + path.toUtf8();
@@ -171,8 +170,9 @@ private slots:
         for (const QString& chosen :
              {QStringLiteral("24"), QStringLiteral("30"), QStringLiteral("30000/1001")}) {
             ExportSettings settings;
-            settings.outputPath =
-                m_dir.filePath(QStringLiteral("fps-%1.mp4").arg(QString(chosen).replace(QLatin1Char('/'), QLatin1Char('-'))));
+            settings.outputPath = m_dir.filePath(
+                QStringLiteral("fps-%1.mp4")
+                    .arg(QString(chosen).replace(QLatin1Char('/'), QLatin1Char('-'))));
             settings.frameRate = chosen;
             settings.speedPreset = QStringLiteral("ultrafast");
             const Result<FrameRate> target = outputFrameRate(settings, original.settings());
@@ -182,8 +182,9 @@ private slots:
             FrameCount reportedTotal = -1;
             std::atomic<bool> cancel{false};
             const Status completed =
-                RenderRunner(original, settings).run(cancel,
-                    [&](const QString&, FrameCount total) { reportedTotal = total; });
+                RenderRunner(original, settings).run(cancel, [&](const QString&, FrameCount total) {
+                    reportedTotal = total;
+                });
             QVERIFY2(completed, qPrintable(completed ? QString() : completed.error().toString()));
             QCOMPARE(reportedTotal, *expected);
             const Result<MediaInfo> info = media::probeMedia(settings.outputPath);

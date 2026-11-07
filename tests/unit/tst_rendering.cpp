@@ -88,12 +88,11 @@ private slots:
         QCOMPARE(*outputFrameRate(settings, project.settings()), ntsc);
         QCOMPARE(*outputFrameCount(50, FrameRate::integer(25), ntsc), FrameCount{60});
         QCOMPARE(*outputFrameCount(50, FrameRate::integer(25), twentyFour), FrameCount{48});
-        QVERIFY(!outputFrameCount(kMaxTimelineFrames, FrameRate::integer(1),
-                                  FrameRate::integer(240)));
-        for (const QString& bad :
-             {QString(), QStringLiteral("0"), QStringLiteral("-1"), QStringLiteral("241"),
-              QStringLiteral("30000/0"), QStringLiteral("nonsense"),
-              QStringLiteral("not-a-number")}) {
+        QVERIFY(
+            !outputFrameCount(kMaxTimelineFrames, FrameRate::integer(1), FrameRate::integer(240)));
+        for (const QString& bad : {QString(), QStringLiteral("0"), QStringLiteral("-1"),
+                                   QStringLiteral("241"), QStringLiteral("30000/0"),
+                                   QStringLiteral("nonsense"), QStringLiteral("not-a-number")}) {
             settings.frameRate = bad;
             QVERIFY2(!outputFrameRate(settings, project.settings()), qPrintable(bad));
             const Status invalid = validateExport(settings, project);

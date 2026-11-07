@@ -91,14 +91,15 @@ Result<FrameRate> outputFrameRate(const ExportSettings& settings, const ProjectS
 }
 
 Result<FrameCount> outputFrameCount(FrameCount projectFrames, const FrameRate& projectRate,
-                                   const FrameRate& exportRate)
+                                    const FrameRate& exportRate)
 {
     const auto durationUs = projectRate.framesToMicroseconds(projectFrames);
-    const auto frames = durationUs ? exportRate.microsecondsToFrames(*durationUs, Rounding::Up)
-                                   : std::nullopt;
+    const auto frames =
+        durationUs ? exportRate.microsecondsToFrames(*durationUs, Rounding::Up) : std::nullopt;
     if (!frames || *frames < 1 || *frames > kMaxTimelineFrames) {
-        return makeError(ErrorCode::OutOfRange,
-                         QStringLiteral("The selected FPS would exceed the output timeline limit."));
+        return makeError(
+            ErrorCode::OutOfRange,
+            QStringLiteral("The selected FPS would exceed the output timeline limit."));
     }
     return *frames;
 }

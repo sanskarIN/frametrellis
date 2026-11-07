@@ -247,8 +247,8 @@ Status RenderRunner::run(const std::atomic<bool>& cancelRequested, const Started
         consumer.set("preset", m_settings.speedPreset.toUtf8().constData());
     } else {
         // Encoders without CRF get a bitrate derived from resolution, frame rate and quality.
-        const double pixelsPerSecond = static_cast<double>(size.width()) * size.height() *
-                                       exportRate.toDouble();
+        const double pixelsPerSecond =
+            static_cast<double>(size.width()) * size.height() * exportRate.toDouble();
         const double bitsPerPixel = std::clamp(0.25 - (m_settings.crf - 18) * 0.012, 0.03, 0.4);
         consumer.set("vb", QStringLiteral("%1k")
                                .arg(static_cast<qint64>(pixelsPerSecond * bitsPerPixel / 1000.0))
@@ -325,7 +325,8 @@ Status RenderRunner::run(const std::atomic<bool>& cancelRequested, const Started
         part.exists() && part.size() > 0
             ? media::probeMedia(partPath)
             : Result<MediaInfo>(makeError(ErrorCode::Io, QStringLiteral("no output")));
-    const auto expectedUs = projectSettings.frameRate.framesToMicroseconds(projectTotal).value_or(0);
+    const auto expectedUs =
+        projectSettings.frameRate.framesToMicroseconds(projectTotal).value_or(0);
     const auto toleranceUs = exportRate.framesToMicroseconds(3).value_or(0) + 50'000;
     // Verify the size as well as the duration. Fast/no-upscale presets must never
     // publish a video with dimensions different from those shown in the dialog.
@@ -339,23 +340,25 @@ Status RenderRunner::run(const std::atomic<bool>& cancelRequested, const Started
         const QStorageInfo storage(QFileInfo(finalPath).absolutePath());
         const bool diskFull = storage.isValid() && storage.bytesAvailable() >= 0 &&
                               storage.bytesAvailable() < kMinimumFreeBytes;
-        const QString detail = written
-                                   ? QStringLiteral("expected %1x%2 at %3 fps and %4 us, got %5x%6 at %7 fps and %8 us")
-                                         .arg(size.width())
-                                         .arg(size.height())
-                                         .arg(exportRate.displayName())
-                                         .arg(expectedUs)
-                                         .arg(written->width)
-                                         .arg(written->height)
-                                         .arg(written->frameRate.toString())
-                                         .arg(written->durationUs)
-                                   : written.error().toString();
+        const QString detail =
+            written ? QStringLiteral(
+                          "expected %1x%2 at %3 fps and %4 us, got %5x%6 at %7 fps and %8 us")
+                          .arg(size.width())
+                          .arg(size.height())
+                          .arg(exportRate.displayName())
+                          .arg(expectedUs)
+                          .arg(written->width)
+                          .arg(written->height)
+                          .arg(written->frameRate.toString())
+                          .arg(written->durationUs)
+                    : written.error().toString();
         qCWarning(lcRender) << "Render verification failed:" << detail;
         return makeError(
             ErrorCode::Io,
-            diskFull ? QStringLiteral("Rendering failed: the disk is full.")
-                     : QStringLiteral(
-                           "Rendering failed: the output dimensions, FPS or duration were incorrect."),
+            diskFull
+                ? QStringLiteral("Rendering failed: the disk is full.")
+                : QStringLiteral(
+                      "Rendering failed: the output dimensions, FPS or duration were incorrect."),
             detail);
     }
     if (progress) {

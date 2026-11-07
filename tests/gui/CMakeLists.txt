@@ -14,6 +14,12 @@ set_tests_properties(tst_subtitle_controller PROPERTIES TIMEOUT 60)
 ft_add_test(tst_timeline_model SOURCES tst_timeline_model.cpp LIBS ft_ui LABELS gui)
 set_tests_properties(tst_timeline_model PROPERTIES TIMEOUT 60)
 
+# A detached FrameView or an uninitialized Qt Quick scene graph must not be dereferenced.
+ft_add_test(tst_frame_view SOURCES tst_frame_view.cpp LIBS ft_ui LABELS gui)
+set_tests_properties(tst_frame_view PROPERTIES
+    ENVIRONMENT "QT_QPA_PLATFORM=offscreen;QT_QUICK_BACKEND=software"
+    TIMEOUT 30)
+
 # A recovered unsaved edit must survive another crash before the user saves it.
 ft_add_test(tst_recovery SOURCES tst_recovery.cpp LIBS ft_ui LABELS gui)
 set_tests_properties(tst_recovery PROPERTIES TIMEOUT 60)

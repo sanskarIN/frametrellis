@@ -318,9 +318,9 @@ void RenderJob::onProcessFinished(int exitCode, QProcess::ExitStatus status)
         fail(status == QProcess::CrashExit
                  ? QStringLiteral(
                        "The renderer stopped unexpectedly. Your project is safe; please try again.")
-                 : m_errorMessage.isEmpty()
-                       ? QStringLiteral("Rendering failed (exit code %1).").arg(exitCode)
-                       : m_errorMessage,
+             : m_errorMessage.isEmpty()
+                 ? QStringLiteral("Rendering failed (exit code %1).").arg(exitCode)
+                 : m_errorMessage,
              detail);
     }
     qCInfo(lcRender) << "Render job finished with state" << int(m_state);

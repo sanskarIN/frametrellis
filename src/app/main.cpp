@@ -101,7 +101,7 @@ int main(int argc, char* argv[])
                 // ambiguous when the app exits before its screenshot callback.
                 qCInfo(lcUi) << "Qt Quick graphics API"
                              << static_cast<int>(QQuickWindow::graphicsApi()) << "backend override"
-                             << qEnvironmentVariable("QT_QUICK_BACKEND", "default");
+                             << qEnvironmentVariable("QT_QUICK_BACKEND", QStringLiteral("default"));
                 const QStringList positional = parser.positionalArguments();
                 if (!positional.isEmpty()) {
                     controller.project()->openProject(

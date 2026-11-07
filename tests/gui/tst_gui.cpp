@@ -3802,6 +3802,31 @@ private slots:
         QMetaObject::invokeMethod(dialog, "close");
     }
 
+    void repeatedGuiExportsWhileAutosavingKeepEditorResponsive()
+    {
+        // Reproduce the editor-side lifecycle, not just the in-process RenderRunner:
+        // keep Qt Quick and project autosave alive across successive helper exports.
+        const Project before = m_app->project()->project();
+        const QString destination = m_dir.filePath(QStringLiteral("gui-repeated-fps.mp4"));
+        for (const QString& fps : {QStringLiteral("30"), QStringLiteral("24")}) {
+            const QVariantMap settings{
+                {QStringLiteral("presetId"), QStringLiteral("draft")},
+                {QStringLiteral("outputPath"), destination},
+                {QStringLiteral("speedPreset"), QStringLiteral("ultrafast")},
+                {QStringLiteral("frameRate"), fps}};
+            QCOMPARE(m_app->exporter()->validate(settings), QString());
+            QSignalSpy finished(m_app->exporter(), &ui::ExportController::finished);
+            QVERIFY(m_app->exporter()->start(settings));
+            m_app->project()->autosave(); // exercise recovery serialization during rendering
+            QVERIFY(finished.count() > 0 || finished.wait(60'000));
+            QVERIFY2(finished.first().at(0).toBool(),
+                     qPrintable(finished.first().at(1).toString()));
+            QVERIFY(QFileInfo::exists(destination));
+            QVERIFY(m_window->isVisible());
+            QCOMPARE(m_app->project()->project(), before);
+        }
+    }
+
     void exportClipListCsvPreservesProjectAndProtectsUnsafePaths()
     {
         const Project before = m_app->project()->project();

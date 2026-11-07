@@ -89,12 +89,28 @@ ThumbnailProvider::ThumbnailProvider(std::shared_ptr<ThumbnailRegistry> registry
     , m_cache(std::move(cache))
 {}
 
+QSize ThumbnailProvider::boundedRequestSize(QSize requestedSize)
+{
+    constexpr int kMaximumWidth = 1920;
+    constexpr int kMaximumHeight = 1080;
+    if (requestedSize.width() <= 0 || requestedSize.height() <= 0) {
+        return QSize(192, 108);
+    }
+    if (requestedSize.width() <= kMaximumWidth && requestedSize.height() <= kMaximumHeight) {
+        return requestedSize;
+    }
+    // Qt Quick's requestedSize may originate from dynamic layouts or extreme
+    // zoom values. An unbounded size would allocate large MLT decoder frames
+    // before the application can reject them.
+    return requestedSize.scaled(QSize(kMaximumWidth, kMaximumHeight), Qt::KeepAspectRatio)
+        .expandedTo(QSize(1, 1));
+}
+
 QQuickImageResponse* ThumbnailProvider::requestImageResponse(const QString& id,
                                                              const QSize& requestedSize)
 {
     const QString assetId = id.section(QLatin1Char('?'), 0, 0);
-    const QSize size =
-        requestedSize.isValid() && !requestedSize.isEmpty() ? requestedSize : QSize(192, 108);
+    const QSize size = boundedRequestSize(requestedSize);
 
     // Ordinary media tiles remain cached thumbnails. The source excerpt editor
     // optionally asks this asynchronous provider for a specific project-rate

@@ -61,19 +61,19 @@ private slots:
         ui::ProjectController project;
         QVERIFY(project.openProject(projectPath));
         // This new cue must survive even if the editor dies before the 60-second timer.
-        QVERIFY(project.execute(edits::addMarker(
-            {createId(), 0, QStringLiteral("Last edit before render")})));
+        QVERIFY(project.execute(
+            edits::addMarker({createId(), 0, QStringLiteral("Last edit before render")})));
         QVERIFY(project.isModified());
         const QString autosave = QDir(ui::ProjectController::autosaveDirectory())
                                      .filePath(project.project().id() + QStringLiteral(".ftproj"));
         QVERIFY(!QFileInfo::exists(autosave));
 
         ui::ExportController exporter(&project, QStringLiteral(FT_RENDER_HELPER));
-        const QVariantMap options{{QStringLiteral("presetId"), QStringLiteral("draft")},
-                                  {QStringLiteral("outputPath"),
-                                   m_dir.filePath(QStringLiteral("result.mp4"))},
-                                  {QStringLiteral("speedPreset"), QStringLiteral("ultrafast")},
-                                  {QStringLiteral("includeAudio"), false}};
+        const QVariantMap options{
+            {QStringLiteral("presetId"), QStringLiteral("draft")},
+            {QStringLiteral("outputPath"), m_dir.filePath(QStringLiteral("result.mp4"))},
+            {QStringLiteral("speedPreset"), QStringLiteral("ultrafast")},
+            {QStringLiteral("includeAudio"), false}};
         QSignalSpy completed(&exporter, &ui::ExportController::finished);
         QVERIFY(exporter.start(options));
         QVERIFY2(QFileInfo::exists(autosave),
@@ -83,8 +83,7 @@ private slots:
         QCOMPARE(backup->markers().size(), size_t{1});
         QCOMPARE(backup->markers().front().label, QStringLiteral("Last edit before render"));
         QVERIFY(completed.count() > 0 || completed.wait(60'000));
-        QVERIFY2(completed.first().at(0).toBool(),
-                 qPrintable(completed.first().at(1).toString()));
+        QVERIFY2(completed.first().at(0).toBool(), qPrintable(completed.first().at(1).toString()));
         // The recovery snapshot must not silently mark the project as saved.
         QVERIFY(project.isModified());
         project.removeOwnAutosave();

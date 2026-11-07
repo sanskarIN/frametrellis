@@ -202,6 +202,41 @@ private slots:
         }
     }
 
+    void helperAbnormalExitPreservesExistingOutputAndAllowsRetry()
+    {
+        // Unlike a real native access violation, this fixture exits cleanly with a
+        // nonzero code after emitting started + oversized stderr. It exercises the
+        // editor's process isolation and error-reporting boundary deterministically.
+        const Project original = project(25);
+        ExportSettings settings;
+        const QString existing = m_dir.filePath(QStringLiteral("failed-helper-existing.mp4"));
+        {
+            QFile output(existing);
+            QVERIFY(output.open(QIODevice::WriteOnly));
+            QCOMPARE(output.write("previous successful output"), qint64{26});
+        }
+        settings.outputPath = existing;
+        settings.speedPreset = QStringLiteral("ultrafast");
+        RenderJob job(QStringLiteral(FT_FAKE_RENDER_HELPER));
+        QSignalSpy finished(&job, &RenderJob::finished);
+        for (int attempt = 0; attempt < 2; ++attempt) {
+            QVERIFY(job.start(original, settings));
+            QVERIFY(finished.count() > 0 || finished.wait(15'000));
+            QCOMPARE(job.state(), RenderJob::State::Failed);
+            QCOMPARE(job.encoder(), QStringLiteral("failure-fixture"));
+            QVERIFY(job.errorMessage().contains(QStringLiteral("Rendering failed")));
+            QVERIFY2(job.errorDetail().contains(QStringLiteral("0x0000002a")),
+                     qPrintable(job.errorDetail()));
+            QVERIFY(job.errorDetail().contains(QStringLiteral("FT_SIMULATED_RENDER_FAILURE")));
+            QVERIFY(job.errorDetail().size() <= 17'000);
+            QFile preserved(existing);
+            QVERIFY(preserved.open(QIODevice::ReadOnly));
+            QCOMPARE(preserved.readAll(), QByteArray("previous successful output"));
+            QVERIFY(partFiles().isEmpty());
+            finished.clear();
+        }
+    }
+
     void renderHelperReceivesExportFpsAndRejectsInvalidFps()
     {
         Project p = project(50);

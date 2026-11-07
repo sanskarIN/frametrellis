@@ -7,6 +7,14 @@ ft_add_test(tst_engine SOURCES tst_engine.cpp LIBS ft_editing ft_media ft_test_f
 ft_add_test(tst_render SOURCES tst_render.cpp LIBS ft_editing ft_render_engine ft_test_fixtures FrameTrellis::Mlt LABELS integration)
 target_compile_definitions(tst_render PRIVATE FT_RENDER_HELPER="$<TARGET_FILE:frametrellis-render>")
 add_dependencies(tst_render frametrellis-render)
+
+# Prove that an unexpected helper exit is a failed job, not an editor shutdown,
+# and that a retry is possible without corrupting the previous output.
+add_executable(ft_render_fault_fixture ../support/render_fault_fixture.cpp)
+target_link_libraries(ft_render_fault_fixture PRIVATE ft_compile_options)
+target_compile_definitions(tst_render PRIVATE
+    FT_FAKE_RENDER_HELPER="$<TARGET_FILE:ft_render_fault_fixture>")
+add_dependencies(tst_render ft_render_fault_fixture)
 ft_add_test(tst_playback SOURCES tst_playback.cpp LIBS ft_playback ft_media ft_test_fixtures LABELS integration)
 ft_add_test(tst_engine_threads SOURCES tst_engine_threads.cpp LIBS ft_test_fixtures FrameTrellis::Mlt LABELS integration)
 

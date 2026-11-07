@@ -3820,8 +3820,7 @@ private slots:
         QVERIFY(m_app->exporter()->start(settings));
         QTRY_VERIFY(!m_app->playback()->playing());
         QVERIFY(finished.count() > 0 || finished.wait(60'000));
-        QVERIFY2(finished.first().at(0).toBool(),
-                 qPrintable(finished.first().at(1).toString()));
+        QVERIFY2(finished.first().at(0).toBool(), qPrintable(finished.first().at(1).toString()));
         QVERIFY(!m_app->playback()->playing()); // never auto-resume after export
         m_app->playback()->setLoopPreview(false);
         QCOMPARE(m_app->project()->project(), before);

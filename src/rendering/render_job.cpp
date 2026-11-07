@@ -276,8 +276,8 @@ void RenderJob::handleEvent(const QJsonObject& event)
             const int bucket = static_cast<int>(progress() * 10.0);
             if (bucket > m_lastLoggedProgressBucket) {
                 m_lastLoggedProgressBucket = bucket;
-                qCInfo(lcRender) << "Export progress" << bucket * 10 << "%"
-                                 << m_framesDone << "/" << m_totalFrames << "frames";
+                qCInfo(lcRender) << "Export progress" << bucket * 10 << "%" << m_framesDone << "/"
+                                 << m_totalFrames << "frames";
             }
         }
         emit progressChanged();

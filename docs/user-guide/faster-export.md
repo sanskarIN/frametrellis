@@ -18,7 +18,14 @@ stays native. The 480p review preset uses 96 kbit/s AAC and does not upscale
 small projects; resulting file sizes still depend on the scene and encoder.
 
 The established Match project, 1080p, 720p and 2160p modes remain available.
-Output size, encoder preset, video quality and audio bitrate can be customized.
+Output size, **export FPS**, encoder preset, video quality and audio bitrate can be customized.
+Select **Export FPS → Match project** to preserve the timeline FPS or choose a common
+rate such as 24, 25, 29.97, 30, 50, 59.94 or 60. Choose **Custom FPS…** to enter
+an exact integer, decimal or rational (e.g. `24000/1001`, `48`). The editor
+remains at the original project frame rate; only the exported MP4 is converted.
+The converter adds/drops picture frames and preserves the timeline/audio duration,
+within the rounding of the final output frame. Frame-rate conversion can take longer
+to encode. Invalid or out-of-range values are refused before output begins.
 
 ## No-upscale setting
 

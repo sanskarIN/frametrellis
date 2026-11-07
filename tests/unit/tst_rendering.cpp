@@ -70,6 +70,39 @@ private slots:
         QVERIFY(validateExport(settingsFor(QStringLiteral("OUT.MP4")), projectWithClip()));
     }
 
+    void exportFpsSupportsExactRatesAndRejectsInvalidValues()
+    {
+        const Project project = projectWithClip();
+        ExportSettings settings = settingsFor(QStringLiteral("fps.mp4"));
+        const FrameRate& original = project.settings().frameRate;
+        QCOMPARE(*outputFrameRate(settings, project.settings()), original);
+        const auto thirty = FrameRate::integer(30);
+        const auto ntsc = *FrameRate::create(30000, 1001);
+        const auto twentyFour = FrameRate::integer(24);
+        settings.frameRate = QStringLiteral("30");
+        QCOMPARE(*outputFrameRate(settings, project.settings()), thirty);
+        QCOMPARE(*outputFrameCount(50, FrameRate::integer(25), thirty), FrameCount{60});
+        settings.frameRate = QStringLiteral("30000/1001");
+        QCOMPARE(*outputFrameRate(settings, project.settings()), ntsc);
+        settings.frameRate = QStringLiteral("29.97");
+        QCOMPARE(*outputFrameRate(settings, project.settings()), ntsc);
+        QCOMPARE(*outputFrameCount(50, FrameRate::integer(25), ntsc), FrameCount{60});
+        QCOMPARE(*outputFrameCount(50, FrameRate::integer(25), twentyFour), FrameCount{48});
+        QVERIFY(!outputFrameCount(kMaxTimelineFrames, FrameRate::integer(1),
+                                  FrameRate::integer(240)));
+        for (const QString& bad :
+             {QString(), QStringLiteral("0"), QStringLiteral("-1"), QStringLiteral("241"),
+              QStringLiteral("30000/0"), QStringLiteral("nonsense"),
+              QStringLiteral("not-a-number")}) {
+            settings.frameRate = bad;
+            QVERIFY2(!outputFrameRate(settings, project.settings()), qPrintable(bad));
+            const Status invalid = validateExport(settings, project);
+            QVERIFY2(!invalid, qPrintable(bad));
+        }
+        settings.frameRate = QStringLiteral("match");
+        QVERIFY(validateExport(settings, project));
+    }
+
     void rejectsUnsafeOrInvalidSettings_data()
     {
         QTest::addColumn<QString>("output");

@@ -345,14 +345,13 @@ void RenderJob::drainStandardError()
     }
     m_process->setReadChannel(previous);
     if (!lastForLog.isEmpty()) {
-        qCDebug(lcRender).noquote()
-            << "helper:" << QString::fromUtf8(lastForLog).trimmed();
+        qCDebug(lcRender).noquote() << "helper:" << QString::fromUtf8(lastForLog).trimmed();
     }
 }
 
 void RenderJob::onProcessFinished(int exitCode, QProcess::ExitStatus status)
 {
-    onReadyRead(); // drain remaining protocol events
+    onReadyRead();        // drain remaining protocol events
     drainStandardError(); // final stderr may arrive without another readyRead signal
     if (isFinished(m_state)) {
         return;

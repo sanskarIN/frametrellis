@@ -27,8 +27,8 @@ names. Diagnostic settings are restored before installer verification. Inherited
 at verification startup so the baseline uses default graphics **and** audio.
 
 The Windows packages CI enables these extra diagnostic launches only on
-`windows-11-arm`. All check results accumulate: **a successful software run
-does not erase a failed default run or make the job green.**
+`windows-11-arm`. All check results accumulate: **successful software or dummy
+audio runs do not erase a failed default run or make the job green.**
 
 For local investigation using a disposable copy of the project:
 

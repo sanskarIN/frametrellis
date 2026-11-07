@@ -235,8 +235,8 @@ Status RenderRunner::run(const std::atomic<bool>& cancelRequested, const Started
     // Keep the consumer alive only while the encoder is running. On Windows its
     // destructor must release all avformat handles and producer references before
     // we destroy the FPS-conversion chain or probe/replace the temporary MP4.
-    auto consumer = std::make_unique<Mlt::Consumer>(*encodingProfile, "avformat",
-                                                    partEncoded.constData());
+    auto consumer =
+        std::make_unique<Mlt::Consumer>(*encodingProfile, "avformat", partEncoded.constData());
     if (!consumer->is_valid()) {
         return makeError(ErrorCode::Engine,
                          QStringLiteral("The encoder could not be initialised."));
@@ -255,14 +255,14 @@ Status RenderRunner::run(const std::atomic<bool>& cancelRequested, const Started
             static_cast<double>(size.width()) * size.height() * exportRate.toDouble();
         const double bitsPerPixel = std::clamp(0.25 - (m_settings.crf - 18) * 0.012, 0.03, 0.4);
         consumer->set("vb", QStringLiteral("%1k")
-                               .arg(static_cast<qint64>(pixelsPerSecond * bitsPerPixel / 1000.0))
-                               .toUtf8()
-                               .constData());
+                                .arg(static_cast<qint64>(pixelsPerSecond * bitsPerPixel / 1000.0))
+                                .toUtf8()
+                                .constData());
     }
     if (m_settings.includeAudio) {
         consumer->set("acodec", "aac");
         consumer->set("ab",
-                     QStringLiteral("%1k").arg(m_settings.audioBitrateKbps).toUtf8().constData());
+                      QStringLiteral("%1k").arg(m_settings.audioBitrateKbps).toUtf8().constData());
         consumer->set("ar", projectSettings.sampleRate);
         consumer->set("ac", projectSettings.audioChannels);
     } else {

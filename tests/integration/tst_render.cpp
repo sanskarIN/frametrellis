@@ -483,8 +483,8 @@ private slots:
         settings.outputPath = m_dir.filePath(QStringLiteral("repeated-fps.mp4"));
         settings.speedPreset = QStringLiteral("ultrafast");
         std::atomic<bool> cancel{false};
-        for (const QString& fps : {QStringLiteral("30"), QStringLiteral("24"),
-                                   QStringLiteral("30000/1001")}) {
+        for (const QString& fps :
+             {QStringLiteral("30"), QStringLiteral("24"), QStringLiteral("30000/1001")}) {
             settings.frameRate = fps;
             const Status result = RenderRunner(p, settings).run(cancel);
             QVERIFY2(result, qPrintable(result ? QString() : result.error().toString()));

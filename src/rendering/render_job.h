@@ -79,9 +79,11 @@ private:
     QElapsedTimer m_elapsed;
     qint64 m_finalElapsed = -1;
     QByteArray m_buffer;
+    QByteArray m_stderrTail; // bounded recent renderer diagnostics for failed exports
     bool m_discardingOversizedLine = false;
     FrameCount m_framesDone = 0;
     FrameCount m_totalFrames = 0;
+    int m_lastLoggedProgressBucket = -1;
     QString m_encoder;
     QString m_errorMessage;
     QString m_errorDetail;

@@ -474,6 +474,29 @@ private slots:
         QVERIFY(media::probeMedia(output));
     }
 
+    void repeatedCustomFpsExportCanReplaceSameDestination()
+    {
+        // In particular on Windows, the encoder must release its temporary output
+        // file before probing it and atomically replacing an existing destination.
+        const Project p = project(25);
+        ExportSettings settings;
+        settings.outputPath = m_dir.filePath(QStringLiteral("repeated-fps.mp4"));
+        settings.speedPreset = QStringLiteral("ultrafast");
+        std::atomic<bool> cancel{false};
+        for (const QString& fps :
+             {QStringLiteral("30"), QStringLiteral("24"), QStringLiteral("30000/1001")}) {
+            settings.frameRate = fps;
+            const Status result = RenderRunner(p, settings).run(cancel);
+            QVERIFY2(result, qPrintable(result ? QString() : result.error().toString()));
+            const Result<MediaInfo> info = media::probeMedia(settings.outputPath);
+            QVERIFY2(info, qPrintable(info ? QString() : info.error().toString()));
+            const Result<FrameRate> rate = outputFrameRate(settings, p.settings());
+            QVERIFY(rate);
+            QCOMPARE(info->frameRate, Rational(rate->numerator(), rate->denominator()));
+            QVERIFY(partFiles().isEmpty());
+        }
+    }
+
     void refusesToOverwriteSourceMedia()
     {
         ExportSettings settings;

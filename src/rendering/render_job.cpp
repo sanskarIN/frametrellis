@@ -118,10 +118,12 @@ Status RenderJob::start(const Project& project, const ExportSettings& settings,
     m_settings = settings;
     m_framesDone = 0;
     m_totalFrames = project.timeline().duration();
+    m_lastLoggedProgressBucket = -1;
     m_encoder.clear();
     m_errorMessage.clear();
     m_errorDetail.clear();
     m_buffer.clear();
+    m_stderrTail.clear();
     m_discardingOversizedLine = false;
     m_sawFinished = false;
     m_finalElapsed = -1;
@@ -149,9 +151,17 @@ Status RenderJob::start(const Project& project, const ExportSettings& settings,
     m_process->setProcessChannelMode(QProcess::SeparateChannels);
     connect(m_process.get(), &QProcess::readyReadStandardOutput, this, &RenderJob::onReadyRead);
     connect(m_process.get(), &QProcess::readyReadStandardError, this, [this] {
-        const QByteArray text = m_process->readAllStandardError().trimmed();
-        if (!text.isEmpty()) {
-            qCDebug(lcRender).noquote() << "helper:" << QString::fromUtf8(text);
+        const QByteArray output = m_process->readAllStandardError();
+        if (!output.isEmpty()) {
+            // A runaway FFmpeg log must not grow memory without bound. Preserve the
+            // last diagnostic lines so an encoder crash has an actionable error.
+            constexpr qsizetype kMaxStderrBytes = 16'384;
+            m_stderrTail += output.right(kMaxStderrBytes);
+            if (m_stderrTail.size() > kMaxStderrBytes) {
+                m_stderrTail.remove(0, m_stderrTail.size() - kMaxStderrBytes);
+            }
+            qCDebug(lcRender).noquote()
+                << "helper:" << QString::fromUtf8(output.right(1024)).trimmed();
         }
     });
     connect(m_process.get(), &QProcess::started, this, [this] {
@@ -250,12 +260,25 @@ void RenderJob::handleEvent(const QJsonObject& event)
         m_encoder = event.value(QLatin1String("encoder")).toString();
         m_totalFrames = static_cast<FrameCount>(
             event.value(QLatin1String("total")).toDouble(double(m_totalFrames)));
+        qCInfo(lcRender) << "Render helper started with encoder" << m_encoder << "and"
+                         << m_totalFrames << "output frames";
         emit progressChanged();
     } else if (type == QLatin1String("progress")) {
         m_framesDone = static_cast<FrameCount>(event.value(QLatin1String("frame")).toDouble());
         const auto total = static_cast<FrameCount>(event.value(QLatin1String("total")).toDouble());
         if (total > 0) {
             m_totalFrames = total;
+        }
+        // Keep the last known export position in the editor's persistent log.
+        // A sudden Windows process termination cannot run Qt shutdown handlers,
+        // but the next startup can still correlate its timestamp with this marker.
+        if (m_totalFrames > 0 && (m_state == State::Running || m_state == State::Starting)) {
+            const int bucket = static_cast<int>(progress() * 10.0);
+            if (bucket > m_lastLoggedProgressBucket) {
+                m_lastLoggedProgressBucket = bucket;
+                qCInfo(lcRender) << "Export progress" << bucket * 10 << "%" << m_framesDone << "/"
+                                 << m_totalFrames << "frames";
+            }
         }
         emit progressChanged();
     } else if (type == QLatin1String("finished")) {
@@ -270,7 +293,17 @@ void RenderJob::handleEvent(const QJsonObject& event)
 
 void RenderJob::onProcessFinished(int exitCode, QProcess::ExitStatus status)
 {
-    onReadyRead(); // drain remaining events
+    onReadyRead(); // drain remaining protocol events
+    // A process can exit before the final stderr-ready notification. Do not lose the
+    // decoder/encoder diagnostics that explain why a Windows export failed.
+    const QByteArray remainingStderr = m_process->readAllStandardError();
+    if (!remainingStderr.isEmpty()) {
+        constexpr qsizetype kMaxStderrBytes = 16'384;
+        m_stderrTail += remainingStderr.right(kMaxStderrBytes);
+        if (m_stderrTail.size() > kMaxStderrBytes) {
+            m_stderrTail.remove(0, m_stderrTail.size() - kMaxStderrBytes);
+        }
+    }
     if (isFinished(m_state)) {
         return;
     }
@@ -283,15 +316,26 @@ void RenderJob::onProcessFinished(int exitCode, QProcess::ExitStatus status)
         }
         // A killed helper may leave its temporary file behind; it never touches the destination.
         setState(State::Cancelled);
-    } else if (status == QProcess::CrashExit) {
-        fail(QStringLiteral(
-                 "The renderer stopped unexpectedly. Your project is safe; please try again."),
-             m_errorDetail);
     } else {
-        fail(m_errorMessage.isEmpty()
+        QString detail = QStringLiteral("Renderer exit code: %1 (0x%2)")
+                             .arg(exitCode)
+                             .arg(QString::number(static_cast<quint32>(exitCode), 16)
+                                      .rightJustified(8, QLatin1Char('0')));
+        if (!m_errorDetail.isEmpty()) {
+            detail += QLatin1Char('\n') + m_errorDetail;
+        }
+        const QString stderrText = QString::fromUtf8(m_stderrTail).trimmed();
+        if (!stderrText.isEmpty()) {
+            detail += QStringLiteral("\nRenderer stderr (last 16 KiB):\n") + stderrText;
+        }
+        qCWarning(lcRender).noquote() << "Render helper failed:" << detail;
+        fail(status == QProcess::CrashExit
+                 ? QStringLiteral(
+                       "The renderer stopped unexpectedly. Your project is safe; please try again.")
+             : m_errorMessage.isEmpty()
                  ? QStringLiteral("Rendering failed (exit code %1).").arg(exitCode)
                  : m_errorMessage,
-             m_errorDetail);
+             detail);
     }
     qCInfo(lcRender) << "Render job finished with state" << int(m_state);
 }

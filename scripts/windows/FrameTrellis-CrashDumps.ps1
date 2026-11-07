@@ -64,11 +64,20 @@ if ($PSCmdlet.ParameterSetName -eq 'Status') {
         $values = Get-ItemProperty -LiteralPath $key
         $managed = Get-ManagedState $key
         Write-Output "$appName : present (managed by FrameTrellis: $managed)"
-        Write-Output "  DumpType: $($values.DumpType); DumpCount: $($values.DumpCount)"
-        Write-Output "  DumpFolder: $($values.DumpFolder)"
+        $dumpType = if ($null -ne $values.PSObject.Properties['DumpType']) {
+            $values.DumpType
+        } else { 'default' }
+        $dumpCount = if ($null -ne $values.PSObject.Properties['DumpCount']) {
+            $values.DumpCount
+        } else { 'default' }
+        $dumpFolder = if ($null -ne $values.PSObject.Properties['DumpFolder']) {
+            $values.DumpFolder
+        } else { 'default' }
+        Write-Output "  DumpType: $dumpType; DumpCount: $dumpCount"
+        Write-Output "  DumpFolder: $dumpFolder"
     }
     Write-Output 'No configuration was modified. Existing system-wide WER rules may also apply.'
-    exit 0
+    return
 }
 
 Assert-Administrator

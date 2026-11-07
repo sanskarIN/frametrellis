@@ -107,9 +107,12 @@ The reader supports v1 through v6.
   2,000 UTF-16 code units per text, and 1,000,000 units in total are accepted.
   Text must be nonblank valid Unicode, with LF/tab as the only permitted control
   characters and no blank lines (SRT separators). HTML-like text stays literal.
-* Subtitles are sequence-level and do not follow clip edits or extend sequence
-  duration. A video frame samples its exact rational time, rounded down to whole
-  milliseconds, and shows the cue whose half-open interval contains that time.
+* Subtitles are sequence-level and do not follow ordinary clip edits or extend
+  sequence duration. The Source Monitor's sequence-aware ripple insert is an
+  exception: cues fully at/after the cut shift with later clips; cues spanning
+  that cut block the insertion. A video frame samples its exact rational time,
+  rounded down to whole milliseconds, and shows the cue whose half-open
+  interval contains that time.
   A cue's first sampled frame is `ceil(startMs * fps / 1000)`; a very short cue can
   have no sampled frame. Such cues and cues beyond the video remain in the file
   and SRT exports. Changing an empty sequence's frame rate preserves milliseconds.

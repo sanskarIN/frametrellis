@@ -367,8 +367,10 @@ the MP4 does not contain a switchable subtitle stream.
 
 Times remain exact milliseconds at fractional frame rates; picture frames sample
 those times, so a cue can begin on the next frame. Cues stay at their sequence
-times when clips move, slip, split or ripple, and do not extend the video.
-Review alignment after changing the edit. Cues outside the current video are
+times after ordinary clip moves, slips, splits and ripple deletes. Source Monitor
+**Ripple Insert** instead shifts subtitle cues beginning at/after the cut and
+rejects cues spanning the cut. Subtitles do not extend the video.
+Review alignment after other edits. Cues outside the current video are
 marked in the list and retained, with navigation disabled until they have a frame.
 Input is limited to 8 MiB, 10,000 cues, 2,000 UTF-16 units per cue and 1,000,000
 units total. Blank text lines separate cues in SRT and cannot be embedded in a cue.
@@ -394,8 +396,9 @@ ambiguous timestamps. Paste the result into your video description, then review 
 requirements for your publishing service. The action does not modify the project or files.
 
 Markers are sequence-level notes: they do not change picture, sound, clip trims or export,
-and they do **not** automatically follow clips moved by edits. The edit-point snapping
-system also snaps clips to markers when snapping is on. Cues saved beyond the current end
+and they do **not** automatically follow ordinary clip moves. Source Monitor
+**Ripple Insert** is an exception: it shifts markers at/after the insertion cut.
+The edit-point snapping system also snaps clips to markers when snapping is on. Cues saved beyond the current end
 of a shortened sequence remain in the project but cannot be navigated to until media again
 covers their position.
 
@@ -732,8 +735,8 @@ project. The panel clears a source when its project is closed/replaced or
 that media is removed.
 
 This is still an independent **silent frame viewer**, not yet a source player
-with audio transport, persistent linked clip groups, ripple insertion that
-also shifts markers and subtitle cues, or destructive overwrite editing. For those workflows, see the
+with audio transport, persistent linked clip groups, linked picture/audio
+ripple insertion, or destructive overwrite editing. For those workflows, see the
 [professional-editor gap assessment](../development/pro-editor-assessment.md).
 This post-v1.4.0 improvement is not in the stable v1.4.0 downloads.
 

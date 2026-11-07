@@ -50,8 +50,8 @@ function Get-ManagedState([string] $key) {
         return $false
     }
     $values = Get-ItemProperty -LiteralPath $key
-    return $values.PSObject.Properties.Name.Contains($markerName) -and
-           [string]$values.$markerName -eq '1'
+    return ($null -ne $values.PSObject.Properties[$markerName] -and
+            [string]$values.$markerName -eq '1')
 }
 
 if ($PSCmdlet.ParameterSetName -eq 'Status') {
@@ -88,6 +88,7 @@ if ($Enable) {
         throw 'Use a local folder for crash dumps, not a network share.'
     }
     New-Item -ItemType Directory -Path $absoluteFolder -Force | Out-Null
+    New-Item -Path $werBase -Force | Out-Null
     foreach ($appName in $appNames) {
         $key = Join-Path $werBase $appName
         New-Item -Path $key -Force | Out-Null

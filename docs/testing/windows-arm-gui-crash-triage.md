@@ -16,18 +16,19 @@ test does not export a long user project, and the ARM runner uses x64 emulation.
 
 ## Reproducibility and comparison
 
-`packaging/windows/verify.ps1` accepts `-SoftwareBackendDiagnostics`.
-With the normal x64 portable ZIP and installer, it first performs the existing
-default-backend launches (two independent attempts on ARM), then launches the
-same synthetic test project **twice more** with `QT_QUICK_BACKEND=software`.
+`packaging/windows/verify.ps1` accepts `-SoftwareBackendDiagnostics` and
+`-DummyAudioDiagnostics`. With the normal x64 portable ZIP and installer, ARM
+verification now performs **five independent default-backend launches**, then
+runs the same synthetic test project **twice** with `QT_QUICK_BACKEND=software`
+and **twice** with `SDL_AUDIODRIVER=dummy` and the default graphics backend.
 Each run saves its own screenshot, stdout/stderr and log artifacts with separate
-names. The setting is restored before installer verification. A previous
-`QT_QUICK_BACKEND` or `QSG_RHI_BACKEND` inherited from a developer shell is
-cleared at verification startup so the baseline is the actual default backend.
+names. Diagnostic settings are restored before installer verification. Inherited
+`QT_QUICK_BACKEND`, `QSG_RHI_BACKEND` and `SDL_AUDIODRIVER` settings are cleared
+at verification startup so the baseline uses default graphics **and** audio.
 
 The Windows packages CI enables these extra diagnostic launches only on
-`windows-11-arm`. All check results accumulate: **a successful software run
-does not erase a failed default run or make the job green.**
+`windows-11-arm`. All check results accumulate: **successful software or dummy
+audio runs do not erase a failed default run or make the job green.**
 
 For local investigation using a disposable copy of the project:
 
@@ -35,7 +36,7 @@ For local investigation using a disposable copy of the project:
 ./packaging/windows/verify.ps1 -Zip ./dist/FrameTrellis-1.4.0-windows-x64.zip `
   -Installer ./dist/FrameTrellis-1.4.0-windows-x64-setup.exe `
   -WorkDir "$env:TEMP/frametrellis-arm-verify" `
-  -PortableGuiRuns 2 -SoftwareBackendDiagnostics
+  -PortableGuiRuns 5 -SoftwareBackendDiagnostics -DummyAudioDiagnostics
 ```
 
 Use paths matching the actual downloaded build; these names are illustrative.
@@ -49,7 +50,9 @@ default rendering backend or enable Windows crash dumps.
 | --- | --- |
 | Default GUI fails, software GUI passes repeatedly | Investigate Qt Quick graphics API, GPU driver and x64-on-ARM interaction; not proof yet |
 | Both default and software GUI fail | Investigate preview/media/SDL worker startup, native module lifetime and timing |
-| Both pass | Treat the crash as intermittent; repeat with diagnostic evidence, not as a root-cause fix |
+| Default audio fails but dummy SDL audio passes repeatedly | Investigate WASAPI endpoint initialization and SDL audio-device lifecycle; not proof of causality |
+| Default and dummy audio fail similarly | Investigate graphics, media decoding, native modules and worker timing beyond audio-device availability |
+| All backends pass | Treat the crash as intermittent; repeat with diagnostic evidence, not as a root-cause fix |
 | App exits before the timed screenshot | Preserve the process exit code, application log and Windows event details |
 
 For native-call-stack investigation, see [export crash triage](export-crash-triage.md)

@@ -27,8 +27,9 @@ param(
     [Parameter(Mandatory)] [string] $WorkDir,
     [string] $Label = 'windows',
     [string] $Artifacts,
-    [ValidateRange(1, 5)] [int] $PortableGuiRuns = 1,
-    [switch] $SoftwareBackendDiagnostics
+    [ValidateRange(1, 8)] [int] $PortableGuiRuns = 1,
+    [switch] $SoftwareBackendDiagnostics,
+    [switch] $DummyAudioDiagnostics
 )
 
 . (Join-Path $PSScriptRoot 'module-paths.ps1')
@@ -51,8 +52,8 @@ Write-Host "Independent portable GUI launches required: $PortableGuiRuns"
 $env:PATH = @("$env:SystemRoot\System32", $env:SystemRoot, "$env:SystemRoot\System32\Wbem",
     "$env:SystemRoot\System32\WindowsPowerShell\v1.0") -join ';'
 foreach ($name in 'QT_PLUGIN_PATH', 'QML_IMPORT_PATH', 'QML2_IMPORT_PATH', 'QT_QPA_PLATFORM',
-    'QT_QUICK_BACKEND', 'QSG_RHI_BACKEND', 'MLT_REPOSITORY', 'MLT_DATA',
-    'FRAMETRELLIS_MLT_REPOSITORY') {
+    'QT_QUICK_BACKEND', 'QSG_RHI_BACKEND', 'SDL_AUDIODRIVER', 'MLT_REPOSITORY',
+    'MLT_DATA', 'FRAMETRELLIS_MLT_REPOSITORY') {
     Remove-Item "Env:$name" -ErrorAction SilentlyContinue
 }
 
@@ -102,7 +103,8 @@ function Test-Editor([string] $Folder, [string] $Project, [string] $What) {
     $stderr = Join-Path $Artifacts "editor-$Label-$What.stderr.log"
     $arguments = @('--screenshot', "`"$shot`"", '--screenshot-delay', '15000', "`"$Project`"")
     $backend = if ($env:QT_QUICK_BACKEND) { $env:QT_QUICK_BACKEND } else { 'default' }
-    Write-Host "Starting independent GUI verification: $What (Qt Quick backend: $backend)"
+    $audio = if ($env:SDL_AUDIODRIVER) { $env:SDL_AUDIODRIVER } else { 'default' }
+    Write-Host "Starting independent GUI verification: $What (Qt Quick: $backend; SDL audio: $audio)"
     # A repeated manual verification must not accept artifacts from an earlier run.
     foreach ($file in @($shot, $stdout, $stderr)) {
         Remove-Item -LiteralPath $file -Force -ErrorAction SilentlyContinue
@@ -221,6 +223,27 @@ if ($SoftwareBackendDiagnostics -and (Test-Path $project)) {
             Remove-Item Env:QT_QUICK_BACKEND -ErrorAction SilentlyContinue
         } else {
             $env:QT_QUICK_BACKEND = $previousBackend
+        }
+    }
+}
+
+# A dummy SDL audio device removes dependency on the runner's default WASAPI
+# endpoint. Compare these runs with the unchanged graphics backend to narrow
+# intermittent startup crashes. Every attempt is an independent required check.
+if ($DummyAudioDiagnostics -and (Test-Path $project)) {
+    Write-Host 'Running two additional GUI checks with SDL dummy audio (default graphics).'
+    $previousAudio = [Environment]::GetEnvironmentVariable('SDL_AUDIODRIVER', 'Process')
+    try {
+        $env:SDL_AUDIODRIVER = 'dummy'
+        for ($run = 1; $run -le 2; ++$run) {
+            Test-Editor $portable $project "dummy-audio-$run"
+        }
+    }
+    finally {
+        if ($null -eq $previousAudio) {
+            Remove-Item Env:SDL_AUDIODRIVER -ErrorAction SilentlyContinue
+        } else {
+            $env:SDL_AUDIODRIVER = $previousAudio
         }
     }
 }

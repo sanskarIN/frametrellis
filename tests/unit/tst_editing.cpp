@@ -225,7 +225,6 @@ private slots:
         QCOMPARE(f.doc.undoText(), priorUndo);
     }
 
-
     void rippleInsertMovesMarkersAndSubtitlesWithClipsAndOneUndo()
     {
         Fixture f;
@@ -235,8 +234,7 @@ private slots:
         QVERIFY(f.doc.execute(edits::addClip(f.v1, later)));
         QVERIFY(f.doc.execute(
             edits::addMarker({QStringLiteral("before"), 59, QStringLiteral("Before")})));
-        QVERIFY(f.doc.execute(
-            edits::addMarker({QStringLiteral("at"), 60, QStringLiteral("At")})));
+        QVERIFY(f.doc.execute(edits::addMarker({QStringLiteral("at"), 60, QStringLiteral("At")})));
         QVERIFY(f.doc.execute(
             edits::addMarker({QStringLiteral("after"), 100, QStringLiteral("After")})));
         QVERIFY(f.doc.execute(edits::appendSubtitles(
@@ -277,10 +275,9 @@ private slots:
     void rippleInsertRejectsSpanningSubtitleAndOverflowWithoutPartialEdit()
     {
         Fixture f;
-        QVERIFY(f.doc.execute(edits::addClip(
-            f.v1, clipOf(QStringLiteral("m1"), 60, 50, QStringLiteral("later")))));
         QVERIFY(f.doc.execute(
-            edits::addMarker({QStringLiteral("at"), 60, QStringLiteral("At")})));
+            edits::addClip(f.v1, clipOf(QStringLiteral("m1"), 60, 50, QStringLiteral("later")))));
+        QVERIFY(f.doc.execute(edits::addMarker({QStringLiteral("at"), 60, QStringLiteral("At")})));
         QVERIFY(f.doc.execute(edits::addSubtitle(
             {QStringLiteral("spanning"), 1500, 2200, QStringLiteral("Across edit")})));
         const Clip inserted = clipOf(QStringLiteral("m1"), 60, 15, QStringLiteral("inserted"));
@@ -302,19 +299,17 @@ private slots:
 
     void rippleInsertShiftsSubtitlesAtFractionalFrameRates()
     {
-        const QList<FrameRate> rates = {
-            FrameRate::integer(24), FrameRate::integer(25),
-            *FrameRate::create(30000, 1001), FrameRate::integer(30),
-            FrameRate::integer(60)};
+        const QList<FrameRate> rates = {FrameRate::integer(24), FrameRate::integer(25),
+                                        *FrameRate::create(30000, 1001), FrameRate::integer(30),
+                                        FrameRate::integer(60)};
         for (const FrameRate& rate : rates) {
             ProjectSettings settings;
             settings.frameRate = rate;
             Project project = Project::createNew(QStringLiteral("Rational ripple"), settings);
             const Id trackId = project.timeline().tracks().front().id;
             ProjectDocument doc(std::move(project));
-            QVERIFY(doc.execute(
-                std::make_unique<AddMediaCommand>(
-                    std::vector<MediaAsset>{videoAsset(QStringLiteral("m1"))})));
+            QVERIFY(doc.execute(std::make_unique<AddMediaCommand>(
+                std::vector<MediaAsset>{videoAsset(QStringLiteral("m1"))})));
             constexpr FrameCount cut = 60;
             constexpr FrameCount duration = 17;
             const auto cutMs = subtitleMillisecondsAtFrame(cut, rate);

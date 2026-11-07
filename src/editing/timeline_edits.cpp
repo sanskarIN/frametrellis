@@ -80,17 +80,16 @@ public:
     SequenceRippleInsertCommand(Id trackId, Clip clip)
         : m_frame(clip.start)
         , m_duration(clip.duration)
-        , m_clipEdit(command(
-              QStringLiteral("Ripple Insert Source Range"),
-              [trackId = std::move(trackId), clip = std::move(clip)](
-                  Timeline& timeline, const SourceLookup& sources) -> Status {
-                  if (const Status gap = shiftTracksForInsertion(
-                          timeline, clip.start, clip.duration, sources, false);
-                      !gap) {
-                      return gap;
-                  }
-                  return timeline.insertClip(trackId, clip, sources);
-              }))
+        , m_clipEdit(command(QStringLiteral("Ripple Insert Source Range"),
+                             [trackId = std::move(trackId), clip = std::move(clip)](
+                                 Timeline& timeline, const SourceLookup& sources) -> Status {
+                                 if (const Status gap = shiftTracksForInsertion(
+                                         timeline, clip.start, clip.duration, sources, false);
+                                     !gap) {
+                                     return gap;
+                                 }
+                                 return timeline.insertClip(trackId, clip, sources);
+                             }))
     {}
 
     [[nodiscard]] QString text() const override
@@ -139,8 +138,8 @@ public:
             return makeError(ErrorCode::OutOfRange,
                              QStringLiteral("The insertion time cannot be represented."));
         }
-        const auto shiftedTime = [this, &rate](std::int64_t original)
-            -> std::optional<std::int64_t> {
+        const auto shiftedTime = [this,
+                                  &rate](std::int64_t original) -> std::optional<std::int64_t> {
             const auto frame = subtitleFrameAtMilliseconds(original, rate);
             if (!frame || *frame > kMaxTimelineFrames - m_duration) {
                 return std::nullopt;

@@ -53,7 +53,8 @@ AppController::AppController(const Status& engineStatus, const QString& renderHe
         }
     });
     connect(m_playback.get(), &PlaybackController::playingChanged, this, [this] {
-        if (m_exporter->busy() && m_playback->playing()) {
+        // The export controller is destroyed before playback during app shutdown.
+        if (m_exporter && m_exporter->busy() && m_playback->playing()) {
             m_playback->pause();
         }
     });

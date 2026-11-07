@@ -312,8 +312,8 @@ Status RenderRunner::run(const std::atomic<bool>& cancelRequested, const Started
     consumer->stop();
     consumer->purge();
     consumer.reset(); // release FFmpeg/MLT references and output handles first
-    frameRateChain.reset();
     frameRateLink.reset();
+    frameRateChain.reset();
     tractor.reset();
 
     // A cancel request counts until the result replaces anything, even if the encoder finished

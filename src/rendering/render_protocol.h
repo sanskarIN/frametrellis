@@ -6,6 +6,7 @@
 
 #include <QByteArray>
 #include <QJsonObject>
+#include <QJsonValue>
 
 #include <optional>
 #include <string>

@@ -3802,6 +3802,32 @@ private slots:
         QMetaObject::invokeMethod(dialog, "close");
     }
 
+    void startingExportPausesPreviewWithoutChangingProject()
+    {
+        // Keep the transport looping so a natural end-of-sequence pause cannot
+        // masquerade as the export pause during this regression.
+        const Project before = m_app->project()->project();
+        m_app->playback()->setLoopPreview(true);
+        m_app->playback()->play();
+        QTRY_VERIFY(m_app->playback()->playing());
+
+        const QVariantMap settings{
+            {QStringLiteral("presetId"), QStringLiteral("draft")},
+            {QStringLiteral("outputPath"), m_dir.filePath(QStringLiteral("pause-preview.mp4"))},
+            {QStringLiteral("speedPreset"), QStringLiteral("ultrafast")},
+            {QStringLiteral("frameRate"), QStringLiteral("30")}};
+        QSignalSpy finished(m_app->exporter(), &ui::ExportController::finished);
+        QVERIFY(m_app->exporter()->start(settings));
+        QTRY_VERIFY(!m_app->playback()->playing());
+        QVERIFY(finished.count() > 0 || finished.wait(60'000));
+        QVERIFY2(finished.first().at(0).toBool(),
+                 qPrintable(finished.first().at(1).toString()));
+        QVERIFY(!m_app->playback()->playing()); // never auto-resume after export
+        m_app->playback()->setLoopPreview(false);
+        QCOMPARE(m_app->project()->project(), before);
+        QVERIFY(m_window->isVisible());
+    }
+
     void repeatedGuiExportsWhileAutosavingKeepEditorResponsive()
     {
         // Reproduce the editor-side lifecycle, not just the in-process RenderRunner:

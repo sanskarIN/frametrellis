@@ -232,47 +232,51 @@ Status RenderRunner::run(const std::atomic<bool>& cancelRequested, const Started
     const QString finalPath = QFileInfo(m_settings.outputPath).absoluteFilePath();
     const QString partPath = temporaryOutputPath(finalPath);
     const QByteArray partEncoded = partPath.toUtf8();
-    Mlt::Consumer consumer(*encodingProfile, "avformat", partEncoded.constData());
-    if (!consumer.is_valid()) {
+    // Keep the consumer alive only while the encoder is running. On Windows its
+    // destructor must release all avformat handles and producer references before
+    // we destroy the FPS-conversion chain or probe/replace the temporary MP4.
+    auto consumer = std::make_unique<Mlt::Consumer>(*encodingProfile, "avformat",
+                                                    partEncoded.constData());
+    if (!consumer->is_valid()) {
         return makeError(ErrorCode::Engine,
                          QStringLiteral("The encoder could not be initialised."));
     }
-    consumer.set("f", "mp4");
-    consumer.set("vcodec", m_encoder.toUtf8().constData());
-    consumer.set("pix_fmt", "yuv420p");
-    consumer.set("movflags", "+faststart");
-    consumer.set("g", std::max(1, static_cast<int>(exportRate.toDouble() * 2.0)));
+    consumer->set("f", "mp4");
+    consumer->set("vcodec", m_encoder.toUtf8().constData());
+    consumer->set("pix_fmt", "yuv420p");
+    consumer->set("movflags", "+faststart");
+    consumer->set("g", std::max(1, static_cast<int>(exportRate.toDouble() * 2.0)));
     if (m_encoder == QLatin1String("libx264")) {
-        consumer.set("crf", m_settings.crf);
-        consumer.set("preset", m_settings.speedPreset.toUtf8().constData());
+        consumer->set("crf", m_settings.crf);
+        consumer->set("preset", m_settings.speedPreset.toUtf8().constData());
     } else {
         // Encoders without CRF get a bitrate derived from resolution, frame rate and quality.
         const double pixelsPerSecond =
             static_cast<double>(size.width()) * size.height() * exportRate.toDouble();
         const double bitsPerPixel = std::clamp(0.25 - (m_settings.crf - 18) * 0.012, 0.03, 0.4);
-        consumer.set("vb", QStringLiteral("%1k")
+        consumer->set("vb", QStringLiteral("%1k")
                                .arg(static_cast<qint64>(pixelsPerSecond * bitsPerPixel / 1000.0))
                                .toUtf8()
                                .constData());
     }
     if (m_settings.includeAudio) {
-        consumer.set("acodec", "aac");
-        consumer.set("ab",
+        consumer->set("acodec", "aac");
+        consumer->set("ab",
                      QStringLiteral("%1k").arg(m_settings.audioBitrateKbps).toUtf8().constData());
-        consumer.set("ar", projectSettings.sampleRate);
-        consumer.set("ac", projectSettings.audioChannels);
+        consumer->set("ar", projectSettings.sampleRate);
+        consumer->set("ac", projectSettings.audioChannels);
     } else {
-        consumer.set("an", 1);
+        consumer->set("an", 1);
     }
     // Frames are rendered one at a time (real_time = 0). MLT's parallel frame rendering
     // (negative real_time) produced corrupt (NaN) audio with MLT 7.22 on Linux and MLT 7.40 on
     // Windows, which made the AAC encoder fail. The video encoder still uses its own threads.
-    consumer.set("real_time", 0);
-    consumer.set("threads", 0);
-    consumer.set("terminate_on_pause", 1);
-    consumer.set("in", 0);
-    consumer.set("out", static_cast<int>(total - 1));
-    consumer.connect(*encodingProducer);
+    consumer->set("real_time", 0);
+    consumer->set("threads", 0);
+    consumer->set("terminate_on_pause", 1);
+    consumer->set("in", 0);
+    consumer->set("out", static_cast<int>(total - 1));
+    consumer->connect(*encodingProducer);
     tractor->set_speed(0);
     encodingProducer->set_speed(0);
     encodingProducer->seek(0);
@@ -281,7 +285,7 @@ Status RenderRunner::run(const std::atomic<bool>& cancelRequested, const Started
     if (started) {
         started(m_encoder, total);
     }
-    if (consumer.start() != 0) {
+    if (consumer->start() != 0) {
         QFile::remove(partPath);
         return makeError(ErrorCode::Engine, QStringLiteral("The encoder could not be started."));
     }
@@ -290,20 +294,21 @@ Status RenderRunner::run(const std::atomic<bool>& cancelRequested, const Started
 
     bool cancelled = false;
     FrameCount lastReported = -1;
-    while (!consumer.is_stopped()) {
+    while (!consumer->is_stopped()) {
         if (cancelRequested.load()) {
             cancelled = true;
             break;
         }
         QThread::msleep(100);
-        const FrameCount position = std::clamp<FrameCount>(consumer.position(), 0, total);
+        const FrameCount position = std::clamp<FrameCount>(consumer->position(), 0, total);
         if (progress && position != lastReported) {
             lastReported = position;
             progress(Progress{position, total});
         }
     }
-    consumer.stop();
-    consumer.purge();
+    consumer->stop();
+    consumer->purge();
+    consumer.reset(); // release FFmpeg/MLT references and output handles first
     frameRateChain.reset();
     frameRateLink.reset();
     tractor.reset();

@@ -180,6 +180,19 @@ jobs:
         shell: pwsh
         run: git config --global core.autocrlf false
       - uses: actions/checkout@v6
+      - name: Validate opt-in crash diagnostics (read-only)
+        shell: pwsh
+        run: |
+          $script = (Resolve-Path 'scripts/windows/FrameTrellis-CrashDumps.ps1').Path
+          $tokens = $null
+          $parseErrors = $null
+          [System.Management.Automation.Language.Parser]::ParseFile(
+            $script, [ref]$tokens, [ref]$parseErrors) | Out-Null
+          if ($parseErrors.Count -gt 0) {
+            $parseErrors | ForEach-Object { Write-Error $_.Message }
+            exit 1
+          }
+          & $script -Status
       - uses: msys2/setup-msys2@v2
         with:
           msystem: UCRT64

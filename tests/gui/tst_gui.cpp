@@ -3809,11 +3809,10 @@ private slots:
         const Project before = m_app->project()->project();
         const QString destination = m_dir.filePath(QStringLiteral("gui-repeated-fps.mp4"));
         for (const QString& fps : {QStringLiteral("30"), QStringLiteral("24")}) {
-            const QVariantMap settings{
-                {QStringLiteral("presetId"), QStringLiteral("draft")},
-                {QStringLiteral("outputPath"), destination},
-                {QStringLiteral("speedPreset"), QStringLiteral("ultrafast")},
-                {QStringLiteral("frameRate"), fps}};
+            const QVariantMap settings{{QStringLiteral("presetId"), QStringLiteral("draft")},
+                                       {QStringLiteral("outputPath"), destination},
+                                       {QStringLiteral("speedPreset"), QStringLiteral("ultrafast")},
+                                       {QStringLiteral("frameRate"), fps}};
             QCOMPARE(m_app->exporter()->validate(settings), QString());
             QSignalSpy finished(m_app->exporter(), &ui::ExportController::finished);
             QVERIFY(m_app->exporter()->start(settings));

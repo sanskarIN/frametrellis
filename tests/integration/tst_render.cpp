@@ -217,6 +217,14 @@ private slots:
         }
         settings.outputPath = existing;
         settings.speedPreset = QStringLiteral("ultrafast");
+        // A previous render's similarly named partial file must not be touched.
+        const QString unrelated =
+            m_dir.filePath(QStringLiteral(".failed-helper-existing.unrelated.part.mp4"));
+        {
+            QFile untouched(unrelated);
+            QVERIFY(untouched.open(QIODevice::WriteOnly));
+            QCOMPARE(untouched.write("unrelated partial"), qint64{17});
+        }
         RenderJob job(QStringLiteral(FT_FAKE_RENDER_HELPER));
         QSignalSpy finished(&job, &RenderJob::finished);
         for (int attempt = 0; attempt < 2; ++attempt) {
@@ -232,9 +240,15 @@ private slots:
             QFile preserved(existing);
             QVERIFY(preserved.open(QIODevice::ReadOnly));
             QCOMPARE(preserved.readAll(), QByteArray("previous successful output"));
-            QVERIFY(partFiles().isEmpty());
+            QFile untouched(unrelated);
+            QVERIFY(untouched.open(QIODevice::ReadOnly));
+            QCOMPARE(untouched.readAll(), QByteArray("unrelated partial"));
+            QCOMPARE(partFiles(), QStringList{QStringLiteral(
+                                      ".failed-helper-existing.unrelated.part.mp4")});
             finished.clear();
         }
+        QVERIFY(QFile::remove(unrelated));
+        QVERIFY(partFiles().isEmpty());
     }
 
     void renderHelperReceivesExportFpsAndRejectsInvalidFps()

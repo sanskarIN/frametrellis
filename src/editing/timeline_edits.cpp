@@ -138,6 +138,7 @@ public:
             return makeError(ErrorCode::OutOfRange,
                              QStringLiteral("The insertion time cannot be represented."));
         }
+        const std::int64_t cutTime = *cutMs;
         const auto shiftedTime = [this,
                                   &rate](std::int64_t original) -> std::optional<std::int64_t> {
             const auto frame = subtitleFrameAtMilliseconds(original, rate);
@@ -155,12 +156,12 @@ public:
             return original + (*after - *before);
         };
         for (SubtitleCue& cue : subtitles.cues) {
-            if (cue.startMs < *cutMs && cue.endMs > *cutMs) {
+            if (cue.startMs < cutTime && cue.endMs > cutTime) {
                 return makeError(ErrorCode::Conflict,
                                  QStringLiteral("Split or adjust the subtitle crossing "
                                                 "the insertion point first."));
             }
-            if (cue.startMs < *cutMs) {
+            if (cue.startMs < cutTime) {
                 continue;
             }
             const auto start = shiftedTime(cue.startMs);

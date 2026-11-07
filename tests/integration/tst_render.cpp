@@ -237,6 +237,23 @@ private slots:
         }
     }
 
+    void helperDiscardsLargeUnframedStdoutAndRecoversProtocol()
+    {
+        const Project original = project(25);
+        ExportSettings settings;
+        settings.outputPath = m_dir.filePath(QStringLiteral("flood-helper.mp4"));
+        RenderJob job(QStringLiteral(FT_STDOUT_RENDER_HELPER));
+        QSignalSpy finished(&job, &RenderJob::finished);
+        QVERIFY(job.start(original, settings));
+        QVERIFY(finished.count() > 0 || finished.wait(20'000));
+        QCOMPARE(job.state(), RenderJob::State::Failed);
+        QCOMPARE(job.encoder(), QStringLiteral("flood-fixture"));
+        QVERIFY2(job.errorDetail().contains(QStringLiteral("0x0000002b")),
+                 qPrintable(job.errorDetail()));
+        QVERIFY(!QFile::exists(settings.outputPath));
+        QVERIFY(partFiles().isEmpty());
+    }
+
     void renderHelperReceivesExportFpsAndRejectsInvalidFps()
     {
         Project p = project(50);

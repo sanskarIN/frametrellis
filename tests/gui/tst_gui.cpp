@@ -6,6 +6,8 @@
 // (they are used for the documentation).
 
 #include "core/timecode.h"
+#include "editing/marker_edits.h"
+#include "editing/subtitle_edits.h"
 #include "editing/timeline_edits.h"
 #include "engine/mlt_runtime.h"
 #include "media_fixtures.h"
@@ -34,6 +36,7 @@
 #include <QUrlQuery>
 #include <QtQml/qqmlextensionplugin.h>
 
+#include <algorithm>
 #include <cmath>
 #include <limits>
 
@@ -1288,6 +1291,14 @@ private slots:
         audio.duration = 20;
         QVERIFY(m_app->project()->execute(edits::addClip(videoTrack, video)));
         QVERIFY(m_app->project()->execute(edits::addClip(audioTrack, audio)));
+        const Id markerId = createId();
+        const Id subtitleId = createId();
+        const auto cutMs = subtitleMillisecondsAtFrame(cut, initial.settings().frameRate);
+        QVERIFY(cutMs);
+        QVERIFY(m_app->project()->execute(
+            edits::addMarker({markerId, cut, QStringLiteral("At source cut")})));
+        QVERIFY(m_app->project()->execute(edits::addSubtitle(
+            {subtitleId, *cutMs + 100, *cutMs + 400, QStringLiteral("After source cut")})));
         const Project prepared = m_app->project()->project();
 
         playback->seek(static_cast<double>(cut));
@@ -1309,6 +1320,16 @@ private slots:
         QCOMPARE(inserted.timeline().clipCount(), prepared.timeline().clipCount() + 1);
         QCOMPARE(inserted.timeline().clip(video.id)->start, cut + 15);
         QCOMPARE(inserted.timeline().clip(audio.id)->start, cut + 25);
+        const auto marker =
+            std::find_if(inserted.markers().begin(), inserted.markers().end(),
+                         [&](const TimelineMarker& value) { return value.id == markerId; });
+        QVERIFY(marker != inserted.markers().end());
+        QCOMPARE(marker->frame, cut + 15);
+        const auto subtitle =
+            std::find_if(inserted.subtitles().cues.begin(), inserted.subtitles().cues.end(),
+                         [&](const SubtitleCue& value) { return value.id == subtitleId; });
+        QVERIFY(subtitle != inserted.subtitles().cues.end());
+        QVERIFY(subtitle->startMs > *cutMs + 100);
         QCOMPARE(inserted.timeline().clip(audio.id)->sourceIn, audio.sourceIn);
         QCOMPARE(inserted.timeline().clip(video.id)->sourceIn, video.sourceIn);
         QCOMPARE(timeline->selection().size(), qsizetype{1});
@@ -1363,8 +1384,10 @@ private slots:
 
         QVERIFY(QMetaObject::invokeMethod(source, "clear"));
         QVERIFY(tabs->setProperty("currentIndex", 0));
-        m_app->project()->undo();
-        m_app->project()->undo();
+        m_app->project()->undo(); // subtitle
+        m_app->project()->undo(); // marker
+        m_app->project()->undo(); // audio clip
+        m_app->project()->undo(); // video clip
         QCOMPARE(m_app->project()->project(), initial);
         timeline->clearSelection();
         playback->seek(static_cast<double>(oldPlayhead));

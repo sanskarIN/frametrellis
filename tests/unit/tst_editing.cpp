@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // SPDX-FileCopyrightText: 2026 Sanskar and FrameTrellis contributors
+#include "editing/marker_edits.h"
 #include "editing/project_document.h"
+#include "editing/subtitle_edits.h"
 #include "editing/timeline_edits.h"
 #include "project/project_serializer.h"
 
@@ -221,6 +223,122 @@ private slots:
         QVERIFY(!f.doc.execute(std::make_unique<RemoveUnusedMediaCommand>()));
         QCOMPARE(f.doc.project(), before);
         QCOMPARE(f.doc.undoText(), priorUndo);
+    }
+
+    void rippleInsertMovesMarkersAndSubtitlesWithClipsAndOneUndo()
+    {
+        Fixture f;
+        const Clip first = clipOf(QStringLiteral("m1"), 0, 60, QStringLiteral("first"));
+        const Clip later = clipOf(QStringLiteral("m1"), 60, 40, QStringLiteral("later"));
+        QVERIFY(f.doc.execute(edits::addClip(f.v1, first)));
+        QVERIFY(f.doc.execute(edits::addClip(f.v1, later)));
+        QVERIFY(f.doc.execute(
+            edits::addMarker({QStringLiteral("before"), 59, QStringLiteral("Before")})));
+        QVERIFY(f.doc.execute(edits::addMarker({QStringLiteral("at"), 60, QStringLiteral("At")})));
+        QVERIFY(f.doc.execute(
+            edits::addMarker({QStringLiteral("after"), 100, QStringLiteral("After")})));
+        QVERIFY(f.doc.execute(edits::appendSubtitles(
+            {{QStringLiteral("early"), 1000, 1500, QStringLiteral("Early")},
+             {QStringLiteral("boundary"), 2000, 2600, QStringLiteral("Boundary")},
+             {QStringLiteral("late"), 3000, 3400, QStringLiteral("Later")}})));
+        const Project before = f.doc.project();
+        QSignalSpy changed(&f.doc, &ProjectDocument::changed);
+        const Clip inserted = clipOf(QStringLiteral("m1"), 60, 15, QStringLiteral("inserted"));
+
+        QVERIFY(f.doc.execute(edits::rippleInsertSourceClip(f.v1, inserted)));
+        const Project after = f.doc.project();
+        QCOMPARE(after.timeline().clip(later.id)->start, FrameCount{75});
+        QCOMPARE(after.timeline().clip(inserted.id)->start, FrameCount{60});
+        QCOMPARE(after.markers()[0].frame, FrameCount{59});
+        QCOMPARE(after.markers()[1].frame, FrameCount{75});
+        QCOMPARE(after.markers()[2].frame, FrameCount{115});
+        QCOMPARE(after.subtitles().cues[0].startMs, std::int64_t{1000});
+        QCOMPARE(after.subtitles().cues[1].startMs, std::int64_t{2500});
+        QCOMPARE(after.subtitles().cues[1].endMs, std::int64_t{3100});
+        QCOMPARE(after.subtitles().cues[2].startMs, std::int64_t{3500});
+        QVERIFY(changed.size() == 1);
+        const ChangeSet flags = changed.last().at(0).value<ChangeSet>();
+        QVERIFY(flags.markers);
+        QVERIFY(flags.subtitles);
+        QVERIFY(flags.tracks.contains(f.v1));
+        QCOMPARE(f.doc.undoText(), QStringLiteral("Ripple Insert Source Range"));
+        const auto serialized = project_format::fromBytes(project_format::toBytes(after));
+        QVERIFY(serialized);
+        QCOMPARE(serialized->markers(), after.markers());
+        QCOMPARE(serialized->subtitles(), after.subtitles());
+        QVERIFY(f.doc.undo());
+        QCOMPARE(f.doc.project(), before);
+        QVERIFY(f.doc.redo());
+        QCOMPARE(f.doc.project(), after);
+    }
+
+    void rippleInsertRejectsSpanningSubtitleAndOverflowWithoutPartialEdit()
+    {
+        Fixture f;
+        QVERIFY(f.doc.execute(
+            edits::addClip(f.v1, clipOf(QStringLiteral("m1"), 60, 50, QStringLiteral("later")))));
+        QVERIFY(f.doc.execute(edits::addMarker({QStringLiteral("at"), 60, QStringLiteral("At")})));
+        QVERIFY(f.doc.execute(edits::addSubtitle(
+            {QStringLiteral("spanning"), 1500, 2200, QStringLiteral("Across edit")})));
+        const Clip inserted = clipOf(QStringLiteral("m1"), 60, 15, QStringLiteral("inserted"));
+        const Project before = f.doc.project();
+        const QString undoBefore = f.doc.undoText();
+        QVERIFY(!f.doc.execute(edits::rippleInsertSourceClip(f.v1, inserted)));
+        QCOMPARE(f.doc.project(), before);
+        QCOMPARE(f.doc.undoText(), undoBefore);
+
+        QVERIFY(f.doc.execute(edits::removeSubtitle(QStringLiteral("spanning"))));
+        QVERIFY(f.doc.execute(edits::addMarker(
+            {QStringLiteral("limit"), kMaxTimelineFrames, QStringLiteral("End")})));
+        const Project atLimit = f.doc.project();
+        const QString undoAtLimit = f.doc.undoText();
+        QVERIFY(!f.doc.execute(edits::rippleInsertSourceClip(f.v1, inserted)));
+        QCOMPARE(f.doc.project(), atLimit);
+        QCOMPARE(f.doc.undoText(), undoAtLimit);
+    }
+
+    void rippleInsertShiftsSubtitlesAtFractionalFrameRates()
+    {
+        const QList<FrameRate> rates = {FrameRate::integer(24), FrameRate::integer(25),
+                                        *FrameRate::create(30000, 1001), FrameRate::integer(30),
+                                        FrameRate::integer(60)};
+        for (const FrameRate& rate : rates) {
+            ProjectSettings settings;
+            settings.frameRate = rate;
+            Project project = Project::createNew(QStringLiteral("Rational ripple"), settings);
+            const Id trackId = project.timeline().tracks().front().id;
+            ProjectDocument doc(std::move(project));
+            QVERIFY(doc.execute(std::make_unique<AddMediaCommand>(
+                std::vector<MediaAsset>{videoAsset(QStringLiteral("m1"))})));
+            constexpr FrameCount cut = 60;
+            constexpr FrameCount duration = 17;
+            const auto cutMs = subtitleMillisecondsAtFrame(cut, rate);
+            QVERIFY(cutMs);
+            const std::int64_t start = *cutMs + 100;
+            const std::int64_t end = start + 250;
+            QVERIFY(doc.execute(edits::addSubtitle(
+                {QStringLiteral("cue"), start, end, QStringLiteral("Fractional rate")})));
+            const Project before = doc.project();
+            const auto cueStartFrame = subtitleFrameAtMilliseconds(start, rate);
+            const auto cueEndFrame = subtitleFrameAtMilliseconds(end, rate);
+            QVERIFY(cueStartFrame);
+            QVERIFY(cueEndFrame);
+            const auto startBefore = subtitleMillisecondsAtFrame(*cueStartFrame, rate);
+            const auto startAfter = subtitleMillisecondsAtFrame(*cueStartFrame + duration, rate);
+            const auto endBefore = subtitleMillisecondsAtFrame(*cueEndFrame, rate);
+            const auto endAfter = subtitleMillisecondsAtFrame(*cueEndFrame + duration, rate);
+            QVERIFY(startBefore && startAfter && endBefore && endAfter);
+            Clip clip = clipOf(QStringLiteral("m1"), cut, duration);
+            QVERIFY(doc.execute(edits::rippleInsertSourceClip(trackId, clip)));
+            const SubtitleCue& moved = doc.project().subtitles().cues.front();
+            QCOMPARE(moved.startMs, start + *startAfter - *startBefore);
+            QCOMPARE(moved.endMs, end + *endAfter - *endBefore);
+            QVERIFY(doc.undo());
+            QCOMPARE(doc.project(), before);
+            QVERIFY(doc.redo());
+            QCOMPARE(doc.project().subtitles().cues.front().startMs,
+                     start + *startAfter - *startBefore);
+        }
     }
 
     void rippleInsertRangeShiftsMultipleTracksWithOneUndoAndKeepsTransitions()

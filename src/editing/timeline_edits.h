@@ -61,7 +61,9 @@ std::unique_ptr<EditCommand> insertGap(FrameCount frame, FrameCount duration);
 /// every affected, unlocked track. No clip may span the insertion point.
 /// Handles the no-following-clips case (normal placement). Existing cuts,
 /// clip IDs and transitions are preserved, and one undo restores the project.
-/// Sequence markers and subtitles retain their absolute times.
+/// Sequence markers at/after the cut and non-spanning subtitle cues move with clips.
+/// A subtitle spanning the cut blocks the edit until it is adjusted explicitly.
+/// Marker, subtitle and clip changes share one atomic undo/redo command.
 std::unique_ptr<EditCommand> rippleInsertSourceClip(const Id& trackId, const Clip& clip);
 /// Remove an interval that contains no clip frames on any track, moving later
 /// clips earlier as one undoable change. Locked affected tracks and intersecting

@@ -14,7 +14,8 @@
 namespace ft {
 
 /// Sequence-level plain text with exact SRT milliseconds and an exclusive end.
-/// Cues do not follow clip edits. A single subtitle track does not permit overlaps.
+/// Cues do not follow ordinary clip edits; sequence-aware source ripple shifts eligible cues.
+/// A single subtitle track does not permit overlaps.
 struct SubtitleCue
 {
     Id id;

@@ -255,23 +255,33 @@ qint64 RenderJob::remainingMilliseconds() const
 
 void RenderJob::onReadyRead()
 {
-    m_buffer += m_process->readAllStandardOutput();
-    qsizetype newline = -1;
-    while ((newline = m_buffer.indexOf('\n')) >= 0) {
-        // Skip the rest of a line whose earlier fragments exceeded the limit.
-        if (!m_discardingOversizedLine && newline <= protocol::kMaxEventBytes) {
-            if (const auto event = protocol::decode(m_buffer.left(newline))) {
-                handleEvent(*event);
-            }
+    // Avoid readAllStandardOutput(): a native library may flood stdout with a very
+    // long, unframed diagnostic line, allocating the whole burst in the editor.
+    // Read fixed-size chunks and drop oversized lines before reading more data.
+    constexpr qint64 kReadChunkBytes = 16'384;
+    while (m_process->bytesAvailable() > 0) {
+        const QByteArray chunk = m_process->read(kReadChunkBytes);
+        if (chunk.isEmpty()) {
+            break;
         }
-        m_buffer.remove(0, newline + 1);
-        m_discardingOversizedLine = false;
-    }
-    if (m_buffer.size() > protocol::kMaxEventBytes) {
-        // A helper or native library may print arbitrary output without a newline.
-        // Drop it in bounded space, then ignore fragments until its next newline.
-        m_buffer.clear();
-        m_discardingOversizedLine = true;
+        m_buffer += chunk;
+        qsizetype newline = -1;
+        while ((newline = m_buffer.indexOf('\n')) >= 0) {
+            // Skip the rest of a line whose earlier fragments exceeded the limit.
+            if (!m_discardingOversizedLine && newline <= protocol::kMaxEventBytes) {
+                if (const auto event = protocol::decode(m_buffer.left(newline))) {
+                    handleEvent(*event);
+                }
+            }
+            m_buffer.remove(0, newline + 1);
+            m_discardingOversizedLine = false;
+        }
+        if (m_buffer.size() > protocol::kMaxEventBytes) {
+            // Drop the unframed line in bounded space and discard any fragments
+            // until the following newline, without poisoning later protocol events.
+            m_buffer.clear();
+            m_discardingOversizedLine = true;
+        }
     }
 }
 

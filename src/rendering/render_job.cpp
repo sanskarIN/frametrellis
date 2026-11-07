@@ -147,6 +147,7 @@ Status RenderJob::start(const Project& project, const ExportSettings& settings,
     m_stderrTail.clear();
     m_discardingOversizedLine = false;
     m_sawFinished = false;
+    m_cancelSent = false;
     m_finalElapsed = -1;
     m_elapsed.start();
 
@@ -190,6 +191,9 @@ Status RenderJob::start(const Project& project, const ExportSettings& settings,
         if (m_state == State::Starting) {
             setState(State::Running);
         }
+        // Cancel may have been requested synchronously from the Starting
+        // stateChanged signal, before QProcess had a writable stdin pipe.
+        sendPendingCancel();
     });
     connect(m_process.get(), &QProcess::finished, this, &RenderJob::onProcessFinished);
     connect(m_process.get(), &QProcess::errorOccurred, this, &RenderJob::onProcessError);
@@ -201,17 +205,27 @@ Status RenderJob::start(const Project& project, const ExportSettings& settings,
     return {};
 }
 
+void RenderJob::sendPendingCancel()
+{
+    if (m_state != State::Cancelling || m_cancelSent || !m_process ||
+        m_process->state() != QProcess::Running) {
+        return;
+    }
+    m_cancelSent = true;
+    m_process->write("cancel\n");
+    m_process->closeWriteChannel();
+    m_killTimer.start();
+}
+
 void RenderJob::cancel()
 {
     if (m_state != State::Starting && m_state != State::Running) {
         return;
     }
     setState(State::Cancelling);
-    if (m_process && m_process->state() != QProcess::NotRunning) {
-        m_process->write("cancel\n");
-        m_process->closeWriteChannel();
-        m_killTimer.start();
-    }
+    // When requested during startup, defer writing until QProcess::started.
+    // Never lose an early cancel merely because the child was NotRunning.
+    sendPendingCancel();
 }
 
 double RenderJob::progress() const

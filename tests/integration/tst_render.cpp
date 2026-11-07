@@ -172,7 +172,7 @@ private slots:
              {QStringLiteral("24"), QStringLiteral("30"), QStringLiteral("30000/1001")}) {
             ExportSettings settings;
             settings.outputPath =
-                m_dir.filePath(QStringLiteral("fps-%1.mp4").arg(chosen.replace(QLatin1Char('/'), QLatin1Char('-'))));
+                m_dir.filePath(QStringLiteral("fps-%1.mp4").arg(QString(chosen).replace(QLatin1Char('/'), QLatin1Char('-'))));
             settings.frameRate = chosen;
             settings.speedPreset = QStringLiteral("ultrafast");
             const Result<FrameRate> target = outputFrameRate(settings, original.settings());

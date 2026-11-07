@@ -3782,21 +3782,21 @@ private slots:
         QVERIFY(fpsSelector);
         QVERIFY(fpsSelector->isVisible());
         QCOMPARE(fpsSelector->property("currentIndex").toInt(), 0);
-        fpsSelector->setProperty("currentIndex", 5); // 30 fps instead of the project rate
+        fpsSelector->setProperty("currentIndex", 3); // 25 fps instead of the 30 fps project
         QTest::qWait(200);
         screenshot(QStringLiteral("05-export-dialog"));
         QVariantMap settings{
             {QStringLiteral("presetId"), QStringLiteral("draft")},
             {QStringLiteral("outputPath"), m_dir.filePath(QStringLiteral("gui-export.mp4"))},
             {QStringLiteral("speedPreset"), QStringLiteral("ultrafast")},
-            {QStringLiteral("frameRate"), QStringLiteral("30")}};
+            {QStringLiteral("frameRate"), QStringLiteral("25")}};
         QCOMPARE(m_app->exporter()->validate(settings), QString());
-        QVERIFY(m_app->exporter()->describeOutput(settings).contains(QStringLiteral("30 fps")));
+        QVERIFY(m_app->exporter()->describeOutput(settings).contains(QStringLiteral("25 fps")));
         QSignalSpy finished(m_app->exporter(), &ui::ExportController::finished);
         QVERIFY(m_app->exporter()->start(settings));
         QVERIFY(finished.wait(60'000));
         QVERIFY2(finished.first().at(0).toBool(), qPrintable(finished.first().at(1).toString()));
-        QCOMPARE(m_app->project()->project().settings().frameRate, FrameRate::integer(25));
+        QCOMPARE(m_app->project()->project().settings().frameRate, FrameRate::integer(30));
         QTest::qWait(200);
         screenshot(QStringLiteral("06-export-finished"));
         QMetaObject::invokeMethod(dialog, "close");

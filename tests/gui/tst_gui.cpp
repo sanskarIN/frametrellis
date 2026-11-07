@@ -1320,10 +1320,9 @@ private slots:
         QCOMPARE(inserted.timeline().clipCount(), prepared.timeline().clipCount() + 1);
         QCOMPARE(inserted.timeline().clip(video.id)->start, cut + 15);
         QCOMPARE(inserted.timeline().clip(audio.id)->start, cut + 25);
-        const auto marker = std::find_if(inserted.markers().begin(), inserted.markers().end(),
-                                         [&](const TimelineMarker& value) {
-                                             return value.id == markerId;
-                                         });
+        const auto marker =
+            std::find_if(inserted.markers().begin(), inserted.markers().end(),
+                         [&](const TimelineMarker& value) { return value.id == markerId; });
         QVERIFY(marker != inserted.markers().end());
         QCOMPARE(marker->frame, cut + 15);
         const auto subtitle =

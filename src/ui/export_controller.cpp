@@ -209,6 +209,10 @@ bool ExportController::start(const QVariantMap& settings)
     if (busy()) {
         return false;
     }
+    // An export snapshots the current timeline, but the normal recovery autosave
+    // may be almost a minute old. Protect the latest edits before the render
+    // helper starts, including when the editor has never been saved explicitly.
+    m_project->autosave();
     auto job = std::make_unique<RenderJob>(m_helperProgram);
     connect(job.get(), &RenderJob::stateChanged, this, [this](RenderJob::State state) {
         if (RenderJob::isFinished(state)) {

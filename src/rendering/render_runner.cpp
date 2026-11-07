@@ -82,10 +82,12 @@ private:
     int m_saved = -1;
 };
 
-QString temporaryOutputPath(const QString& outputPath)
+QString temporaryOutputPath(const QString& outputPath, const QString& requestedToken)
 {
     const QFileInfo info(outputPath);
-    const QString token = QUuid::createUuid().toString(QUuid::Id128).left(8);
+    const QString token = requestedToken.isEmpty()
+                              ? QUuid::createUuid().toString(QUuid::Id128).left(8)
+                              : requestedToken;
     return info.absoluteDir().filePath(
         QStringLiteral(".%1.%2.part.mp4").arg(info.completeBaseName(), token));
 }
@@ -147,10 +149,12 @@ QStringList availableVideoEncoders()
     return encoders;
 }
 
-RenderRunner::RenderRunner(Project project, ExportSettings settings, QString projectFilePath)
+RenderRunner::RenderRunner(Project project, ExportSettings settings, QString projectFilePath,
+                           QString temporaryToken)
     : m_project(std::move(project))
     , m_settings(std::move(settings))
     , m_projectFilePath(std::move(projectFilePath))
+    , m_temporaryToken(std::move(temporaryToken))
 {}
 
 Status RenderRunner::run(const std::atomic<bool>& cancelRequested, const StartedCallback& started,
@@ -230,7 +234,13 @@ Status RenderRunner::run(const std::atomic<bool>& cancelRequested, const Started
     }
 
     const QString finalPath = QFileInfo(m_settings.outputPath).absoluteFilePath();
-    const QString partPath = temporaryOutputPath(finalPath);
+    const QString partPath = temporaryOutputPath(finalPath, m_temporaryToken);
+    // A command-line token is an internal per-job identifier. Never overwrite a pre-existing
+    // file even if an external caller deliberately reuses an old token.
+    if (QFileInfo::exists(partPath)) {
+        return makeError(ErrorCode::Conflict,
+                         QStringLiteral("The temporary export file already exists."));
+    }
     const QByteArray partEncoded = partPath.toUtf8();
     // Keep the consumer alive only while the encoder is running. On Windows its
     // destructor must release all avformat handles and producer references before

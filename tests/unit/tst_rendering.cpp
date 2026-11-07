@@ -352,10 +352,10 @@ private slots:
         QVERIFY(!protocol::frameCount(QJsonValue(true)));
         QVERIFY(!protocol::frameCount(QJsonValue()));
 
-        const auto valid = protocol::decode(protocol::encode(
-            {{QStringLiteral("event"), QStringLiteral("progress")},
-             {QStringLiteral("frame"), 12},
-             {QStringLiteral("total"), 100}}));
+        const auto valid = protocol::decode(
+            protocol::encode({{QStringLiteral("event"), QStringLiteral("progress")},
+                              {QStringLiteral("frame"), 12},
+                              {QStringLiteral("total"), 100}}));
         QVERIFY(valid);
         QCOMPARE(*protocol::frameCount(valid->value(QStringLiteral("frame"))), FrameCount{12});
         QCOMPARE(*protocol::frameCount(valid->value(QStringLiteral("total"))), FrameCount{100});

@@ -118,6 +118,7 @@ Status RenderJob::start(const Project& project, const ExportSettings& settings,
     m_settings = settings;
     m_framesDone = 0;
     m_totalFrames = project.timeline().duration();
+    m_lastLoggedProgressBucket = -1;
     m_encoder.clear();
     m_errorMessage.clear();
     m_errorDetail.clear();
@@ -259,12 +260,25 @@ void RenderJob::handleEvent(const QJsonObject& event)
         m_encoder = event.value(QLatin1String("encoder")).toString();
         m_totalFrames = static_cast<FrameCount>(
             event.value(QLatin1String("total")).toDouble(double(m_totalFrames)));
+        qCInfo(lcRender) << "Render helper started with encoder" << m_encoder << "and"
+                         << m_totalFrames << "output frames";
         emit progressChanged();
     } else if (type == QLatin1String("progress")) {
         m_framesDone = static_cast<FrameCount>(event.value(QLatin1String("frame")).toDouble());
         const auto total = static_cast<FrameCount>(event.value(QLatin1String("total")).toDouble());
         if (total > 0) {
             m_totalFrames = total;
+        }
+        // Keep the last known export position in the editor's persistent log.
+        // A sudden Windows process termination cannot run Qt shutdown handlers,
+        // but the next startup can still correlate its timestamp with this marker.
+        if (m_totalFrames > 0 && (m_state == State::Running || m_state == State::Starting)) {
+            const int bucket = static_cast<int>(progress() * 10.0);
+            if (bucket > m_lastLoggedProgressBucket) {
+                m_lastLoggedProgressBucket = bucket;
+                qCInfo(lcRender) << "Export progress" << bucket * 10 << "%"
+                                 << m_framesDone << "/" << m_totalFrames << "frames";
+            }
         }
         emit progressChanged();
     } else if (type == QLatin1String("finished")) {

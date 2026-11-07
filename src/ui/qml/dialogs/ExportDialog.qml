@@ -283,7 +283,7 @@ FtDialog {
             Text {
                 Layout.fillWidth: true
                 visible: dialog.exporter.busy
-                text: qsTr("You can keep editing while the export runs; it uses a snapshot of the project.")
+                text: qsTr("You can keep editing while the export runs using a project snapshot. Preview playback pauses to conserve resources.")
                 color: Theme.textFaint
                 font.pixelSize: Theme.fontSizeSmall
                 wrapMode: Text.WordWrap

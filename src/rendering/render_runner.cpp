@@ -286,6 +286,9 @@ Status RenderRunner::run(const std::atomic<bool>& cancelRequested, const Started
         started(m_encoder, total);
     }
     if (consumer->start() != 0) {
+        // Release any open FFmpeg file handle before trying to remove its output,
+        // particularly important for failed encoder startup on Windows.
+        consumer.reset();
         QFile::remove(partPath);
         return makeError(ErrorCode::Engine, QStringLiteral("The encoder could not be started."));
     }

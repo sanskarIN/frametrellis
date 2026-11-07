@@ -243,8 +243,8 @@ private slots:
             QFile untouched(unrelated);
             QVERIFY(untouched.open(QIODevice::ReadOnly));
             QCOMPARE(untouched.readAll(), QByteArray("unrelated partial"));
-            QCOMPARE(partFiles(), QStringList{QStringLiteral(
-                                      ".failed-helper-existing.unrelated.part.mp4")});
+            QCOMPARE(partFiles(),
+                     QStringList{QStringLiteral(".failed-helper-existing.unrelated.part.mp4")});
             finished.clear();
         }
         QVERIFY(QFile::remove(unrelated));

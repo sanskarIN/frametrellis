@@ -172,20 +172,8 @@ Status RenderJob::start(const Project& project, const ExportSettings& settings,
     m_process->setArguments(arguments); // passed as a list: no shell, no quoting issues
     m_process->setProcessChannelMode(QProcess::SeparateChannels);
     connect(m_process.get(), &QProcess::readyReadStandardOutput, this, &RenderJob::onReadyRead);
-    connect(m_process.get(), &QProcess::readyReadStandardError, this, [this] {
-        const QByteArray output = m_process->readAllStandardError();
-        if (!output.isEmpty()) {
-            // A runaway FFmpeg log must not grow memory without bound. Preserve the
-            // last diagnostic lines so an encoder crash has an actionable error.
-            constexpr qsizetype kMaxStderrBytes = 16'384;
-            m_stderrTail += output.right(kMaxStderrBytes);
-            if (m_stderrTail.size() > kMaxStderrBytes) {
-                m_stderrTail.remove(0, m_stderrTail.size() - kMaxStderrBytes);
-            }
-            qCDebug(lcRender).noquote()
-                << "helper:" << QString::fromUtf8(output.right(1024)).trimmed();
-        }
-    });
+    connect(m_process.get(), &QProcess::readyReadStandardError, this,
+            &RenderJob::drainStandardError);
     connect(m_process.get(), &QProcess::started, this, [this] {
         if (m_state == State::Starting) {
             setState(State::Running);
@@ -330,19 +318,41 @@ void RenderJob::handleEvent(const QJsonObject& event)
     }
 }
 
-void RenderJob::onProcessFinished(int exitCode, QProcess::ExitStatus status)
+void RenderJob::drainStandardError()
 {
-    onReadyRead(); // drain remaining protocol events
-    // A process can exit before the final stderr-ready notification. Do not lose the
-    // decoder/encoder diagnostics that explain why a Windows export failed.
-    const QByteArray remainingStderr = m_process->readAllStandardError();
-    if (!remainingStderr.isEmpty()) {
-        constexpr qsizetype kMaxStderrBytes = 16'384;
-        m_stderrTail += remainingStderr.right(kMaxStderrBytes);
+    if (!m_process) {
+        return;
+    }
+    // QProcess::readAllStandardError() copies the entire buffered burst, which can
+    // be many MiB if the helper or FFmpeg becomes noisy. Read fixed-size chunks and
+    // retain only the last 16 KiB, including on process shutdown.
+    constexpr qint64 kReadChunkBytes = 16'384;
+    constexpr qsizetype kMaxStderrBytes = 16'384;
+    const QProcess::ProcessChannel previous = m_process->readChannel();
+    m_process->setReadChannel(QProcess::StandardError);
+    QByteArray lastForLog;
+    while (m_process->bytesAvailable() > 0) {
+        const QByteArray chunk = m_process->read(kReadChunkBytes);
+        if (chunk.isEmpty()) {
+            break;
+        }
+        m_stderrTail += chunk;
         if (m_stderrTail.size() > kMaxStderrBytes) {
             m_stderrTail.remove(0, m_stderrTail.size() - kMaxStderrBytes);
         }
+        // Emit only one bounded debug excerpt per signal, not a log line per chunk.
+        lastForLog = chunk.right(1024);
     }
+    m_process->setReadChannel(previous);
+    if (!lastForLog.isEmpty()) {
+        qCDebug(lcRender).noquote() << "helper:" << QString::fromUtf8(lastForLog).trimmed();
+    }
+}
+
+void RenderJob::onProcessFinished(int exitCode, QProcess::ExitStatus status)
+{
+    onReadyRead();        // drain remaining protocol events
+    drainStandardError(); // final stderr may arrive without another readyRead signal
     if (isFinished(m_state)) {
         return;
     }

@@ -39,7 +39,9 @@ int main(int argc, char** argv)
                stdout);
     std::fflush(stdout);
 
-    const std::string noise(24'000, 'x');
+    // A library can flood stderr during a long export; exercise bounded draining
+    // without triggering a native crash. The final marker must remain available.
+    const std::string noise(2 * 1024 * 1024, 'x');
     std::fwrite(noise.data(), 1, noise.size(), stderr);
     std::fputs("\nFT_SIMULATED_RENDER_FAILURE\n", stderr);
     std::fflush(stderr);

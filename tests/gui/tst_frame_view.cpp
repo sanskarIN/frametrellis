@@ -5,6 +5,7 @@
 // A FrameView detached from its window or rendered during startup/teardown
 // must never dereference those results.
 #include "ui/frame_view.h"
+#include "ui/playback_controller.h"
 
 #include <QQuickWindow>
 #include <QTest>

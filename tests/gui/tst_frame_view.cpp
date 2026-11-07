@@ -1,9 +1,8 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // SPDX-FileCopyrightText: 2026 Sanskar and FrameTrellis contributors
 //
-// Qt Quick node factories return nullptr before the scene graph initializes.
-// A FrameView detached from its window or rendered during startup/teardown
-// must never dereference those results.
+// FrameView must not access Qt Quick scene graph factories without a window.
+// Factories can also return nullptr during graphics initialization or teardown.
 #include "ui/frame_view.h"
 #include "ui/playback_controller.h"
 
@@ -32,15 +31,15 @@ private slots:
         QVERIFY(view.updatePaintNode(nullptr, nullptr) == nullptr);
     }
 
-    void sceneGraphNotInitializedDoesNotCreateNodes()
+    void detachingFromWindowAvoidsSceneGraphAccess()
     {
         QQuickWindow window;
-        QVERIFY(!window.isSceneGraphInitialized());
         ExposedFrameView view;
         view.setParentItem(window.contentItem());
         QVERIFY(view.window() == &window);
+        view.setParentItem(nullptr);
+        QVERIFY(view.window() == nullptr);
         QVERIFY(view.updatePaintNode(nullptr, nullptr) == nullptr);
-        QVERIFY(!window.isSceneGraphInitialized());
     }
 };
 

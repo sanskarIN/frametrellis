@@ -20,6 +20,10 @@ set_tests_properties(tst_frame_view PROPERTIES
     ENVIRONMENT "QT_QPA_PLATFORM=offscreen;QT_QUICK_BACKEND=software"
     TIMEOUT 30)
 
+# Dynamic image-provider requests must not grow decoder allocations without bound.
+ft_add_test(tst_thumbnail_request SOURCES tst_thumbnail_request.cpp LIBS ft_ui LABELS gui)
+set_tests_properties(tst_thumbnail_request PROPERTIES TIMEOUT 30)
+
 # A recovered unsaved edit must survive another crash before the user saves it.
 ft_add_test(tst_recovery SOURCES tst_recovery.cpp LIBS ft_ui LABELS gui)
 set_tests_properties(tst_recovery PROPERTIES TIMEOUT 60)

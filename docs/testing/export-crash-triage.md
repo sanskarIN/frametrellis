@@ -54,3 +54,43 @@ the **editor process**, not just the output MP4.
 
 A successful CI run or short sample export does **not** prove that every imported media format,
 hardware configuration, or long-running Windows export is stable.
+
+## Optional Windows minidumps (for native crash root-cause work)
+
+The Qt application log cannot capture a native stack trace once the process terminates with
+an access violation. Windows Error Reporting can capture a local **mini**dump when either
+`frametrellis.exe` or `frametrellis-render.exe` crashes. This is opt-in, and the bundled script
+**never** starts, uploads, deletes, or reads dump files.
+
+Use an elevated PowerShell session from the repository root only if you are comfortable with
+local crash diagnostics:
+
+```powershell
+.\scripts\windows\FrameTrellis-CrashDumps.ps1 -Enable
+.\scripts\windows\FrameTrellis-CrashDumps.ps1 -Status
+# Reproduce the crash using a separate saved test project; then turn it off:
+.\scripts\windows\FrameTrellis-CrashDumps.ps1 -Disable
+```
+
+The script configures only the two executable-specific keys below
+`HKLM:\SOFTWARE\Microsoft\Windows\Windows Error Reporting\LocalDumps`, not global crash
+collection. It sets `DumpType=1` (minidump), `DumpCount=3`, and the default destination
+`%LOCALAPPDATA%\FrameTrellis\CrashDumps` (expanded for the current account).
+Administrator rights are required. The script refuses to overwrite pre-existing per-executable
+settings not created by this helper, and `-Disable` removes only settings it manages.
+A small number of older files may still persist: delete them separately when no longer needed.
+It does not override Windows crash-reporting policies or automatically enable dumps if a
+system debugger or policy takes precedence.
+
+Minidumps can contain user identifiers, file paths, application memory, and media-related
+metadata. **Do not upload a dump publicly or attach it directly to a GitHub issue.** Consult a
+trusted debugger, collect a minimal/redacted native stack trace, and share only relevant module
+names, exception codes and call frames. For the 2026-11-07 report:
+- `frametrellis.exe`: `0xC0000005` (memory access violation)
+- `frametrellis-render.exe`: `0xC0000006` (in-page error)
+
+These are distinct faults, even if Windows lists `ntdll.dll` for both. Check disk and
+paging-related event records for the in-page error, but do **not** assume a defective drive
+without evidence. Continue using a copy of the project and never risk its only recovery file.
+
+Reference: [Microsoft — Collecting User-Mode Dumps](https://learn.microsoft.com/en-us/windows/win32/wer/collecting-user-mode-dumps).

@@ -9,7 +9,7 @@
 
 int main()
 {
-    std::fputs("{\"event\":\"started\",\"encoder\":\"failure-fixture\",\"total\":100}\n", stdout);
+    std::fputs("@ft {\"event\":\"started\",\"encoder\":\"failure-fixture\",\"total\":100}\n", stdout);
     std::fflush(stdout);
 
     const std::string noise(24'000, 'x');

@@ -177,6 +177,9 @@ rendering::ExportSettings ExportController::toSettings(const QVariantMap& map) c
     if (map.contains(QStringLiteral("avoidUpscaling"))) {
         s.avoidUpscaling = map.value(QStringLiteral("avoidUpscaling")).toBool();
     }
+    if (map.contains(QStringLiteral("frameRate"))) {
+        s.frameRate = map.value(QStringLiteral("frameRate")).toString();
+    }
     return s;
 }
 
@@ -191,10 +194,11 @@ QString ExportController::describeOutput(const QVariantMap& settings) const
 {
     const rendering::ExportSettings s = toSettings(settings);
     const QSize size = rendering::outputSize(s, m_project->project().settings());
+    const Result<FrameRate> rate = rendering::outputFrameRate(s, m_project->project().settings());
     return QStringLiteral("%1×%2 · %3 · H.264 + %4%5")
         .arg(size.width())
         .arg(size.height())
-        .arg(m_project->project().settings().frameRate.displayName(),
+        .arg(rate ? rate->displayName() : QStringLiteral("invalid FPS"),
              s.includeAudio ? QStringLiteral("AAC %1 kbit/s").arg(s.audioBitrateKbps)
                             : QStringLiteral("no audio"),
              s.avoidUpscaling ? QStringLiteral(" · no upscaling") : QString());

@@ -15,6 +15,18 @@ FtDialog {
     readonly property ExportController exporter: app.exporter
     readonly property bool showProgress: exporter.state !== "idle"
     property string outputPath: ""
+    readonly property var frameRates: [
+        { label: qsTr("Match project"), value: "match" },
+        { label: "23.976", value: "24000/1001" },
+        { label: "24", value: "24" },
+        { label: "25", value: "25" },
+        { label: "29.97", value: "30000/1001" },
+        { label: "30", value: "30" },
+        { label: "50", value: "50" },
+        { label: "59.94", value: "60000/1001" },
+        { label: "60", value: "60" },
+        { label: qsTr("Custom FPS…"), value: "custom" }
+    ]
 
     title: qsTr("Export video")
     implicitWidth: 560
@@ -28,7 +40,10 @@ FtDialog {
             speedPreset: speedBox.currentText,
             avoidUpscaling: noUpscaleCheck.checked,
             audioBitrateKbps: parseInt(audioBox.currentText),
-            includeAudio: audioCheck.checked
+            includeAudio: audioCheck.checked,
+            frameRate: fpsBox.currentIndex < 0 ? "match"
+                : dialog.frameRates[fpsBox.currentIndex].value === "custom"
+                  ? customFps.text.trim() : dialog.frameRates[fpsBox.currentIndex].value
         }
     }
     function applyPreset(index) {
@@ -111,6 +126,36 @@ FtDialog {
                     Accessible.name: qsTr("Output file")
                 }
                 FtButton { text: qsTr("Browse…"); onClicked: fileDialog.open() }
+            }
+
+            Label { text: qsTr("Export FPS"); color: Theme.textMuted }
+            RowLayout {
+                Layout.fillWidth: true
+                ComboBox {
+                    id: fpsBox
+                    objectName: "exportFrameRateBox"
+                    Layout.fillWidth: true
+                    model: dialog.frameRates
+                    textRole: "label"
+                    valueRole: "value"
+                    Accessible.name: qsTr("Export frame rate")
+                }
+                TextField {
+                    id: customFps
+                    objectName: "exportCustomFrameRate"
+                    visible: fpsBox.currentIndex === dialog.frameRates.length - 1
+                    Layout.preferredWidth: 155
+                    placeholderText: qsTr("e.g. 48 or 30000/1001")
+                    Accessible.name: qsTr("Custom export frame rate")
+                }
+            }
+            Item { width: 1; height: 1 }
+            Text {
+                Layout.fillWidth: true
+                text: qsTr("Changes the MP4 FPS only; project timing and audio speed stay unchanged.")
+                color: Theme.textFaint
+                font.pixelSize: Theme.fontSizeSmall
+                wrapMode: Text.WordWrap
             }
 
             Label { text: qsTr("Quality"); color: Theme.textMuted }

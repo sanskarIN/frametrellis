@@ -148,6 +148,10 @@ int main(int argc, char** argv)
         QStringLiteral("short-side"),
         QStringLiteral("Scale so the shorter side has this many pixels (0 = project size)."),
         QStringLiteral("pixels"), QStringLiteral("0"));
+    const QCommandLineOption fpsOption(
+        QStringLiteral("fps"),
+        QStringLiteral("Output FPS: match, 24, 29.97, 30000/1001 or other valid rate."),
+        QStringLiteral("rate"), QStringLiteral("match"));
     const QCommandLineOption crfOption(QStringLiteral("crf"),
                                        QStringLiteral("Quality, 0 (best) to 51."),
                                        QStringLiteral("value"), QStringLiteral("20"));
@@ -173,7 +177,8 @@ int main(int argc, char** argv)
         QStringLiteral("Check the installation: generate sample media in <directory>, edit and "
                        "export it, and report each step. Exits with 0 when everything works."),
         QStringLiteral("directory"));
-    parser.addOptions({projectOption, outputOption, shortSideOption, crfOption, presetOption,
+    parser.addOptions({projectOption, outputOption, shortSideOption, fpsOption, crfOption,
+                       presetOption,
                        audioOption, noAudioOption, noUpscaleOption, watchStdinOption,
                        selfTestOption, inspectProjectOption, listPresetsOption});
     parser.process(app);
@@ -289,6 +294,7 @@ int main(int argc, char** argv)
     settings.crf = parser.value(crfOption).toInt(&ok2);
     settings.audioBitrateKbps = parser.value(audioOption).toInt(&ok3);
     settings.speedPreset = parser.value(presetOption);
+    settings.frameRate = parser.value(fpsOption);
     settings.includeAudio = !parser.isSet(noAudioOption);
     settings.avoidUpscaling = parser.isSet(noUpscaleOption);
     if (!ok1 || !ok2 || !ok3) {

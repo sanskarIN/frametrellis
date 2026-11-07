@@ -69,8 +69,10 @@ private:
     void onProcessFinished(int exitCode, QProcess::ExitStatus status);
     void onProcessError(QProcess::ProcessError error);
     void handleEvent(const QJsonObject& event);
+    void removeOwnedPartialOutput();
 
     QString m_helperProgram;
+    QString m_partialOutputPath;
     State m_state = State::Idle;
     ExportSettings m_settings;
     std::unique_ptr<QProcess> m_process;

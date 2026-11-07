@@ -2,11 +2,14 @@
 // SPDX-FileCopyrightText: 2026 Sanskar and FrameTrellis contributors
 #include "rendering/export_settings.h"
 
+#include "core/rational.h"
+
 #include <QDir>
 #include <QFileInfo>
 #include <QStorageInfo>
 
 #include <cmath>
+#include <numeric>
 
 namespace ft::rendering {
 
@@ -71,6 +74,47 @@ QStringList speedPresets()
             QStringLiteral("slow"),      QStringLiteral("slower"),    QStringLiteral("veryslow")};
 }
 
+Result<FrameRate> outputFrameRate(const ExportSettings& settings, const ProjectSettings& project)
+{
+    const QString text = settings.frameRate.trimmed();
+    if (text == QLatin1String("match")) {
+        return project.frameRate;
+    }
+    const std::optional<Rational> value = Rational::fromString(text);
+    const std::optional<FrameRate> rate =
+        value ? FrameRate::create(value->numerator(), value->denominator()) : std::nullopt;
+    if (!rate || rate->toDouble() < 1.0 || rate->toDouble() > 240.0) {
+        return makeError(ErrorCode::OutOfRange,
+                         QStringLiteral("Export frame rate must be from 1 to 240 fps (for "
+                                        "example 24, 29.97 or 30000/1001)."));
+    }
+    return *rate;
+}
+
+Result<FrameCount> outputFrameCount(FrameCount projectFrames, const FrameRate& projectRate,
+                                    const FrameRate& exportRate)
+{
+    if (projectFrames < 1 || projectFrames > kMaxTimelineFrames) {
+        return makeError(ErrorCode::OutOfRange, QStringLiteral("The sequence length is invalid."));
+    }
+    if (projectRate == exportRate) {
+        return projectFrames;
+    }
+    // Exact cross multiplication avoids rounding an intermediate microsecond clock.
+    // Such rounding could incorrectly add a frame even when input and output rates match.
+    const std::int64_t numerator = exportRate.numerator() * projectRate.denominator();
+    const std::int64_t denominator = exportRate.denominator() * projectRate.numerator();
+    const std::int64_t divisor = std::gcd(numerator, denominator);
+    const auto frames =
+        mulDiv(projectFrames, numerator / divisor, denominator / divisor, Rounding::Up);
+    if (!frames || *frames < 1 || *frames > kMaxTimelineFrames) {
+        return makeError(
+            ErrorCode::OutOfRange,
+            QStringLiteral("The selected FPS would exceed the output timeline limit."));
+    }
+    return *frames;
+}
+
 QSize outputSize(const ExportSettings& settings, const ProjectSettings& project)
 {
     if (settings.shortSide <= 0) {
@@ -91,6 +135,15 @@ Status validateExport(const ExportSettings& settings, const Project& project,
     if (project.timeline().duration() <= 0) {
         return makeError(ErrorCode::InvalidArgument,
                          QStringLiteral("The timeline is empty. Add clips before exporting."));
+    }
+    const Result<FrameRate> fps = outputFrameRate(settings, project.settings());
+    if (!fps) {
+        return fps.error();
+    }
+    if (const Result<FrameCount> frames =
+            outputFrameCount(project.timeline().duration(), project.settings().frameRate, *fps);
+        !frames) {
+        return frames.error();
     }
     int offline = 0;
     for (const Track& track : project.timeline().tracks()) {

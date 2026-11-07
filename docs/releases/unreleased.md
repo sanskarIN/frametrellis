@@ -16,6 +16,13 @@ their actual tag and packages are verified.
 
 ## Post-v1.4.0 development changes (not in the stable download)
 
+- **Selectable export FPS (development PR):** the Export dialog provides Match project,
+  common integer/NTSC frame rates and a custom FPS entry. The render helper accepts
+  `--fps` with integer, decimal or rational values and uses MLT time remapping to
+  preserve the original timeline and audio speed. MP4 output is verified for
+  resolution, exact frame rate and duration before replacing a destination.
+  This is development-only and is **not** included in v1.4.0 packages.
+
 - **Atomic ripple source insert:** the Source Monitor's **Ripple Insert**
   places a marked video/audio excerpt at the Program playhead on an exact
   or automatic unlocked destination track, shifting all later clips on

@@ -65,9 +65,9 @@ private:
         return p;
     }
 
-    QImage frameOf(const QString& path, int position)
+    QImage frameOf(const QString& path, int position, FrameRate rate = FrameRate::integer(25))
     {
-        auto profile = engine::createProfile(160, 90, *FrameRate::create(25, 1));
+        auto profile = engine::createProfile(160, 90, rate);
         const QByteArray resource = QByteArrayLiteral("avformat:") + path.toUtf8();
         Mlt::Producer producer(*profile, resource.constData());
         return engine::grabFrame(producer, position, QSize(160, 90));
@@ -160,6 +160,73 @@ private slots:
         QVERIFY(isCloseTo(averageColor(frameOf(settings.outputPath, 5)), Qt::green));
         QVERIFY(isCloseTo(averageColor(frameOf(settings.outputPath, 40)), Qt::blue));
         QVERIFY(partFiles().isEmpty());
+    }
+
+    void exportFpsConvertsFramesWithoutSpeedingUpAudioOrChangingProject()
+    {
+        const FrameRate sourceRate = FrameRate::integer(25);
+        const Project original = project(50, sourceRate); // 2 seconds with visible green/blue cuts
+        const Project copy = original;
+        for (const QString& chosen :
+             {QStringLiteral("24"), QStringLiteral("30"), QStringLiteral("30000/1001")}) {
+            ExportSettings settings;
+            settings.outputPath = m_dir.filePath(
+                QStringLiteral("fps-%1.mp4")
+                    .arg(QString(chosen).replace(QLatin1Char('/'), QLatin1Char('-'))));
+            settings.frameRate = chosen;
+            settings.speedPreset = QStringLiteral("ultrafast");
+            const Result<FrameRate> target = outputFrameRate(settings, original.settings());
+            QVERIFY(target);
+            const Result<FrameCount> expected = outputFrameCount(50, sourceRate, *target);
+            QVERIFY(expected);
+            FrameCount reportedTotal = -1;
+            std::atomic<bool> cancel{false};
+            const Status completed =
+                RenderRunner(original, settings).run(cancel, [&](const QString&, FrameCount total) {
+                    reportedTotal = total;
+                });
+            QVERIFY2(completed, qPrintable(completed ? QString() : completed.error().toString()));
+            QCOMPARE(reportedTotal, *expected);
+            const Result<MediaInfo> info = media::probeMedia(settings.outputPath);
+            QVERIFY(info);
+            QCOMPARE(info->frameRate, Rational(target->numerator(), target->denominator()));
+            QVERIFY(info->hasAudio);
+            QVERIFY2(qAbs(info->durationUs - 2'000'000) <= 100'000,
+                     qPrintable(QString::number(info->durationUs)));
+            QVERIFY(isCloseTo(averageColor(frameOf(settings.outputPath, 4, *target)), Qt::green));
+            QVERIFY(isCloseTo(averageColor(frameOf(settings.outputPath,
+                                                   static_cast<int>(*expected) - 4, *target)),
+                              Qt::blue));
+            QVERIFY(partFiles().isEmpty());
+            QCOMPARE(original, copy); // no export setting may change project timebase or clips
+        }
+    }
+
+    void renderHelperReceivesExportFpsAndRejectsInvalidFps()
+    {
+        Project p = project(50);
+        ExportSettings settings;
+        settings.outputPath = m_dir.filePath(QStringLiteral("helper-30fps.mp4"));
+        settings.frameRate = QStringLiteral("30");
+        settings.speedPreset = QStringLiteral("ultrafast");
+        RenderJob job(QStringLiteral(FT_RENDER_HELPER));
+        QSignalSpy finished(&job, &RenderJob::finished);
+        QVERIFY(job.start(p, settings));
+        QVERIFY(finished.wait(60'000));
+        QVERIFY2(job.state() == RenderJob::State::Succeeded,
+                 qPrintable(job.errorMessage() + job.errorDetail()));
+        const Result<MediaInfo> info = media::probeMedia(settings.outputPath);
+        QVERIFY(info);
+        QCOMPARE(info->frameRate, Rational(30, 1));
+        QVERIFY2(qAbs(info->durationUs - 2'000'000) <= 100'000,
+                 qPrintable(QString::number(info->durationUs)));
+        QVERIFY(partFiles().isEmpty());
+
+        settings.outputPath = m_dir.filePath(QStringLiteral("invalid-0fps.mp4"));
+        settings.frameRate = QStringLiteral("0");
+        RenderJob invalid(QStringLiteral(FT_RENDER_HELPER));
+        QVERIFY(!invalid.start(p, settings));
+        QVERIFY(!QFile::exists(settings.outputPath));
     }
 
     void helperExportsBatchAdjustedPictureOnBothVideoTracks()

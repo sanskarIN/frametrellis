@@ -134,6 +134,7 @@ Status RenderJob::start(const Project& project, const ExportSettings& settings,
         QStringLiteral("--crf"),           QString::number(settings.crf),
         QStringLiteral("--preset"),        settings.speedPreset,
         QStringLiteral("--audio-bitrate"), QString::number(settings.audioBitrateKbps),
+        QStringLiteral("--fps"),           settings.frameRate,
         QStringLiteral("--watch-stdin")};
     if (!settings.includeAudio) {
         arguments << QStringLiteral("--no-audio");

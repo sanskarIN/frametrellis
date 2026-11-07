@@ -49,7 +49,8 @@ public:
     [[nodiscard]] QStringList speedPresets() const;
 
     /// settings: presetId, outputPath (path or file URL), crf, speedPreset, audioBitrateKbps,
-    /// includeAudio. Returns an empty string when valid, otherwise a user-facing reason.
+    /// includeAudio, frameRate (match, integer, decimal or rational).
+    /// Returns an empty string when valid, otherwise a user-facing reason.
     Q_INVOKABLE QString validate(const QVariantMap& settings) const;
     Q_INVOKABLE QString describeOutput(const QVariantMap& settings) const;
     Q_INVOKABLE bool start(const QVariantMap& settings);

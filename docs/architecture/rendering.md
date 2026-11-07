@@ -28,18 +28,29 @@ Succeeded, Failed, Cancelled ─► Starting (retry)
 2. Picks the first available encoder from `libx264`, `libopenh264`, `h264_mf`,
    `h264_videotoolbox`, `mpeg4`.
 3. Computes the output canvas, respecting an optional no-upscale policy so a quick 1080p
-   preset does not enlarge a smaller project, then builds the MLT graph at that
-   resolution with offline media treated as an error.
-4. Encodes with MLT's `avformat` consumer to a hidden `.<name>.<token>.part.mp4` next to the
+   preset does not enlarge a smaller project. The timeline graph is always built at the
+   **original project FPS**, preserving clip positions, source trims, keyframes, transitions,
+   audio and subtitles.
+4. When Export FPS differs, a second MLT profile and a `timeremap` link convert the
+   graph by timestamp to the output FPS. The link duplicates or drops picture frames
+   as needed and resamples audio frame boundaries without speeding up or slowing down
+   the edit. Rational NTSC rates (e.g. 30000/1001) remain exact. Progress counts use
+   the output FPS and rounded-up frame count; the project snapshot remains unchanged.
+5. Encodes with MLT's `avformat` consumer to a hidden `.<name>.<token>.part.mp4` next to the
    destination (H.264 `yuv420p` with CRF and speed preset, AAC audio, `+faststart`).
-5. Verifies the result by probing it: it must be a video with the **expected width,
-   height and duration** before the existing destination is changed.
-6. Atomically replaces the destination (`rename` / `MoveFileExW`). An existing file is never
+6. Verifies the result by probing it: it must be a video with the **expected width,
+   height, FPS and original timeline duration** before the existing destination is changed.
+7. Atomically replaces the destination (`rename` / `MoveFileExW`). An existing file is never
    touched unless the export succeeded.
 
 Cancellation: the job writes `cancel` to the helper's stdin (the helper also stops when stdin is
 closed, for example because the editor crashed, and on SIGINT/SIGTERM). The helper stops the
 consumer and deletes the partial file. If it does not exit within the grace period it is killed.
+
+The render helper supports `--fps match` (default), whole-number rates, decimals
+such as `29.97` (normalised to 30000/1001) and exact fractions such as
+`--fps 24000/1001`. Requests outside 1–240 fps fail validation. No output FPS
+change can modify the saved project frame rate.
 
 ## Protocol
 

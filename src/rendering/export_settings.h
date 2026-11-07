@@ -23,6 +23,8 @@ struct ExportSettings
     QString speedPreset = QStringLiteral("medium");
     int audioBitrateKbps = 192;
     bool includeAudio = true;
+    QString frameRate =
+        QStringLiteral("match"); ///< match project or exact fps: 30, 29.97, 30000/1001
 
     friend bool operator==(const ExportSettings&, const ExportSettings&) = default;
 };
@@ -46,6 +48,14 @@ QStringList speedPresets();
 
 /// Output frame size for the settings and project, keeping the aspect ratio and even dimensions.
 QSize outputSize(const ExportSettings& settings, const ProjectSettings& project);
+
+/// Resolves an optional export-only FPS override without editing the project's frame rate.
+/// Accepts an integer, decimal or exact rational, and preserves NTSC rates such as 30000/1001.
+Result<FrameRate> outputFrameRate(const ExportSettings& settings, const ProjectSettings& project);
+
+/// Calculates output frame count from real timeline duration, rounding up the last partial frame.
+Result<FrameCount> outputFrameCount(FrameCount projectFrames, const FrameRate& projectRate,
+                                    const FrameRate& exportRate);
 
 /// Checks everything that can be known before rendering starts: an empty timeline, offline
 /// media, an unsafe or unwritable output path, and out-of-range encoder settings.

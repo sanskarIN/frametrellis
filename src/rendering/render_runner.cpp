@@ -171,23 +171,68 @@ Status RenderRunner::run(const std::atomic<bool>& cancelRequested, const Started
     }
 
     const ProjectSettings& projectSettings = m_project.settings();
+    const Result<FrameRate> selectedRate = outputFrameRate(m_settings, projectSettings);
+    if (!selectedRate) {
+        return selectedRate.error();
+    }
+    const FrameRate& exportRate = *selectedRate;
     const QSize size = outputSize(m_settings, projectSettings);
-    std::unique_ptr<Mlt::Profile> profile =
+    // Build the edit in its original timebase: its clips, fades, keyframes and subtitle
+    // cues must not be reinterpreted as frames at the chosen output rate.
+    std::unique_ptr<Mlt::Profile> projectProfile =
         engine::createProfile(size.width(), size.height(), projectSettings.frameRate);
-    engine::TimelineGraphBuilder builder(*profile);
+    engine::TimelineGraphBuilder builder(*projectProfile);
     engine::GraphOptions options;
     options.placeholdersForMissingMedia = false;
     Result<engine::GraphBuildResult> graph = builder.build(m_project, options);
     if (!graph) {
         return graph.error();
     }
-    const FrameCount total = graph->duration;
+    const FrameCount projectTotal = graph->duration;
+    const Result<FrameCount> outputTotal =
+        outputFrameCount(projectTotal, projectSettings.frameRate, exportRate);
+    if (!outputTotal) {
+        return outputTotal.error();
+    }
+    const FrameCount total = *outputTotal;
     std::unique_ptr<Mlt::Tractor> tractor = std::move(graph->tractor);
+
+    std::unique_ptr<Mlt::Profile> selectedProfile;
+    std::unique_ptr<Mlt::Chain> frameRateChain;
+    std::unique_ptr<Mlt::Link> frameRateLink;
+    Mlt::Profile* encodingProfile = projectProfile.get();
+    Mlt::Producer* encodingProducer = tractor.get();
+    if (exportRate != projectSettings.frameRate) {
+        selectedProfile = engine::createProfile(size.width(), size.height(), exportRate);
+        frameRateChain = std::make_unique<Mlt::Chain>(*selectedProfile);
+        frameRateLink = std::make_unique<Mlt::Link>("timeremap");
+        if (!frameRateChain->is_valid() || !frameRateLink->is_valid()) {
+            return makeError(ErrorCode::Engine,
+                             QStringLiteral("This MLT installation cannot convert export FPS."));
+        }
+
+        // Chain's timeremap link uses output-frame timestamps to fetch the corresponding
+        // source timeline frames, including time-aligned audio. Explicit source-rate
+        // metadata stops MLT from interpreting the original tractor at the output FPS.
+        tractor->set("meta.media.frame_rate_num",
+                     static_cast<int>(projectSettings.frameRate.numerator()));
+        tractor->set("meta.media.frame_rate_den",
+                     static_cast<int>(projectSettings.frameRate.denominator()));
+        frameRateChain->set_source(*tractor);
+        if (frameRateChain->attach(*frameRateLink) != 0) {
+            return makeError(ErrorCode::Engine,
+                             QStringLiteral("Could not prepare export FPS conversion."));
+        }
+        frameRateChain->set("length", static_cast<int>(total));
+        frameRateChain->set_in_and_out(0, static_cast<int>(total - 1));
+        encodingProfile = selectedProfile.get();
+        encodingProducer = frameRateChain.get();
+    }
 
     const QString finalPath = QFileInfo(m_settings.outputPath).absoluteFilePath();
     const QString partPath = temporaryOutputPath(finalPath);
     const QByteArray partEncoded = partPath.toUtf8();
-    Mlt::Consumer consumer(*profile, "avformat", partEncoded.constData());
+    Mlt::Consumer consumer(*encodingProfile, "avformat", partEncoded.constData());
     if (!consumer.is_valid()) {
         return makeError(ErrorCode::Engine,
                          QStringLiteral("The encoder could not be initialised."));
@@ -196,14 +241,14 @@ Status RenderRunner::run(const std::atomic<bool>& cancelRequested, const Started
     consumer.set("vcodec", m_encoder.toUtf8().constData());
     consumer.set("pix_fmt", "yuv420p");
     consumer.set("movflags", "+faststart");
-    consumer.set("g", std::max(1, static_cast<int>(projectSettings.frameRate.toDouble() * 2.0)));
+    consumer.set("g", std::max(1, static_cast<int>(exportRate.toDouble() * 2.0)));
     if (m_encoder == QLatin1String("libx264")) {
         consumer.set("crf", m_settings.crf);
         consumer.set("preset", m_settings.speedPreset.toUtf8().constData());
     } else {
         // Encoders without CRF get a bitrate derived from resolution, frame rate and quality.
-        const double pixelsPerSecond = static_cast<double>(size.width()) * size.height() *
-                                       projectSettings.frameRate.toDouble();
+        const double pixelsPerSecond =
+            static_cast<double>(size.width()) * size.height() * exportRate.toDouble();
         const double bitsPerPixel = std::clamp(0.25 - (m_settings.crf - 18) * 0.012, 0.03, 0.4);
         consumer.set("vb", QStringLiteral("%1k")
                                .arg(static_cast<qint64>(pixelsPerSecond * bitsPerPixel / 1000.0))
@@ -227,9 +272,10 @@ Status RenderRunner::run(const std::atomic<bool>& cancelRequested, const Started
     consumer.set("terminate_on_pause", 1);
     consumer.set("in", 0);
     consumer.set("out", static_cast<int>(total - 1));
-    consumer.connect(*tractor);
+    consumer.connect(*encodingProducer);
     tractor->set_speed(0);
-    tractor->seek(0);
+    encodingProducer->set_speed(0);
+    encodingProducer->seek(0);
 
     qCInfo(lcRender) << "Rendering" << total << "frames to" << finalPath << "with" << m_encoder;
     if (started) {
@@ -240,6 +286,7 @@ Status RenderRunner::run(const std::atomic<bool>& cancelRequested, const Started
         return makeError(ErrorCode::Engine, QStringLiteral("The encoder could not be started."));
     }
     tractor->set_speed(1);
+    encodingProducer->set_speed(1);
 
     bool cancelled = false;
     FrameCount lastReported = -1;
@@ -257,6 +304,8 @@ Status RenderRunner::run(const std::atomic<bool>& cancelRequested, const Started
     }
     consumer.stop();
     consumer.purge();
+    frameRateChain.reset();
+    frameRateLink.reset();
     tractor.reset();
 
     // A cancel request counts until the result replaces anything, even if the encoder finished
@@ -276,33 +325,40 @@ Status RenderRunner::run(const std::atomic<bool>& cancelRequested, const Started
         part.exists() && part.size() > 0
             ? media::probeMedia(partPath)
             : Result<MediaInfo>(makeError(ErrorCode::Io, QStringLiteral("no output")));
-    const auto expectedUs = projectSettings.frameRate.framesToMicroseconds(total).value_or(0);
-    const auto toleranceUs = projectSettings.frameRate.framesToMicroseconds(3).value_or(0) + 50'000;
+    const auto expectedUs =
+        projectSettings.frameRate.framesToMicroseconds(projectTotal).value_or(0);
+    const auto toleranceUs = exportRate.framesToMicroseconds(3).value_or(0) + 50'000;
     // Verify the size as well as the duration. Fast/no-upscale presets must never
     // publish a video with dimensions different from those shown in the dialog.
     const bool expectedSize =
         written && written->width == size.width() && written->height == size.height();
-    if (!written || written->kind != MediaKind::Video || !expectedSize ||
+    const bool expectedRate =
+        written && written->frameRate == Rational(exportRate.numerator(), exportRate.denominator());
+    if (!written || written->kind != MediaKind::Video || !expectedSize || !expectedRate ||
         std::abs(written->durationUs - expectedUs) > toleranceUs) {
         QFile::remove(partPath);
         const QStorageInfo storage(QFileInfo(finalPath).absolutePath());
         const bool diskFull = storage.isValid() && storage.bytesAvailable() >= 0 &&
                               storage.bytesAvailable() < kMinimumFreeBytes;
-        const QString detail = written
-                                   ? QStringLiteral("expected %1x%2 at %3 us, got %4x%5 at %6 us")
-                                         .arg(size.width())
-                                         .arg(size.height())
-                                         .arg(expectedUs)
-                                         .arg(written->width)
-                                         .arg(written->height)
-                                         .arg(written->durationUs)
-                                   : written.error().toString();
+        const QString detail =
+            written ? QStringLiteral(
+                          "expected %1x%2 at %3 fps and %4 us, got %5x%6 at %7 fps and %8 us")
+                          .arg(size.width())
+                          .arg(size.height())
+                          .arg(exportRate.displayName())
+                          .arg(expectedUs)
+                          .arg(written->width)
+                          .arg(written->height)
+                          .arg(written->frameRate.toString())
+                          .arg(written->durationUs)
+                    : written.error().toString();
         qCWarning(lcRender) << "Render verification failed:" << detail;
         return makeError(
             ErrorCode::Io,
-            diskFull ? QStringLiteral("Rendering failed: the disk is full.")
-                     : QStringLiteral(
-                           "Rendering failed: the output dimensions or duration were incorrect."),
+            diskFull
+                ? QStringLiteral("Rendering failed: the disk is full.")
+                : QStringLiteral(
+                      "Rendering failed: the output dimensions, FPS or duration were incorrect."),
             detail);
     }
     if (progress) {

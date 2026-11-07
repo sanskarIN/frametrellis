@@ -425,9 +425,18 @@ bool ProjectController::recoverAutosave()
     document->refreshMediaStatus();
     document->markModified();
     adopt(std::move(document));
-    // Keep a fresh autosave for the recovered state, then remove the old file.
-    QFile::remove(autosaveFile);
-    QFile::remove(autosaveFile + QStringLiteral(".json"));
+    // A recovered document normally retains the same project ID and therefore the
+    // *same* autosave path. Do not delete that file before the user saves: a second
+    // crash immediately after recovery would otherwise lose the only backup.
+    // saveCopy() uses QSaveFile, so an unsuccessful refresh leaves the old copy intact.
+    const QString refreshedPath = autosavePath();
+    autosave();
+    // If a backup was renamed or moved, only remove it once a replacement exists.
+    if (QDir::cleanPath(refreshedPath) != QDir::cleanPath(autosaveFile) &&
+        QFileInfo::exists(refreshedPath)) {
+        QFile::remove(autosaveFile);
+        QFile::remove(autosaveFile + QStringLiteral(".json"));
+    }
     m_recovery.clear();
     emit recoveryChanged();
     emit statusMessage(QStringLiteral("Recovered unsaved work. Save it to keep it."));

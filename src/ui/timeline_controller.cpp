@@ -672,8 +672,8 @@ bool TimelineController::rippleInsertAssetRangeAtPlayhead(const QString& assetId
         m_model.updateSelection(m_selection);
         emit selectionChanged();
         emit selectedClipChanged();
-        emit statusMessage(QStringLiteral("Ripple inserted the source range; timeline markers "
-                                          "and subtitles remain at their original times."));
+        emit statusMessage(QStringLiteral("Ripple inserted the source range with sequence markers "
+                                          "and subtitles in sync."));
         return true;
     }
     emit statusMessage(QStringLiteral("Add an unlocked, compatible destination track first."));

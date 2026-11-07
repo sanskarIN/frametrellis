@@ -697,8 +697,12 @@ If the playhead cuts **through** any existing clip, split it explicitly
 first. Ripple insertion also refuses a locked track with later clips,
 an invalid source range, end-of-timeline overflow or an existing
 transition that would be invalidated by the new cut. **Sequence markers
-and subtitle cues keep their absolute timecodes**; this is a clip-only
-ripple insert, not a full-sequence metadata ripple. It does not insert
+at or after the insertion point move with the clips.** Subtitle cues fully
+at or after the cut also move, with frame-rate-aware millisecond timing.
+Subtitles ending before or at the cut keep their positions; if a subtitle
+spans the insertion point, adjust or split that cue before inserting.
+Markers, subtitles and clips are restored together by one Undo/Redo,
+and failed operations do not change the project. This does not insert
 synchronized picture and audio together: **Place V+A** remains a
 separate, non-rippling operation.
 

@@ -74,6 +74,152 @@ Status shiftTracksForInsertion(Timeline& timeline, FrameCount frame, FrameCount 
     return timeline.validate(sources);
 }
 
+class SequenceRippleInsertCommand final : public EditCommand
+{
+public:
+    SequenceRippleInsertCommand(Id trackId, Clip clip)
+        : m_frame(clip.start)
+        , m_duration(clip.duration)
+        , m_clipEdit(command(
+              QStringLiteral("Ripple Insert Source Range"),
+              [trackId = std::move(trackId), clip = std::move(clip)](
+                  Timeline& timeline, const SourceLookup& sources) -> Status {
+                  if (const Status gap = shiftTracksForInsertion(
+                          timeline, clip.start, clip.duration, sources, false);
+                      !gap) {
+                      return gap;
+                  }
+                  return timeline.insertClip(trackId, clip, sources);
+              }))
+    {}
+
+    [[nodiscard]] QString text() const override
+    {
+        return QStringLiteral("Ripple Insert Source Range");
+    }
+
+    Result<ChangeSet> redo(Project& project) override
+    {
+        if (m_applied) {
+            Result<ChangeSet> changes = m_clipEdit->redo(project);
+            if (!changes) {
+                return changes.error();
+            }
+            (void)project.setMarkers(m_afterMarkers);
+            (void)project.setSubtitles(m_afterSubtitles);
+            changes->markers = m_markersChanged;
+            changes->subtitles = m_subtitlesChanged;
+            return changes;
+        }
+
+        // Validate the complete sequence on a copy before changing the document or history.
+        Project working = project;
+        Result<ChangeSet> changes = m_clipEdit->redo(working);
+        if (!changes) {
+            return changes.error();
+        }
+
+        auto markers = working.markers();
+        for (TimelineMarker& marker : markers) {
+            if (marker.frame < m_frame) {
+                continue;
+            }
+            if (marker.frame > kMaxTimelineFrames - m_duration) {
+                return makeError(ErrorCode::OutOfRange,
+                                 QStringLiteral("Ripple insertion would move a marker past "
+                                                "the timeline limit."));
+            }
+            marker.frame += m_duration;
+        }
+
+        SubtitleTrack subtitles = working.subtitles();
+        const FrameRate& rate = working.settings().frameRate;
+        const auto cutMs = subtitleMillisecondsAtFrame(m_frame, rate);
+        if (!cutMs) {
+            return makeError(ErrorCode::OutOfRange,
+                             QStringLiteral("The insertion time cannot be represented."));
+        }
+        const auto shiftedTime = [this, &rate](std::int64_t original)
+            -> std::optional<std::int64_t> {
+            const auto frame = subtitleFrameAtMilliseconds(original, rate);
+            if (!frame || *frame > kMaxTimelineFrames - m_duration) {
+                return std::nullopt;
+            }
+            const auto before = subtitleMillisecondsAtFrame(*frame, rate);
+            const auto after = subtitleMillisecondsAtFrame(*frame + m_duration, rate);
+            if (!before || !after || *after < *before ||
+                original > kMaxSubtitleTimeMs - (*after - *before)) {
+                return std::nullopt;
+            }
+            // Preserve each cue's sub-frame millisecond offset. Rational frame
+            // timestamps avoid repeatedly truncating a nominal frame duration.
+            return original + (*after - *before);
+        };
+        for (SubtitleCue& cue : subtitles.cues) {
+            if (cue.startMs < *cutMs && cue.endMs > *cutMs) {
+                return makeError(ErrorCode::Conflict,
+                                 QStringLiteral("Split or adjust the subtitle crossing "
+                                                "the insertion point first."));
+            }
+            if (cue.startMs < *cutMs) {
+                continue;
+            }
+            const auto start = shiftedTime(cue.startMs);
+            const auto end = shiftedTime(cue.endMs);
+            if (!start || !end) {
+                return makeError(ErrorCode::OutOfRange,
+                                 QStringLiteral("Ripple insertion would move subtitles "
+                                                "beyond the supported time range."));
+            }
+            cue.startMs = *start;
+            cue.endMs = *end;
+        }
+        if (const Status checked = working.setMarkers(std::move(markers)); !checked) {
+            return checked.error();
+        }
+        if (const Status checked = working.setSubtitles(std::move(subtitles)); !checked) {
+            return checked.error();
+        }
+        if (const Status checked = working.validate(); !checked) {
+            return checked.error();
+        }
+
+        m_beforeMarkers = project.markers();
+        m_beforeSubtitles = project.subtitles();
+        m_afterMarkers = working.markers();
+        m_afterSubtitles = working.subtitles();
+        m_markersChanged = m_beforeMarkers != m_afterMarkers;
+        m_subtitlesChanged = m_beforeSubtitles != m_afterSubtitles;
+        project = std::move(working);
+        m_applied = true;
+        changes->markers = m_markersChanged;
+        changes->subtitles = m_subtitlesChanged;
+        return changes;
+    }
+
+    ChangeSet undo(Project& project) override
+    {
+        ChangeSet changes = m_clipEdit->undo(project);
+        (void)project.setMarkers(m_beforeMarkers);
+        (void)project.setSubtitles(m_beforeSubtitles);
+        changes.markers = m_markersChanged;
+        changes.subtitles = m_subtitlesChanged;
+        return changes;
+    }
+
+private:
+    FrameCount m_frame;
+    FrameCount m_duration;
+    std::unique_ptr<EditCommand> m_clipEdit;
+    std::vector<TimelineMarker> m_beforeMarkers;
+    std::vector<TimelineMarker> m_afterMarkers;
+    SubtitleTrack m_beforeSubtitles;
+    SubtitleTrack m_afterSubtitles;
+    bool m_applied = false;
+    bool m_markersChanged = false;
+    bool m_subtitlesChanged = false;
+};
+
 } // namespace
 
 std::unique_ptr<EditCommand> addTrack(TrackKind kind, const QString& name, int index,
@@ -390,17 +536,7 @@ std::unique_ptr<EditCommand> insertGap(FrameCount frame, FrameCount duration)
 
 std::unique_ptr<EditCommand> rippleInsertSourceClip(const Id& trackId, const Clip& clip)
 {
-    return command(QStringLiteral("Ripple Insert Source Range"),
-                   [trackId, clip](Timeline& timeline, const SourceLookup& sources) -> Status {
-                       // The new source clip and all later shifted clips are committed as
-                       // one undo step, or none are committed if any validation fails.
-                       if (const Status gap = shiftTracksForInsertion(
-                               timeline, clip.start, clip.duration, sources, false);
-                           !gap) {
-                           return gap;
-                       }
-                       return timeline.insertClip(trackId, clip, sources);
-                   });
+    return std::make_unique<SequenceRippleInsertCommand>(trackId, clip);
 }
 
 std::unique_ptr<EditCommand> removeEmptyTime(FrameCount frame, FrameCount duration)

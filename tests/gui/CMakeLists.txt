@@ -17,3 +17,11 @@ set_tests_properties(tst_timeline_model PROPERTIES TIMEOUT 60)
 # A recovered unsaved edit must survive another crash before the user saves it.
 ft_add_test(tst_recovery SOURCES tst_recovery.cpp LIBS ft_ui LABELS gui)
 set_tests_properties(tst_recovery PROPERTIES TIMEOUT 60)
+
+# Protect unsaved timeline edits before starting a potentially long export.
+ft_add_test(tst_export_autosave SOURCES tst_export_autosave.cpp
+    LIBS ft_ui ft_test_fixtures LABELS gui)
+target_compile_definitions(tst_export_autosave PRIVATE
+    FT_RENDER_HELPER="$<TARGET_FILE:frametrellis-render>")
+add_dependencies(tst_export_autosave frametrellis-render)
+set_tests_properties(tst_export_autosave PROPERTIES TIMEOUT 120)

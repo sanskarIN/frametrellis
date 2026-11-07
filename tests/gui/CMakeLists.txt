@@ -13,3 +13,7 @@ set_tests_properties(tst_subtitle_controller PROPERTIES TIMEOUT 60)
 # Regression: large timeline updates must not invalidate unchanged clip delegates.
 ft_add_test(tst_timeline_model SOURCES tst_timeline_model.cpp LIBS ft_ui LABELS gui)
 set_tests_properties(tst_timeline_model PROPERTIES TIMEOUT 60)
+
+# A recovered unsaved edit must survive another crash before the user saves it.
+ft_add_test(tst_recovery SOURCES tst_recovery.cpp LIBS ft_ui LABELS gui)
+set_tests_properties(tst_recovery PROPERTIES TIMEOUT 60)

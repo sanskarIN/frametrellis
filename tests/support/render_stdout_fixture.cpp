@@ -11,8 +11,7 @@ int main()
     const std::string flood(2 * 1024 * 1024, 'x');
     std::fwrite(flood.data(), 1, flood.size(), stdout);
     std::fputc('\n', stdout);
-    std::fputs("@ft {\"event\":\"started\",\"encoder\":\"flood-fixture\",\"total\":100}\n",
-               stdout);
+    std::fputs("@ft {\"event\":\"started\",\"encoder\":\"flood-fixture\",\"total\":100}\n", stdout);
     std::fflush(stdout);
     return 43;
 }

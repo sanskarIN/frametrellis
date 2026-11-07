@@ -333,6 +333,34 @@ private slots:
         QVERIFY(!protocol::decode("@ft {not json"));
     }
 
+    void protocolRejectsInvalidFrameCounts()
+    {
+        const auto zero = protocol::frameCount(QJsonValue(0));
+        QVERIFY(zero);
+        QCOMPARE(*zero, FrameCount{0});
+        const auto max = protocol::frameCount(QJsonValue(1'000'000'000.0));
+        QVERIFY(max);
+        QCOMPARE(*max, kMaxTimelineFrames);
+
+        // JSON numbers can be much larger than int64. Casting them directly to a
+        // frame counter is undefined behavior, even when the JSON itself is valid.
+        QVERIFY(!protocol::frameCount(QJsonValue(1e300)));
+        QVERIFY(!protocol::frameCount(QJsonValue(1'000'000'001.0)));
+        QVERIFY(!protocol::frameCount(QJsonValue(-1)));
+        QVERIFY(!protocol::frameCount(QJsonValue(12.5)));
+        QVERIFY(!protocol::frameCount(QJsonValue(QStringLiteral("12"))));
+        QVERIFY(!protocol::frameCount(QJsonValue(true)));
+        QVERIFY(!protocol::frameCount(QJsonValue()));
+
+        const auto valid = protocol::decode(
+            protocol::encode({{QStringLiteral("event"), QStringLiteral("progress")},
+                              {QStringLiteral("frame"), 12},
+                              {QStringLiteral("total"), 100}}));
+        QVERIFY(valid);
+        QCOMPARE(*protocol::frameCount(valid->value(QStringLiteral("frame"))), FrameCount{12});
+        QCOMPARE(*protocol::frameCount(valid->value(QStringLiteral("total"))), FrameCount{100});
+    }
+
     void protocolRejectsOversizedEvents()
     {
         const QByteArray normal = protocol::encode(

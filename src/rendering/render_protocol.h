@@ -2,8 +2,11 @@
 // SPDX-FileCopyrightText: 2026 Sanskar and FrameTrellis contributors
 #pragma once
 
+#include "core/framerate.h"
+
 #include <QByteArray>
 #include <QJsonObject>
+#include <QJsonValue>
 
 #include <optional>
 #include <string>
@@ -27,6 +30,11 @@ inline constexpr qsizetype kMaxEventBytes = qsizetype{64} * 1024;
 
 QByteArray encode(const QJsonObject& event);
 std::optional<QJsonObject> decode(const QByteArray& line);
+
+/// Validate a numeric frame count from helper JSON before converting double to int64.
+/// Rejects non-integral, negative or out-of-timeline-range numbers (including 1e300).
+/// Prevents undefined behavior on corrupted child-process progress messages.
+std::optional<FrameCount> frameCount(const QJsonValue& value);
 
 /// Incrementally parses the helper's stdin command channel. Only a complete "cancel" line
 /// (LF or CRLF) is accepted. Other input and arbitrarily long lines are safely discarded.

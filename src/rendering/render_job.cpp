@@ -257,18 +257,25 @@ void RenderJob::handleEvent(const QJsonObject& event)
 {
     const QString type = event.value(QLatin1String("event")).toString();
     if (type == QLatin1String("started")) {
+        const auto total = protocol::frameCount(event.value(QLatin1String("total")));
+        if (!total || *total == 0) {
+            qCWarning(lcRender) << "Ignored invalid renderer started frame count";
+            return;
+        }
         m_encoder = event.value(QLatin1String("encoder")).toString();
-        m_totalFrames = static_cast<FrameCount>(
-            event.value(QLatin1String("total")).toDouble(double(m_totalFrames)));
+        m_totalFrames = *total;
         qCInfo(lcRender) << "Render helper started with encoder" << m_encoder << "and"
                          << m_totalFrames << "output frames";
         emit progressChanged();
     } else if (type == QLatin1String("progress")) {
-        m_framesDone = static_cast<FrameCount>(event.value(QLatin1String("frame")).toDouble());
-        const auto total = static_cast<FrameCount>(event.value(QLatin1String("total")).toDouble());
-        if (total > 0) {
-            m_totalFrames = total;
+        const auto frame = protocol::frameCount(event.value(QLatin1String("frame")));
+        const auto total = protocol::frameCount(event.value(QLatin1String("total")));
+        if (!frame || !total || *total == 0 || *frame > *total) {
+            qCWarning(lcRender) << "Ignored invalid renderer progress counts";
+            return;
         }
+        m_framesDone = *frame;
+        m_totalFrames = *total;
         // Keep the last known export position in the editor's persistent log.
         // A sudden Windows process termination cannot run Qt shutdown handlers,
         // but the next startup can still correlate its timestamp with this marker.

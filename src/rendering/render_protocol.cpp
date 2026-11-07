@@ -2,7 +2,11 @@
 // SPDX-FileCopyrightText: 2026 Sanskar and FrameTrellis contributors
 #include "rendering/render_protocol.h"
 
+#include "timeline/timeline.h"
+
 #include <QJsonDocument>
+
+#include <cmath>
 
 namespace ft::rendering::protocol {
 
@@ -32,6 +36,21 @@ std::optional<QJsonObject> decode(const QByteArray& line)
         return std::nullopt;
     }
     return object;
+}
+
+std::optional<FrameCount> frameCount(const QJsonValue& value)
+{
+    if (!value.isDouble()) {
+        return std::nullopt;
+    }
+    const double number = value.toDouble();
+    // An unchecked double-to-int64 conversion outside representable bounds is UB.
+    // Restrict it to values the FrameTrellis timeline can actually represent.
+    if (!std::isfinite(number) || number < 0.0 ||
+        number > static_cast<double>(kMaxTimelineFrames) || std::trunc(number) != number) {
+        return std::nullopt;
+    }
+    return static_cast<FrameCount>(number);
 }
 
 bool CancelCommandReader::ingest(std::string_view bytes)

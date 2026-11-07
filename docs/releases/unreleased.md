@@ -23,8 +23,12 @@ their actual tag and packages are verified.
   placement works without later clips. Cuts through clips, locked affected
   tracks, incompatible/offline sources, overflow and invalidated transitions
   reject the entire edit. Existing clip IDs, trims, properties and transitions
-  are retained; markers and subtitles deliberately stay at absolute times.
-  This is not a linked V+A ripple or a destructive overwrite.
+  are retained. The sequence-aware addition in [#171](https://github.com/sanskarIN/frametrellis/pull/171)
+  also shifts markers at/after the cut and eligible subtitle cues at rational
+  frame-rate boundaries in the same undo step. Subtitles spanning the cut must
+  be adjusted or split before insertion; marker and subtitle time overflow is
+  rejected without a partial edit. This is not a linked V+A ripple or a
+  destructive overwrite.
 
 - **Match Source Monitor excerpt to selected clip length:** one click sets
   exclusive Out to the selected timeline clip's duration after the existing

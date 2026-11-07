@@ -29,6 +29,19 @@ the **editor process**, not just the output MP4.
 5. Note whether the system ran out of memory or disk space. To isolate a failing source clip,
    first try an export of a **short duplicate project** using non-sensitive test media.
 
+## Partial MP4 files after an interrupted export
+
+A render job now gives its helper a unique, randomly generated temporary-output token.
+If **only the renderer** stops or is cancelled while the editor remains running, the
+editor can remove that job's specific `.part.mp4` after the child process exits. It must
+not remove similarly named files belonging to other exports or other editor instances.
+
+If **the whole editor process also crashes**, it cannot run cleanup code. A stale hidden
+`.part.mp4` may still exist in the destination folder and is **not** a successfully
+verified output. The program must not automatically delete an unfamiliar partial MP4
+when it launches; first preserve the project backup and verify file ownership before
+manually cleaning up abandoned files.
+
 ## Minimal regression procedure
 
 - Use a disposable 25 fps project with a short picture and audio track.

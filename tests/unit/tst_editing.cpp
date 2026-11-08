@@ -65,6 +65,59 @@ class EditingTest : public QObject
     Q_OBJECT
 
 private slots:
+    void batchStereoBalanceIsAtomicUndoableAndRejectsLockedOrNonStereoClips()
+    {
+        Fixture f;
+        MediaAsset stereo = videoAsset(QStringLiteral("stereo"),
+                                       QStringLiteral("/media/stereo.mp4"));
+        stereo.info.audioChannels = 2;
+        QVERIFY(f.doc.execute(std::make_unique<AddMediaCommand>(
+            std::vector<MediaAsset>{stereo})));
+
+        Clip a = clipOf(stereo.id, 0, 50, QStringLiteral("balance-a"));
+        Clip b = clipOf(stereo.id, 90, 40, QStringLiteral("balance-b"));
+        a.properties.gain = 0.65;
+        b.properties.fadeIn = 4;
+        QVERIFY(f.doc.execute(edits::addClip(f.a1, a)));
+        QVERIFY(f.doc.execute(edits::addClip(f.a1, b)));
+        const Project before = f.doc.project();
+        const QList<Id> ids{a.id, b.id};
+
+        QVERIFY(f.doc.execute(edits::setClipBalances(ids, -0.5)));
+        QCOMPARE(f.doc.undoText(), QStringLiteral("Set Selected Stereo Balance"));
+        const Project changed = f.doc.project();
+        QCOMPARE(changed.timeline().clip(a.id)->properties.balance, -0.5);
+        QCOMPARE(changed.timeline().clip(b.id)->properties.balance, -0.5);
+        QCOMPARE(changed.timeline().clip(a.id)->properties.gain, 0.65);
+        QCOMPARE(changed.timeline().clip(b.id)->properties.fadeIn, FrameCount{4});
+        QVERIFY(f.doc.undo());
+        QCOMPARE(f.doc.project(), before);
+        QVERIFY(f.doc.redo());
+        QCOMPARE(f.doc.project(), changed);
+
+        const QString undoBefore = f.doc.undoText();
+        QVERIFY(!f.doc.execute(edits::setClipBalances({a.id, a.id}, 1.0)));
+        QVERIFY(!f.doc.execute(edits::setClipBalances(ids, 2.0)));
+        QVERIFY(!f.doc.execute(edits::setClipBalances({a.id, QStringLiteral("missing")}, 0.0)));
+        QVERIFY(!f.doc.execute(edits::setClipBalances(ids, -0.5)));
+        QCOMPARE(f.doc.project(), changed);
+        QCOMPARE(f.doc.undoText(), undoBefore);
+
+        QVERIFY(f.doc.execute(edits::setTrackLocked(f.a1, true)));
+        const Project locked = f.doc.project();
+        QVERIFY(!f.doc.execute(edits::setClipBalances(ids, 1.0)));
+        QCOMPARE(f.doc.project(), locked);
+        QVERIFY(f.doc.undo()); // unlock
+        QCOMPARE(f.doc.project(), changed);
+
+        // The existing fixture's video asset has unknown audio channel count, not stereo.
+        Clip unknown = clipOf(QStringLiteral("m1"), 170, 25, QStringLiteral("nonstereo"));
+        QVERIFY(f.doc.execute(edits::addClip(f.a1, unknown)));
+        const Project mixed = f.doc.project();
+        QVERIFY(!f.doc.execute(edits::setClipBalances({a.id, unknown.id}, 0.5)));
+        QCOMPARE(f.doc.project(), mixed);
+    }
+
     void replaceClipSourceIsOneAtomicUndoableCommand()
     {
         Fixture f;

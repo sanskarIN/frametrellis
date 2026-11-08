@@ -121,18 +121,16 @@ Result<ExportFrameBounds> resolveExportFrameBounds(const ExportSettings& setting
                                                    const FrameRate& exportRate)
 {
     const FrameCount start = settings.rangeStartFrame;
-    const FrameCount end =
-        settings.rangeEndFrame == -1 ? timelineFrames : settings.rangeEndFrame;
-    if (timelineFrames <= 0 || timelineFrames > kMaxTimelineFrames || start < 0 ||
-        end <= start || end > timelineFrames) {
+    const FrameCount end = settings.rangeEndFrame == -1 ? timelineFrames : settings.rangeEndFrame;
+    if (timelineFrames <= 0 || timelineFrames > kMaxTimelineFrames || start < 0 || end <= start ||
+        end > timelineFrames) {
         return makeError(
             ErrorCode::OutOfRange,
             QStringLiteral("Export range must have a start and a later exclusive end inside "
                            "the timeline (in project frames)."));
     }
-    const auto outStart = start == 0
-                              ? Result<FrameCount>(FrameCount{0})
-                              : outputFrameCount(start, projectRate, exportRate);
+    const auto outStart = start == 0 ? Result<FrameCount>(FrameCount{0})
+                                     : outputFrameCount(start, projectRate, exportRate);
     const auto outEnd = outputFrameCount(end, projectRate, exportRate);
     if (!outStart) {
         return outStart.error();
@@ -179,9 +177,8 @@ Status validateExport(const ExportSettings& settings, const Project& project,
         !frames) {
         return frames.error();
     }
-    if (const auto bounds =
-            resolveExportFrameBounds(settings, project.timeline().duration(),
-                                     project.settings().frameRate, *fps);
+    if (const auto bounds = resolveExportFrameBounds(settings, project.timeline().duration(),
+                                                     project.settings().frameRate, *fps);
         !bounds) {
         return bounds.error();
     }

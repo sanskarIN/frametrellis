@@ -201,12 +201,17 @@ Status RenderRunner::run(const std::atomic<bool>& cancelRequested, const Started
         return makeError(ErrorCode::Cancelled, QStringLiteral("The export was cancelled."));
     }
     const FrameCount projectTotal = graph->duration;
-    const Result<FrameCount> outputTotal =
+    const Result<FrameCount> fullOutputTotal =
         outputFrameCount(projectTotal, projectSettings.frameRate, exportRate);
-    if (!outputTotal) {
-        return outputTotal.error();
+    if (!fullOutputTotal) {
+        return fullOutputTotal.error();
     }
-    const FrameCount total = *outputTotal;
+    const auto bounds = resolveExportFrameBounds(m_settings, projectTotal,
+                                                projectSettings.frameRate, exportRate);
+    if (!bounds) {
+        return bounds.error();
+    }
+    const FrameCount total = bounds->outputLength();
     std::unique_ptr<Mlt::Tractor> tractor = std::move(graph->tractor);
 
     std::unique_ptr<Mlt::Profile> selectedProfile;
@@ -235,8 +240,10 @@ Status RenderRunner::run(const std::atomic<bool>& cancelRequested, const Started
             return makeError(ErrorCode::Engine,
                              QStringLiteral("Could not prepare export FPS conversion."));
         }
-        frameRateChain->set("length", static_cast<int>(total));
-        frameRateChain->set_in_and_out(0, static_cast<int>(total - 1));
+        // Keep absolute output-frame positions: timeremap must fetch the same
+        // source-time samples for a partial export as for the full sequence.
+        frameRateChain->set("length", static_cast<int>(*fullOutputTotal));
+        frameRateChain->set_in_and_out(0, static_cast<int>(*fullOutputTotal - 1));
         encodingProfile = selectedProfile.get();
         encodingProducer = frameRateChain.get();
     }
@@ -296,14 +303,15 @@ Status RenderRunner::run(const std::atomic<bool>& cancelRequested, const Started
     consumer->set("real_time", 0);
     consumer->set("threads", 0);
     consumer->set("terminate_on_pause", 1);
-    consumer->set("in", 0);
-    consumer->set("out", static_cast<int>(total - 1));
+    consumer->set("in", static_cast<int>(bounds->outputStart));
+    consumer->set("out", static_cast<int>(bounds->outputEnd - 1));
     consumer->connect(*encodingProducer);
     tractor->set_speed(0);
     encodingProducer->set_speed(0);
-    encodingProducer->seek(0);
+    encodingProducer->seek(static_cast<int>(bounds->outputStart));
 
-    qCInfo(lcRender) << "Rendering" << total << "frames to" << finalPath << "with" << m_encoder;
+    qCInfo(lcRender) << "Rendering" << total << "frames from" << bounds->projectStart
+                     << "to" << bounds->projectEnd << "to" << finalPath << "with" << m_encoder;
     if (started) {
         started(m_encoder, total);
     }
@@ -332,7 +340,8 @@ Status RenderRunner::run(const std::atomic<bool>& cancelRequested, const Started
             break;
         }
         QThread::msleep(100);
-        const FrameCount position = std::clamp<FrameCount>(consumer->position(), 0, total);
+        const FrameCount position =
+            std::clamp<FrameCount>(consumer->position() - bounds->outputStart, 0, total);
         if (progress && position != lastReported) {
             lastReported = position;
             progress(Progress{position, total});
@@ -363,7 +372,7 @@ Status RenderRunner::run(const std::atomic<bool>& cancelRequested, const Started
             ? media::probeMedia(partPath)
             : Result<MediaInfo>(makeError(ErrorCode::Io, QStringLiteral("no output")));
     const auto expectedUs =
-        projectSettings.frameRate.framesToMicroseconds(projectTotal).value_or(0);
+        projectSettings.frameRate.framesToMicroseconds(bounds->projectLength()).value_or(0);
     const auto toleranceUs = exportRate.framesToMicroseconds(3).value_or(0) + 50'000;
     // Verify the size as well as the duration. Fast/no-upscale presets must never
     // publish a video with dimensions different from those shown in the dialog.

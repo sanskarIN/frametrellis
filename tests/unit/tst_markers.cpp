@@ -20,7 +20,7 @@ private slots:
     {
         ProjectDocument document(Project::createNew(QStringLiteral("Bulk markers"), {}));
         QVERIFY(document.execute(
-            edits::addMarker({QStringLiteral("original"), 15, QStringLiteral("Keep") })));
+            edits::addMarker({QStringLiteral("original"), 15, QStringLiteral("Keep")})));
         const Project initial = document.project();
         const std::vector<TimelineMarker> incoming{
             {QStringLiteral("chapter0"), 0, QStringLiteral("Opening")},

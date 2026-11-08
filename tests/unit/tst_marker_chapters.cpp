@@ -41,6 +41,45 @@ class MarkerChaptersTest : public QObject
     Q_OBJECT
 
 private slots:
+    void importsTimestampedChaptersAtExactRationalFrames()
+    {
+        Project project = makeTimedProject(*FrameRate::create(30000, 1001));
+        const Project original = project;
+        const auto result = chapters::fromText(
+            project, QStringLiteral("00:00 Opening\n0:01 First shot\n00:00:02 रंग सुधार\n"));
+        QVERIFY2(result, qPrintable(result ? QString() : result.error().toString()));
+        QCOMPARE(result->size(), size_t{3});
+        QCOMPARE(result->at(0).frame, FrameCount{0});
+        QCOMPARE(result->at(1).frame, FrameCount{30});
+        QCOMPARE(result->at(2).frame, FrameCount{60});
+        QCOMPARE(result->at(2).label, QString::fromUtf8("रंग सुधार"));
+        QCOMPARE(project, original);
+    }
+
+    void rejectsUnsafeChapterListsWithoutChangingProject()
+    {
+        Project project = makeTimedProject();
+        const Project original = project;
+        for (const QString& text :
+             {QStringLiteral(""),
+              QStringLiteral("00:01 Missing opening chapter"),
+              QStringLiteral("00:00 Opening\n00:00 Duplicate time"),
+              QStringLiteral("00:00 Opening\n00:09 Final\n00:02 Out of order"),
+              QStringLiteral("00:00 Opening\n00:10 At exclusive end"),
+              QStringLiteral("00:00 Opening\n00:99 Bad seconds"),
+              QStringLiteral("00:00 Opening\nnot a chapter"),
+              QStringLiteral("00:00 ") + QString(121, QLatin1Char('x'))}) {
+            const auto result = chapters::fromText(project, text);
+            QVERIFY2(!result, qPrintable(text));
+            QCOMPARE(project, original);
+        }
+        QVERIFY(!chapters::fromText(project, QString(150'000, QLatin1Char('x'))));
+        QVERIFY(project.setMarkers({{QStringLiteral("existing"), 0, QStringLiteral("Start")}}));
+        const Project withExistingMarker = project;
+        QVERIFY(!chapters::fromText(project, QStringLiteral("00:00 Duplicate existing\n")));
+        QCOMPARE(project, withExistingMarker);
+    }
+
     void requiresOpeningChapter()
     {
         Project project = Project::createNew(QStringLiteral("Chapters"), {});

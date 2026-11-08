@@ -105,6 +105,62 @@ private slots:
         QVERIFY(validateExport(settings, project));
     }
 
+    void rangeBoundsPreserveProjectFramesAndExactOutputFps()
+    {
+        const FrameRate projectRate = FrameRate::integer(25);
+        const FrameRate outputRate = *FrameRate::create(24000, 1001);
+        ExportSettings settings = settingsFor(QStringLiteral("range.mp4"));
+        const auto full = resolveExportFrameBounds(settings, 50, projectRate, projectRate);
+        QVERIFY(full);
+        QCOMPARE(full->projectStart, FrameCount{0});
+        QCOMPARE(full->projectEnd, FrameCount{50});
+        QCOMPARE(full->outputStart, FrameCount{0});
+        QCOMPARE(full->outputEnd, FrameCount{50});
+        QCOMPARE(full->outputLength(), FrameCount{50});
+
+        settings.rangeStartFrame = 25;
+        settings.rangeEndFrame = 45;
+        const auto native = resolveExportFrameBounds(settings, 50, projectRate, projectRate);
+        QVERIFY(native);
+        QCOMPARE(native->outputStart, FrameCount{25});
+        QCOMPARE(native->outputEnd, FrameCount{45});
+        QCOMPARE(native->outputLength(), FrameCount{20});
+        QCOMPARE(native->projectLength(), FrameCount{20});
+
+        const auto ntsc = resolveExportFrameBounds(settings, 50, projectRate, outputRate);
+        QVERIFY(ntsc);
+        QCOMPARE(ntsc->outputStart, FrameCount{24}); // ceil(25 * 24000 / 25025)
+        QCOMPARE(ntsc->outputEnd, FrameCount{44});   // ceil(45 * 24000 / 25025)
+        QCOMPARE(ntsc->outputLength(), FrameCount{20});
+
+        settings.rangeEndFrame = -1;
+        const auto toEnd = resolveExportFrameBounds(settings, 50, projectRate, projectRate);
+        QVERIFY(toEnd);
+        QCOMPARE(toEnd->projectEnd, FrameCount{50});
+        QCOMPARE(toEnd->outputLength(), FrameCount{25});
+    }
+
+    void rejectsInvalidOrSubFrameExportRangesWithoutMutatingProject()
+    {
+        const Project project = projectWithClip();
+        ExportSettings settings = settingsFor(QStringLiteral("range-invalid.mp4"));
+        const Project original = project;
+        for (const auto [start, end] :
+             {std::pair<FrameCount, FrameCount>{-1, -1}, {-2, 20}, {60, 60},
+              {60, 61}, {30, 29}, {0, 0}, {0, 61}, {0, -2}, {2, -4}}) {
+            settings.rangeStartFrame = start;
+            settings.rangeEndFrame = end;
+            QVERIFY2(!validateExport(settings, project),
+                     qPrintable(QStringLiteral("%1..%2").arg(start).arg(end)));
+        }
+        const FrameRate sourceRate = FrameRate::integer(240);
+        const FrameRate slowRate = FrameRate::integer(1);
+        settings.rangeStartFrame = 1;
+        settings.rangeEndFrame = 2;
+        QVERIFY(!resolveExportFrameBounds(settings, 240, sourceRate, slowRate));
+        QCOMPARE(project, original);
+    }
+
     void rejectsUnsafeOrInvalidSettings_data()
     {
         QTest::addColumn<QString>("output");

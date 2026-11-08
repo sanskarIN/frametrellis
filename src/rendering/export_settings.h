@@ -24,7 +24,7 @@ struct ExportSettings
     int audioBitrateKbps = 192;
     bool includeAudio = true;
     QString frameRate =
-        QStringLiteral("match"); ///< match project or exact fps: 30, 29.97, 30000/1001
+        QStringLiteral("match");    ///< match project or exact fps: 30, 29.97, 30000/1001
     FrameCount rangeStartFrame = 0; ///< project frames, inclusive
     FrameCount rangeEndFrame = -1;  ///< project frames, exclusive; -1 means timeline end
 

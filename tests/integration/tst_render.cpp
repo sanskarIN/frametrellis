@@ -128,6 +128,49 @@ private slots:
         QVERIFY(!availableVideoEncoders().isEmpty());
     }
 
+    void preCancelledRunPreservesPreviousExportWithoutStartingEncoder()
+    {
+        ExportSettings settings;
+        settings.outputPath = m_dir.filePath(QStringLiteral("pre-cancel-existing.mp4"));
+        settings.speedPreset = QStringLiteral("ultrafast");
+        const QByteArray previous = QByteArrayLiteral("previous successful output");
+        QFile output(settings.outputPath);
+        QVERIFY(output.open(QIODevice::WriteOnly));
+        QCOMPARE(output.write(previous), static_cast<qint64>(previous.size()));
+        output.close();
+
+        const std::atomic<bool> cancel{true};
+        bool started = false;
+        const Status result = RenderRunner(project(25), settings)
+                                  .run(cancel, [&](const QString&, FrameCount) { started = true; });
+        QVERIFY(!result);
+        QCOMPARE(result.error().code, ErrorCode::Cancelled);
+        QVERIFY(!started);
+        QVERIFY(output.open(QIODevice::ReadOnly));
+        QCOMPARE(output.readAll(), previous);
+        output.close();
+        QVERIFY(partFiles().isEmpty());
+    }
+
+    void cancellationFromStartedCallbackLeavesNoPublishedOrPartialFile()
+    {
+        ExportSettings settings;
+        settings.outputPath = m_dir.filePath(QStringLiteral("callback-cancel.mp4"));
+        settings.speedPreset = QStringLiteral("ultrafast");
+        std::atomic<bool> cancel{false};
+        int startedCount = 0;
+        const Status result = RenderRunner(project(25), settings)
+                                  .run(cancel, [&](const QString&, FrameCount) {
+                                      ++startedCount;
+                                      cancel.store(true);
+                                  });
+        QVERIFY(!result);
+        QCOMPARE(result.error().code, ErrorCode::Cancelled);
+        QCOMPARE(startedCount, 1);
+        QVERIFY(!QFile::exists(settings.outputPath));
+        QVERIFY(partFiles().isEmpty());
+    }
+
     void rendersTheTimeline()
     {
         ExportSettings settings;

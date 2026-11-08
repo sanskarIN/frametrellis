@@ -138,7 +138,14 @@ Status RenderJob::start(const Project& project, const ExportSettings& settings,
         QDir(outputInfo.absolutePath())
             .filePath(QStringLiteral(".%1.%2.part.mp4").arg(outputInfo.completeBaseName(), token));
     m_framesDone = 0;
-    m_totalFrames = project.timeline().duration();
+    const auto outputRate = outputFrameRate(settings, project.settings());
+    const auto bounds = outputRate
+                            ? resolveExportFrameBounds(settings, project.timeline().duration(),
+                                                       project.settings().frameRate, *outputRate)
+                            : Result<ExportFrameBounds>(
+                                  makeError(ErrorCode::OutOfRange,
+                                            QStringLiteral("Invalid export frame rate.")));
+    m_totalFrames = bounds ? bounds->outputLength() : 0;
     m_lastLoggedProgressBucket = -1;
     m_encoder.clear();
     m_errorMessage.clear();
@@ -159,6 +166,8 @@ Status RenderJob::start(const Project& project, const ExportSettings& settings,
         QStringLiteral("--preset"),        settings.speedPreset,
         QStringLiteral("--audio-bitrate"), QString::number(settings.audioBitrateKbps),
         QStringLiteral("--fps"),           settings.frameRate,
+        QStringLiteral("--start-frame"),   QString::number(settings.rangeStartFrame),
+        QStringLiteral("--end-frame"),     QString::number(settings.rangeEndFrame),
         QStringLiteral("--render-token"),  token,
         QStringLiteral("--watch-stdin")};
     if (!settings.includeAudio) {

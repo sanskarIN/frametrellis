@@ -105,6 +105,61 @@ class ProjectFormatTest : public QObject
     Q_OBJECT
 
 private slots:
+    void stereoBalanceUsesVersionSevenAndRejectsInvalidDocuments()
+    {
+        Project project = makeProject(QStringLiteral("/media"));
+        const Clip* original = project.timeline().clip(QStringLiteral("clip1"));
+        QVERIFY(original);
+        ClipProperties properties = original->properties;
+        properties.balance = -0.75;
+        QVERIFY(project.timeline().setClipProperties(original->id, properties));
+        QVERIFY(project.validate());
+
+        const QJsonObject encoded = project_format::toJson(project);
+        QCOMPARE(encoded.value(QStringLiteral("version")).toInt(), 7);
+        const QJsonArray tracks =
+            encoded.value(QStringLiteral("project")).toObject().value(QStringLiteral("tracks")).toArray();
+        const QJsonObject savedClip =
+            tracks[0].toObject().value(QStringLiteral("clips")).toArray()[0].toObject();
+        QCOMPARE(savedClip.value(QStringLiteral("balance")).toDouble(), -0.75);
+        auto decoded = project_format::fromJson(encoded);
+        QVERIFY2(decoded, qPrintable(decoded ? QString() : decoded.error().toString()));
+        QCOMPARE(*decoded, project);
+
+        // Never allow an older application to silently discard the new audio control.
+        QJsonObject misversioned = encoded;
+        misversioned[QStringLiteral("version")] = 6;
+        const auto older = project_format::fromJson(misversioned);
+        QVERIFY(!older);
+        QCOMPARE(older.error().code, ErrorCode::InvalidDocument);
+
+        for (const QJsonValue& invalid :
+             {QJsonValue(1.01), QJsonValue(-1.01), QJsonValue(QStringLiteral("left")),
+              QJsonValue(QJsonValue::Null)}) {
+            QJsonObject bad = encoded;
+            QJsonObject body = bad.value(QStringLiteral("project")).toObject();
+            QJsonArray bTracks = body.value(QStringLiteral("tracks")).toArray();
+            QJsonObject firstTrack = bTracks[0].toObject();
+            QJsonArray clips = firstTrack.value(QStringLiteral("clips")).toArray();
+            QJsonObject firstClip = clips[0].toObject();
+            firstClip[QStringLiteral("balance")] = invalid;
+            clips[0] = firstClip;
+            firstTrack[QStringLiteral("clips")] = clips;
+            bTracks[0] = firstTrack;
+            body[QStringLiteral("tracks")] = bTracks;
+            bad[QStringLiteral("project")] = body;
+            const auto rejected = project_format::fromJson(bad);
+            QVERIFY(!rejected);
+            QCOMPARE(rejected.error().code, ErrorCode::InvalidDocument);
+        }
+
+        // A source relink to mono cannot make nonzero stereo balance silently inaudible.
+        MediaAsset mono = *project.asset(QStringLiteral("m1"));
+        mono.info.audioChannels = 1;
+        QVERIFY(project.replaceAsset(mono));
+        QVERIFY(!project.validate());
+    }
+
     void rejectsBlankMediaAndProjectNames()
     {
         Project project = makeProject(QStringLiteral("/media"));

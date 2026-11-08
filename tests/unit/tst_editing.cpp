@@ -68,11 +68,10 @@ private slots:
     void batchStereoBalanceIsAtomicUndoableAndRejectsLockedOrNonStereoClips()
     {
         Fixture f;
-        MediaAsset stereo = videoAsset(QStringLiteral("stereo"),
-                                       QStringLiteral("/media/stereo.mp4"));
+        MediaAsset stereo =
+            videoAsset(QStringLiteral("stereo"), QStringLiteral("/media/stereo.mp4"));
         stereo.info.audioChannels = 2;
-        QVERIFY(f.doc.execute(std::make_unique<AddMediaCommand>(
-            std::vector<MediaAsset>{stereo})));
+        QVERIFY(f.doc.execute(std::make_unique<AddMediaCommand>(std::vector<MediaAsset>{stereo})));
 
         Clip a = clipOf(stereo.id, 0, 50, QStringLiteral("balance-a"));
         Clip b = clipOf(stereo.id, 90, 40, QStringLiteral("balance-b"));

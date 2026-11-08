@@ -364,9 +364,9 @@ QVariantMap TimelineController::selectedClip() const
          asset && asset->info.hasVideo && track->kind == TrackKind::Video},
         {QStringLiteral("gain"), p.gain},
         {QStringLiteral("balance"), p.balance},
-        {QStringLiteral("balanceAvailable"),
-         asset && asset->info.hasAudio && asset->info.audioChannels == 2 &&
-             engine::MltRuntime::capabilities().pannerFilter},
+        {QStringLiteral("balanceAvailable"), asset && asset->info.hasAudio &&
+                                                 asset->info.audioChannels == 2 &&
+                                                 engine::MltRuntime::capabilities().pannerFilter},
         {QStringLiteral("muted"), p.muted},
         {QStringLiteral("fadeIn"), static_cast<double>(p.fadeIn)},
         {QStringLiteral("fadeOut"), static_cast<double>(p.fadeOut)},
@@ -1338,7 +1338,8 @@ bool TimelineController::setSelectionBalance(double balance)
 {
     if (m_selection.isEmpty() || !std::isfinite(balance) || balance < -1.0 || balance > 1.0 ||
         !engine::MltRuntime::capabilities().pannerFilter) {
-        emit statusMessage(QStringLiteral("Select stereo clips and a valid balance (MLT panner required)."));
+        emit statusMessage(
+            QStringLiteral("Select stereo clips and a valid balance (MLT panner required)."));
         return false;
     }
     QList<Id> ids(m_selection.cbegin(), m_selection.cend());
@@ -1768,10 +1769,11 @@ bool TimelineController::setClipProperty(const QString& clipId, const QString& n
         const MediaAsset* asset = project().asset(clip->assetId);
         bool ok = false;
         const double balance = value.toDouble(&ok);
-        if (!ok || !std::isfinite(balance) || balance < -1.0 || balance > 1.0 ||
-            !asset || !asset->info.hasAudio || asset->info.audioChannels != 2 ||
+        if (!ok || !std::isfinite(balance) || balance < -1.0 || balance > 1.0 || !asset ||
+            !asset->info.hasAudio || asset->info.audioChannels != 2 ||
             !engine::MltRuntime::capabilities().pannerFilter) {
-            emit statusMessage(QStringLiteral("Stereo balance requires a two-channel audio source and MLT panner."));
+            emit statusMessage(QStringLiteral(
+                "Stereo balance requires a two-channel audio source and MLT panner."));
             return false;
         }
         p.balance = balance;

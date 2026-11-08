@@ -115,6 +115,40 @@ Result<FrameCount> outputFrameCount(FrameCount projectFrames, const FrameRate& p
     return *frames;
 }
 
+Result<ExportFrameBounds> resolveExportFrameBounds(const ExportSettings& settings,
+                                                   FrameCount timelineFrames,
+                                                   const FrameRate& projectRate,
+                                                   const FrameRate& exportRate)
+{
+    const FrameCount start = settings.rangeStartFrame;
+    const FrameCount end =
+        settings.rangeEndFrame == -1 ? timelineFrames : settings.rangeEndFrame;
+    if (timelineFrames <= 0 || timelineFrames > kMaxTimelineFrames || start < 0 ||
+        end <= start || end > timelineFrames) {
+        return makeError(
+            ErrorCode::OutOfRange,
+            QStringLiteral("Export range must have a start and a later exclusive end inside "
+                           "the timeline (in project frames)."));
+    }
+    const auto outStart = start == 0
+                              ? Result<FrameCount>(FrameCount{0})
+                              : outputFrameCount(start, projectRate, exportRate);
+    const auto outEnd = outputFrameCount(end, projectRate, exportRate);
+    if (!outStart) {
+        return outStart.error();
+    }
+    if (!outEnd) {
+        return outEnd.error();
+    }
+    if (*outStart >= *outEnd) {
+        return makeError(
+            ErrorCode::OutOfRange,
+            QStringLiteral("The selected export range is shorter than one output frame at "
+                           "the chosen FPS."));
+    }
+    return ExportFrameBounds{start, end, *outStart, *outEnd};
+}
+
 QSize outputSize(const ExportSettings& settings, const ProjectSettings& project)
 {
     if (settings.shortSide <= 0) {
@@ -144,6 +178,12 @@ Status validateExport(const ExportSettings& settings, const Project& project,
             outputFrameCount(project.timeline().duration(), project.settings().frameRate, *fps);
         !frames) {
         return frames.error();
+    }
+    if (const auto bounds =
+            resolveExportFrameBounds(settings, project.timeline().duration(),
+                                     project.settings().frameRate, *fps);
+        !bounds) {
+        return bounds.error();
     }
     int offline = 0;
     for (const Track& track : project.timeline().tracks()) {

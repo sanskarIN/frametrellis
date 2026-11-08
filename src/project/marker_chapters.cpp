@@ -42,12 +42,13 @@ Result<std::vector<TimelineMarker>> fromText(const Project& project, const QStri
         }
         const auto match = chapterLine.match(line);
         if (!match.hasMatch()) {
-            return makeError(ErrorCode::InvalidArgument,
-                             QStringLiteral("Expected MM:SS or HH:MM:SS followed by a chapter title."));
+            return makeError(
+                ErrorCode::InvalidArgument,
+                QStringLiteral("Expected MM:SS or HH:MM:SS followed by a chapter title."));
         }
         bool hoursOk = true;
-        const qint64 hours = match.captured(1).isEmpty()
-                                 ? 0 : match.captured(1).toLongLong(&hoursOk);
+        const qint64 hours =
+            match.captured(1).isEmpty() ? 0 : match.captured(1).toLongLong(&hoursOk);
         bool minutesOk = false;
         const qint64 minutes = match.captured(2).toLongLong(&minutesOk);
         bool secondsOk = false;
@@ -55,8 +56,9 @@ Result<std::vector<TimelineMarker>> fromText(const Project& project, const QStri
         const QString title = match.captured(4).simplified();
         if (!hoursOk || !minutesOk || !secondsOk || title.isEmpty() ||
             title.size() > kMaxMarkerLabelLength) {
-            return makeError(ErrorCode::InvalidArgument,
-                             QStringLiteral("Chapter time or title is invalid (max 120 characters)."));
+            return makeError(
+                ErrorCode::InvalidArgument,
+                QStringLiteral("Chapter time or title is invalid (max 120 characters)."));
         }
         // Up to six digits of hours and 1e6 rate numerator: products stay
         // well below 2^63. Ceil gives the earliest frame at/after the stated time.
@@ -66,7 +68,8 @@ Result<std::vector<TimelineMarker>> fromText(const Project& project, const QStri
         if (frame >= sequenceEnd || frame > kMaxTimelineFrames || frame <= previous ||
             occupied.contains(frame)) {
             return makeError(ErrorCode::OutOfRange,
-                             QStringLiteral("Chapters must have distinct increasing times inside the sequence, without overlapping existing markers."));
+                             QStringLiteral("Chapters must have distinct increasing times inside "
+                                            "the sequence, without overlapping existing markers."));
         }
         if (parsed.empty() && frame != 0) {
             return makeError(ErrorCode::InvalidArgument,

@@ -32,6 +32,18 @@ Result<FolderRelinkScan> discoverRelinkCandidates(const QString& directory,
 
     FolderRelinkScan result;
     result.truncated = discovered->truncated;
+    // Incomplete searches cannot prove a filename is unique: a second
+    // matching source may lie beyond the 500 candidate / 10,000 file cap.
+    // Reject the whole scan rather than silently relinking to a guess.
+    if (result.truncated) {
+        for (const MediaAsset& asset : missingAssets) {
+            if (asset.status == MediaStatus::Missing) {
+                ++result.missingSearched;
+                ++result.skippedTruncated;
+            }
+        }
+        return result;
+    }
     for (const MediaAsset& asset : missingAssets) {
         if (asset.status != MediaStatus::Missing) {
             continue;

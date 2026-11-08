@@ -139,12 +139,11 @@ Status RenderJob::start(const Project& project, const ExportSettings& settings,
             .filePath(QStringLiteral(".%1.%2.part.mp4").arg(outputInfo.completeBaseName(), token));
     m_framesDone = 0;
     const auto outputRate = outputFrameRate(settings, project.settings());
-    const auto bounds = outputRate
-                            ? resolveExportFrameBounds(settings, project.timeline().duration(),
-                                                       project.settings().frameRate, *outputRate)
-                            : Result<ExportFrameBounds>(
-                                  makeError(ErrorCode::OutOfRange,
-                                            QStringLiteral("Invalid export frame rate.")));
+    const auto bounds =
+        outputRate ? resolveExportFrameBounds(settings, project.timeline().duration(),
+                                              project.settings().frameRate, *outputRate)
+                   : Result<ExportFrameBounds>(makeError(
+                         ErrorCode::OutOfRange, QStringLiteral("Invalid export frame rate.")));
     m_totalFrames = bounds ? bounds->outputLength() : 0;
     m_lastLoggedProgressBucket = -1;
     m_encoder.clear();

@@ -141,8 +141,10 @@ private slots:
 
         const std::atomic<bool> cancel{true};
         bool started = false;
-        const Status result = RenderRunner(project(25), settings)
-                                  .run(cancel, [&](const QString&, FrameCount) { started = true; });
+        const Status result =
+            RenderRunner(project(25), settings).run(cancel, [&](const QString&, FrameCount) {
+                started = true;
+            });
         QVERIFY(!result);
         QCOMPARE(result.error().code, ErrorCode::Cancelled);
         QVERIFY(!started);
@@ -159,11 +161,11 @@ private slots:
         settings.speedPreset = QStringLiteral("ultrafast");
         std::atomic<bool> cancel{false};
         int startedCount = 0;
-        const Status result = RenderRunner(project(25), settings)
-                                  .run(cancel, [&](const QString&, FrameCount) {
-                                      ++startedCount;
-                                      cancel.store(true);
-                                  });
+        const Status result =
+            RenderRunner(project(25), settings).run(cancel, [&](const QString&, FrameCount) {
+                ++startedCount;
+                cancel.store(true);
+            });
         QVERIFY(!result);
         QCOMPARE(result.error().code, ErrorCode::Cancelled);
         QCOMPARE(startedCount, 1);

@@ -126,7 +126,13 @@ private slots:
         QCOMPARE(savedClip.value(QStringLiteral("balance")).toDouble(), -0.75);
         auto decoded = project_format::fromJson(encoded);
         QVERIFY2(decoded, qPrintable(decoded ? QString() : decoded.error().toString()));
-        QCOMPARE(*decoded, project);
+        // Media status is a runtime-only field: the reader reconstructs it
+        // rather than persisting the original online/offline state.
+        QCOMPARE(decoded->timeline(), project.timeline());
+        QCOMPARE(decoded->settings(), project.settings());
+        QCOMPARE(decoded->name(), project.name());
+        QCOMPARE(decoded->id(), project.id());
+        QCOMPARE(project_format::toBytes(*decoded), project_format::toBytes(project));
 
         // Never allow an older application to silently discard the new audio control.
         QJsonObject misversioned = encoded;

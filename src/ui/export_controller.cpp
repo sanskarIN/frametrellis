@@ -213,7 +213,7 @@ QString ExportController::describeOutput(const QVariantMap& settings) const
         partial ? QStringLiteral(" · source frames %1–%2 (end exclusive)")
                       .arg(s.rangeStartFrame)
                       .arg(s.rangeEndFrame == -1 ? m_project->project().timeline().duration()
-                                                : s.rangeEndFrame)
+                                                 : s.rangeEndFrame)
                 : QString();
     return QStringLiteral("%1×%2 · %3 · H.264 + %4%5%6")
         .arg(size.width())

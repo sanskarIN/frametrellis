@@ -55,6 +55,9 @@ QJsonObject clipToJson(const Clip& c)
     o[QLatin1String("duration")] = static_cast<double>(c.duration);
     const ClipProperties& p = c.properties;
     o[QLatin1String("gain")] = p.gain;
+    if (p.balance != 0.0) {
+        o[QLatin1String("balance")] = p.balance;
+    }
     o[QLatin1String("muted")] = p.muted;
     o[QLatin1String("fadeIn")] = static_cast<double>(p.fadeIn);
     o[QLatin1String("fadeOut")] = static_cast<double>(p.fadeOut);
@@ -394,17 +397,20 @@ QJsonObject toJson(const Project& project, const QString& projectDir)
     bool hasAudioKeyframes = false;
     bool hasOpacityKeyframes = false;
     bool hasTransformKeyframes = false;
+    bool hasStereoBalance = false;
     for (const Track& track : project.timeline().tracks()) {
         for (const Clip& clip : track.clips) {
             hasAudioKeyframes = hasAudioKeyframes || !clip.audioKeyframes.empty();
             hasOpacityKeyframes = hasOpacityKeyframes || !clip.opacityKeyframes.empty();
             hasTransformKeyframes = hasTransformKeyframes || !clip.transformKeyframes.empty();
+            hasStereoBalance = hasStereoBalance || clip.properties.balance != 0.0;
         }
     }
-    root[QLatin1String("version")] =
+    const int legacyVersion =
         project.subtitles() != SubtitleTrack{}
             ? 6
             : (hasTransformKeyframes ? 5 : (hasOpacityKeyframes ? 4 : (hasAudioKeyframes ? 3 : 2)));
+    root[QLatin1String("version")] = hasStereoBalance ? 7 : legacyVersion;
     root[QLatin1String("generator")] = QStringLiteral("%1 %2").arg(
         QLatin1String(version::applicationName), QLatin1String(version::string));
     root[QLatin1String("project")] = body;
@@ -531,6 +537,11 @@ Result<Project> fromJson(const QJsonObject& document, const QString& projectDir)
             clip.duration = cr.integer(co, "duration", 1, kMaxTimelineFrames);
             ClipProperties& p = clip.properties;
             p.gain = cr.number(co, "gain", 0.0, kMaxClipGain, 1.0);
+            if (co.contains(QLatin1String("balance")) && versionNumber < 7) {
+                cr.fail(QStringLiteral("balance"),
+                        QStringLiteral("stereo balance requires project format v7"));
+            }
+            p.balance = cr.number(co, "balance", -1.0, 1.0, 0.0);
             p.muted = cr.boolean(co, "muted", false);
             p.fadeIn = cr.integer(co, "fadeIn", 0, kMaxTimelineFrames, 0);
             p.fadeOut = cr.integer(co, "fadeOut", 0, kMaxTimelineFrames, 0);

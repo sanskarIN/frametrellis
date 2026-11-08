@@ -12,6 +12,14 @@ namespace ft::chapters {
 /// A cue at frame zero is required, and each later cue must fall in a distinct second.
 [[nodiscard]] Result<QString> toText(const Project& project);
 
+/// Read YouTube-style "MM:SS Title" or "HH:MM:SS Title" chapter lines.
+/// The entire input is validated before any timeline edit. Timestamps are
+/// mapped to the first frame at or after the stated second using exact
+/// rational arithmetic; sub-second precision is not represented by this format.
+/// Existing markers are preserved, but overlapping marker frames are rejected.
+[[nodiscard]] Result<std::vector<TimelineMarker>> fromText(const Project& project,
+                                                           const QString& text);
+
 /// Generate an HTML5/WebVTT chapter track from the same named markers. A real
 /// sequence duration is required: every cue starts at a marker and ends at the
 /// following marker (or the exclusive sequence end). Unlike descriptions,

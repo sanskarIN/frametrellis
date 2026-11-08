@@ -36,6 +36,7 @@ class ReleaseAssetVerificationTests(unittest.TestCase):
         self.installer.write_bytes(b"synthetic test installer")
         with zipfile.ZipFile(self.portable, "w") as archive:
             archive.writestr("FrameTrellis/frametrellis.exe", b"synthetic test executable")
+            archive.writestr("FrameTrellis/frametrellis-render.exe", b"synthetic test helper")
         self.spdx.write_text(
             json.dumps(
                 {
@@ -101,6 +102,30 @@ class ReleaseAssetVerificationTests(unittest.TestCase):
             archive.writestr("README.txt", b"no executable")
         self.refresh_manifest()
         with self.assertRaisesRegex(ValueError, "frametrellis.exe"):
+            verifier.verify(self.root, self.VERSION)
+
+    def test_rejects_missing_render_helper(self):
+        with zipfile.ZipFile(self.portable, "w") as archive:
+            archive.writestr("FrameTrellis/frametrellis.exe", b"gui only")
+        self.refresh_manifest()
+        with self.assertRaisesRegex(ValueError, "frametrellis-render.exe"):
+            verifier.verify(self.root, self.VERSION)
+
+    def test_rejects_render_helper_outside_gui_directory(self):
+        with zipfile.ZipFile(self.portable, "w") as archive:
+            archive.writestr("FrameTrellis/frametrellis.exe", b"gui")
+            archive.writestr("Other/frametrellis-render.exe", b"helper")
+        self.refresh_manifest()
+        with self.assertRaisesRegex(ValueError, "share a directory"):
+            verifier.verify(self.root, self.VERSION)
+
+    def test_rejects_case_insensitive_zip_name_collision(self):
+        with zipfile.ZipFile(self.portable, "w") as archive:
+            archive.writestr("FrameTrellis/frametrellis.exe", b"gui")
+            archive.writestr("FrameTrellis/frametrellis-render.exe", b"helper")
+            archive.writestr("frametrellis/FrameTrellis.exe", b"overwrites gui on Windows")
+        self.refresh_manifest()
+        with self.assertRaisesRegex(ValueError, "case-insensitive duplicate"):
             verifier.verify(self.root, self.VERSION)
 
     def test_rejects_unsafe_portable_member(self):

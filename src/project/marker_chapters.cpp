@@ -13,7 +13,7 @@ namespace ft::chapters {
 Result<std::vector<TimelineMarker>> fromText(const Project& project, const QString& text)
 {
     // Untrusted clipboard text must not allocate unlimited temporary markers.
-    constexpr qsizetype kMaxChapterTextLength = 128 * 1024;
+    constexpr qsizetype kMaxChapterTextLength = qsizetype{128} * 1024;
     if (text.size() > kMaxChapterTextLength) {
         return makeError(ErrorCode::OutOfRange, QStringLiteral("Chapter list is too large."));
     }

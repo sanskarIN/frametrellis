@@ -343,8 +343,8 @@ bool MediaController::relinkMissingFolder(const QString& urlOrPath)
                 QStringLiteral("The project changed before the batch was applied."));
             return;
         }
-        const int skipped =
-            scan->unmatched + scan->ambiguous + scan->probeFailed + scan->wrongKind + incompatible;
+        const int skipped = scan->unmatched + scan->ambiguous + scan->probeFailed +
+                            scan->wrongKind + scan->skippedTruncated + incompatible;
         emit statusMessage(
             QStringLiteral("Relinked %1 missing media file(s), skipped %2 (%3 ambiguous).%4")
                 .arg(accepted.size())

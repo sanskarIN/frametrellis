@@ -512,6 +512,75 @@ private slots:
         QVERIFY(partFiles().isEmpty());
     }
 
+    void exportTimelineRangeKeepsPictureSoundAndTimelineUnchanged()
+    {
+        const Project original = project(50); // 25 green frames, then blue
+        for (const QString& fps : {QStringLiteral("match"),
+                                   QStringLiteral("24000/1001")}) {
+            ExportSettings settings;
+            settings.outputPath =
+                m_dir.filePath(QStringLiteral("range-%1.mp4").arg(fps.replace('/', '_')));
+            settings.frameRate = fps;
+            settings.rangeStartFrame = 25; // first blue frame
+            settings.rangeEndFrame = 45;   // exclusive
+            settings.speedPreset = QStringLiteral("ultrafast");
+            const FrameRate target =
+                fps == QStringLiteral("match") ? FrameRate::integer(25)
+                                              : *FrameRate::create(24000, 1001);
+            const auto expected =
+                resolveExportFrameBounds(settings, 50, original.settings().frameRate, target);
+            QVERIFY(expected);
+            QCOMPARE(expected->outputLength(), FrameCount{20});
+
+            const std::atomic<bool> cancel{false};
+            FrameCount startedTotal = 0;
+            const Status rendered = RenderRunner(original, settings).run(
+                cancel,
+                [&](const QString&, FrameCount total) { startedTotal = total; });
+            QVERIFY2(rendered, qPrintable(rendered ? QString() : rendered.error().toString()));
+            QCOMPARE(startedTotal, expected->outputLength());
+            const auto info = media::probeMedia(settings.outputPath);
+            QVERIFY(info);
+            QVERIFY(info->hasAudio);
+            QCOMPARE(info->frameRate,
+                     Rational(target.numerator(), target.denominator()));
+            QVERIFY2(std::abs(info->durationUs - 800'000) < 120'000,
+                     qPrintable(QStringLiteral("actual duration %1").arg(info->durationUs)));
+            QVERIFY(isCloseTo(averageColor(frameOf(settings.outputPath, 0, target)), Qt::blue));
+            QVERIFY(isCloseTo(averageColor(frameOf(settings.outputPath, 15, target)), Qt::blue));
+            QCOMPARE(original.timeline().duration(), FrameCount{50});
+            QVERIFY(partFiles().isEmpty());
+        }
+    }
+
+    void helperExportsOnlyRequestedTimelineRange()
+    {
+        const Project original = project(50);
+        ExportSettings settings;
+        settings.outputPath = m_dir.filePath(QStringLiteral("helper-range.mp4"));
+        settings.rangeStartFrame = 5;
+        settings.rangeEndFrame = 20;
+        settings.frameRate = QStringLiteral("30");
+        settings.speedPreset = QStringLiteral("ultrafast");
+        RenderJob job(QStringLiteral(FT_RENDER_HELPER));
+        QSignalSpy finished(&job, &RenderJob::finished);
+        QVERIFY(job.start(original, settings));
+        QVERIFY(finished.count() > 0 || finished.wait(60'000));
+        QVERIFY2(job.state() == RenderJob::State::Succeeded,
+                 qPrintable(job.errorMessage() + job.errorDetail()));
+        QCOMPARE(job.progress(), 1.0);
+        const auto video = media::probeMedia(settings.outputPath);
+        QVERIFY(video);
+        QVERIFY(video->hasAudio);
+        QCOMPARE(video->frameRate, Rational(30, 1));
+        QVERIFY2(std::abs(video->durationUs - 600'000) < 120'000,
+                 qPrintable(QStringLiteral("actual duration %1").arg(video->durationUs)));
+        QVERIFY(isCloseTo(averageColor(frameOf(settings.outputPath, 2,
+                                              FrameRate::integer(30))), Qt::green));
+        QCOMPARE(original.timeline().duration(), FrameCount{50});
+        QVERIFY(partFiles().isEmpty());
+    }
+
     void helperQuickExportHonoursNoUpscale()
     {
         // Cover the QProcess -> CLI -> RenderRunner propagation, not just its

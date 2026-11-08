@@ -68,18 +68,18 @@ private slots:
     void batchRelinkIsOneAtomicUndoableEditAndProtectsPartialFailures()
     {
         Fixture f;
-        MediaAsset first = videoAsset(QStringLiteral("offline-a"),
-                                      QStringLiteral("/offline/scene-a.mp4"));
-        MediaAsset second = videoAsset(QStringLiteral("offline-b"),
-                                       QStringLiteral("/offline/scene-b.mp4"));
+        MediaAsset first =
+            videoAsset(QStringLiteral("offline-a"), QStringLiteral("/offline/scene-a.mp4"));
+        MediaAsset second =
+            videoAsset(QStringLiteral("offline-b"), QStringLiteral("/offline/scene-b.mp4"));
         first.status = MediaStatus::Missing;
         second.status = MediaStatus::Missing;
-        QVERIFY(f.doc.execute(std::make_unique<AddMediaCommand>(
-            std::vector<MediaAsset>{first, second})));
-        QVERIFY(f.doc.execute(edits::addClip(
-            f.v1, clipOf(first.id, 0, 40, QStringLiteral("offline-clip-a")))));
-        QVERIFY(f.doc.execute(edits::addClip(
-            f.v2, clipOf(second.id, 90, 50, QStringLiteral("offline-clip-b")))));
+        QVERIFY(f.doc.execute(
+            std::make_unique<AddMediaCommand>(std::vector<MediaAsset>{first, second})));
+        QVERIFY(f.doc.execute(
+            edits::addClip(f.v1, clipOf(first.id, 0, 40, QStringLiteral("offline-clip-a")))));
+        QVERIFY(f.doc.execute(
+            edits::addClip(f.v2, clipOf(second.id, 90, 50, QStringLiteral("offline-clip-b")))));
 
         MediaAsset foundFirst = first;
         foundFirst.filePath = QStringLiteral("/recovered/scene-a.mp4");
@@ -110,14 +110,14 @@ private slots:
         QCOMPARE(f.doc.undoText(), history);
         QVERIFY(!f.doc.execute(std::make_unique<RelinkMediaBatchCommand>(
             std::vector<MediaAsset>{foundFirst, foundFirst})));
-        QVERIFY(!f.doc.execute(std::make_unique<RelinkMediaBatchCommand>(
-            std::vector<MediaAsset>{})));
+        QVERIFY(
+            !f.doc.execute(std::make_unique<RelinkMediaBatchCommand>(std::vector<MediaAsset>{})));
         QCOMPARE(f.doc.project(), after);
 
         // Already relinked media must not be silently replaced by a second
         // bulk operation; its scope is only offline assets.
-        QVERIFY(!f.doc.execute(std::make_unique<RelinkMediaBatchCommand>(
-            std::vector<MediaAsset>{foundFirst})));
+        QVERIFY(!f.doc.execute(
+            std::make_unique<RelinkMediaBatchCommand>(std::vector<MediaAsset>{foundFirst})));
         QCOMPARE(f.doc.project(), after);
 
         QVERIFY(f.doc.undo());

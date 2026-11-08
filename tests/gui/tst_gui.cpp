@@ -636,6 +636,22 @@ private slots:
         m_app->project()->undo();
         QCOMPARE(m_app->project()->project(), before);
 
+        // Reset only the source's In/Out marks. Neither Program transport nor
+        // project/Undo history may change, and the action disables at full range.
+        QQuickItem* resetMarks =
+            findItem(m_window->contentItem(), QStringLiteral("sourceMonitorResetMarks"));
+        QVERIFY(resetMarks);
+        QVERIFY(resetMarks->isEnabled());
+        const int sourceDuration = source->property("maxFrames").toInt();
+        QVERIFY(QMetaObject::invokeMethod(source, "resetMarks"));
+        QCOMPARE(source->property("markInFrame").toInt(), 0);
+        QCOMPARE(source->property("markOutFrame").toInt(), sourceDuration);
+        QVERIFY(!resetMarks->isEnabled());
+        QCOMPARE(m_app->playback()->positionFrames(), programBefore);
+        QCOMPARE(m_app->project()->project(), before);
+        QCOMPARE(m_app->project()->undoText(), undoBefore);
+        QCOMPARE(m_app->project()->isModified(), modifiedBefore);
+
         QVERIFY(QMetaObject::invokeMethod(source, "openFor", Q_ARG(QVariant, QVariant(audioId))));
         QVERIFY(!source->property("hasPicture").toBool());
         QVERIFY(QMetaObject::invokeMethod(source, "clear"));

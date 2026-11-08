@@ -128,6 +128,14 @@ PanelFrame {
         return true
     }
 
+    function resetMarks() {
+        if (!loaded || (markInFrame === 0 && markOutFrame === maxFrames))
+            return false
+        markInFrame = 0
+        markOutFrame = maxFrames
+        return true
+    }
+
     function appendRange() {
         if (!validRange || !selectedTrackAvailable)
             return false
@@ -339,6 +347,15 @@ PanelFrame {
                 onClicked: panel.markOut()
             }
             FtButton {
+                objectName: "sourceMonitorResetMarks"
+                text: qsTr("Reset marks")
+                enabled: panel.loaded && (panel.markInFrame !== 0
+                                          || panel.markOutFrame !== panel.maxFrames)
+                ToolTip.visible: hovered
+                ToolTip.text: qsTr("Restore the complete source In/Out range without editing the timeline.")
+                onClicked: panel.resetMarks()
+            }
+            FtButton {
                 objectName: "sourceMonitorMatchClipLength"
                 text: qsTr("Match clip length")
                 visible: panel.loaded && panel.selectedTimelineClip.count === 1
@@ -399,7 +416,7 @@ PanelFrame {
                 text: qsTr("Ripple Insert")
                 enabled: panel.validRange && panel.selectedTrackAvailable
                 ToolTip.visible: hovered
-                ToolTip.text: qsTr("Insert at the Program playhead; shift later clips on all affected unlocked tracks. Refuses cuts through clips or transitions. Markers and subtitles stay at their original times.")
+                ToolTip.text: qsTr("Insert at the Program playhead; shift later clips, markers and eligible subtitle cues together. Refuses cuts through clips, unsafe transitions and subtitles spanning the cut.")
                 Accessible.name: qsTr("Ripple insert marked source range at playhead")
                 onClicked: panel.rippleInsertRange()
             }

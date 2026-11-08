@@ -384,6 +384,7 @@ ApplicationWindow {
             Action { text: window.sourceMode ? qsTr("Go to Source End") : qsTr("Go to End"); shortcut: "End"; enabled: window.editKeys && (!window.sourceMode || sourceMonitor.loaded); onTriggered: window.sourceMode ? (sourceMonitor.previewFrame = sourceMonitor.maxFrames - 1) : window.app.playback.goToEnd() }
             Action { text: qsTr("Mark Source In"); shortcut: "I"; enabled: window.editKeys && window.sourceMode && sourceMonitor.loaded; onTriggered: sourceMonitor.markIn() }
             Action { text: qsTr("Mark Source Out"); shortcut: "O"; enabled: window.editKeys && window.sourceMode && sourceMonitor.loaded; onTriggered: sourceMonitor.markOut() }
+            Action { text: qsTr("Reset Source In/Out"); enabled: window.editKeys && window.sourceMode && sourceMonitor.loaded && (sourceMonitor.markInFrame !== 0 || sourceMonitor.markOutFrame !== sourceMonitor.maxFrames); onTriggered: sourceMonitor.resetMarks() }
             Action {
                 text: qsTr("Match Source Range to Selected Clip Length")
                 shortcut: "Ctrl+Shift+M"

@@ -285,8 +285,7 @@ Result<ChangeSet> RelinkMediaBatchCommand::redo(Project& project)
         }
         ids.insert(updated.id);
         const MediaAsset* old = project.asset(updated.id);
-        if (!old || old->status != MediaStatus::Missing ||
-            updated.status != MediaStatus::Online) {
+        if (!old || old->status != MediaStatus::Missing || updated.status != MediaStatus::Online) {
             return makeError(ErrorCode::InvalidArgument,
                              QStringLiteral("A replacement media reference is invalid."));
         }
@@ -296,9 +295,10 @@ Result<ChangeSet> RelinkMediaBatchCommand::redo(Project& project)
         }
     }
     if (const Status checked = working.validate(); !checked) {
-        return makeError(ErrorCode::Conflict,
-                         QStringLiteral("At least one replacement cannot support its timeline clips."),
-                         checked.error().toString());
+        return makeError(
+            ErrorCode::Conflict,
+            QStringLiteral("At least one replacement cannot support its timeline clips."),
+            checked.error().toString());
     }
 
     project = std::move(working);
@@ -309,9 +309,8 @@ Result<ChangeSet> RelinkMediaBatchCommand::redo(Project& project)
     ChangeSet changes;
     changes.media = true;
     for (const Track& track : project.timeline().tracks()) {
-        if (std::any_of(track.clips.begin(), track.clips.end(), [&](const Clip& clip) {
-                return ids.contains(clip.assetId);
-            })) {
+        if (std::any_of(track.clips.begin(), track.clips.end(),
+                        [&](const Clip& clip) { return ids.contains(clip.assetId); })) {
             changes.tracks.insert(track.id);
         }
     }

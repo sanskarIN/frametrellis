@@ -166,7 +166,7 @@ Status RenderJob::start(const Project& project, const ExportSettings& settings,
         QStringLiteral("--audio-bitrate"), QString::number(settings.audioBitrateKbps),
         QStringLiteral("--fps"),           settings.frameRate,
         QStringLiteral("--start-frame"),   QString::number(settings.rangeStartFrame),
-        QStringLiteral("--end-frame"),     QString::number(settings.rangeEndFrame),
+        QStringLiteral("--end-frame=%1").arg(settings.rangeEndFrame),
         QStringLiteral("--render-token"),  token,
         QStringLiteral("--watch-stdin")};
     if (!settings.includeAudio) {

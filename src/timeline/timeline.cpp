@@ -398,8 +398,9 @@ Status Timeline::checkSourceRange(const Clip& c, const Track& t, const SourceLoo
     }
     if (c.properties.balance != 0.0 &&
         (!limits->hasAudio || (limits->audioChannels > 0 && limits->audioChannels != 2))) {
-        return makeError(ErrorCode::InvalidArgument,
-                         QStringLiteral("Non-centre stereo balance requires a stereo audio source."));
+        return makeError(
+            ErrorCode::InvalidArgument,
+            QStringLiteral("Non-centre stereo balance requires a stereo audio source."));
     }
     if (!c.audioKeyframes.empty() && !limits->hasAudio) {
         return makeError(ErrorCode::InvalidArgument,

@@ -182,14 +182,14 @@ rendering::ExportSettings ExportController::toSettings(const QVariantMap& map) c
     if (map.contains(QStringLiteral("frameRate"))) {
         s.frameRate = map.value(QStringLiteral("frameRate")).toString();
     }
-    const auto frameValue = [&](const char* key, FrameCount fallback) {
+    const auto frameValue = [&](const char* key, FrameCount fallback) -> FrameCount {
         const QVariant supplied = map.value(QLatin1String(key));
         if (!supplied.isValid()) {
             return fallback;
         }
         bool valid = false;
         const qint64 value = supplied.toString().toLongLong(&valid);
-        return valid ? value : FrameCount{-2};
+        return valid ? static_cast<FrameCount>(value) : FrameCount{-2};
     };
     s.rangeStartFrame = frameValue("rangeStartFrame", 0);
     s.rangeEndFrame = frameValue("rangeEndFrame", -1);

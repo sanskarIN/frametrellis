@@ -2,9 +2,89 @@
 // SPDX-FileCopyrightText: 2026 Sanskar and FrameTrellis contributors
 #include "project/marker_chapters.h"
 
+#include "core/ids.h"
+
+#include <QRegularExpression>
+#include <QSet>
 #include <QStringList>
 
 namespace ft::chapters {
+
+Result<std::vector<TimelineMarker>> fromText(const Project& project, const QString& text)
+{
+    // Untrusted clipboard text must not allocate unlimited temporary markers.
+    constexpr qsizetype kMaxChapterTextLength = 128 * 1024;
+    if (text.size() > kMaxChapterTextLength) {
+        return makeError(ErrorCode::OutOfRange, QStringLiteral("Chapter list is too large."));
+    }
+    const FrameCount sequenceEnd = project.timeline().duration();
+    if (sequenceEnd <= 0) {
+        return makeError(ErrorCode::InvalidArgument,
+                         QStringLiteral("Add video to the timeline before importing chapters."));
+    }
+    const QStringList lines = text.split(QLatin1Char('\n'));
+    if (lines.size() > kMaxTimelineMarkers + 1) {
+        return makeError(ErrorCode::OutOfRange, QStringLiteral("Too many chapter lines."));
+    }
+    static const QRegularExpression chapterLine(
+        QStringLiteral(R"(^(?:(\d{1,6}):)?([0-5]?\d):([0-5]\d)\s+(.+)$)"));
+    const FrameRate& rate = project.settings().frameRate;
+    QSet<FrameCount> occupied;
+    for (const TimelineMarker& existing : project.markers()) {
+        occupied.insert(existing.frame);
+    }
+    std::vector<TimelineMarker> parsed;
+    FrameCount previous = -1;
+    for (const QString& raw : lines) {
+        const QString line = raw.trimmed();
+        if (line.isEmpty()) {
+            continue;
+        }
+        const auto match = chapterLine.match(line);
+        if (!match.hasMatch()) {
+            return makeError(ErrorCode::InvalidArgument,
+                             QStringLiteral("Expected MM:SS or HH:MM:SS followed by a chapter title."));
+        }
+        bool hoursOk = true;
+        const qint64 hours = match.captured(1).isEmpty()
+                                 ? 0 : match.captured(1).toLongLong(&hoursOk);
+        bool minutesOk = false;
+        const qint64 minutes = match.captured(2).toLongLong(&minutesOk);
+        bool secondsOk = false;
+        const qint64 seconds = match.captured(3).toLongLong(&secondsOk);
+        const QString title = match.captured(4).simplified();
+        if (!hoursOk || !minutesOk || !secondsOk || title.isEmpty() ||
+            title.size() > kMaxMarkerLabelLength) {
+            return makeError(ErrorCode::InvalidArgument,
+                             QStringLiteral("Chapter time or title is invalid (max 120 characters)."));
+        }
+        // Up to six digits of hours and 1e6 rate numerator: products stay
+        // well below 2^63. Ceil gives the earliest frame at/after the stated time.
+        const qint64 totalSeconds = hours * 3600 + minutes * 60 + seconds;
+        const FrameCount numerator = totalSeconds * rate.numerator();
+        const FrameCount frame = (numerator + rate.denominator() - 1) / rate.denominator();
+        if (frame >= sequenceEnd || frame > kMaxTimelineFrames || frame <= previous ||
+            occupied.contains(frame)) {
+            return makeError(ErrorCode::OutOfRange,
+                             QStringLiteral("Chapters must have distinct increasing times inside the sequence, without overlapping existing markers."));
+        }
+        if (parsed.empty() && frame != 0) {
+            return makeError(ErrorCode::InvalidArgument,
+                             QStringLiteral("The first imported chapter must begin at 00:00."));
+        }
+        parsed.push_back({createId(), frame, title});
+        previous = frame;
+        occupied.insert(frame);
+        if (project.markers().size() + parsed.size() > static_cast<size_t>(kMaxTimelineMarkers)) {
+            return makeError(ErrorCode::OutOfRange, QStringLiteral("Too many sequence markers."));
+        }
+    }
+    if (parsed.empty()) {
+        return makeError(ErrorCode::InvalidArgument,
+                         QStringLiteral("The chapter list contains no timestamped titles."));
+    }
+    return parsed;
+}
 
 Result<QString> toText(const Project& project)
 {

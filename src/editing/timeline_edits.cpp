@@ -982,6 +982,57 @@ std::unique_ptr<EditCommand> setClipGains(const QList<Id>& clipIds, double gain)
         });
 }
 
+std::unique_ptr<EditCommand> setClipBalances(const QList<Id>& clipIds, double balance)
+{
+    return command(
+        QStringLiteral("Set Selected Stereo Balance"),
+        [clipIds, balance](Timeline& timeline, const SourceLookup& sources) -> Status {
+            if (clipIds.isEmpty() || !std::isfinite(balance) || balance < -1.0 || balance > 1.0) {
+                return makeError(ErrorCode::InvalidArgument,
+                                 QStringLiteral("Select clips and a valid stereo balance."));
+            }
+
+            QSet<Id> visited;
+            bool changed = false;
+            for (const Id& id : clipIds) {
+                if (visited.contains(id)) {
+                    return makeError(ErrorCode::InvalidArgument,
+                                     QStringLiteral("A clip was selected twice."));
+                }
+                visited.insert(id);
+                const Clip* clip = timeline.clip(id);
+                const Track* track = timeline.trackOfClip(id);
+                if (!clip || !track) {
+                    return makeError(ErrorCode::NotFound,
+                                     QStringLiteral("A selected clip was not found."));
+                }
+                if (track->locked) {
+                    return makeError(ErrorCode::Conflict,
+                                     QStringLiteral("Unlock affected tracks before changing balance."));
+                }
+                const auto source = sources ? sources(clip->assetId) : std::nullopt;
+                if (!source || !source->hasAudio || source->audioChannels != 2) {
+                    return makeError(ErrorCode::InvalidArgument,
+                                     QStringLiteral("Stereo balance requires a two-channel source."));
+                }
+                changed |= clip->properties.balance != balance;
+            }
+            if (!changed) {
+                return makeError(ErrorCode::InvalidArgument,
+                                 QStringLiteral("The selected clips already have this balance."));
+            }
+
+            for (const Id& id : clipIds) {
+                ClipProperties properties = timeline.clip(id)->properties;
+                properties.balance = balance;
+                if (const Status updated = timeline.setClipProperties(id, properties); !updated) {
+                    return updated;
+                }
+            }
+            return {};
+        });
+}
+
 std::unique_ptr<EditCommand> setClipOpacities(const QList<Id>& clipIds, double opacity)
 {
     return command(

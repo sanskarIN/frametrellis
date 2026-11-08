@@ -3814,8 +3814,7 @@ private slots:
         QTRY_VERIFY(dialog->property("opened").toBool());
         QQuickItem* quality =
             findItem(m_window->contentItem(), QStringLiteral("exportQualitySlider"));
-        QQuickItem* fps =
-            findItem(m_window->contentItem(), QStringLiteral("exportFrameRateBox"));
+        QQuickItem* fps = findItem(m_window->contentItem(), QStringLiteral("exportFrameRateBox"));
         QQuickItem* custom =
             findItem(m_window->contentItem(), QStringLiteral("exportCustomFrameRate"));
         QVERIFY(quality);

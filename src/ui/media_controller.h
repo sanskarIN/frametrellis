@@ -52,6 +52,9 @@ public:
     /// Remove unreferenced media from the bin without deleting files on disk.
     Q_INVOKABLE bool removeUnused();
     Q_INVOKABLE bool relink(const QString& assetId, const QString& urlOrPath);
+    /// Scan a folder on a worker and relink uniquely matched offline media as one undoable edit.
+    /// A true result accepts the scan, not a promise that any replacement will be found.
+    Q_INVOKABLE bool relinkMissingFolder(const QString& urlOrPath);
     Q_INVOKABLE void rescan();
     /// Save a read-only media inventory JSON without modifying project or source files.
     Q_INVOKABLE bool exportMediaAudit(const QString& urlOrPath);

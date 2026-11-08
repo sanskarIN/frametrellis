@@ -347,6 +347,11 @@ ApplicationWindow {
             Action { text: qsTr("Unlock All Tracks"); enabled: window.editKeys; onTriggered: window.app.timeline.setAllTracksLocked(false) }
             MenuSeparator {}
             Action { text: qsTr("Check for Missing Media"); onTriggered: window.app.media.rescan() }
+            Action {
+                text: qsTr("Relink Missing Media from Folder…")
+                enabled: window.app.media.model.missingCount > 0 && !window.app.media.importing
+                onTriggered: relinkFolderDialog.open()
+            }
         }
         Menu {
             title: qsTr("&View")
@@ -635,6 +640,13 @@ ApplicationWindow {
         nameFilters: [qsTr("CSV reports (*.csv)")]
         currentFolder: window.app.fileUrl(window.app.project.projectFolder())
         onAccepted: window.app.media.exportMediaAuditCsv(window.app.localPath(selectedFile))
+    }
+    FolderDialog {
+        id: relinkFolderDialog
+        title: qsTr("Find missing media in folder (including subfolders)")
+        currentFolder: window.app.fileUrl(window.app.project.projectFolder())
+        onAccepted: window.app.media.relinkMissingFolder(
+                        window.app.localPath(selectedFolder))
     }
     FolderDialog {
         id: importFolderDialog

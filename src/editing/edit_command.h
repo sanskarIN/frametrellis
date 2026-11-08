@@ -125,6 +125,23 @@ private:
     QString m_text;
 };
 
+/// Relinks multiple missing media references as one atomic, undoable edit.
+/// All candidates are validated against the complete project and source requirements
+/// before any asset path changes; a failure leaves the document untouched.
+class RelinkMediaBatchCommand final : public EditCommand
+{
+public:
+    explicit RelinkMediaBatchCommand(std::vector<MediaAsset> updated);
+    [[nodiscard]] QString text() const override { return QStringLiteral("Relink Missing Media"); }
+    Result<ChangeSet> redo(Project& project) override;
+    ChangeSet undo(Project& project) override;
+
+private:
+    std::vector<MediaAsset> m_after;
+    std::vector<MediaAsset> m_before;
+    bool m_applied = false;
+};
+
 /// Changes project settings and/or name.
 class ProjectSettingsCommand final : public EditCommand
 {

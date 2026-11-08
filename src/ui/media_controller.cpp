@@ -5,6 +5,7 @@
 #include "core/ids.h"
 #include "core/logging.h"
 #include "media/folder_import.h"
+#include "media/folder_relink.h"
 #include "media/media_probe.h"
 #include "project/media_audit.h"
 #include "ui/project_controller.h"
@@ -21,6 +22,8 @@
 #include <QSaveFile>
 #include <QUrl>
 #include <QtConcurrent/QtConcurrentRun>
+
+#include <algorithm>
 
 namespace ft::ui {
 
@@ -268,6 +271,90 @@ bool MediaController::removeUnused()
     emit statusMessage(
         QStringLiteral("Removed %1 unused media reference(s). Original files were not deleted.")
             .arg(unused));
+    return true;
+}
+
+bool MediaController::relinkMissingFolder(const QString& urlOrPath)
+{
+    if (importing()) {
+        emit statusMessage(QStringLiteral("Finish the current media scan before relinking."));
+        return false;
+    }
+    std::vector<MediaAsset> missing;
+    for (const MediaAsset& asset : m_project->project().media()) {
+        if (asset.status == MediaStatus::Missing) {
+            missing.push_back(asset);
+        }
+    }
+    if (missing.empty()) {
+        emit statusMessage(QStringLiteral("No offline media needs relinking."));
+        return false;
+    }
+
+    const QString directory = ProjectController::localPath(urlOrPath);
+    const int generation = ++m_folderScanGeneration;
+    m_folderScanActive = true;
+    emit importingChanged();
+    emit statusMessage(QStringLiteral("Searching for missing media in the background…"));
+
+    auto* watcher = new QFutureWatcher<Result<media::FolderRelinkScan>>(this);
+    connect(watcher, &QFutureWatcherBase::finished, this, [this, watcher, generation, missing] {
+        const Result<media::FolderRelinkScan> scan = watcher->result();
+        watcher->deleteLater();
+        if (generation != m_folderScanGeneration) {
+            return; // project was replaced; never mutate an unrelated document
+        }
+        m_folderScanActive = false;
+        emit importingChanged();
+        if (!scan) {
+            emit importProblems(QStringLiteral("Could not search for missing media"),
+                                scan.error().message);
+            return;
+        }
+
+        // A project can be edited while discovery runs: recheck every original
+        // path/status, every candidate and the full timeline on the GUI thread.
+        Project working = m_project->project();
+        std::vector<MediaAsset> accepted;
+        int incompatible = 0;
+        for (const MediaAsset& updated : scan->candidates) {
+            const MediaAsset* current = m_project->project().asset(updated.id);
+            const auto snapshot =
+                std::find_if(missing.begin(), missing.end(),
+                             [&](const MediaAsset& asset) { return asset.id == updated.id; });
+            const QFileInfo file(updated.filePath);
+            if (!current || snapshot == missing.end() || current->status != MediaStatus::Missing ||
+                current->filePath != snapshot->filePath || !file.isFile() || file.isSymLink()) {
+                ++incompatible;
+                continue;
+            }
+            Project candidate = working;
+            if (!candidate.replaceAsset(updated) || !candidate.validate()) {
+                ++incompatible;
+                continue; // source duration/channel/track constraints would be broken
+            }
+            working = std::move(candidate);
+            accepted.push_back(updated);
+        }
+        if (!accepted.empty() &&
+            !m_project->execute(std::make_unique<RelinkMediaBatchCommand>(accepted))) {
+            emit importProblems(
+                QStringLiteral("Could not relink missing media"),
+                QStringLiteral("The project changed before the batch was applied."));
+            return;
+        }
+        const int skipped = scan->unmatched + scan->ambiguous + scan->probeFailed +
+                            scan->wrongKind + scan->skippedTruncated + incompatible;
+        emit statusMessage(
+            QStringLiteral("Relinked %1 missing media file(s), skipped %2 (%3 ambiguous).%4")
+                .arg(accepted.size())
+                .arg(skipped)
+                .arg(scan->ambiguous)
+                .arg(scan->truncated ? QStringLiteral(" Scan limit reached; try a smaller folder.")
+                                     : QString()));
+    });
+    watcher->setFuture(QtConcurrent::run(
+        [directory, missing] { return media::discoverRelinkCandidates(directory, missing); }));
     return true;
 }
 

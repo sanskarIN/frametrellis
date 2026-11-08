@@ -465,13 +465,39 @@ away from the cut or trimming it at the cut removes the transition; undo brings 
 
 Select one clip to see its properties:
 
-* **Audio:** volume (−∞ to +12 dB) and mute.
+* **Audio:** volume (−∞ to +12 dB), mute, and—on two-channel sources
+  with the MLT panner filter—**Stereo Balance** from full left through centre
+  to full right. The balance is separate from volume and volume keyframes.
 * **Fades:** fade-in and fade-out length. Video fades reveal the track below (black on V1).
 * **Picture:** opacity, brightness, contrast and saturation. Double-click a slider to reset it.
   Brightness, contrast and saturation need FFmpeg's `eq` filter; if your installation lacks it,
   the inspector says so.
 
 Continuous slider changes become a single undo step.
+
+### Stereo balance (v1.5.0 development only)
+
+Select a clip containing a **two-channel audio source** and adjust
+**Inspector → Audio → Stereo Balance**. Centre (`0`) preserves the source
+channels. Full Left (`-1`) or Full Right (`+1`) attenuates the opposite
+channel; intermediate values change the stereo balance rather than swapping
+channels. This is a *stereo balance* control, not a mono-to-stereo panner,
+surround mixer or loudness normalizer. The exact gain curve depends on the
+MLT panner service, which must be installed for non-centre adjustments.
+
+Use **Edit → Stereo Balance for Selected Clips** for atomic multi-clip
+left/centre/right presets. Mixed mono/stereo selections, locked tracks
+or unavailable panner services are rejected without editing a subset of the
+clips. Copy/Paste Clip Attributes also includes stereo balance and still
+uses one undoable command. Source media on disk is never modified.
+
+Projects using non-centre balance require **project format v7**; older builds
+reject them rather than silently losing the adjustment. Legacy projects
+without balance keep their original format version. Always save a backup
+before opening projects with a new development build. These controls are
+**not included in the published v1.4.0 download**.
+
+
 
 ## Playback
 

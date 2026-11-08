@@ -287,6 +287,15 @@ ApplicationWindow {
                 Action { text: qsTr("200%"); onTriggered: window.app.timeline.setSelectionGain(2.0) }
             }
             Menu {
+                title: qsTr("Stereo Balance for Selected Clips")
+                enabled: window.editKeys && window.app.timeline.selection.length > 0
+                Action { text: qsTr("Full left"); onTriggered: window.app.timeline.setSelectionBalance(-1.0) }
+                Action { text: qsTr("50% left"); onTriggered: window.app.timeline.setSelectionBalance(-0.5) }
+                Action { text: qsTr("Centre"); onTriggered: window.app.timeline.setSelectionBalance(0.0) }
+                Action { text: qsTr("50% right"); onTriggered: window.app.timeline.setSelectionBalance(0.5) }
+                Action { text: qsTr("Full right"); onTriggered: window.app.timeline.setSelectionBalance(1.0) }
+            }
+            Menu {
                 title: qsTr("Video Opacity for Selected Clips")
                 enabled: window.editKeys && window.app.timeline.selection.length > 0
                 Action { text: qsTr("0% — Transparent"); onTriggered: window.app.timeline.setSelectionOpacity(0.0) }

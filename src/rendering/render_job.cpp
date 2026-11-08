@@ -157,18 +157,26 @@ Status RenderJob::start(const Project& project, const ExportSettings& settings,
     m_finalElapsed = -1;
     m_elapsed.start();
 
-    QStringList arguments{
-        QStringLiteral("--project"),       snapshot,
-        QStringLiteral("--output"),        settings.outputPath,
-        QStringLiteral("--short-side"),    QString::number(settings.shortSide),
-        QStringLiteral("--crf"),           QString::number(settings.crf),
-        QStringLiteral("--preset"),        settings.speedPreset,
-        QStringLiteral("--audio-bitrate"), QString::number(settings.audioBitrateKbps),
-        QStringLiteral("--fps"),           settings.frameRate,
-        QStringLiteral("--start-frame"),   QString::number(settings.rangeStartFrame),
-        QStringLiteral("--end-frame=%1").arg(settings.rangeEndFrame),
-        QStringLiteral("--render-token"),  token,
-        QStringLiteral("--watch-stdin")};
+    QStringList arguments{QStringLiteral("--project"),
+                          snapshot,
+                          QStringLiteral("--output"),
+                          settings.outputPath,
+                          QStringLiteral("--short-side"),
+                          QString::number(settings.shortSide),
+                          QStringLiteral("--crf"),
+                          QString::number(settings.crf),
+                          QStringLiteral("--preset"),
+                          settings.speedPreset,
+                          QStringLiteral("--audio-bitrate"),
+                          QString::number(settings.audioBitrateKbps),
+                          QStringLiteral("--fps"),
+                          settings.frameRate,
+                          QStringLiteral("--start-frame"),
+                          QString::number(settings.rangeStartFrame),
+                          QStringLiteral("--end-frame=%1").arg(settings.rangeEndFrame),
+                          QStringLiteral("--render-token"),
+                          token,
+                          QStringLiteral("--watch-stdin")};
     if (!settings.includeAudio) {
         arguments << QStringLiteral("--no-audio");
     }

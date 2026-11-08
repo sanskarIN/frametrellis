@@ -11,8 +11,8 @@
 
 namespace ft::media {
 
-Result<FolderRelinkScan> discoverRelinkCandidates(
-    const QString& directory, const std::vector<MediaAsset>& missingAssets)
+Result<FolderRelinkScan> discoverRelinkCandidates(const QString& directory,
+                                                  const std::vector<MediaAsset>& missingAssets)
 {
     const auto discovered = discoverImportableFiles(directory);
     if (!discovered) {

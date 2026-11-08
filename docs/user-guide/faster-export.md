@@ -27,6 +27,24 @@ The converter adds/drops picture frames and preserves the timeline/audio duratio
 within the rounding of the final output frame. Frame-rate conversion can take longer
 to encode. Invalid or out-of-range values are refused before output begins.
 
+## Fine-tuning and reviewing export failures (v1.5.0 development)
+
+In post-v1.4.0 development builds, reopening the Export dialog preserves
+changes to its quality, encoder-speed, audio-bitrate, scaling and FPS controls
+for the current editor session. Choosing another preset deliberately applies
+its defaults. **Reset preset** reapplies the currently selected preset without
+changing the output path or project timeline. Settings are not currently saved
+between application restarts.
+
+If the renderer fails, choose **Copy error details** in the Export dialog.
+This copies the current failure message, helper diagnostics and output location
+to the clipboard *locally*, without uploading any files. The report can contain
+private paths or source filenames: review and redact them before posting.
+This diagnostic action does not enable crash dumps or treat a renderer failure
+as a successful export.
+
+These conveniences are **not included in stable v1.4.0**.
+
 ## No-upscale setting
 
 The **Do not upscale smaller projects (faster)** option is on by default in

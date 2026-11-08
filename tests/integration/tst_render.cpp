@@ -907,7 +907,8 @@ private slots:
                      qPrintable(job.errorMessage() + job.errorDetail()));
 
             auto profile = engine::createProfile(160, 90, p.settings().frameRate);
-            const QByteArray resource = QByteArrayLiteral("avformat:") + settings.outputPath.toUtf8();
+            const QByteArray resource =
+                QByteArrayLiteral("avformat:") + settings.outputPath.toUtf8();
             Mlt::Producer output(*profile, resource.constData());
             QVERIFY(output.is_valid());
             output.seek(15);
@@ -922,16 +923,17 @@ private slots:
                 leftPeak = std::max(leftPeak, std::abs(static_cast<int>(block.samples[i])));
                 rightPeak = std::max(rightPeak, std::abs(static_cast<int>(block.samples[i + 1])));
             }
-            const QString levels =
-                QStringLiteral("balance=%1, left=%2, right=%3")
-                    .arg(balance).arg(leftPeak).arg(rightPeak);
+            const QString levels = QStringLiteral("balance=%1, left=%2, right=%3")
+                                       .arg(balance)
+                                       .arg(leftPeak)
+                                       .arg(rightPeak);
             if (balance < 0.0) {
                 QVERIFY2(leftPeak > 1500 && rightPeak * 5 < leftPeak, qPrintable(levels));
             } else if (balance > 0.0) {
                 QVERIFY2(rightPeak > 1500 && leftPeak * 5 < rightPeak, qPrintable(levels));
             } else {
-                QVERIFY2(leftPeak > 1500 && rightPeak > 1500 &&
-                             leftPeak * 2 > rightPeak && rightPeak * 2 > leftPeak,
+                QVERIFY2(leftPeak > 1500 && rightPeak > 1500 && leftPeak * 2 > rightPeak &&
+                             rightPeak * 2 > leftPeak,
                          qPrintable(levels));
             }
             QVERIFY(partFiles().isEmpty());

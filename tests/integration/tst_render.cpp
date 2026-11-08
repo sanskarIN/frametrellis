@@ -24,6 +24,9 @@
 #include <QTest>
 #include <mlt++/Mlt.h>
 
+#include <algorithm>
+#include <cmath>
+
 using namespace ft;
 using namespace ft::rendering;
 using namespace ft::testing;
@@ -868,6 +871,73 @@ private slots:
         QVERIFY2(full > 5000 && quiet > full * 0.05 && quiet < full * 0.17,
                  qPrintable(QStringLiteral("encoded levels %1 / %2").arg(quiet).arg(full)));
         QVERIFY(partFiles().isEmpty());
+    }
+
+    void helperProcessAppliesStereoBalanceToActualEncodedChannels()
+    {
+        if (!engine::MltRuntime::capabilities().pannerFilter) {
+            QSKIP("This MLT installation does not provide the optional stereo panner.");
+        }
+        // Both fixture channels carry the same 880 Hz tone. A balanced clip
+        // should be audible on both sides; hard left/right should attenuate
+        // the opposite encoded MP4 channel, not merely update a UI property.
+        for (const double balance : {-1.0, 0.0, 1.0}) {
+            Project p = project();
+            const Id video = p.timeline().tracks()[0].clips.front().id;
+            const Id audio = p.timeline().tracks()[2].clips.front().id;
+            ClipProperties videoProps = p.timeline().clip(video)->properties;
+            videoProps.muted = true;
+            QVERIFY(p.timeline().setClipProperties(video, videoProps));
+            ClipProperties audioProps = p.timeline().clip(audio)->properties;
+            audioProps.balance = balance;
+            QVERIFY(p.timeline().setClipProperties(audio, audioProps));
+            QVERIFY(p.validate());
+            QCOMPARE(project_format::toJson(p).value(QStringLiteral("version")).toInt(),
+                     balance == 0.0 ? 2 : 7);
+
+            ExportSettings settings;
+            settings.outputPath =
+                m_dir.filePath(QStringLiteral("balance-%1.mp4").arg(balance, 0, 'f', 1));
+            settings.speedPreset = QStringLiteral("ultrafast");
+            RenderJob job(QStringLiteral(FT_RENDER_HELPER));
+            QSignalSpy finished(&job, &RenderJob::finished);
+            QVERIFY(job.start(p, settings));
+            QVERIFY(finished.count() > 0 || finished.wait(60'000));
+            QVERIFY2(job.state() == RenderJob::State::Succeeded,
+                     qPrintable(job.errorMessage() + job.errorDetail()));
+
+            auto profile = engine::createProfile(160, 90, p.settings().frameRate);
+            const QByteArray resource =
+                QByteArrayLiteral("avformat:") + settings.outputPath.toUtf8();
+            Mlt::Producer output(*profile, resource.constData());
+            QVERIFY(output.is_valid());
+            output.seek(15);
+            std::unique_ptr<Mlt::Frame> f(output.get_frame());
+            QVERIFY(f);
+            const engine::AudioBlock block = engine::frameToAudio(*f, 25.0, 48000, 2, 15);
+            QCOMPARE(block.channels, 2);
+            QVERIFY(block.sampleFrames() > 0);
+            int leftPeak = 0;
+            int rightPeak = 0;
+            for (size_t i = 0; i + 1 < block.samples.size(); i += 2) {
+                leftPeak = std::max(leftPeak, std::abs(static_cast<int>(block.samples[i])));
+                rightPeak = std::max(rightPeak, std::abs(static_cast<int>(block.samples[i + 1])));
+            }
+            const QString levels = QStringLiteral("balance=%1, left=%2, right=%3")
+                                       .arg(balance)
+                                       .arg(leftPeak)
+                                       .arg(rightPeak);
+            if (balance < 0.0) {
+                QVERIFY2(leftPeak > 1500 && rightPeak * 5 < leftPeak, qPrintable(levels));
+            } else if (balance > 0.0) {
+                QVERIFY2(rightPeak > 1500 && leftPeak * 5 < rightPeak, qPrintable(levels));
+            } else {
+                QVERIFY2(leftPeak > 1500 && rightPeak > 1500 && leftPeak * 2 > rightPeak &&
+                             rightPeak * 2 > leftPeak,
+                         qPrintable(levels));
+            }
+            QVERIFY(partFiles().isEmpty());
+        }
     }
 
     void helperProcessPreservesOpacityKeyframesInEncodedPicture()

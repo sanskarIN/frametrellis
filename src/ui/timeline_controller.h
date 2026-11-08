@@ -183,6 +183,8 @@ public:
     Q_INVOKABLE bool setSelectionFade(bool fadeOut, int durationFrames);
     /// Change linear audio gain on selected clips together in one undo step.
     Q_INVOKABLE bool setSelectionGain(double gain);
+    /// Set stereo balance for a selection in one reversible edit, rejecting non-stereo media.
+    Q_INVOKABLE bool setSelectionBalance(double balance);
     /// Change base video opacity on an all-video selection as one undoable edit.
     Q_INVOKABLE bool setSelectionOpacity(double opacity);
     /// Change a base picture adjustment across selected video clips as one undo step.

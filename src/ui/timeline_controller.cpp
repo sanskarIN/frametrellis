@@ -391,6 +391,10 @@ QVariantMap TimelineController::selectedClip() const
         {QStringLiteral("hasVideo"),
          asset && asset->info.hasVideo && track->kind == TrackKind::Video},
         {QStringLiteral("gain"), p.gain},
+        {QStringLiteral("balance"), p.balance},
+        {QStringLiteral("balanceAvailable"), asset && asset->info.hasAudio &&
+                                                 asset->info.audioChannels == 2 &&
+                                                 engine::MltRuntime::capabilities().pannerFilter},
         {QStringLiteral("muted"), p.muted},
         {QStringLiteral("fadeIn"), static_cast<double>(p.fadeIn)},
         {QStringLiteral("fadeOut"), static_cast<double>(p.fadeOut)},
@@ -1288,7 +1292,7 @@ bool TimelineController::copySelectionAttributes()
     }
     m_copiedClipAttributes = clip->properties;
     emit copiedClipAttributesChanged();
-    emit statusMessage(QStringLiteral("Copied volume, fades and picture adjustments."));
+    emit statusMessage(QStringLiteral("Copied volume, balance, fades and picture adjustments."));
     return true;
 }
 
@@ -1355,6 +1359,23 @@ bool TimelineController::setSelectionGain(double gain)
         return false;
     }
     emit statusMessage(QStringLiteral("Updated audio gain on %1 clip(s).").arg(ids.size()));
+    return true;
+}
+
+bool TimelineController::setSelectionBalance(double balance)
+{
+    if (m_selection.isEmpty() || !std::isfinite(balance) || balance < -1.0 || balance > 1.0 ||
+        !engine::MltRuntime::capabilities().pannerFilter) {
+        emit statusMessage(
+            QStringLiteral("Select stereo clips and a valid balance (MLT panner required)."));
+        return false;
+    }
+    QList<Id> ids(m_selection.cbegin(), m_selection.cend());
+    std::sort(ids.begin(), ids.end());
+    if (!m_project->execute(edits::setClipBalances(ids, balance))) {
+        return false;
+    }
+    emit statusMessage(QStringLiteral("Updated stereo balance on %1 clip(s).").arg(ids.size()));
     return true;
 }
 
@@ -1772,6 +1793,19 @@ bool TimelineController::setClipProperty(const QString& clipId, const QString& n
     if (name == QLatin1String("gain")) {
         p.gain = std::clamp(value.toDouble(), 0.0, kMaxClipGain);
         text = QStringLiteral("Change Volume");
+    } else if (name == QLatin1String("balance")) {
+        const MediaAsset* asset = project().asset(clip->assetId);
+        bool ok = false;
+        const double balance = value.toDouble(&ok);
+        if (!ok || !std::isfinite(balance) || balance < -1.0 || balance > 1.0 || !asset ||
+            !asset->info.hasAudio || asset->info.audioChannels != 2 ||
+            !engine::MltRuntime::capabilities().pannerFilter) {
+            emit statusMessage(QStringLiteral(
+                "Stereo balance requires a two-channel audio source and MLT panner."));
+            return false;
+        }
+        p.balance = balance;
+        text = QStringLiteral("Change Stereo Balance");
     } else if (name == QLatin1String("muted")) {
         p.muted = value.toBool();
         text = p.muted ? QStringLiteral("Mute Clip") : QStringLiteral("Unmute Clip");

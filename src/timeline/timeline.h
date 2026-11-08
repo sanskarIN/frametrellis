@@ -17,6 +17,7 @@ struct SourceLimits
     std::optional<FrameCount> length; ///< std::nullopt for unbounded sources such as stills
     bool hasVideo = false;
     bool hasAudio = false;
+    int audioChannels = 0; ///< 0 means unknown; nonzero balance requires stereo when known
 };
 
 /// Resolves an asset id to its limits; returns std::nullopt for unknown assets.

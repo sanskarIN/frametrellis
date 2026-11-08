@@ -803,7 +803,16 @@ std::unique_ptr<EditCommand> setClipProperties(const Id& clipId, const ClipPrope
 {
     return command(
         text,
-        [clipId, properties](Timeline& t, const SourceLookup&) {
+        [clipId, properties](Timeline& t, const SourceLookup& sources) -> Status {
+            if (properties.balance != 0.0) {
+                const Clip* clip = t.clip(clipId);
+                const auto limits = clip && sources ? sources(clip->assetId) : std::nullopt;
+                if (!limits || !limits->hasAudio || limits->audioChannels != 2) {
+                    return makeError(
+                        ErrorCode::InvalidArgument,
+                        QStringLiteral("Stereo balance requires a two-channel audio source."));
+                }
+            }
             return t.setClipProperties(clipId, properties);
         },
         QStringLiteral("clip-properties:") + clipId + QLatin1Char(':') + text);
@@ -812,34 +821,42 @@ std::unique_ptr<EditCommand> setClipProperties(const Id& clipId, const ClipPrope
 std::unique_ptr<EditCommand> pasteClipProperties(const QList<Id>& clipIds,
                                                  const ClipProperties& properties)
 {
-    return command(QStringLiteral("Paste Clip Attributes"),
-                   [clipIds, properties](Timeline& timeline, const SourceLookup&) -> Status {
-                       if (clipIds.isEmpty()) {
-                           return makeError(ErrorCode::InvalidArgument,
-                                            QStringLiteral("Select clips to update."));
-                       }
-                       QSet<Id> unique;
-                       for (const Id& id : clipIds) {
-                           if (unique.contains(id)) {
-                               return makeError(ErrorCode::InvalidArgument,
-                                                QStringLiteral("A clip was selected twice."));
-                           }
-                           unique.insert(id);
-                           const Clip* clip = timeline.clip(id);
-                           if (!clip) {
-                               return makeError(ErrorCode::NotFound,
-                                                QStringLiteral("A selected clip was not found."));
-                           }
-                           ClipProperties copy = properties;
-                           copy.fadeIn = std::min(copy.fadeIn, clip->duration);
-                           copy.fadeOut = std::min(copy.fadeOut, clip->duration - copy.fadeIn);
-                           if (const Status updated = timeline.setClipProperties(id, copy);
-                               !updated) {
-                               return updated;
-                           }
-                       }
-                       return {};
-                   });
+    return command(
+        QStringLiteral("Paste Clip Attributes"),
+        [clipIds, properties](Timeline& timeline, const SourceLookup& sources) -> Status {
+            if (clipIds.isEmpty()) {
+                return makeError(ErrorCode::InvalidArgument,
+                                 QStringLiteral("Select clips to update."));
+            }
+            QSet<Id> unique;
+            for (const Id& id : clipIds) {
+                if (unique.contains(id)) {
+                    return makeError(ErrorCode::InvalidArgument,
+                                     QStringLiteral("A clip was selected twice."));
+                }
+                unique.insert(id);
+                const Clip* clip = timeline.clip(id);
+                if (!clip) {
+                    return makeError(ErrorCode::NotFound,
+                                     QStringLiteral("A selected clip was not found."));
+                }
+                if (properties.balance != 0.0) {
+                    const auto limits = sources ? sources(clip->assetId) : std::nullopt;
+                    if (!limits || !limits->hasAudio || limits->audioChannels != 2) {
+                        return makeError(
+                            ErrorCode::InvalidArgument,
+                            QStringLiteral("Stereo balance requires two-channel audio."));
+                    }
+                }
+                ClipProperties copy = properties;
+                copy.fadeIn = std::min(copy.fadeIn, clip->duration);
+                copy.fadeOut = std::min(copy.fadeOut, clip->duration - copy.fadeIn);
+                if (const Status updated = timeline.setClipProperties(id, copy); !updated) {
+                    return updated;
+                }
+            }
+            return {};
+        });
 }
 
 std::unique_ptr<EditCommand> muteClips(const QList<Id>& clipIds, bool muted)
@@ -974,6 +991,59 @@ std::unique_ptr<EditCommand> setClipGains(const QList<Id>& clipIds, double gain)
             for (const Id& id : clipIds) {
                 ClipProperties properties = timeline.clip(id)->properties;
                 properties.gain = gain;
+                if (const Status updated = timeline.setClipProperties(id, properties); !updated) {
+                    return updated;
+                }
+            }
+            return {};
+        });
+}
+
+std::unique_ptr<EditCommand> setClipBalances(const QList<Id>& clipIds, double balance)
+{
+    return command(
+        QStringLiteral("Set Selected Stereo Balance"),
+        [clipIds, balance](Timeline& timeline, const SourceLookup& sources) -> Status {
+            if (clipIds.isEmpty() || !std::isfinite(balance) || balance < -1.0 || balance > 1.0) {
+                return makeError(ErrorCode::InvalidArgument,
+                                 QStringLiteral("Select clips and a valid stereo balance."));
+            }
+
+            QSet<Id> visited;
+            bool changed = false;
+            for (const Id& id : clipIds) {
+                if (visited.contains(id)) {
+                    return makeError(ErrorCode::InvalidArgument,
+                                     QStringLiteral("A clip was selected twice."));
+                }
+                visited.insert(id);
+                const Clip* clip = timeline.clip(id);
+                const Track* track = timeline.trackOfClip(id);
+                if (!clip || !track) {
+                    return makeError(ErrorCode::NotFound,
+                                     QStringLiteral("A selected clip was not found."));
+                }
+                if (track->locked) {
+                    return makeError(
+                        ErrorCode::Conflict,
+                        QStringLiteral("Unlock affected tracks before changing balance."));
+                }
+                const auto source = sources ? sources(clip->assetId) : std::nullopt;
+                if (!source || !source->hasAudio || source->audioChannels != 2) {
+                    return makeError(
+                        ErrorCode::InvalidArgument,
+                        QStringLiteral("Stereo balance requires a two-channel source."));
+                }
+                changed |= clip->properties.balance != balance;
+            }
+            if (!changed) {
+                return makeError(ErrorCode::InvalidArgument,
+                                 QStringLiteral("The selected clips already have this balance."));
+            }
+
+            for (const Id& id : clipIds) {
+                ClipProperties properties = timeline.clip(id)->properties;
+                properties.balance = balance;
                 if (const Status updated = timeline.setClipProperties(id, properties); !updated) {
                     return updated;
                 }

@@ -215,6 +215,7 @@ std::optional<SourceLimits> Project::sourceLimits(const Id& assetId) const
     limits.length = a->lengthInFrames(m_settings.frameRate);
     limits.hasVideo = a->info.hasVideo;
     limits.hasAudio = a->info.hasAudio;
+    limits.audioChannels = a->info.audioChannels;
     return limits;
 }
 

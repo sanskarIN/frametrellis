@@ -100,6 +100,9 @@ std::unique_ptr<EditCommand> setClipFades(const QList<Id>& clipIds, FrameCount f
 /// Set an identical linear audio gain (0.0 to 4.0) on selected clips atomically.
 /// Reject invalid inputs, duplicate/missing IDs and locked tracks; preserve all other properties.
 std::unique_ptr<EditCommand> setClipGains(const QList<Id>& clipIds, double gain);
+/// Apply a common stereo balance to selected clips, preserving gain/fades/automation.
+/// Requires stereo sources and unlocked tracks. Validates all clips before the edit.
+std::unique_ptr<EditCommand> setClipBalances(const QList<Id>& clipIds, double balance);
 /// Set a common base opacity on video-track clips without modifying opacity keyframes.
 /// Mixed audio/video selection, locked tracks and invalid values are rejected atomically.
 std::unique_ptr<EditCommand> setClipOpacities(const QList<Id>& clipIds, double opacity);

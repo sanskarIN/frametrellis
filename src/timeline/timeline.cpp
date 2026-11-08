@@ -26,6 +26,10 @@ Status checkProperties(const ClipProperties& p, FrameCount duration)
     if (!inRange(p.gain, 0.0, kMaxClipGain)) {
         return makeError(ErrorCode::OutOfRange, QStringLiteral("Clip volume is out of range."));
     }
+    if (!inRange(p.balance, -1.0, 1.0)) {
+        return makeError(ErrorCode::OutOfRange,
+                         QStringLiteral("Stereo balance must be between left and right."));
+    }
     if (p.fadeIn < 0 || p.fadeOut < 0 || p.fadeIn > duration || p.fadeOut > duration - p.fadeIn) {
         return makeError(ErrorCode::OutOfRange,
                          QStringLiteral("Fades must fit within the clip duration."));
@@ -391,6 +395,11 @@ Status Timeline::checkSourceRange(const Clip& c, const Track& t, const SourceLoo
         return makeError(
             ErrorCode::InvalidArgument,
             QStringLiteral("This media has no audio, so it cannot go on an audio track."));
+    }
+    if (c.properties.balance != 0.0 && (!limits->hasAudio || limits->audioChannels != 2)) {
+        return makeError(
+            ErrorCode::InvalidArgument,
+            QStringLiteral("Non-centre stereo balance requires a stereo audio source."));
     }
     if (!c.audioKeyframes.empty() && !limits->hasAudio) {
         return makeError(ErrorCode::InvalidArgument,

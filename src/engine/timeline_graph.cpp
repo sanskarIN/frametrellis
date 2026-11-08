@@ -106,6 +106,29 @@ Status attachAudioKeyframes(Mlt::Profile& profile, Mlt::Producer& cut, const Cli
     return {};
 }
 
+/// Apply static left/right stereo balance using MLT's panner filter.
+/// Unlike a channel swap this attenuates one side without changing clip duration.
+Status attachStereoBalance(Mlt::Profile& profile, Mlt::Producer& cut, const Clip& clip)
+{
+    if (clip.properties.balance == 0.0) {
+        return {};
+    }
+    if (!MltRuntime::capabilities().pannerFilter) {
+        return makeError(ErrorCode::Engine,
+                         QStringLiteral("Stereo balance requires the MLT panner filter."));
+    }
+    Mlt::Filter balance(profile, "panner");
+    if (!balance.is_valid()) {
+        return makeError(ErrorCode::Engine,
+                         QStringLiteral("Could not prepare the stereo balance filter."));
+    }
+    balance.set_in_and_out(cut.get_in(), cut.get_out());
+    balance.set("channel", -1); // front stereo balance, not individual-channel panning
+    balance.set("split", (clip.properties.balance + 1.0) * 0.5);
+    cut.attach(balance);
+    return {};
+}
+
 /// Multiply source alpha after scalar opacity/fades; never replace the image's own alpha.
 Status attachOpacityKeyframes(Mlt::Profile& profile, Mlt::Producer& cut, const Clip& clip)
 {
@@ -433,6 +456,9 @@ Result<GraphBuildResult> TimelineGraphBuilder::build(const Project& project,
                 if (const Status automation = attachAudioKeyframes(m_profile, *cut, clip);
                     !automation) {
                     return automation.error();
+                }
+                if (const Status balance = attachStereoBalance(m_profile, *cut, clip); !balance) {
+                    return balance.error();
                 }
                 if (track.kind == TrackKind::Video) {
                     attachVideoFilters(m_profile, *cut, clip, before);

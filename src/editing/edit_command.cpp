@@ -285,7 +285,8 @@ Result<ChangeSet> RelinkMediaBatchCommand::redo(Project& project)
         }
         ids.insert(updated.id);
         const MediaAsset* old = project.asset(updated.id);
-        if (!old || updated.status != MediaStatus::Online) {
+        if (!old || old->status != MediaStatus::Missing ||
+            updated.status != MediaStatus::Online) {
             return makeError(ErrorCode::InvalidArgument,
                              QStringLiteral("A replacement media reference is invalid."));
         }

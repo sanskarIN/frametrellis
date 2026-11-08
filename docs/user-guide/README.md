@@ -625,6 +625,28 @@ If a media file was moved or deleted, its tile shows *Offline* and its clips sho
 placeholder. Right-click the tile and choose *Relink missing file…* to locate it. The replacement
 must be the same kind of media and at least as long as the clips need.
 
+### Relink an offline project from a folder (v1.5.0 development)
+
+Choose **Edit → Relink Missing Media from Folder…** and select the directory
+containing the moved source files. The editor searches subfolders on a worker
+thread, not on the UI thread. It matches by **case-insensitive original filename**
+and checks the replacement's media type, duration, channels, and ability to
+support every existing clip. A match is accepted only when there is **exactly
+one** file with that filename in the scanned folder and only one missing
+media reference using that filename. Ambiguous matches are **skipped rather
+than guessed**. Use individual media-tile Relink to resolve those manually.
+
+For safety, a scan examines at most 10,000 files and selects at most 500
+supported media files. Narrow the folder if it reports truncation. Invalid,
+missing, changed, conflicting, or incompatible replacements are rejected.
+All accepted replacements are applied to the project in **one Undo/Redo step**.
+Undo restores the former offline paths; neither a scan nor Undo copies,
+renames, moves or deletes original footage. A changed project is revalidated
+after the background scan, before any edit is applied.
+
+This feature is a candidate for v1.5.0 and is **not available in the
+published stable v1.4.0**.
+
 When you choose **Edit → Check for Missing Media**, FrameTrellis also checks whether a media
 file's size or recorded modification time changed since import. A changed source is flagged
 in the media bin for review even if its file size is unchanged. This check does not edit

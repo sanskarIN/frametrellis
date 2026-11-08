@@ -3776,14 +3776,14 @@ private slots:
             QSKIP("This MLT installation does not provide the optional stereo panner.");
         }
         const auto& audioTracks = m_app->project()->project().timeline().tracks();
-        const auto audioTrack = std::find_if(audioTracks.begin(), audioTracks.end(),
-                                             [](const Track& track) {
-                                                 return track.kind == TrackKind::Audio &&
-                                                        !track.clips.empty();
-                                             });
+        const auto audioTrack =
+            std::find_if(audioTracks.begin(), audioTracks.end(), [](const Track& track) {
+                return track.kind == TrackKind::Audio && !track.clips.empty();
+            });
         QVERIFY(audioTrack != audioTracks.end());
         const Id clipId = audioTrack->clips.front().id;
-        const MediaAsset* asset = m_app->project()->project().asset(audioTrack->clips.front().assetId);
+        const MediaAsset* asset =
+            m_app->project()->project().asset(audioTrack->clips.front().assetId);
         QVERIFY(asset);
         QCOMPARE(asset->info.audioChannels, 2);
         const Project before = m_app->project()->project();
@@ -3795,14 +3795,13 @@ private slots:
         QTRY_VERIFY(balance->isVisible());
         QCOMPARE(balance->property("value").toDouble(), 0.0);
         QVERIFY(QMetaObject::invokeMethod(balance, "moved", Q_ARG(double, -0.5)));
-        QTRY_COMPARE(m_app->project()->project().timeline().clip(clipId)->properties.balance,
-                     -0.5);
+        QTRY_COMPARE(m_app->project()->project().timeline().clip(clipId)->properties.balance, -0.5);
         m_app->timeline()->endEdit();
         QCOMPARE(m_app->project()->undoText(), QStringLiteral("Change Stereo Balance"));
 
         const Project edited = m_app->project()->project();
-        QVERIFY(!m_app->timeline()->setClipProperty(
-            clipId, QStringLiteral("balance"), std::numeric_limits<double>::infinity()));
+        QVERIFY(!m_app->timeline()->setClipProperty(clipId, QStringLiteral("balance"),
+                                                    std::numeric_limits<double>::infinity()));
         QCOMPARE(m_app->project()->project(), edited);
         m_app->project()->undo();
         QCOMPARE(m_app->project()->project(), before);

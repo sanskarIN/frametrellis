@@ -21,6 +21,7 @@ struct EngineCapabilities
     bool mixTransition = false;
     QString compositor; ///< "affine" when available; empty otherwise
     bool volumeFilter = false;
+    bool pannerFilter = false; ///< optional stereo balance service
     bool brightnessFilter = false;
     bool transformFilter = false; ///< affine filter for animated clip geometry
     bool eqFilter = false;        ///< libavfilter "eq" bridge for brightness/contrast/saturation

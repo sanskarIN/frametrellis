@@ -153,6 +153,14 @@ int main(int argc, char** argv)
         QStringLiteral("fps"),
         QStringLiteral("Output FPS: match, 24, 29.97, 30000/1001 or other valid rate."),
         QStringLiteral("rate"), QStringLiteral("match"));
+    const QCommandLineOption startFrameOption(
+        QStringLiteral("start-frame"),
+        QStringLiteral("First project frame to export (inclusive; default 0)."),
+        QStringLiteral("frame"), QStringLiteral("0"));
+    const QCommandLineOption endFrameOption(
+        QStringLiteral("end-frame"),
+        QStringLiteral("End project frame (exclusive; -1 means sequence end)."),
+        QStringLiteral("frame"), QStringLiteral("-1"));
     const QCommandLineOption crfOption(QStringLiteral("crf"),
                                        QStringLiteral("Quality, 0 (best) to 51."),
                                        QStringLiteral("value"), QStringLiteral("20"));
@@ -182,9 +190,10 @@ int main(int argc, char** argv)
         QStringLiteral("Check the installation: generate sample media in <directory>, edit and "
                        "export it, and report each step. Exits with 0 when everything works."),
         QStringLiteral("directory"));
-    parser.addOptions({projectOption, outputOption, shortSideOption, fpsOption, crfOption,
-                       presetOption, audioOption, renderTokenOption, noAudioOption, noUpscaleOption,
-                       watchStdinOption, selfTestOption, inspectProjectOption, listPresetsOption});
+    parser.addOptions({projectOption, outputOption, shortSideOption, fpsOption, startFrameOption,
+                       endFrameOption, crfOption, presetOption, audioOption, renderTokenOption,
+                       noAudioOption, noUpscaleOption, watchStdinOption, selfTestOption,
+                       inspectProjectOption, listPresetsOption});
     parser.process(app);
 
     if (parser.isSet(listPresetsOption)) {
@@ -294,14 +303,18 @@ int main(int argc, char** argv)
     bool ok1 = false;
     bool ok2 = false;
     bool ok3 = false;
+    bool ok4 = false;
+    bool ok5 = false;
     settings.shortSide = parser.value(shortSideOption).toInt(&ok1);
     settings.crf = parser.value(crfOption).toInt(&ok2);
     settings.audioBitrateKbps = parser.value(audioOption).toInt(&ok3);
+    settings.rangeStartFrame = parser.value(startFrameOption).toLongLong(&ok4);
+    settings.rangeEndFrame = parser.value(endFrameOption).toLongLong(&ok5);
     settings.speedPreset = parser.value(presetOption);
     settings.frameRate = parser.value(fpsOption);
     settings.includeAudio = !parser.isSet(noAudioOption);
     settings.avoidUpscaling = parser.isSet(noUpscaleOption);
-    if (!ok1 || !ok2 || !ok3) {
+    if (!ok1 || !ok2 || !ok3 || !ok4 || !ok5) {
         emitError(makeError(ErrorCode::InvalidArgument,
                             QStringLiteral("Numeric options must be whole numbers.")));
         return protocol::BadArguments;

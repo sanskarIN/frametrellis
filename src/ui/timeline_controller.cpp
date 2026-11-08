@@ -230,8 +230,7 @@ bool TimelineController::pasteChaptersAsMarkers()
         emit statusMessage(parsed.error().message);
         return false;
     }
-    if (const Status added = m_project->execute(edits::appendMarkers(*parsed)); !added) {
-        emit statusMessage(added.error().message);
+    if (!m_project->execute(edits::appendMarkers(*parsed))) {
         return false;
     }
     emit statusMessage(QStringLiteral("Imported %1 video chapter markers.").arg(parsed->size()));
@@ -240,8 +239,7 @@ bool TimelineController::pasteChaptersAsMarkers()
 
 bool TimelineController::clearAllMarkers()
 {
-    if (const Status cleared = m_project->execute(edits::clearMarkers()); !cleared) {
-        emit statusMessage(cleared.error().message);
+    if (!m_project->execute(edits::clearMarkers())) {
         return false;
     }
     emit statusMessage(QStringLiteral("Cleared timeline markers (Undo to restore)."));

@@ -77,6 +77,33 @@ std::unique_ptr<EditCommand> addMarker(TimelineMarker marker)
         });
 }
 
+std::unique_ptr<EditCommand> appendMarkers(std::vector<TimelineMarker> newMarkers)
+{
+    return std::make_unique<MarkerEditCommand>(
+        QStringLiteral("Import Chapter Markers"),
+        [newMarkers = std::move(newMarkers)](Project& project) -> Status {
+            if (newMarkers.empty()) {
+                return makeError(ErrorCode::InvalidArgument,
+                                 QStringLiteral("There are no chapter markers to import."));
+            }
+            auto markers = project.markers();
+            markers.insert(markers.end(), newMarkers.begin(), newMarkers.end());
+            return project.setMarkers(std::move(markers));
+        });
+}
+
+std::unique_ptr<EditCommand> clearMarkers()
+{
+    return std::make_unique<MarkerEditCommand>(
+        QStringLiteral("Clear All Markers"), [](Project& project) -> Status {
+            if (project.markers().empty()) {
+                return makeError(ErrorCode::InvalidArgument,
+                                 QStringLiteral("There are no markers to remove."));
+            }
+            return project.setMarkers({});
+        });
+}
+
 std::unique_ptr<EditCommand> removeMarker(Id markerId)
 {
     return std::make_unique<MarkerEditCommand>(

@@ -13,6 +13,7 @@
 
 #include <algorithm>
 #include <limits>
+#include <utility>
 
 using namespace ft;
 using namespace ft::rendering;

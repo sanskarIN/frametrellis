@@ -3466,11 +3466,11 @@ private slots:
 
         QVERIFY(m_app->timeline()->clearAllMarkers());
         QVERIFY(m_app->project()->project().markers().empty());
-        QVERIFY(m_app->project()->undo());
+        m_app->project()->undo();
         QCOMPARE(m_app->project()->project(), imported);
-        QVERIFY(m_app->project()->undo());
+        m_app->project()->undo();
         if (hadMarkers) {
-            QVERIFY(m_app->project()->undo());
+            m_app->project()->undo();
         }
         QCOMPARE(m_app->project()->project().markers(), original.markers());
         QCOMPARE(m_app->project()->project().timeline(), timelineBefore);

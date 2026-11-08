@@ -29,6 +29,7 @@ struct VideoAdjustments
 struct ClipProperties
 {
     double gain = 1.0; ///< linear audio gain, 0.0 .. 4.0 (about +12 dB)
+    double balance = 0.0; ///< stereo channel balance, -1.0 left .. 0 centre .. +1.0 right
     bool muted = false;
     FrameCount fadeIn = 0;  ///< frames of fade-in at the clip start
     FrameCount fadeOut = 0; ///< frames of fade-out at the clip end

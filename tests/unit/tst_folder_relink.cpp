@@ -27,8 +27,8 @@ bool writeStereoWav(const QString& path)
     stream.writeRawData("RIFF", 4);
     stream << quint32(36 + dataBytes);
     stream.writeRawData("WAVEfmt ", 8);
-    stream << quint32(16) << quint16(1) << quint16(2) << quint32(48000)
-           << quint32(48000 * 4) << quint16(4) << quint16(16);
+    stream << quint32(16) << quint16(1) << quint16(2) << quint32(48000) << quint32(48000 * 4)
+           << quint16(4) << quint16(16);
     stream.writeRawData("data", 4);
     stream << dataBytes;
     const QByteArray silence(dataBytes, '\0');
@@ -101,7 +101,8 @@ private slots:
 
         QVERIFY(QFile::remove(root.filePath(QStringLiteral("b/same.wav"))));
         const MediaAsset second = missing(QStringLiteral("id2"), QStringLiteral("same.wav"));
-        const auto duplicateNames = media::discoverRelinkCandidates(temp.path(), {original, second});
+        const auto duplicateNames =
+            media::discoverRelinkCandidates(temp.path(), {original, second});
         QVERIFY(duplicateNames);
         QCOMPARE(duplicateNames->ambiguous, 2);
         QVERIFY(duplicateNames->candidates.empty());
@@ -125,8 +126,8 @@ private slots:
         QVERIFY(invalid);
         QCOMPARE(invalid->probeFailed, 1);
         QVERIFY(invalid->candidates.empty());
-        QVERIFY(!media::discoverRelinkCandidates(temp.filePath(QStringLiteral("missing")),
-                                                   {original}));
+        QVERIFY(
+            !media::discoverRelinkCandidates(temp.filePath(QStringLiteral("missing")), {original}));
     }
 };
 

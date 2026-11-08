@@ -396,8 +396,7 @@ Status Timeline::checkSourceRange(const Clip& c, const Track& t, const SourceLoo
             ErrorCode::InvalidArgument,
             QStringLiteral("This media has no audio, so it cannot go on an audio track."));
     }
-    if (c.properties.balance != 0.0 &&
-        (!limits->hasAudio || limits->audioChannels != 2)) {
+    if (c.properties.balance != 0.0 && (!limits->hasAudio || limits->audioChannels != 2)) {
         return makeError(
             ErrorCode::InvalidArgument,
             QStringLiteral("Non-centre stereo balance requires a stereo audio source."));

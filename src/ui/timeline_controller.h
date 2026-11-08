@@ -283,6 +283,9 @@ public:
     Q_INVOKABLE bool copyMarkersAsChapters();
     /// Place an HTML5/WebVTT chapter-track document on the clipboard.
     Q_INVOKABLE bool copyMarkersAsWebVtt();
+    /// Paste timestamped video chapters in one atomic, undoable operation.
+    Q_INVOKABLE bool pasteChaptersAsMarkers();
+    Q_INVOKABLE bool clearAllMarkers();
     /// Copies a cuts-only CMX3600 picture edit decision list (non-destructive).
     Q_INVOKABLE bool copyPictureAsEdl();
 

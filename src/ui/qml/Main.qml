@@ -380,6 +380,8 @@ ApplicationWindow {
             Action { text: qsTr("Next Marker"); shortcut: "Ctrl+PgDown"; enabled: window.editKeys && window.app.timeline.markers.length > 0; onTriggered: window.app.timeline.nextMarker() }
             Action { text: qsTr("Copy Markers as Video Chapters"); enabled: window.editKeys && window.app.timeline.markers.length > 0; onTriggered: window.app.timeline.copyMarkersAsChapters() }
             Action { text: qsTr("Copy Markers as WebVTT Chapters"); enabled: window.editKeys && window.app.timeline.markers.length > 0; onTriggered: window.app.timeline.copyMarkersAsWebVtt() }
+            Action { text: qsTr("Paste Video Chapters as Markers"); enabled: window.editKeys && !window.app.timeline.empty; onTriggered: window.app.timeline.pasteChaptersAsMarkers() }
+            Action { text: qsTr("Clear All Markers"); enabled: window.editKeys && window.app.timeline.markers.length > 0; onTriggered: window.app.timeline.clearAllMarkers() }
             Action { text: window.sourceMode ? qsTr("Go to Source Start") : qsTr("Go to Start"); shortcut: "Home"; enabled: window.editKeys && (!window.sourceMode || sourceMonitor.loaded); onTriggered: window.sourceMode ? (sourceMonitor.previewFrame = 0) : window.app.playback.goToStart() }
             Action { text: window.sourceMode ? qsTr("Go to Source End") : qsTr("Go to End"); shortcut: "End"; enabled: window.editKeys && (!window.sourceMode || sourceMonitor.loaded); onTriggered: window.sourceMode ? (sourceMonitor.previewFrame = sourceMonitor.maxFrames - 1) : window.app.playback.goToEnd() }
             Action { text: qsTr("Mark Source In"); shortcut: "I"; enabled: window.editKeys && window.sourceMode && sourceMonitor.loaded; onTriggered: sourceMonitor.markIn() }

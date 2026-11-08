@@ -406,6 +406,25 @@ covers their position.
 v1.3 and older reject these newer project files, even if they contain no markers. Keep a
 backup if you may need to return to an older editor. Markers are available in v1.4.0.
 
+### Paste chapters back into the editor (v1.5.0 development)
+
+Copy chapter lines such as `00:00 Introduction`, `01:25 Scene two` or
+`00:02:15 Closing notes` into the system clipboard, then choose
+**Playback → Paste Video Chapters as Markers**. The timeline must contain media.
+The first imported chapter must start at `00:00`, and later timestamps must
+increase without duplicating an existing marker's frame or exceeding the sequence.
+The complete import is one Undo/Redo step; invalid text imports nothing.
+
+The parser reads both `MM:SS` and `HH:MM:SS` labels and keeps Unicode titles.
+Time is converted to the first project frame at or after the given second,
+using exact rational FPS; this one-second-precision chapter format is **not**
+a lossless round-trip of sub-second frame positions. An import cannot modify
+existing markers or source media. To discard all markers without affecting clips,
+choose **Playback → Clear All Markers** and use Undo to restore them.
+
+These actions are **only in development builds after v1.4.0**, not in the
+published v1.4.0 installer.
+
 ### Export review markers as chapters
 
 In v1.4.0, choose **Playback → Copy Markers as Video Chapters** to

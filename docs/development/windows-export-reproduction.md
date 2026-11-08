@@ -9,10 +9,12 @@ The script is `scripts/windows/Test-FrameTrellisRepeatedExports.ps1` and uses Wi
 In an ordinary (not elevated) PowerShell console, from the source checkout:
 
 ```powershell
-powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\windows\Test-FrameTrellisRepeatedExports.ps1 `
+powershell -NoProfile -File .\scripts\windows\Test-FrameTrellisRepeatedExports.ps1 `
     -Renderer "C:\path\to\FrameTrellis\frametrellis-render.exe" `
     -OutputDirectory "C:\Temp\frametrellis-repro-2026-11-08" -Runs 5 -TimeoutSeconds 120
 ```
+
+If your Windows or organization policy blocks local scripts, follow your normal trusted-script approval process rather than weakening system-wide execution settings.
 
 When no `-Project` is supplied, each run uses the render helper's own
 `--self-test` synthetic media and writes to a unique `run-001`, `run-002` etc.
@@ -24,7 +26,7 @@ Use **a copy** of a failing project, with locally available source media.
 Choose a fresh output directory that contains no existing run folders:
 
 ```powershell
-powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\windows\Test-FrameTrellisRepeatedExports.ps1 `
+powershell -NoProfile -File .\scripts\windows\Test-FrameTrellisRepeatedExports.ps1 `
     -Renderer "C:\path\to\FrameTrellis\frametrellis-render.exe" `
     -Project "C:\path\to\test-copy.ftproj" `
     -OutputDirectory "D:\FrameTrellis-Test-Outputs" -Runs 3 -TimeoutSeconds 3600 -Fps "30000/1001"

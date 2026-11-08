@@ -1,7 +1,8 @@
 # Publish FrameTrellis from your GitHub account (automatic asset attachment)
 
 The repository owner creates and **publishes** the stable GitHub Release through GitHub's
-Releases interface. The `Attach verified release assets` workflow then **automatically
+Releases interface. This guide is version-independent: substitute the exact numeric
+release version for every `X.Y.Z` placeholder below. The `Attach verified release assets` workflow then **automatically
 uploads five files** from a successful, exact-commit `Prepare manual release` run.
 Neither workflow creates a tag or GitHub Release. This is a change from the earlier
 fully manual attachment process.
@@ -14,7 +15,8 @@ fully manual attachment process.
 ## Before publishing
 
 1. Freeze `main`, record its complete commit SHA, and confirm the project version
-   and `docs/releases/v1.4.0.md` correspond to the intended `v1.4.0` tag.
+   and matching `docs/releases/vX.Y.Z.md` correspond to the intended `vX.Y.Z` tag
+   (replace `X.Y.Z` with the exact numeric CMake project version).
 2. Require successful CI, Windows packages (including clean `windows-2022`,
    `windows-2025`, and `windows-11-arm` verification), and website checks on
    that exact SHA.
@@ -29,7 +31,7 @@ fully manual attachment process.
    `release-notes.md`.
 5. Download the complete artifact and independently verify all four payload hashes
    against `SHA256SUMS.txt`. From the repository root, use
-   `python3 packaging/verify_release_assets.py --version 1.4.0 --directory /path/to/release`.
+   `python3 packaging/verify_release_assets.py --version X.Y.Z --directory /path/to/release`.
    Check the corresponding-source archive, package notices, version and limits.
    Do not waive a failed integrity check simply because CI was green.
 
@@ -37,9 +39,9 @@ fully manual attachment process.
 
 1. Sign into [FrameTrellis Releases](https://github.com/sanskarIN/frametrellis/releases)
    as the repository owner, and choose **Draft a new release**.
-2. Create the tag `v1.4.0` from `main` **only after checking `main` is still
+2. Create the tag `vX.Y.Z` from `main` **only after checking `main` is still
    the exact tested SHA**. A pre-existing tag must point to that SHA.
-3. Set title `FrameTrellis 1.4.0` and paste the assembled
+3. Set title `FrameTrellis X.Y.Z` and paste the assembled
    `release-notes.md` into the description.
 4. **Do not manually attach the files** when using the automatic uploader.
    Leave the release's asset picker empty.
@@ -55,12 +57,13 @@ fully manual attachment process.
    **same exact commit SHA**. It downloads only that run's complete artifact.
 2. The workflow verifies all four SHA-256 payloads, portable ZIP structure,
    SPDX version and third-party source TAR before attaching:
-   - `FrameTrellis-1.4.0-windows-x64-setup.exe`
-   - `FrameTrellis-1.4.0-windows-x64.zip`
-   - `FrameTrellis-1.4.0-windows-x64.spdx.json`
-   - `FrameTrellis-1.4.0-windows-x64-third-party-sources.tar`
+   - `FrameTrellis-X.Y.Z-windows-x64-setup.exe`
+   - `FrameTrellis-X.Y.Z-windows-x64.zip`
+   - `FrameTrellis-X.Y.Z-windows-x64.spdx.json`
+   - `FrameTrellis-X.Y.Z-windows-x64-third-party-sources.tar`
    - `SHA256SUMS.txt`
-3. Check the workflow succeeded and the [v1.4.0 release](https://github.com/sanskarIN/frametrellis/releases/tag/v1.4.0)
+3. Check the workflow succeeded and the published release under
+   [FrameTrellis Releases](https://github.com/sanskarIN/frametrellis/releases)
    has exactly five complete assets with the expected file sizes.
 4. `Publish website` starts only after the upload workflow succeeds, so the
    website download links refer to uploaded release files. Verify those links

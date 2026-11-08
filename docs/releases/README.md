@@ -3,6 +3,13 @@
 Release notes for each tagged version live in this folder (`vX.Y.Z.md`) and are used as the
 GitHub release description. Unreleased changes are collected in [unreleased.md](unreleased.md).
 
+## Next proposed release (not yet published)
+
+The [v1.5.0 candidate notes](v1.5.0.md) and
+[v1.5.0 preflight gates](v1.5.0-preflight.md) are **drafts**, not
+release announcements or verified physical Windows QA.
+Keep v1.4.0 as the latest stable until all release gates pass.
+
 | Version | Notes |
 |---|---|
 | 1.4.0 | [v1.4.0.md](v1.4.0.md) — **published stable 2 November 2026**; see the [publication record](v1.4.0-preflight.md) |

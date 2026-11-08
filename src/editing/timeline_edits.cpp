@@ -1007,13 +1007,15 @@ std::unique_ptr<EditCommand> setClipBalances(const QList<Id>& clipIds, double ba
                                      QStringLiteral("A selected clip was not found."));
                 }
                 if (track->locked) {
-                    return makeError(ErrorCode::Conflict,
-                                     QStringLiteral("Unlock affected tracks before changing balance."));
+                    return makeError(
+                        ErrorCode::Conflict,
+                        QStringLiteral("Unlock affected tracks before changing balance."));
                 }
                 const auto source = sources ? sources(clip->assetId) : std::nullopt;
                 if (!source || !source->hasAudio || source->audioChannels != 2) {
-                    return makeError(ErrorCode::InvalidArgument,
-                                     QStringLiteral("Stereo balance requires a two-channel source."));
+                    return makeError(
+                        ErrorCode::InvalidArgument,
+                        QStringLiteral("Stereo balance requires a two-channel source."));
                 }
                 changed |= clip->properties.balance != balance;
             }

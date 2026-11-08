@@ -48,7 +48,7 @@ Result<FolderRelinkScan> discoverRelinkCandidates(const QString& directory,
             continue;
         }
 
-        const QString path = matches.front();
+        const QString& path = matches.front();
         const auto info = probeMedia(path);
         if (!info) {
             ++result.probeFailed;

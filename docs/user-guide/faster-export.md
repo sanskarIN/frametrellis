@@ -45,6 +45,37 @@ as a successful export.
 
 These conveniences are **not included in stable v1.4.0**.
 
+## Export just part of the timeline (v1.5.0 development only)
+
+Choose **File → Export → Timeline range** to render:
+
+- **Entire timeline** — the existing default; every visible track is exported.
+- **Selected clips' time span** — the earliest selected clip start through the
+  latest selected clip's exclusive end, **including gaps and other tracks**
+  during that interval. Make a clip selection before opening Export.
+- **Custom frame interval** — enter a project-frame **Start** (inclusive)
+  and **End** (exclusive). For example, start 250, end 500 exports 250
+  frames at the **project's original timebase** before any requested output-FPS conversion.
+
+The project, source trims, subtitles, video effects, keyframes, clip positions,
+playhead and Undo/Redo history do not change. The helper constructs the full
+sequence graph and encodes only the selected absolute frame interval, so audio
+and visuals stay synchronised. Output FPS can still be Match project, a common
+preset or a custom rational such as `24000/1001`. The selected interval is
+converted using exact rational frame arithmetic, rounding its absolute
+boundaries up; a range that would contain no output frames is rejected.
+
+Frame interval values must be non-negative integers within the timeline and
+the exclusive end must exceed the start. Do not confuse these values with
+source-clip frame positions. The headless helper supports the equivalent
+`--start-frame <frame>` and `--end-frame <exclusive-end>` options
+(`--end-frame -1` means the entire remaining timeline).
+
+The renderer still writes a temporary file, checks the output dimensions,
+FPS and **selected segment duration**, and only then replaces the destination.
+It never truncates or rearranges the saved project. These features remain
+unreleased development work pending full native Windows and export safety QA.
+
 ## No-upscale setting
 
 The **Do not upscale smaller projects (faster)** option is on by default in

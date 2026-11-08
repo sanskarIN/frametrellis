@@ -4,9 +4,11 @@
 
 #include "ui/project_controller.h"
 
+#include <QClipboard>
 #include <QDesktopServices>
 #include <QDir>
 #include <QFileInfo>
+#include <QGuiApplication>
 #include <QStandardPaths>
 #include <QUrl>
 
@@ -273,6 +275,27 @@ QString ExportController::suggestedOutputPath() const
 bool ExportController::fileExists(const QString& pathOrUrl) const
 {
     return QFileInfo::exists(ProjectController::localPath(pathOrUrl));
+}
+
+bool ExportController::copyFailureDetails() const
+{
+    if (!m_job || m_job->state() != RenderJob::State::Failed) {
+        return false;
+    }
+    QClipboard* clipboard = QGuiApplication::clipboard();
+    if (!clipboard) {
+        return false;
+    }
+    // This is a local, opt-in copy only. Do not automatically transmit logs:
+    // native stderr may contain source paths and user-specific filesystem data.
+    const QString report =
+        QStringLiteral("FrameTrellis export failure\\n"
+                       "Review and redact private paths before sharing.\\n"
+                       "Destination: %1\\nEncoder: %2\\nError: %3\\nDetails:\\n%4")
+            .arg(m_job->outputPath(), m_job->encoder(), m_job->errorMessage(),
+                 m_job->errorDetail());
+    clipboard->setText(report);
+    return true;
 }
 
 void ExportController::revealOutput() const

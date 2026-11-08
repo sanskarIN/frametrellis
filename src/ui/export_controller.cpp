@@ -182,6 +182,17 @@ rendering::ExportSettings ExportController::toSettings(const QVariantMap& map) c
     if (map.contains(QStringLiteral("frameRate"))) {
         s.frameRate = map.value(QStringLiteral("frameRate")).toString();
     }
+    const auto frameValue = [&](const char* key, FrameCount fallback) {
+        const QVariant supplied = map.value(QLatin1String(key));
+        if (!supplied.isValid()) {
+            return fallback;
+        }
+        bool valid = false;
+        const qint64 value = supplied.toString().toLongLong(&valid);
+        return valid ? value : FrameCount{-2};
+    };
+    s.rangeStartFrame = frameValue("rangeStartFrame", 0);
+    s.rangeEndFrame = frameValue("rangeEndFrame", -1);
     return s;
 }
 
@@ -197,13 +208,20 @@ QString ExportController::describeOutput(const QVariantMap& settings) const
     const rendering::ExportSettings s = toSettings(settings);
     const QSize size = rendering::outputSize(s, m_project->project().settings());
     const Result<FrameRate> rate = rendering::outputFrameRate(s, m_project->project().settings());
-    return QStringLiteral("%1×%2 · %3 · H.264 + %4%5")
+    const bool partial = s.rangeStartFrame != 0 || s.rangeEndFrame != -1;
+    const QString rangeText =
+        partial ? QStringLiteral(" · source frames %1–%2 (end exclusive)")
+                      .arg(s.rangeStartFrame)
+                      .arg(s.rangeEndFrame == -1 ? m_project->project().timeline().duration()
+                                                : s.rangeEndFrame)
+                : QString();
+    return QStringLiteral("%1×%2 · %3 · H.264 + %4%5%6")
         .arg(size.width())
         .arg(size.height())
         .arg(rate ? rate->displayName() : QStringLiteral("invalid FPS"),
              s.includeAudio ? QStringLiteral("AAC %1 kbit/s").arg(s.audioBitrateKbps)
                             : QStringLiteral("no audio"),
-             s.avoidUpscaling ? QStringLiteral(" · no upscaling") : QString());
+             s.avoidUpscaling ? QStringLiteral(" · no upscaling") : QString(), rangeText);
 }
 
 bool ExportController::start(const QVariantMap& settings)

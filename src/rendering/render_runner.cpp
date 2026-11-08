@@ -166,6 +166,10 @@ Status RenderRunner::run(const std::atomic<bool>& cancelRequested, const Started
     if (const Status valid = validateExport(m_settings, m_project, m_projectFilePath); !valid) {
         return valid;
     }
+    // An already-cancelled helper must not probe encoders or build the media graph.
+    if (cancelRequested.load()) {
+        return makeError(ErrorCode::Cancelled, QStringLiteral("The export was cancelled."));
+    }
     m_encoder = chooseVideoEncoder(availableVideoEncoders());
     if (m_encoder.isEmpty()) {
         return makeError(
@@ -191,6 +195,10 @@ Status RenderRunner::run(const std::atomic<bool>& cancelRequested, const Started
     Result<engine::GraphBuildResult> graph = builder.build(m_project, options);
     if (!graph) {
         return graph.error();
+    }
+    // Graph construction may have taken time while stdin cancellation arrived.
+    if (cancelRequested.load()) {
+        return makeError(ErrorCode::Cancelled, QStringLiteral("The export was cancelled."));
     }
     const FrameCount projectTotal = graph->duration;
     const Result<FrameCount> outputTotal =
@@ -233,6 +241,10 @@ Status RenderRunner::run(const std::atomic<bool>& cancelRequested, const Started
         encodingProducer = frameRateChain.get();
     }
 
+    // Do not create an encoder or any temporary output after a cancellation during FPS setup.
+    if (cancelRequested.load()) {
+        return makeError(ErrorCode::Cancelled, QStringLiteral("The export was cancelled."));
+    }
     const QString finalPath = QFileInfo(m_settings.outputPath).absoluteFilePath();
     const QString partPath = temporaryOutputPath(finalPath, m_temporaryToken);
     // A command-line token is an internal per-job identifier. Never overwrite a pre-existing
@@ -294,6 +306,13 @@ Status RenderRunner::run(const std::atomic<bool>& cancelRequested, const Started
     qCInfo(lcRender) << "Rendering" << total << "frames to" << finalPath << "with" << m_encoder;
     if (started) {
         started(m_encoder, total);
+    }
+    // A cancellation can be requested synchronously by the started callback. Release the
+    // still-idle encoder before cleaning up anything it may have created.
+    if (cancelRequested.load()) {
+        consumer.reset();
+        QFile::remove(partPath);
+        return makeError(ErrorCode::Cancelled, QStringLiteral("The export was cancelled."));
     }
     if (consumer->start() != 0) {
         // Release any open FFmpeg file handle before trying to remove its output,

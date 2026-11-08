@@ -124,9 +124,12 @@ Status attachStereoBalance(Mlt::Profile& profile, Mlt::Producer& cut, const Clip
     }
     balance.set_in_and_out(cut.get_in(), cut.get_out());
     balance.set("channel", -1); // front stereo balance, not individual-channel panning
-    // MLT panner split=0 favours the right channel; invert our UI convention
-    // so negative values audibly favour the left and positive values the right.
-    balance.set("split", (1.0 - clip.properties.balance) * 0.5);
+    // MLT's panner only calculates mix while its legacy "start" property exists.
+    // Merely setting "split" makes the filter run at neutral mix (silently
+    // ignoring balance) even though the "split" plugin metadata is valid.
+    // Once enabled, split=0 is left and split=1 is right.
+    balance.set("start", 0.5);
+    balance.set("split", (clip.properties.balance + 1.0) * 0.5);
     cut.attach(balance);
     return {};
 }

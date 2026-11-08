@@ -22,6 +22,7 @@ struct FolderRelinkScan
     int ambiguous = 0;
     int probeFailed = 0;
     int wrongKind = 0;
+    int skippedTruncated = 0; ///< incomplete scans cannot prove filename uniqueness
     bool truncated = false;
 };
 

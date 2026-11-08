@@ -23,6 +23,8 @@
 #include <QUrl>
 #include <QtConcurrent/QtConcurrentRun>
 
+#include <algorithm>
+
 namespace ft::ui {
 
 MediaController::MediaController(ProjectController* project,

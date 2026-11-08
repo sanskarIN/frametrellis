@@ -206,8 +206,8 @@ Status RenderRunner::run(const std::atomic<bool>& cancelRequested, const Started
     if (!fullOutputTotal) {
         return fullOutputTotal.error();
     }
-    const auto bounds = resolveExportFrameBounds(m_settings, projectTotal,
-                                                projectSettings.frameRate, exportRate);
+    const auto bounds =
+        resolveExportFrameBounds(m_settings, projectTotal, projectSettings.frameRate, exportRate);
     if (!bounds) {
         return bounds.error();
     }
@@ -310,8 +310,8 @@ Status RenderRunner::run(const std::atomic<bool>& cancelRequested, const Started
     encodingProducer->set_speed(0);
     encodingProducer->seek(static_cast<int>(bounds->outputStart));
 
-    qCInfo(lcRender) << "Rendering" << total << "frames from" << bounds->projectStart
-                     << "to" << bounds->projectEnd << "to" << finalPath << "with" << m_encoder;
+    qCInfo(lcRender) << "Rendering" << total << "frames from" << bounds->projectStart << "to"
+                     << bounds->projectEnd << "to" << finalPath << "with" << m_encoder;
     if (started) {
         started(m_encoder, total);
     }

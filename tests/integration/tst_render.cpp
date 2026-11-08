@@ -515,8 +515,7 @@ private slots:
     void exportTimelineRangeKeepsPictureSoundAndTimelineUnchanged()
     {
         const Project original = project(50); // 25 green frames, then blue
-        for (const QString& fps : {QStringLiteral("match"),
-                                   QStringLiteral("24000/1001")}) {
+        for (const QString& fps : {QStringLiteral("match"), QStringLiteral("24000/1001")}) {
             ExportSettings settings;
             settings.outputPath =
                 m_dir.filePath(QStringLiteral("range-%1.mp4").arg(QString(fps).replace('/', '_')));
@@ -524,9 +523,9 @@ private slots:
             settings.rangeStartFrame = 25; // first blue frame
             settings.rangeEndFrame = 45;   // exclusive
             settings.speedPreset = QStringLiteral("ultrafast");
-            const FrameRate target =
-                fps == QStringLiteral("match") ? FrameRate::integer(25)
-                                              : *FrameRate::create(24000, 1001);
+            const FrameRate target = fps == QStringLiteral("match")
+                                         ? FrameRate::integer(25)
+                                         : *FrameRate::create(24000, 1001);
             const auto expected =
                 resolveExportFrameBounds(settings, 50, original.settings().frameRate, target);
             QVERIFY(expected);
@@ -534,16 +533,16 @@ private slots:
 
             const std::atomic<bool> cancel{false};
             FrameCount startedTotal = 0;
-            const Status rendered = RenderRunner(original, settings).run(
-                cancel,
-                [&](const QString&, FrameCount total) { startedTotal = total; });
+            const Status rendered =
+                RenderRunner(original, settings).run(cancel, [&](const QString&, FrameCount total) {
+                    startedTotal = total;
+                });
             QVERIFY2(rendered, qPrintable(rendered ? QString() : rendered.error().toString()));
             QCOMPARE(startedTotal, expected->outputLength());
             const auto info = media::probeMedia(settings.outputPath);
             QVERIFY(info);
             QVERIFY(info->hasAudio);
-            QCOMPARE(info->frameRate,
-                     Rational(target.numerator(), target.denominator()));
+            QCOMPARE(info->frameRate, Rational(target.numerator(), target.denominator()));
             QVERIFY2(std::abs(info->durationUs - 800'000) < 120'000,
                      qPrintable(QStringLiteral("actual duration %1").arg(info->durationUs)));
             QVERIFY(isCloseTo(averageColor(frameOf(settings.outputPath, 0, target)), Qt::blue));
@@ -575,8 +574,8 @@ private slots:
         QCOMPARE(video->frameRate, Rational(30, 1));
         QVERIFY2(std::abs(video->durationUs - 600'000) < 120'000,
                  qPrintable(QStringLiteral("actual duration %1").arg(video->durationUs)));
-        QVERIFY(isCloseTo(averageColor(frameOf(settings.outputPath, 2,
-                                              FrameRate::integer(30))), Qt::green));
+        QVERIFY(isCloseTo(averageColor(frameOf(settings.outputPath, 2, FrameRate::integer(30))),
+                          Qt::green));
         QCOMPARE(original.timeline().duration(), FrameCount{50});
         QVERIFY(partFiles().isEmpty());
     }

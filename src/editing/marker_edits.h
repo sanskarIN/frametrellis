@@ -10,6 +10,8 @@ namespace ft::edits {
 
 /// All marker operations are single, reversible project edits.
 std::unique_ptr<EditCommand> addMarker(TimelineMarker marker);
+std::unique_ptr<EditCommand> appendMarkers(std::vector<TimelineMarker> markers);
+std::unique_ptr<EditCommand> clearMarkers();
 std::unique_ptr<EditCommand> removeMarker(Id markerId);
 std::unique_ptr<EditCommand> renameMarker(Id markerId, QString newLabel);
 std::unique_ptr<EditCommand> moveMarker(Id markerId, FrameCount newFrame);

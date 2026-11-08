@@ -248,6 +248,13 @@ Status RenderRunner::run(const std::atomic<bool>& cancelRequested, const Started
         encodingProducer = frameRateChain.get();
     }
 
+    // Limit the actual producer's playtime, not just the consumer's requested
+    // in/out values. MLT's avformat consumer stops when the producer reaches its
+    // out frame and emits _speed=0; without this bound a partial export can
+    // continue encoding the remainder of the sequence.
+    encodingProducer->set_in_and_out(static_cast<int>(bounds->outputStart),
+                                     static_cast<int>(bounds->outputEnd - 1));
+
     // Do not create an encoder or any temporary output after a cancellation during FPS setup.
     if (cancelRequested.load()) {
         return makeError(ErrorCode::Cancelled, QStringLiteral("The export was cancelled."));

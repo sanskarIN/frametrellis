@@ -519,7 +519,7 @@ private slots:
                                    QStringLiteral("24000/1001")}) {
             ExportSettings settings;
             settings.outputPath =
-                m_dir.filePath(QStringLiteral("range-%1.mp4").arg(fps.replace('/', '_')));
+                m_dir.filePath(QStringLiteral("range-%1.mp4").arg(QString(fps).replace('/', '_')));
             settings.frameRate = fps;
             settings.rangeStartFrame = 25; // first blue frame
             settings.rangeEndFrame = 45;   // exclusive

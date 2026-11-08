@@ -108,6 +108,32 @@ private slots:
         QVERIFY(duplicateNames->candidates.empty());
     }
 
+    void truncatedScanNeverRelinksAnUnverifiedFilename()
+    {
+        QTemporaryDir temp;
+        QVERIFY(temp.isValid());
+        const QDir root(temp.path());
+        const QString candidate = root.filePath(QStringLiteral("target.wav"));
+        QVERIFY(writeStereoWav(candidate));
+        // One more supported file than the bounded folder scanner accepts.
+        // A duplicate filename could be beyond the limit, so even an apparent
+        // single match must be rejected until the user narrows the folder.
+        for (int i = 0; i < 501; ++i) {
+            QFile file(root.filePath(QStringLiteral("filler%1.wav").arg(i, 4, 10,
+                                                                        QLatin1Char('0'))));
+            QVERIFY(file.open(QIODevice::WriteOnly));
+            QCOMPARE(file.write("dummy"), qint64{5});
+        }
+        const MediaAsset offline = missing(QStringLiteral("t"), QStringLiteral("target.wav"));
+        const auto result = media::discoverRelinkCandidates(temp.path(), {offline});
+        QVERIFY(result);
+        QVERIFY(result->truncated);
+        QCOMPARE(result->missingSearched, 1);
+        QCOMPARE(result->skippedTruncated, 1);
+        QVERIFY(result->candidates.empty());
+        QVERIFY(QFileInfo::exists(candidate));
+    }
+
     void reportsMissingAndBadCandidateSafely()
     {
         QTemporaryDir temp;

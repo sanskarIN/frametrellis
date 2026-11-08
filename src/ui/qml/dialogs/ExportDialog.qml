@@ -34,7 +34,16 @@ FtDialog {
     closePolicy: exporter.busy ? Popup.NoAutoClose : Popup.CloseOnEscape
 
     function settings() {
+        const selection = app.timeline.selectedFrameRange()
+        const useSelection = rangeBox.currentIndex === 1
+        const useCustom = rangeBox.currentIndex === 2
+        const startFrame = useSelection ? (selection.start === undefined ? "-2" : String(selection.start))
+                           : useCustom ? startFrameBox.text.trim() : "0"
+        const endFrame = useSelection ? (selection.end === undefined ? "-2" : String(selection.end))
+                         : useCustom ? endFrameBox.text.trim() : "-1"
         return {
+            rangeStartFrame: startFrame,
+            rangeEndFrame: endFrame,
             presetId: presetBox.currentIndex >= 0 ? exporter.presets[presetBox.currentIndex].id : "match",
             outputPath: outputPath,
             crf: Math.round(quality.value),
@@ -169,6 +178,53 @@ FtDialog {
                 font.pixelSize: Theme.fontSizeSmall
                 wrapMode: Text.WordWrap
             }
+
+            Label { text: qsTr("Timeline range"); color: Theme.textMuted }
+            ComboBox {
+                id: rangeBox
+                objectName: "exportRangeBox"
+                Layout.fillWidth: true
+                model: [qsTr("Entire timeline"), qsTr("Selected clips' time span"),
+                        qsTr("Custom frame interval")]
+                currentIndex: 0
+                Accessible.name: qsTr("Export timeline range")
+            }
+            RowLayout {
+                Layout.fillWidth: true
+                visible: rangeBox.currentIndex === 2
+                spacing: Theme.spacingS
+                Label { text: qsTr("Start"); color: Theme.textMuted }
+                TextField {
+                    id: startFrameBox
+                    objectName: "exportStartFrame"
+                    Layout.fillWidth: true
+                    text: "0"
+                    placeholderText: qsTr("First frame")
+                    validator: IntValidator { bottom: 0; top: 1000000000 }
+                    Accessible.name: qsTr("First project frame to export (inclusive)")
+                }
+                Label { text: qsTr("End"); color: Theme.textMuted }
+                TextField {
+                    id: endFrameBox
+                    objectName: "exportEndFrame"
+                    Layout.fillWidth: true
+                    text: String(dialog.app.timeline.duration)
+                    placeholderText: qsTr("Exclusive end frame")
+                    validator: IntValidator { bottom: 0; top: 1000000000 }
+                    Accessible.name: qsTr("Last project boundary (exclusive)")
+                }
+            }
+            Text {
+                Layout.fillWidth: true
+                text: qsTr("Frame numbers use project FPS; start is included, end is excluded. " +
+                           "Selection mode exports every visible track across the selected time span. " +
+                           "The project and playhead are not changed.")
+                visible: rangeBox.currentIndex !== 0
+                color: Theme.textFaint
+                font.pixelSize: Theme.fontSizeSmall
+                wrapMode: Text.WordWrap
+            }
+            Item { width: 1; height: 1 }
 
             Label { text: qsTr("Quality"); color: Theme.textMuted }
             RowLayout {

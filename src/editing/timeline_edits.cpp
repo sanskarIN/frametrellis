@@ -803,7 +803,16 @@ std::unique_ptr<EditCommand> setClipProperties(const Id& clipId, const ClipPrope
 {
     return command(
         text,
-        [clipId, properties](Timeline& t, const SourceLookup&) {
+        [clipId, properties](Timeline& t, const SourceLookup& sources) -> Status {
+            if (properties.balance != 0.0) {
+                const Clip* clip = t.clip(clipId);
+                const auto limits = clip && sources ? sources(clip->assetId) : std::nullopt;
+                if (!limits || !limits->hasAudio || limits->audioChannels != 2) {
+                    return makeError(
+                        ErrorCode::InvalidArgument,
+                        QStringLiteral("Stereo balance requires a two-channel audio source."));
+                }
+            }
             return t.setClipProperties(clipId, properties);
         },
         QStringLiteral("clip-properties:") + clipId + QLatin1Char(':') + text);
@@ -813,7 +822,8 @@ std::unique_ptr<EditCommand> pasteClipProperties(const QList<Id>& clipIds,
                                                  const ClipProperties& properties)
 {
     return command(QStringLiteral("Paste Clip Attributes"),
-                   [clipIds, properties](Timeline& timeline, const SourceLookup&) -> Status {
+                   [clipIds, properties](Timeline& timeline,
+                                        const SourceLookup& sources) -> Status {
                        if (clipIds.isEmpty()) {
                            return makeError(ErrorCode::InvalidArgument,
                                             QStringLiteral("Select clips to update."));
@@ -829,6 +839,14 @@ std::unique_ptr<EditCommand> pasteClipProperties(const QList<Id>& clipIds,
                            if (!clip) {
                                return makeError(ErrorCode::NotFound,
                                                 QStringLiteral("A selected clip was not found."));
+                           }
+                           if (properties.balance != 0.0) {
+                               const auto limits = sources ? sources(clip->assetId) : std::nullopt;
+                               if (!limits || !limits->hasAudio || limits->audioChannels != 2) {
+                                   return makeError(
+                                       ErrorCode::InvalidArgument,
+                                       QStringLiteral("Stereo balance requires two-channel audio."));
+                               }
                            }
                            ClipProperties copy = properties;
                            copy.fadeIn = std::min(copy.fadeIn, clip->duration);

@@ -119,8 +119,8 @@ private slots:
         // A duplicate filename could be beyond the limit, so even an apparent
         // single match must be rejected until the user narrows the folder.
         for (int i = 0; i < 501; ++i) {
-            QFile file(root.filePath(QStringLiteral("filler%1.wav").arg(i, 4, 10,
-                                                                        QLatin1Char('0'))));
+            QFile file(
+                root.filePath(QStringLiteral("filler%1.wav").arg(i, 4, 10, QLatin1Char('0'))));
             QVERIFY(file.open(QIODevice::WriteOnly));
             QCOMPARE(file.write("dummy"), qint64{5});
         }

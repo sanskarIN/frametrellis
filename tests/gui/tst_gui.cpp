@@ -3437,6 +3437,45 @@ private slots:
         QCOMPARE(m_app->project()->project().markers(), originalMarkers);
     }
 
+    void pasteVideoChaptersAndClearMarkersWithUndo()
+    {
+        const Project original = m_app->project()->project();
+        const Timeline timelineBefore = original.timeline();
+        // The chapter list includes an opening cue. Preserve any markers from
+        // earlier tests by clearing them in a reversible setup step.
+        const bool hadMarkers = !original.markers().empty();
+        if (hadMarkers) {
+            QVERIFY(m_app->timeline()->clearAllMarkers());
+        }
+
+        QClipboard* clipboard = QGuiApplication::clipboard();
+        QVERIFY(clipboard);
+        clipboard->setText(QStringLiteral("00:00 Intro\n00:01 Scene two\n"));
+        QVERIFY(m_app->timeline()->pasteChaptersAsMarkers());
+        QCOMPARE(m_app->project()->undoText(), QStringLiteral("Import Chapter Markers"));
+        QCOMPARE(m_app->project()->project().markers().size(), size_t{2});
+        QCOMPARE(m_app->project()->project().markers()[0].frame, FrameCount{0});
+        QCOMPARE(m_app->project()->project().markers()[1].frame,
+                 static_cast<FrameCount>(std::ceil(m_app->timeline()->frameRate())));
+
+        const Project imported = m_app->project()->project();
+        clipboard->setText(QStringLiteral("not timed chapter text"));
+        QVERIFY(!m_app->timeline()->pasteChaptersAsMarkers());
+        QCOMPARE(m_app->project()->project(), imported);
+        QCOMPARE(m_app->project()->undoText(), QStringLiteral("Import Chapter Markers"));
+
+        QVERIFY(m_app->timeline()->clearAllMarkers());
+        QVERIFY(m_app->project()->project().markers().empty());
+        QVERIFY(m_app->project()->undo());
+        QCOMPARE(m_app->project()->project(), imported);
+        QVERIFY(m_app->project()->undo());
+        if (hadMarkers) {
+            QVERIFY(m_app->project()->undo());
+        }
+        QCOMPARE(m_app->project()->project().markers(), original.markers());
+        QCOMPARE(m_app->project()->project().timeline(), timelineBefore);
+    }
+
     void canExportReadOnlyMediaAuditFromController()
     {
         const Project before = m_app->project()->project();

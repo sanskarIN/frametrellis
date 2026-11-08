@@ -117,8 +117,10 @@ private slots:
 
         const QJsonObject encoded = project_format::toJson(project);
         QCOMPARE(encoded.value(QStringLiteral("version")).toInt(), 7);
-        const QJsonArray tracks =
-            encoded.value(QStringLiteral("project")).toObject().value(QStringLiteral("tracks")).toArray();
+        const QJsonArray tracks = encoded.value(QStringLiteral("project"))
+                                      .toObject()
+                                      .value(QStringLiteral("tracks"))
+                                      .toArray();
         const QJsonObject savedClip =
             tracks[0].toObject().value(QStringLiteral("clips")).toArray()[0].toObject();
         QCOMPARE(savedClip.value(QStringLiteral("balance")).toDouble(), -0.75);

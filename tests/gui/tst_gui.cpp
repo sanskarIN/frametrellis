@@ -11,6 +11,7 @@
 #include "editing/timeline_edits.h"
 #include "engine/mlt_runtime.h"
 #include "media_fixtures.h"
+#include "media/media_probe.h"
 #include "ui/app_controller.h"
 #include "ui/media_bin_model.h"
 #include "ui/title_image.h"
@@ -3472,6 +3473,45 @@ private slots:
         QCOMPARE(m_app->project()->project(), before);
         QCOMPARE(m_app->project()->isModified(), modified);
         QCOMPARE(m_app->project()->undoText(), undoLabel);
+    }
+
+    void batchRelinkMissingMediaFromFolderIsUndoable()
+    {
+        const Project before = m_app->project()->project();
+        const QString root = m_dir.filePath(QStringLiteral("relink-folder"));
+        QVERIFY(QDir().mkpath(root + QStringLiteral("/nested")));
+        const QString still =
+            makeStill(root + QStringLiteral("/nested"), QStringLiteral("recover-still.png"),
+                      QColor(QStringLiteral("#1a6c83")), QSize(32, 18));
+        QVERIFY(!still.isEmpty());
+        const auto probed = media::createAsset(still);
+        QVERIFY2(probed, qPrintable(probed ? QString() : probed.error().toString()));
+
+        MediaAsset missing = *probed;
+        missing.filePath = m_dir.filePath(QStringLiteral("no-longer-here/recover-still.png"));
+        missing.status = MediaStatus::Missing;
+        QVERIFY(m_app->project()->execute(
+            std::make_unique<AddMediaCommand>(std::vector<MediaAsset>{missing})));
+        const Project offline = m_app->project()->project();
+        QVERIFY(offline.asset(missing.id));
+        QCOMPARE(offline.asset(missing.id)->status, MediaStatus::Missing);
+        QVERIFY(m_app->media()->relinkMissingFolder(root));
+        QTRY_VERIFY_WITH_TIMEOUT(!m_app->media()->importing(), 15000);
+
+        const MediaAsset* found = m_app->project()->project().asset(missing.id);
+        QVERIFY(found);
+        QCOMPARE(found->status, MediaStatus::Online);
+        QCOMPARE(found->filePath, still);
+        QCOMPARE(m_app->project()->undoText(), QStringLiteral("Relink Missing Media"));
+        QCOMPARE(m_app->project()->project().timeline(), before.timeline());
+
+        m_app->project()->undo(); // undo all relinked media in one step
+        QCOMPARE(m_app->project()->project(), offline);
+        m_app->project()->redo();
+        QCOMPARE(m_app->project()->project().asset(missing.id)->filePath, still);
+        m_app->project()->undo(); // undo relink
+        m_app->project()->undo(); // remove the temporary test media
+        QCOMPARE(m_app->project()->project(), before);
     }
 
     void canImportFolderRecursively()

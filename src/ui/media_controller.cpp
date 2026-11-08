@@ -319,9 +319,9 @@ bool MediaController::relinkMissingFolder(const QString& urlOrPath)
         int incompatible = 0;
         for (const MediaAsset& updated : scan->candidates) {
             const MediaAsset* current = m_project->project().asset(updated.id);
-            const auto snapshot = std::find_if(
-                missing.begin(), missing.end(),
-                [&](const MediaAsset& asset) { return asset.id == updated.id; });
+            const auto snapshot =
+                std::find_if(missing.begin(), missing.end(),
+                             [&](const MediaAsset& asset) { return asset.id == updated.id; });
             const QFileInfo file(updated.filePath);
             if (!current || snapshot == missing.end() || current->status != MediaStatus::Missing ||
                 current->filePath != snapshot->filePath || !file.isFile() || file.isSymLink()) {
@@ -338,12 +338,13 @@ bool MediaController::relinkMissingFolder(const QString& urlOrPath)
         }
         if (!accepted.empty() &&
             !m_project->execute(std::make_unique<RelinkMediaBatchCommand>(accepted))) {
-            emit importProblems(QStringLiteral("Could not relink missing media"),
-                                QStringLiteral("The project changed before the batch was applied."));
+            emit importProblems(
+                QStringLiteral("Could not relink missing media"),
+                QStringLiteral("The project changed before the batch was applied."));
             return;
         }
-        const int skipped = scan->unmatched + scan->ambiguous + scan->probeFailed +
-                            scan->wrongKind + incompatible;
+        const int skipped =
+            scan->unmatched + scan->ambiguous + scan->probeFailed + scan->wrongKind + incompatible;
         emit statusMessage(
             QStringLiteral("Relinked %1 missing media file(s), skipped %2 (%3 ambiguous).%4")
                 .arg(accepted.size())

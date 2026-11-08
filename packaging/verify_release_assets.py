@@ -111,7 +111,9 @@ def verify(directory: Path, version: str) -> list[str]:
             raise ValueError("Portable ZIP must contain exactly one frametrellis.exe")
         if len(executable_paths["frametrellis-render.exe"]) != 1:
             raise ValueError("Portable ZIP must contain exactly one frametrellis-render.exe")
-        if executable_paths["frametrellis.exe"][0].parent != executable_paths["frametrellis-render.exe"][0].parent:
+        gui_directory = executable_paths["frametrellis.exe"][0].parent
+        helper_directory = executable_paths["frametrellis-render.exe"][0].parent
+        if gui_directory != helper_directory:
             raise ValueError("Portable ZIP editor and render helper must share a directory")
         bad_member = archive.testzip()
         if bad_member:

@@ -61,8 +61,7 @@ private slots:
         Project project = makeTimedProject();
         const Project original = project;
         for (const QString& text :
-             {QStringLiteral(""),
-              QStringLiteral("00:01 Missing opening chapter"),
+             {QStringLiteral(""), QStringLiteral("00:01 Missing opening chapter"),
               QStringLiteral("00:00 Opening\n00:00 Duplicate time"),
               QStringLiteral("00:00 Opening\n00:09 Final\n00:02 Out of order"),
               QStringLiteral("00:00 Opening\n00:10 At exclusive end"),

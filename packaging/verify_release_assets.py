@@ -85,16 +85,36 @@ def verify(directory: Path, version: str) -> list[str]:
 
     portable = directory / f"FrameTrellis-{version}-windows-x64.zip"
     with zipfile.ZipFile(portable) as archive:
-        names = [item.filename for item in archive.infolist()]
+        entries = archive.infolist()
+        names = [item.filename for item in entries]
         if len(names) != len(set(names)):
             raise ValueError("Portable ZIP contains duplicate entry names")
-        for item in archive.infolist():
+        # Windows normally extracts into a case-insensitive filesystem. Distinct ZIP
+        # members differing only by case must not silently overwrite each other.
+        normalized_names = [name.rstrip("/").casefold() for name in names]
+        if len(normalized_names) != len(set(normalized_names)):
+            raise ValueError("Portable ZIP contains case-insensitive duplicate entries")
+        for item in entries:
             if not safe_archive_name(item.filename):
                 raise ValueError(f"Unsafe portable ZIP entry: {item.filename}")
             if stat.S_ISLNK(item.external_attr >> 16):
                 raise ValueError(f"Portable ZIP contains a symlink: {item.filename}")
-        if not any(PurePosixPath(name).name.lower() == "frametrellis.exe" for name in names):
-            raise ValueError("Portable ZIP does not contain frametrellis.exe")
+        # The GUI starts the render process using its adjacent helper executable.
+        # Checking only for the GUI lets a structurally valid ZIP pass even though
+        # exporting every MP4 would fail after installation.
+        executable_paths = {
+            name: [PurePosixPath(item.filename) for item in entries
+                   if not item.is_dir() and PurePosixPath(item.filename).name.casefold() == name]
+            for name in ("frametrellis.exe", "frametrellis-render.exe")
+        }
+        if len(executable_paths["frametrellis.exe"]) != 1:
+            raise ValueError("Portable ZIP must contain exactly one frametrellis.exe")
+        if len(executable_paths["frametrellis-render.exe"]) != 1:
+            raise ValueError("Portable ZIP must contain exactly one frametrellis-render.exe")
+        gui_directory = executable_paths["frametrellis.exe"][0].parent
+        helper_directory = executable_paths["frametrellis-render.exe"][0].parent
+        if gui_directory != helper_directory:
+            raise ValueError("Portable ZIP editor and render helper must share a directory")
         bad_member = archive.testzip()
         if bad_member:
             raise ValueError(f"Corrupt portable ZIP entry: {bad_member}")

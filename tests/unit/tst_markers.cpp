@@ -16,6 +16,40 @@ class MarkerTest : public QObject
     Q_OBJECT
 
 private slots:
+    void bulkMarkerImportAndClearAreSingleAtomicUndoSteps()
+    {
+        ProjectDocument document(Project::createNew(QStringLiteral("Bulk markers"), {}));
+        QVERIFY(document.execute(
+            edits::addMarker({QStringLiteral("original"), 15, QStringLiteral("Keep") })));
+        const Project initial = document.project();
+        const std::vector<TimelineMarker> incoming{
+            {QStringLiteral("chapter0"), 0, QStringLiteral("Opening")},
+            {QStringLiteral("chapter1"), 90, QStringLiteral("Scene two")}};
+
+        QVERIFY(document.execute(edits::appendMarkers(incoming)));
+        QCOMPARE(document.project().markers().size(), size_t{3});
+        QCOMPARE(document.undoText(), QStringLiteral("Import Chapter Markers"));
+        QVERIFY(document.undo());
+        QCOMPARE(document.project(), initial);
+        QVERIFY(document.redo());
+        QCOMPARE(document.project().markers().size(), size_t{3});
+
+        const Project imported = document.project();
+        QVERIFY(!document.execute(edits::appendMarkers(
+            {{QStringLiteral("chapter0"), 110, QStringLiteral("Duplicate identifier")}})));
+        QCOMPARE(document.project(), imported);
+        QCOMPARE(document.undoText(), QStringLiteral("Import Chapter Markers"));
+
+        QVERIFY(document.execute(edits::clearMarkers()));
+        QVERIFY(document.project().markers().empty());
+        QCOMPARE(document.undoText(), QStringLiteral("Clear All Markers"));
+        QVERIFY(!document.execute(edits::clearMarkers()));
+        QVERIFY(document.undo());
+        QCOMPARE(document.project(), imported);
+        QVERIFY(document.redo());
+        QVERIFY(document.project().markers().empty());
+    }
+
     void markerEditsAreAtomicUndoableAndSorted()
     {
         ProjectDocument document(Project::createNew(QStringLiteral("Review"), {}));

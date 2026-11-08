@@ -289,6 +289,17 @@ PanelFrame {
                     onMoved: v => panel.setProp("gain", v)
                     onCommitted: panel.app.timeline.endEdit()
                 }
+                ValueSlider {
+                    objectName: "clipStereoBalance"
+                    visible: panel.clip.balanceAvailable || false
+                    label: qsTr("Stereo Balance")
+                    from: -1; to: 1; stepSize: 0.01; defaultValue: 0
+                    value: panel.clip.balance || 0
+                    format: v => Math.abs(v) < 0.005 ? qsTr("Centre")
+                              : (Math.round(Math.abs(v) * 100) + (v < 0 ? qsTr("% Left") : qsTr("% Right")))
+                    onMoved: v => panel.setProp("balance", v)
+                    onCommitted: panel.app.timeline.endEdit()
+                }
             }
 
             // ---- Volume automation ----

@@ -218,6 +218,36 @@ bool TimelineController::copyMarkersAsChapters()
     return true;
 }
 
+bool TimelineController::pasteChaptersAsMarkers()
+{
+    QClipboard* clipboard = QGuiApplication::clipboard();
+    if (!clipboard) {
+        emit statusMessage(QStringLiteral("The system clipboard is unavailable."));
+        return false;
+    }
+    const auto parsed = chapters::fromText(project(), clipboard->text());
+    if (!parsed) {
+        emit statusMessage(parsed.error().message);
+        return false;
+    }
+    if (const Status added = m_project->execute(edits::appendMarkers(*parsed)); !added) {
+        emit statusMessage(added.error().message);
+        return false;
+    }
+    emit statusMessage(QStringLiteral("Imported %1 video chapter markers.").arg(parsed->size()));
+    return true;
+}
+
+bool TimelineController::clearAllMarkers()
+{
+    if (const Status cleared = m_project->execute(edits::clearMarkers()); !cleared) {
+        emit statusMessage(cleared.error().message);
+        return false;
+    }
+    emit statusMessage(QStringLiteral("Cleared timeline markers (Undo to restore)."));
+    return true;
+}
+
 bool TimelineController::copyPictureAsEdl()
 {
     const auto result = interchange::toCmx3600(project());

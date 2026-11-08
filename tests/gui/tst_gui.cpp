@@ -3923,7 +3923,8 @@ private slots:
             {QStringLiteral("rangeStartFrame"), QStringLiteral("5")},
             {QStringLiteral("rangeEndFrame"), QStringLiteral("15")}};
         QCOMPARE(m_app->exporter()->validate(validSettings), QString());
-        QVERIFY(m_app->exporter()->describeOutput(validSettings)
+        QVERIFY(m_app->exporter()
+                    ->describeOutput(validSettings)
                     .contains(QStringLiteral("frames 5–15")));
 
         QVariantMap invalid = validSettings;

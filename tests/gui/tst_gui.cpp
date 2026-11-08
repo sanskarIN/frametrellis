@@ -3802,6 +3802,44 @@ private slots:
         QMetaObject::invokeMethod(dialog, "close");
     }
 
+    void exportDialogRetainsCustomQualityAndFpsAcrossReopen()
+    {
+        QObject* dialog = m_window->findChild<QObject*>(QStringLiteral("exportDialog"));
+        QVERIFY(dialog);
+        const Project before = m_app->project()->project();
+        const QString undoBefore = m_app->project()->undoText();
+        QVERIFY(!m_app->exporter()->copyFailureDetails()); // no failed helper to report
+
+        QTest::keyClick(m_window, Qt::Key_E, Qt::ControlModifier);
+        QTRY_VERIFY(dialog->property("opened").toBool());
+        QQuickItem* quality =
+            findItem(m_window->contentItem(), QStringLiteral("exportQualitySlider"));
+        QQuickItem* fps = findItem(m_window->contentItem(), QStringLiteral("exportFrameRateBox"));
+        QQuickItem* custom =
+            findItem(m_window->contentItem(), QStringLiteral("exportCustomFrameRate"));
+        QVERIFY(quality);
+        QVERIFY(fps);
+        QVERIFY(custom);
+
+        QVERIFY(quality->setProperty("value", 28));
+        QVERIFY(fps->setProperty("currentIndex", 9)); // Custom FPS
+        QVERIFY(custom->setProperty("text", QStringLiteral("24000/1001")));
+        QMetaObject::invokeMethod(dialog, "close");
+        QTRY_VERIFY(!dialog->property("opened").toBool());
+
+        // Opening must not silently reapply the selected preset over an
+        // intentional custom quality adjustment or the chosen FPS.
+        QMetaObject::invokeMethod(dialog, "open");
+        QTRY_VERIFY(dialog->property("opened").toBool());
+        QCOMPARE(quality->property("value").toInt(), 28);
+        QCOMPARE(fps->property("currentIndex").toInt(), 9);
+        QCOMPARE(custom->property("text").toString(), QStringLiteral("24000/1001"));
+        QMetaObject::invokeMethod(dialog, "close");
+
+        QCOMPARE(m_app->project()->project(), before);
+        QCOMPARE(m_app->project()->undoText(), undoBefore);
+    }
+
     void startingExportPausesPreviewWithoutChangingProject()
     {
         // Keep the transport looping so a natural end-of-sequence pause cannot

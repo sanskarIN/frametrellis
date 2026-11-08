@@ -58,6 +58,7 @@ public:
     Q_INVOKABLE QString suggestedOutputPath() const;
     Q_INVOKABLE bool fileExists(const QString& pathOrUrl) const;
     Q_INVOKABLE void revealOutput() const;
+    Q_INVOKABLE bool copyFailureDetails() const;
     Q_INVOKABLE void reset();
 
 signals:

@@ -15,6 +15,7 @@ FtDialog {
     readonly property ExportController exporter: app.exporter
     readonly property bool showProgress: exporter.state !== "idle"
     property string outputPath: ""
+    property bool presetInitialized: false
     readonly property var frameRates: [
         { label: qsTr("Match project"), value: "match" },
         { label: "23.976", value: "24000/1001" },
@@ -66,7 +67,10 @@ FtDialog {
             exporter.reset()
         if (outputPath.length === 0)
             outputPath = exporter.suggestedOutputPath()
-        applyPreset(presetBox.currentIndex)
+        if (!presetInitialized && presetBox.currentIndex >= 0) {
+            applyPreset(presetBox.currentIndex)
+            presetInitialized = true
+        }
     }
 
     FileDialog {
@@ -99,13 +103,21 @@ FtDialog {
             rowSpacing: Theme.spacingS
 
             Label { text: qsTr("Preset"); color: Theme.textMuted }
-            ComboBox {
-                id: presetBox
+            RowLayout {
                 Layout.fillWidth: true
-                model: dialog.exporter.presets
-                textRole: "name"
-                onActivated: index => dialog.applyPreset(index)
-                Accessible.name: qsTr("Export preset")
+                ComboBox {
+                    id: presetBox
+                    Layout.fillWidth: true
+                    model: dialog.exporter.presets
+                    textRole: "name"
+                    onActivated: index => dialog.applyPreset(index)
+                    Accessible.name: qsTr("Export preset")
+                }
+                FtButton {
+                    text: qsTr("Reset preset")
+                    enabled: presetBox.currentIndex >= 0
+                    onClicked: dialog.applyPreset(presetBox.currentIndex)
+                }
             }
             Item { width: 1; height: 1 }
             Text {
@@ -164,6 +176,7 @@ FtDialog {
                 Text { text: qsTr("Best"); color: Theme.textFaint; font.pixelSize: Theme.fontSizeSmall }
                 FtSlider {
                     id: quality
+                    objectName: "exportQualitySlider"
                     Layout.fillWidth: true
                     from: 14; to: 34; stepSize: 1; value: 20
                     Accessible.name: qsTr("Quality (constant rate factor)")
@@ -293,6 +306,11 @@ FtDialog {
 
     footer: DialogButtons {
         Item { Layout.fillWidth: true }
+        FtButton {
+            text: qsTr("Copy error details")
+            visible: dialog.exporter.state === "failed"
+            onClicked: dialog.exporter.copyFailureDetails()
+        }
         FtButton {
             text: qsTr("Show in folder")
             visible: dialog.exporter.state === "succeeded"

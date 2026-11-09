@@ -595,8 +595,8 @@ std::unique_ptr<EditCommand> rippleInsertSynchronizedSourceClips(const Id& video
 {
     return std::make_unique<SequenceRippleCommand>(
         QStringLiteral("Ripple Insert Picture and Sound"), videoClip.start, videoClip.duration,
-        [videoTrackId, videoClip, audioTrackId, audioClip](
-            Timeline& timeline, const SourceLookup& sources) -> Status {
+        [videoTrackId, videoClip, audioTrackId, audioClip](Timeline& timeline,
+                                                           const SourceLookup& sources) -> Status {
             if (videoTrackId.isEmpty() || audioTrackId.isEmpty() || videoTrackId == audioTrackId ||
                 videoClip.id.isEmpty() || audioClip.id.isEmpty() || videoClip.id == audioClip.id ||
                 videoClip.assetId.isEmpty() || videoClip.assetId != audioClip.assetId ||
@@ -613,8 +613,9 @@ std::unique_ptr<EditCommand> rippleInsertSynchronizedSourceClips(const Id& video
             if (!pictureTrack || !soundTrack || pictureTrack->kind != TrackKind::Video ||
                 soundTrack->kind != TrackKind::Audio || pictureTrack->locked ||
                 soundTrack->locked) {
-                return makeError(ErrorCode::Conflict,
-                                 QStringLiteral("Choose distinct unlocked video and audio tracks."));
+                return makeError(
+                    ErrorCode::Conflict,
+                    QStringLiteral("Choose distinct unlocked video and audio tracks."));
             }
             const auto source = sources(videoClip.assetId);
             if (!source || !source->hasVideo || !source->hasAudio) {
@@ -625,8 +626,8 @@ std::unique_ptr<EditCommand> rippleInsertSynchronizedSourceClips(const Id& video
             // The SequenceRippleCommand stages both clips, all later tracks,
             // sequence markers and captions on a temporary project. If either
             // insertion fails, the entire edit and undo history remain unchanged.
-            if (const Status shifted = shiftTracksForInsertion(
-                    timeline, videoClip.start, videoClip.duration, sources, false);
+            if (const Status shifted = shiftTracksForInsertion(timeline, videoClip.start,
+                                                               videoClip.duration, sources, false);
                 !shifted) {
                 return shifted;
             }

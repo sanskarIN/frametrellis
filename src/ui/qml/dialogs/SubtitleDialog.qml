@@ -77,7 +77,7 @@ FtDialog {
         spacing: Theme.spacingS
         RowLayout {
             Layout.fillWidth: true
-            FtButton { text: qsTr("Import SRT…"); objectName: "subtitleImport"; onClicked: dialog.guarded(() => dialog.importRequested()) }
+            FtButton { text: qsTr("Import SRT/WebVTT…"); objectName: "subtitleImport"; onClicked: dialog.guarded(() => dialog.importRequested()) }
             FtButton { text: qsTr("Export SRT…"); enabled: dialog.subtitles.count > 0; onClicked: dialog.guarded(() => dialog.exportRequested()) }
             FtButton { text: qsTr("Export WebVTT…"); objectName: "subtitleExportVtt"; enabled: dialog.subtitles.count > 0; onClicked: dialog.guarded(() => dialog.exportWebVttRequested()) }
             FtButton { text: qsTr("Export TXT…"); objectName: "subtitleExportTranscript"; enabled: dialog.subtitles.count > 0; onClicked: dialog.guarded(() => dialog.exportTranscriptRequested()) }
@@ -88,7 +88,7 @@ FtDialog {
         }
         Text {
             Layout.fillWidth: true
-            text: qsTr("Import appends cues. Times use HH:MM:SS,mmm; overlapping cues are refused. Ordinary clip moves leave captions at their sequence positions; sequence ripple and gap edits move eligible cues together.")
+            text: qsTr("Import appends SRT or plain-text WebVTT cues. Overlaps and unsupported WebVTT formatting are refused; times use exact milliseconds. Ordinary clip moves leave captions at sequence positions; ripple and gap edits move eligible cues together.")
             color: Theme.textMuted
             font.pixelSize: Theme.fontSizeSmall
             wrapMode: Text.WordWrap
@@ -291,7 +291,7 @@ FtDialog {
                             anchors.centerIn: parent
                             width: parent.width - 32
                             visible: dialog.subtitles.count === 0
-                            text: qsTr("Import an SRT file, or pause in a free gap and add a subtitle at the playhead.")
+                            text: qsTr("Import SRT or WebVTT captions, or pause in a free gap and add one at the playhead.")
                             wrapMode: Text.WordWrap
                             horizontalAlignment: Text.AlignHCenter
                             color: Theme.textMuted

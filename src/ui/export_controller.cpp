@@ -279,17 +279,16 @@ ExportController::prepareBatch(const QVariantMap& settings, const QStringList& p
                              QStringLiteral("The batch contains the same preset twice."));
         }
         usedIds.insert(id);
-        const auto found = std::find_if(presets.cbegin(), presets.cend(),
-                                        [&id](const rendering::ExportPreset& preset) {
-                                            return preset.id == id;
-                                        });
+        const auto found =
+            std::find_if(presets.cbegin(), presets.cend(),
+                         [&id](const rendering::ExportPreset& preset) { return preset.id == id; });
         if (found == presets.cend()) {
             return makeError(ErrorCode::InvalidArgument,
                              QStringLiteral("The batch contains an unknown export preset."));
         }
-        const QString target = QDir(base.absolutePath())
-                                   .filePath(base.completeBaseName() + QLatin1Char('-') + id +
-                                             QStringLiteral(".mp4"));
+        const QString target =
+            QDir(base.absolutePath())
+                .filePath(base.completeBaseName() + QLatin1Char('-') + id + QStringLiteral(".mp4"));
         const QString key = QDir::cleanPath(target).toCaseFolded();
         if (usedPaths.contains(key) || QFileInfo::exists(target)) {
             return makeError(
@@ -316,7 +315,7 @@ ExportController::prepareBatch(const QVariantMap& settings, const QStringList& p
 }
 
 QString ExportController::validateBatch(const QVariantMap& settings,
-                                         const QStringList& presetIds) const
+                                        const QStringList& presetIds) const
 {
     if (busy()) {
         return QStringLiteral("Finish or cancel the current export before starting a batch.");
@@ -336,7 +335,8 @@ bool ExportController::startBatch(const QVariantMap& settings, const QStringList
         return false;
     }
     if (!QFileInfo(m_helperProgram).isExecutable()) {
-        emit finished(false, QStringLiteral("The render helper is missing from this installation."));
+        emit finished(false,
+                      QStringLiteral("The render helper is missing from this installation."));
         return false;
     }
     // Save the most recent unsaved edits before handing work to the renderer,
@@ -419,23 +419,26 @@ void ExportController::finishBatch(RenderJob::State state, const QString& explic
     const int total = m_batchJobs.size();
     const bool success = state == RenderJob::State::Succeeded && m_batchCompleted == total;
     const bool cancelled = state == RenderJob::State::Cancelled || m_batchCancelRequested;
-    m_batchState = success ? QStringLiteral("succeeded")
-                          : cancelled ? QStringLiteral("cancelled") : QStringLiteral("failed");
-    const QString error = !explicitError.isEmpty()
-                              ? explicitError
-                              : m_job ? m_job->errorMessage() : QString();
-    m_batchMessage = success
-                         ? QStringLiteral("Batch finished: %1/%2 files exported.")
-                               .arg(m_batchCompleted)
-                               .arg(total)
-                         : cancelled
-                               ? QStringLiteral("Batch cancelled: %1/%2 files exported.")
-                                     .arg(m_batchCompleted)
-                                     .arg(total)
-                               : QStringLiteral("Batch stopped: %1/%2 files exported. %3")
-                                     .arg(m_batchCompleted)
-                                     .arg(total)
-                                     .arg(error);
+    const QString error = !explicitError.isEmpty() ? explicitError
+                          : m_job                  ? m_job->errorMessage()
+                                                   : QString();
+    if (success) {
+        m_batchState = QStringLiteral("succeeded");
+        m_batchMessage = QStringLiteral("Batch finished: %1/%2 files exported.")
+                             .arg(m_batchCompleted)
+                             .arg(total);
+    } else if (cancelled) {
+        m_batchState = QStringLiteral("cancelled");
+        m_batchMessage = QStringLiteral("Batch cancelled: %1/%2 files exported.")
+                             .arg(m_batchCompleted)
+                             .arg(total);
+    } else {
+        m_batchState = QStringLiteral("failed");
+        m_batchMessage = QStringLiteral("Batch stopped: %1/%2 files exported. %3")
+                             .arg(m_batchCompleted)
+                             .arg(total)
+                             .arg(error);
+    }
     m_batchSnapshot.reset();
     m_batchProjectFile.clear();
     m_batchActive = false;

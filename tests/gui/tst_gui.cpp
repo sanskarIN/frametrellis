@@ -2621,6 +2621,7 @@ private slots:
         auto* timeline = m_app->timeline();
         auto* playback = m_app->playback();
         const Project initial = m_app->project()->project();
+        const FrameCount originalPlayhead = playback->positionFrames();
         const QString assetId =
             m_app->media()->model()->get(0).value(QStringLiteral("assetId")).toString();
         QVERIFY(!assetId.isEmpty());
@@ -2668,6 +2669,15 @@ private slots:
         QCOMPARE(m_app->project()->project(), prepared);
         m_app->project()->undo();
         QCOMPARE(m_app->project()->project(), after);
+        // GuiTest reuses one application across test cases. Restore the fixture
+        // precisely so later editor, marker and subtitle tests are independent.
+        m_app->project()->undo(); // insert gap
+        QCOMPARE(m_app->project()->project(), prepared);
+        m_app->project()->undo(); // add subtitle
+        m_app->project()->undo(); // add marker
+        m_app->project()->undo(); // add clip
+        QCOMPARE(m_app->project()->project(), initial);
+        playback->seek(static_cast<double>(originalPlayhead));
     }
 
     void removingEmptyTimeRestoresClipsAfterGapInsertion()

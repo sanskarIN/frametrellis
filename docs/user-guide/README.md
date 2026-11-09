@@ -350,6 +350,16 @@ literal, including `<b>` tags. Install fonts for each language you use on every
 rendering machine. Font substitution can change layout across operating systems.
 Appearance changes, cue edits, import, removal and clearing are undoable.
 
+**Import WebVTT (v1.5.0 development):** Choose **Import SRT/WebVTT…**
+and select a UTF-8 `.vtt` file. WebVTT cue times use `mm:ss.mmm` or
+`hh:mm:ss.mmm`; exact milliseconds, multilingual text, escaped literal
+characters, optional cue identifiers and `NOTE` comments are supported.
+Imported cues append as one Undo/Redo operation. The current project model
+stores plain text, so embedded cue markup, positional settings and
+`STYLE`/`REGION` styling blocks are **refused explicitly**, not silently
+discarded. Overlaps, invalid UTF-8, malformed timings and empty captions
+reject the whole import. This is not yet in stable v1.4.0.
+
 **Export SRT…** saves every cue atomically, including cues beyond the video and
 very short cues with no sampled video frame. It does not alter the project or
 its history; SRT contains text and exact millisecond times, without styling.

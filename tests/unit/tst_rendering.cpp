@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // SPDX-FileCopyrightText: 2026 Sanskar and FrameTrellis contributors
+#include "rendering/export_file.h"
 #include "rendering/export_settings.h"
 #include "rendering/render_job.h"
 #include "rendering/render_protocol.h"
-#include "rendering/export_file.h"
 
 #include <QDir>
 #include <QFile>

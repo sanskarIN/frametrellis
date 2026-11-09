@@ -593,6 +593,154 @@ private slots:
         QCOMPARE(f.doc.undoText(), transitionUndo);
     }
 
+    void sequenceGapEditsKeepClipsMarkersAndSubtitlesTogether()
+    {
+        Fixture f;
+        const Clip early = clipOf(QStringLiteral("m1"), 0, 30, QStringLiteral("early"));
+        const Clip picture = clipOf(QStringLiteral("m1"), 90, 40, QStringLiteral("picture"));
+        const Clip sound = clipOf(QStringLiteral("m1"), 100, 20, QStringLiteral("sound"));
+        QVERIFY(f.doc.execute(edits::addClip(f.v1, early)));
+        QVERIFY(f.doc.execute(edits::addClip(f.v1, picture)));
+        QVERIFY(f.doc.execute(edits::addClip(f.a1, sound)));
+        QVERIFY(f.doc.execute(edits::addMarker(
+            {QStringLiteral("before"), 59, QStringLiteral("Before the gap")})));
+        QVERIFY(f.doc.execute(edits::addMarker(
+            {QStringLiteral("at"), 60, QStringLiteral("At the gap")})));
+        QVERIFY(f.doc.execute(edits::addMarker(
+            {QStringLiteral("after"), 110, QStringLiteral("After the gap")})));
+        QVERIFY(f.doc.execute(edits::appendSubtitles(
+            {{QStringLiteral("early-sub"), 1000, 1500, QStringLiteral("Earlier")},
+             {QStringLiteral("at-sub"), 2000, 2500, QStringLiteral("At cut")},
+             {QStringLiteral("late-sub"), 3000, 3300, QStringLiteral("Later")}})));
+        const Project before = f.doc.project();
+        QSignalSpy changes(&f.doc, &ProjectDocument::changed);
+
+        QVERIFY(f.doc.execute(edits::insertGap(60, 15)));
+        const Project gapped = f.doc.project();
+        QCOMPARE(gapped.timeline().clip(early.id)->start, FrameCount{0});
+        QCOMPARE(gapped.timeline().clip(picture.id)->start, FrameCount{105});
+        QCOMPARE(gapped.timeline().clip(sound.id)->start, FrameCount{115});
+        QCOMPARE(gapped.markers()[0].frame, FrameCount{59});
+        QCOMPARE(gapped.markers()[1].frame, FrameCount{75});
+        QCOMPARE(gapped.markers()[2].frame, FrameCount{125});
+        QCOMPARE(gapped.subtitles().cues[0].startMs, std::int64_t{1000});
+        QCOMPARE(gapped.subtitles().cues[1].startMs, std::int64_t{2500});
+        QCOMPARE(gapped.subtitles().cues[1].endMs, std::int64_t{3000});
+        QCOMPARE(gapped.subtitles().cues[2].startMs, std::int64_t{3500});
+        QCOMPARE(changes.size(), 1);
+        const ChangeSet flags = changes.last().at(0).value<ChangeSet>();
+        QVERIFY(flags.markers);
+        QVERIFY(flags.subtitles);
+        QVERIFY(flags.tracks.contains(f.v1));
+        QVERIFY(flags.tracks.contains(f.a1));
+        const auto loaded = project_format::fromBytes(project_format::toBytes(gapped));
+        QVERIFY(loaded);
+        QCOMPARE(loaded->markers(), gapped.markers());
+        QCOMPARE(loaded->subtitles(), gapped.subtitles());
+        QCOMPARE(f.doc.undoText(), QStringLiteral("Insert Timeline Gap"));
+        QVERIFY(f.doc.undo());
+        QCOMPARE(f.doc.project(), before);
+        QVERIFY(f.doc.redo());
+        QCOMPARE(f.doc.project(), gapped);
+
+        QVERIFY(f.doc.execute(edits::removeEmptyTime(60, 15)));
+        QCOMPARE(f.doc.project(), before);
+        QCOMPARE(f.doc.undoText(), QStringLiteral("Remove Empty Timeline Time"));
+        QVERIFY(f.doc.undo());
+        QCOMPARE(f.doc.project(), gapped);
+        QVERIFY(f.doc.redo());
+        QCOMPARE(f.doc.project(), before);
+    }
+
+    void sequenceGapEditsRejectAmbiguousCuesAndMarkersAtomically()
+    {
+        Fixture f;
+        QVERIFY(f.doc.execute(
+            edits::addClip(f.v1, clipOf(QStringLiteral("m1"), 100, 20, QStringLiteral("later")))));
+        QVERIFY(f.doc.execute(edits::addSubtitle(
+            {QStringLiteral("cross"), 1900, 2100, QStringLiteral("Crosses insertion")})));
+        const Project crossing = f.doc.project();
+        const QString undoCrossing = f.doc.undoText();
+        QVERIFY(!f.doc.execute(edits::insertGap(60, 15)));
+        QCOMPARE(f.doc.project(), crossing);
+        QCOMPARE(f.doc.undoText(), undoCrossing);
+
+        QVERIFY(f.doc.execute(edits::removeSubtitle(QStringLiteral("cross"))));
+        QVERIFY(f.doc.execute(edits::addMarker(
+            {QStringLiteral("interior"), 67, QStringLiteral("Inside removed time")})));
+        const Project markerInside = f.doc.project();
+        const QString markerUndo = f.doc.undoText();
+        QVERIFY(!f.doc.execute(edits::removeEmptyTime(60, 15)));
+        QCOMPARE(f.doc.project(), markerInside);
+        QCOMPARE(f.doc.undoText(), markerUndo);
+
+        QVERIFY(f.doc.execute(edits::removeMarker(QStringLiteral("interior"))));
+        QVERIFY(f.doc.execute(edits::addSubtitle(
+            {QStringLiteral("overlap"), 2400, 2700, QStringLiteral("Across removed time")})));
+        const Project subtitleInside = f.doc.project();
+        const QString subtitleUndo = f.doc.undoText();
+        QVERIFY(!f.doc.execute(edits::removeEmptyTime(60, 15)));
+        QCOMPARE(f.doc.project(), subtitleInside);
+        QCOMPARE(f.doc.undoText(), subtitleUndo);
+        QVERIFY(!f.doc.execute(edits::removeEmptyTime(60, 0)));
+        QCOMPARE(f.doc.project(), subtitleInside);
+        QCOMPARE(f.doc.undoText(), subtitleUndo);
+    }
+
+    void insertingGapRejectsMarkerOverflowWithoutMovingAnyClip()
+    {
+        Fixture f;
+        QVERIFY(f.doc.execute(
+            edits::addClip(f.v1, clipOf(QStringLiteral("m1"), 90, 30, QStringLiteral("later")))));
+        QVERIFY(f.doc.execute(edits::addMarker(
+            {QStringLiteral("end"), kMaxTimelineFrames, QStringLiteral("Near limit")})));
+        const Project before = f.doc.project();
+        const QString undoBefore = f.doc.undoText();
+        QVERIFY(!f.doc.execute(edits::insertGap(60, 15)));
+        QCOMPARE(f.doc.project(), before);
+        QCOMPARE(f.doc.undoText(), undoBefore);
+    }
+
+    void gapInsertionShiftsCaptionsExactlyAtFractionalRates()
+    {
+        const QList<FrameRate> rates = {FrameRate::integer(24), FrameRate::integer(25),
+                                        *FrameRate::create(30000, 1001), FrameRate::integer(30),
+                                        FrameRate::integer(60)};
+        for (const FrameRate& rate : rates) {
+            ProjectSettings settings;
+            settings.frameRate = rate;
+            ProjectDocument doc(Project::createNew(QStringLiteral("Gap captions"), settings));
+            const Id trackId = doc.project().timeline().tracks().front().id;
+            QVERIFY(doc.execute(std::make_unique<AddMediaCommand>(
+                std::vector<MediaAsset>{videoAsset(QStringLiteral("m1"))})));
+            QVERIFY(doc.execute(edits::addClip(
+                trackId, clipOf(QStringLiteral("m1"), 95, 20, QStringLiteral("later")))));
+            const auto baseMs = subtitleMillisecondsAtFrame(70, rate);
+            QVERIFY(baseMs);
+            const std::int64_t startMs = *baseMs + 10;
+            const std::int64_t endMs = startMs + 170;
+            QVERIFY(doc.execute(edits::addSubtitle(
+                {QStringLiteral("cue"), startMs, endMs, QStringLiteral("Exact caption")})));
+            const Project before = doc.project();
+            const auto fromStart = subtitleFrameAtMilliseconds(startMs, rate);
+            const auto fromEnd = subtitleFrameAtMilliseconds(endMs, rate);
+            QVERIFY(fromStart && fromEnd);
+            const auto startBefore = subtitleMillisecondsAtFrame(*fromStart, rate);
+            const auto startAfter = subtitleMillisecondsAtFrame(*fromStart + 11, rate);
+            const auto endBefore = subtitleMillisecondsAtFrame(*fromEnd, rate);
+            const auto endAfter = subtitleMillisecondsAtFrame(*fromEnd + 11, rate);
+            QVERIFY(startBefore && startAfter && endBefore && endAfter);
+            QVERIFY(doc.execute(edits::insertGap(60, 11)));
+            const SubtitleCue& cue = doc.project().subtitles().cues.front();
+            QCOMPARE(cue.startMs, startMs + *startAfter - *startBefore);
+            QCOMPARE(cue.endMs, endMs + *endAfter - *endBefore);
+            QCOMPARE(doc.project().timeline().clip(QStringLiteral("later"))->start,
+                     FrameCount{106});
+            QVERIFY(doc.undo());
+            QCOMPARE(doc.project(), before);
+        }
+    }
+
     void insertGapMovesMultipleTracksAndPreservesTransitions()
     {
         Fixture f;

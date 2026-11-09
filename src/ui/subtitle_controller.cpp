@@ -203,8 +203,9 @@ bool SubtitleController::canMergeWithNext() const
     if (row < 0 || row + 1 >= rowCount()) {
         return false;
     }
-    const SubtitleCue& first = m_track.cues[static_cast<size_t>(row)];
-    const SubtitleCue& second = m_track.cues[static_cast<size_t>(row + 1)];
+    const size_t index = static_cast<size_t>(row);
+    const SubtitleCue& first = m_track.cues[index];
+    const SubtitleCue& second = m_track.cues[index + 1];
     const qsizetype combinedSize =
         first.text == second.text ? first.text.size() : first.text.size() + 1 + second.text.size();
     return first.endMs == second.startMs && combinedSize <= kMaxSubtitleTextLength;

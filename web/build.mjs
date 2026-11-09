@@ -22,6 +22,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { escapeHtml, renderMarkdown } from './markdown.mjs';
+import { checkDownloadLink } from './tools/download-links.mjs';
 
 const webDir = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(webDir, '..');
@@ -365,12 +366,8 @@ async function verifyReleaseLinks(release) {
     if (!release) return;
     const assets = [release.installer, release.zip, release.sbom, release.sources, release.checksums].filter(Boolean);
     for (const asset of assets) {
-        try {
-            const response = await fetch(asset.browser_download_url, { method: 'HEAD', redirect: 'follow' });
-            if (!response.ok) errors.push(`download link ${asset.browser_download_url} answered ${response.status}`);
-        } catch (error) {
-            errors.push(`download link ${asset.browser_download_url} failed: ${error.message}`);
-        }
+        const failure = await checkDownloadLink(asset.browser_download_url);
+        if (failure) errors.push(`download link ${asset.browser_download_url} ${failure}`);
     }
 }
 

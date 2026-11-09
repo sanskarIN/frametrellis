@@ -72,7 +72,7 @@ public:
     /// Uses output-base + "-<preset-id>.mp4" and refuses any existing output.
     /// Each preset keeps its own quality/scaling/speed while inheriting FPS/range/audio choice.
     Q_INVOKABLE QString validateBatch(const QVariantMap& settings,
-                                       const QStringList& presetIds) const;
+                                      const QStringList& presetIds) const;
     Q_INVOKABLE bool startBatch(const QVariantMap& settings, const QStringList& presetIds);
     Q_INVOKABLE void cancel();
     Q_INVOKABLE QString suggestedOutputPath() const;

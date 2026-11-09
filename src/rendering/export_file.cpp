@@ -50,8 +50,9 @@ Status publishRenderedFile(const QString& partPath, const QString& destinationPa
             std::error_code cleanup;
             std::filesystem::remove(source, cleanup);
             if (cleanup) {
-                qCWarning(lcRender) << "Could not remove published batch temporary file:" << partPath
-                                    << QString::fromStdString(cleanup.message());
+                qCWarning(lcRender)
+                    << "Could not remove published batch temporary file:" << partPath
+                    << QString::fromStdString(cleanup.message());
             }
         }
     }

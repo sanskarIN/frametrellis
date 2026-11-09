@@ -2648,14 +2648,14 @@ private slots:
         QVERIFY(timeline->insertGapAtPlayhead(10));
         const Project after = m_app->project()->project();
         QCOMPARE(after.timeline().clip(later.id)->start, cut + 20);
-        const auto marker = std::find_if(
-            after.markers().begin(), after.markers().end(),
-            [&](const TimelineMarker& value) { return value.id == markerId; });
+        const auto marker =
+            std::find_if(after.markers().begin(), after.markers().end(),
+                         [&](const TimelineMarker& value) { return value.id == markerId; });
         QVERIFY(marker != after.markers().end());
         QCOMPARE(marker->frame, cut + 10);
-        const auto subtitle = std::find_if(
-            after.subtitles().cues.begin(), after.subtitles().cues.end(),
-            [&](const SubtitleCue& value) { return value.id == subtitleId; });
+        const auto subtitle =
+            std::find_if(after.subtitles().cues.begin(), after.subtitles().cues.end(),
+                         [&](const SubtitleCue& value) { return value.id == subtitleId; });
         QVERIFY(subtitle != after.subtitles().cues.end());
         QVERIFY(subtitle->startMs > *cutMs + 100);
         QCOMPARE(m_app->project()->undoText(), QStringLiteral("Insert Timeline Gap"));

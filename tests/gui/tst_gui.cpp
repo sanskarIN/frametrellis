@@ -3163,8 +3163,7 @@ private slots:
         const SubtitleTrack applied = m_app->project()->project().subtitles();
         // Exercise the actual Find and Replace QML controls, including model
         // bindings, literal matching, and undo. The scope guard restores data.
-        QQuickItem* search =
-            findItem(m_window->contentItem(), QStringLiteral("subtitleFindText"));
+        QQuickItem* search = findItem(m_window->contentItem(), QStringLiteral("subtitleFindText"));
         QQuickItem* replacement =
             findItem(m_window->contentItem(), QStringLiteral("subtitleReplacementText"));
         QQuickItem* findNext =

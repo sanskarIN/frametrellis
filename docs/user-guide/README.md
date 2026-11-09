@@ -612,6 +612,20 @@ The v1.4.0 presets include **Low-bandwidth review (up to 480p)** and
 **Creator upload (up to 1440p)**. Both preserve smaller project canvases
 without upscaling and work for landscape and portrait projects.
 
+**Batch delivery (v1.5.0 development only):** In the export dialog, select two
+or three delivery variants (*Creator 1080p*, *Draft 720p* and *Small 480p*),
+then choose **Export N variants**. FrameTrellis creates separate
+`<base>-<preset-id>.mp4` files (for example `scene-draft.mp4`), sequentially
+rather than starting multiple encoders at once. Every variant uses a single
+frozen project snapshot captured at batch start, plus the chosen FPS, timeline
+range and audio toggle. Each preset retains its own quality, resolution,
+scaling, encoder speed and audio bitrate. It refuses existing output paths
+instead of overwriting them. A failed or cancelled item stops remaining items,
+while previously completed exports remain intact. **Cancel export** cancels
+the active item and any remaining variants; overall progress counts completed
+files and the active render. A started batch is not a persistent render queue
+across editor restarts, and it is not available in the stable v1.4.0 installers.
+
 The export runs in the background — you can keep editing; it uses a snapshot of the project.
 The status bar shows progress. The result is written to a temporary file first and only replaces
 an existing file once the export succeeded. FrameTrellis refuses to overwrite your source media

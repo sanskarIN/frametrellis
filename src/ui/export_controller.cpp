@@ -73,8 +73,8 @@ QString ExportController::state() const
 
 bool ExportController::busy() const
 {
-    return m_job && !RenderJob::isFinished(m_job->state()) &&
-           m_job->state() != RenderJob::State::Idle;
+    return m_batchActive || (m_job && !RenderJob::isFinished(m_job->state()) &&
+                             m_job->state() != RenderJob::State::Idle);
 }
 
 double ExportController::progress() const

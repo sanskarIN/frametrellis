@@ -361,6 +361,15 @@ bool ExportController::startBatchJob()
     if (!m_batchActive || !m_batchSnapshot || m_batchCompleted >= m_batchJobs.size()) {
         return false;
     }
+    // Never overwrite a file that appeared after batch preflight (for example,
+    // another editor's export while a previous variant was rendering).
+    const QString pendingPath = m_batchJobs.at(m_batchCompleted).outputPath;
+    if (QFileInfo::exists(pendingPath)) {
+        finishBatch(RenderJob::State::Failed,
+                    QStringLiteral("Batch output appeared while rendering: %1")
+                        .arg(QFileInfo(pendingPath).fileName()));
+        return false;
+    }
     // This method runs from the event loop rather than a RenderJob signal stack.
     // Releasing the previous completed process here cannot destroy the sender
     // while it is emitting its own finished/stateChanged signal.

@@ -13,6 +13,9 @@ std::unique_ptr<EditCommand> removeSubtitle(Id cueId);
 /// second half. Retains the first ID, assigns a distinct new ID to the second.
 /// Rejected boundaries and duplicate IDs leave the project/history unchanged.
 std::unique_ptr<EditCommand> splitSubtitle(Id cueId, std::int64_t splitMilliseconds, Id secondId);
+/// Join a cue to the immediately adjoining next cue; never fill an intentional
+/// gap. Equal caption text is preserved once; differing text is separated by a line.
+std::unique_ptr<EditCommand> mergeSubtitleWithNext(Id cueId);
 std::unique_ptr<EditCommand> appendSubtitles(std::vector<SubtitleCue> cues);
 std::unique_ptr<EditCommand> replaceSubtitles(SubtitleTrack track);
 std::unique_ptr<EditCommand> clearSubtitles();

@@ -86,7 +86,7 @@ FtDialog {
         }
         Text {
             Layout.fillWidth: true
-            text: qsTr("Import appends cues. Times use HH:MM:SS,mmm; overlapping cues are refused. Subtitles stay at their sequence times when clips move.")
+            text: qsTr("Import appends cues. Times use HH:MM:SS,mmm; overlapping cues are refused. Ordinary clip moves leave captions at their sequence positions; sequence ripple and gap edits move eligible cues together.")
             color: Theme.textMuted
             font.pixelSize: Theme.fontSizeSmall
             wrapMode: Text.WordWrap
@@ -322,6 +322,18 @@ FtDialog {
                 RowLayout {
                     Layout.fillWidth: true
                     FtButton { text: qsTr("Preview cue"); enabled: dialog.subtitles.canSeek; onClicked: dialog.subtitles.seekSelected() }
+                    FtButton {
+                        text: qsTr("Split at playhead")
+                        objectName: "subtitleSplitAtPlayhead"
+                        enabled: dialog.subtitles.canSplit
+                        onClicked: dialog.guarded(() => dialog.subtitles.splitSelectedAtPlayhead())
+                    }
+                    FtButton {
+                        text: qsTr("Merge next")
+                        objectName: "subtitleMergeNext"
+                        enabled: dialog.subtitles.canMergeWithNext
+                        onClicked: dialog.guarded(() => dialog.subtitles.mergeSelectedWithNext())
+                    }
                     Label { text: qsTr("%1 / 2,000").arg(captionField.length); color: captionField.length > 2000 ? Theme.danger : Theme.textMuted; font.pixelSize: Theme.fontSizeSmall }
                     Item { Layout.fillWidth: true }
                     FtButton { text: qsTr("Remove cue"); enabled: dialog.subtitles.selectedIndex >= 0; onClicked: dialog.guarded(() => dialog.subtitles.removeSelected()) }

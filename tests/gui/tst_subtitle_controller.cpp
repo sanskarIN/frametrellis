@@ -122,6 +122,60 @@ private slots:
         m_project->undo();
         QCOMPARE(m_project->project().subtitles(), edited);
     }
+    void splitCueAtPlayheadPreservesBothHalvesAndRejectsBadPositions()
+    {
+        QVERIFY(m_subtitles->addAtPlayhead());
+        const Project before = m_project->project();
+        QCOMPARE(before.subtitles().cues.size(), size_t{1});
+        const QString firstId = before.subtitles().cues.front().id;
+        QVERIFY(!m_subtitles->canSplit());
+        QVERIFY(!m_subtitles->splitSelectedAtPlayhead());
+        QCOMPARE(m_project->project(), before);
+
+        m_playback->seek(10); // 25 fps: 400 ms, strictly inside the default cue.
+        QVERIFY(m_subtitles->canSplit());
+        QVERIFY(m_subtitles->splitSelectedAtPlayhead());
+        const Project after = m_project->project();
+        QCOMPARE(after.subtitles().cues.size(), size_t{2});
+        QCOMPARE(after.subtitles().cues[0].id, firstId);
+        QCOMPARE(after.subtitles().cues[0].endMs, std::int64_t{400});
+        QCOMPARE(after.subtitles().cues[1].startMs, std::int64_t{400});
+        QCOMPARE(after.subtitles().cues[1].endMs, std::int64_t{2000});
+        QCOMPARE(after.subtitles().cues[0].text, after.subtitles().cues[1].text);
+        QCOMPARE(m_subtitles->selectedCue().value(QStringLiteral("id")).toString(),
+                 after.subtitles().cues[1].id);
+        QCOMPARE(m_project->undoText(), QStringLiteral("Split Subtitle"));
+        QVERIFY(!m_subtitles->canSplit()); // playhead is at the new second cue's first frame
+        QCOMPARE(after.timeline(), before.timeline());
+        m_project->undo();
+        QCOMPARE(m_project->project(), before);
+        m_project->redo();
+        QCOMPARE(m_project->project(), after);
+        // Undo removes the second cue, so selection legitimately falls back to
+        // the first ID. Reselect the restored second cue before editing it.
+        QVERIFY(m_subtitles->selectCue(after.subtitles().cues[1].id, false));
+
+        QVERIFY(m_subtitles->updateSelected(QStringLiteral("00:00:00,400"),
+                                            QStringLiteral("00:00:02,000"),
+                                            QStringLiteral("Edited second half")));
+        QCOMPARE(m_project->project().subtitles().cues[0].text, before.subtitles().cues[0].text);
+        QCOMPARE(m_project->project().subtitles().cues[1].text,
+                 QStringLiteral("Edited second half"));
+        const Project separatelyEdited = m_project->project();
+        QVERIFY(m_subtitles->selectCue(firstId, false));
+        QVERIFY(m_subtitles->canMergeWithNext());
+        QVERIFY(m_subtitles->mergeSelectedWithNext());
+        QCOMPARE(m_project->project().subtitles().cues.size(), size_t{1});
+        QCOMPARE(m_project->project().subtitles().cues[0].text,
+                 QStringLiteral("New subtitle\nEdited second half"));
+        QCOMPARE(m_project->undoText(), QStringLiteral("Merge Subtitles"));
+        m_project->undo();
+        QCOMPARE(m_project->project(), separatelyEdited);
+        m_project->redo();
+        QCOMPARE(m_project->project().subtitles().cues.size(), size_t{1});
+        QVERIFY(!m_subtitles->canMergeWithNext());
+    }
+
     void importIsAtomicAndSidecarExportDoesNotEditTheProject()
     {
         const QString input = m_dir.filePath(QStringLiteral("Hindi captions %.SRT"));

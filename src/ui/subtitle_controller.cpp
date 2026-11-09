@@ -182,6 +182,35 @@ bool SubtitleController::canSeek() const
     return selectedIndex() >= 0 && cueCanSeek(m_track.cues[static_cast<size_t>(selectedIndex())]);
 }
 
+bool SubtitleController::canSplit() const
+{
+    if (m_playback->playing() || selectedIndex() < 0 || rowCount() >= kMaxSubtitleCues ||
+        m_playback->positionFrames() >= m_project->project().timeline().duration()) {
+        return false;
+    }
+    const auto milliseconds = subtitleMillisecondsAtFrame(
+        m_playback->positionFrames(), m_project->project().settings().frameRate);
+    if (!milliseconds) {
+        return false;
+    }
+    const SubtitleCue& selected = m_track.cues[static_cast<size_t>(selectedIndex())];
+    return *milliseconds > selected.startMs && *milliseconds < selected.endMs;
+}
+
+bool SubtitleController::canMergeWithNext() const
+{
+    const int row = selectedIndex();
+    if (row < 0 || row + 1 >= rowCount()) {
+        return false;
+    }
+    const size_t index = static_cast<size_t>(row);
+    const SubtitleCue& first = m_track.cues[index];
+    const SubtitleCue& second = m_track.cues[index + 1];
+    const qsizetype combinedSize =
+        first.text == second.text ? first.text.size() : first.text.size() + 1 + second.text.size();
+    return first.endMs == second.startMs && combinedSize <= kMaxSubtitleTextLength;
+}
+
 bool SubtitleController::selectCue(const QString& id, bool seek)
 {
     if (!m_rows.contains(id))
@@ -280,6 +309,29 @@ bool SubtitleController::updateSelected(const QString& start, const QString& end
     caption.replace(QLatin1Char('\r'), QLatin1Char('\n'));
     return execute(edits::updateSubtitle({m_selected, *first, *last, caption}));
 }
+bool SubtitleController::splitSelectedAtPlayhead()
+{
+    if (!canSplit()) {
+        return fail(tr("Pause and position the playhead strictly inside the selected subtitle."));
+    }
+    const auto milliseconds = subtitleMillisecondsAtFrame(
+        m_playback->positionFrames(), m_project->project().settings().frameRate);
+    if (!milliseconds) {
+        return fail(tr("The playhead cannot be converted to subtitle time."));
+    }
+    const Id secondId = createId();
+    return execute(edits::splitSubtitle(m_selected, *milliseconds, secondId)) &&
+           selectCue(secondId, false);
+}
+
+bool SubtitleController::mergeSelectedWithNext()
+{
+    if (!canMergeWithNext()) {
+        return fail(tr("Select a subtitle immediately followed by another with no timing gap."));
+    }
+    return execute(edits::mergeSubtitleWithNext(m_selected));
+}
+
 bool SubtitleController::removeSelected()
 {
     return selectedIndex() >= 0 ? execute(edits::removeSubtitle(m_selected))

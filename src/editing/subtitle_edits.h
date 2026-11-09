@@ -9,6 +9,13 @@ namespace ft::edits {
 std::unique_ptr<EditCommand> addSubtitle(SubtitleCue cue);
 std::unique_ptr<EditCommand> updateSubtitle(SubtitleCue cue);
 std::unique_ptr<EditCommand> removeSubtitle(Id cueId);
+/// Split one cue at an exclusive millisecond boundary and copy its text to the
+/// second half. Retains the first ID, assigns a distinct new ID to the second.
+/// Rejected boundaries and duplicate IDs leave the project/history unchanged.
+std::unique_ptr<EditCommand> splitSubtitle(Id cueId, std::int64_t splitMilliseconds, Id secondId);
+/// Join a cue to the immediately adjoining next cue; never fill an intentional
+/// gap. Equal caption text is preserved once; differing text is separated by a line.
+std::unique_ptr<EditCommand> mergeSubtitleWithNext(Id cueId);
 std::unique_ptr<EditCommand> appendSubtitles(std::vector<SubtitleCue> cues);
 std::unique_ptr<EditCommand> replaceSubtitles(SubtitleTrack track);
 std::unique_ptr<EditCommand> clearSubtitles();

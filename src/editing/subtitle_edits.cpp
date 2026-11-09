@@ -103,6 +103,65 @@ std::unique_ptr<EditCommand> removeSubtitle(Id cueId)
         });
 }
 
+std::unique_ptr<EditCommand> splitSubtitle(Id cueId, std::int64_t splitMilliseconds, Id secondId)
+{
+    return std::make_unique<SubtitleCommand>(
+        QStringLiteral("Split Subtitle"),
+        [cueId = std::move(cueId), splitMilliseconds,
+         secondId = std::move(secondId)](SubtitleTrack& track) -> Status {
+            if (secondId.isEmpty() || secondId == cueId ||
+                findCue(track, secondId) != track.cues.end()) {
+                return makeError(ErrorCode::Conflict,
+                                 QStringLiteral("The new subtitle needs a unique identifier."));
+            }
+            const auto first = findCue(track, cueId);
+            if (first == track.cues.end()) {
+                return makeError(ErrorCode::NotFound,
+                                 QStringLiteral("The subtitle was not found."));
+            }
+            if (splitMilliseconds <= first->startMs || splitMilliseconds >= first->endMs) {
+                return makeError(ErrorCode::OutOfRange,
+                                 QStringLiteral("Split strictly inside the subtitle's timing."));
+            }
+            SubtitleCue second = *first;
+            second.id = secondId;
+            second.startMs = splitMilliseconds;
+            first->endMs = splitMilliseconds;
+            track.cues.insert(first + 1, std::move(second));
+            return {};
+        });
+}
+
+std::unique_ptr<EditCommand> mergeSubtitleWithNext(Id cueId)
+{
+    return std::make_unique<SubtitleCommand>(
+        QStringLiteral("Merge Subtitles"),
+        [cueId = std::move(cueId)](SubtitleTrack& track) -> Status {
+            const auto first = findCue(track, cueId);
+            if (first == track.cues.end()) {
+                return makeError(ErrorCode::NotFound,
+                                 QStringLiteral("The subtitle was not found."));
+            }
+            if (first + 1 == track.cues.end() || first->endMs != (first + 1)->startMs) {
+                return makeError(ErrorCode::Conflict,
+                                 QStringLiteral("Choose two adjacent subtitles without a gap."));
+            }
+            const SubtitleCue& second = *(first + 1);
+            const QString combined = first->text == second.text
+                                         ? first->text
+                                         : first->text + QLatin1Char('\n') + second.text;
+            if (combined.size() > kMaxSubtitleTextLength) {
+                return makeError(
+                    ErrorCode::OutOfRange,
+                    QStringLiteral("The merged subtitle would exceed 2,000 characters."));
+            }
+            first->endMs = second.endMs;
+            first->text = combined;
+            track.cues.erase(first + 1);
+            return {};
+        });
+}
+
 std::unique_ptr<EditCommand> appendSubtitles(std::vector<SubtitleCue> cues)
 {
     return std::make_unique<SubtitleCommand>(

@@ -247,8 +247,8 @@ private slots:
         QTRY_COMPARE_WITH_TIMEOUT(finished.size(), 3, 120'000);
         QVERIFY(!finished.last().at(0).toBool());
         QCOMPARE(exporter.batchState(), QStringLiteral("cancelled"));
-        QVERIFY(!QFileInfo::exists(
-            m_dir.filePath(QStringLiteral("batch-cancel-next-review480p.mp4"))));
+        QVERIFY(
+            !QFileInfo::exists(m_dir.filePath(QStringLiteral("batch-cancel-next-review480p.mp4"))));
         QVERIFY(!exporter.busy());
     }
 

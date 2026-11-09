@@ -196,8 +196,7 @@ int main(int argc, char** argv)
     parser.addOptions({projectOption, outputOption, shortSideOption, fpsOption, startFrameOption,
                        endFrameOption, crfOption, presetOption, audioOption, renderTokenOption,
                        noAudioOption, refuseOutputOption, noUpscaleOption, watchStdinOption,
-                       selfTestOption,
-                       inspectProjectOption, listPresetsOption});
+                       selfTestOption, inspectProjectOption, listPresetsOption});
     parser.process(app);
 
     if (parser.isSet(listPresetsOption)) {

@@ -138,7 +138,13 @@ Status RenderJob::start(const Project& project, const ExportSettings& settings,
         QDir(outputInfo.absolutePath())
             .filePath(QStringLiteral(".%1.%2.part.mp4").arg(outputInfo.completeBaseName(), token));
     m_framesDone = 0;
-    m_totalFrames = project.timeline().duration();
+    const auto outputRate = outputFrameRate(settings, project.settings());
+    const auto bounds =
+        outputRate ? resolveExportFrameBounds(settings, project.timeline().duration(),
+                                              project.settings().frameRate, *outputRate)
+                   : Result<ExportFrameBounds>(makeError(
+                         ErrorCode::OutOfRange, QStringLiteral("Invalid export frame rate.")));
+    m_totalFrames = bounds ? bounds->outputLength() : 0;
     m_lastLoggedProgressBucket = -1;
     m_encoder.clear();
     m_errorMessage.clear();
@@ -151,16 +157,26 @@ Status RenderJob::start(const Project& project, const ExportSettings& settings,
     m_finalElapsed = -1;
     m_elapsed.start();
 
-    QStringList arguments{
-        QStringLiteral("--project"),       snapshot,
-        QStringLiteral("--output"),        settings.outputPath,
-        QStringLiteral("--short-side"),    QString::number(settings.shortSide),
-        QStringLiteral("--crf"),           QString::number(settings.crf),
-        QStringLiteral("--preset"),        settings.speedPreset,
-        QStringLiteral("--audio-bitrate"), QString::number(settings.audioBitrateKbps),
-        QStringLiteral("--fps"),           settings.frameRate,
-        QStringLiteral("--render-token"),  token,
-        QStringLiteral("--watch-stdin")};
+    QStringList arguments{QStringLiteral("--project"),
+                          snapshot,
+                          QStringLiteral("--output"),
+                          settings.outputPath,
+                          QStringLiteral("--short-side"),
+                          QString::number(settings.shortSide),
+                          QStringLiteral("--crf"),
+                          QString::number(settings.crf),
+                          QStringLiteral("--preset"),
+                          settings.speedPreset,
+                          QStringLiteral("--audio-bitrate"),
+                          QString::number(settings.audioBitrateKbps),
+                          QStringLiteral("--fps"),
+                          settings.frameRate,
+                          QStringLiteral("--start-frame"),
+                          QString::number(settings.rangeStartFrame),
+                          QStringLiteral("--end-frame=%1").arg(settings.rangeEndFrame),
+                          QStringLiteral("--render-token"),
+                          token,
+                          QStringLiteral("--watch-stdin")};
     if (!settings.includeAudio) {
         arguments << QStringLiteral("--no-audio");
     }

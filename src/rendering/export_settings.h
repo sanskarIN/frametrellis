@@ -24,7 +24,9 @@ struct ExportSettings
     int audioBitrateKbps = 192;
     bool includeAudio = true;
     QString frameRate =
-        QStringLiteral("match"); ///< match project or exact fps: 30, 29.97, 30000/1001
+        QStringLiteral("match");    ///< match project or exact fps: 30, 29.97, 30000/1001
+    FrameCount rangeStartFrame = 0; ///< project frames, inclusive
+    FrameCount rangeEndFrame = -1;  ///< project frames, exclusive; -1 means timeline end
 
     friend bool operator==(const ExportSettings&, const ExportSettings&) = default;
 };
@@ -56,6 +58,24 @@ Result<FrameRate> outputFrameRate(const ExportSettings& settings, const ProjectS
 /// Calculates output frame count from real timeline duration, rounding up the last partial frame.
 Result<FrameCount> outputFrameCount(FrameCount projectFrames, const FrameRate& projectRate,
                                     const FrameRate& exportRate);
+
+/// Validated inclusive/exclusive bounds in both the source-project and export-FPS timebases.
+/// Output bounds use exact rational arithmetic, rounding up to avoid including
+/// video/audio before the requested start, even for NTSC FPS conversion.
+struct ExportFrameBounds
+{
+    FrameCount projectStart = 0;
+    FrameCount projectEnd = 0;
+    FrameCount outputStart = 0;
+    FrameCount outputEnd = 0;
+    [[nodiscard]] FrameCount outputLength() const { return outputEnd - outputStart; }
+    [[nodiscard]] FrameCount projectLength() const { return projectEnd - projectStart; }
+};
+
+Result<ExportFrameBounds> resolveExportFrameBounds(const ExportSettings& settings,
+                                                   FrameCount timelineFrames,
+                                                   const FrameRate& projectRate,
+                                                   const FrameRate& exportRate);
 
 /// Checks everything that can be known before rendering starts: an empty timeline, offline
 /// media, an unsafe or unwritable output path, and out-of-range encoder settings.

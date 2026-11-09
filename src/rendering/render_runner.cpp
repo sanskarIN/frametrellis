@@ -201,17 +201,23 @@ Status RenderRunner::run(const std::atomic<bool>& cancelRequested, const Started
         return makeError(ErrorCode::Cancelled, QStringLiteral("The export was cancelled."));
     }
     const FrameCount projectTotal = graph->duration;
-    const Result<FrameCount> outputTotal =
+    const Result<FrameCount> fullOutputTotal =
         outputFrameCount(projectTotal, projectSettings.frameRate, exportRate);
-    if (!outputTotal) {
-        return outputTotal.error();
+    if (!fullOutputTotal) {
+        return fullOutputTotal.error();
     }
-    const FrameCount total = *outputTotal;
+    const auto bounds =
+        resolveExportFrameBounds(m_settings, projectTotal, projectSettings.frameRate, exportRate);
+    if (!bounds) {
+        return bounds.error();
+    }
+    const FrameCount total = bounds->outputLength();
     std::unique_ptr<Mlt::Tractor> tractor = std::move(graph->tractor);
 
     std::unique_ptr<Mlt::Profile> selectedProfile;
     std::unique_ptr<Mlt::Chain> frameRateChain;
     std::unique_ptr<Mlt::Link> frameRateLink;
+    std::unique_ptr<Mlt::Playlist> rangePlaylist;
     Mlt::Profile* encodingProfile = projectProfile.get();
     Mlt::Producer* encodingProducer = tractor.get();
     if (exportRate != projectSettings.frameRate) {
@@ -235,10 +241,29 @@ Status RenderRunner::run(const std::atomic<bool>& cancelRequested, const Started
             return makeError(ErrorCode::Engine,
                              QStringLiteral("Could not prepare export FPS conversion."));
         }
-        frameRateChain->set("length", static_cast<int>(total));
-        frameRateChain->set_in_and_out(0, static_cast<int>(total - 1));
+        // Keep absolute output-frame positions: timeremap must fetch the same
+        // source-time samples for a partial export as for the full sequence.
+        frameRateChain->set("length", static_cast<int>(*fullOutputTotal));
+        frameRateChain->set_in_and_out(0, static_cast<int>(*fullOutputTotal - 1));
         encodingProfile = selectedProfile.get();
         encodingProducer = frameRateChain.get();
+    }
+
+    // Consumers do not obey their own in/out properties. Wrap the complete
+    // absolute-time graph in a one-entry playlist cut instead. The cut converts
+    // the requested source interval into a fresh zero-based output timeline,
+    // preserving the correct MLT source timestamps and keeping audio/video PTS
+    // local to the exported segment. Do NOT trim the underlying tractor or
+    // timeremap chain: that would reinterpret absolute positions on a seek.
+    if (bounds->outputStart != 0 || bounds->outputEnd != *fullOutputTotal) {
+        rangePlaylist = std::make_unique<Mlt::Playlist>(*encodingProfile);
+        if (!rangePlaylist->is_valid() ||
+            rangePlaylist->append(*encodingProducer, static_cast<int>(bounds->outputStart),
+                                  static_cast<int>(bounds->outputEnd - 1)) != 0) {
+            return makeError(ErrorCode::Engine,
+                             QStringLiteral("Could not prepare the selected export range."));
+        }
+        encodingProducer = rangePlaylist.get();
     }
 
     // Do not create an encoder or any temporary output after a cancellation during FPS setup.
@@ -303,7 +328,8 @@ Status RenderRunner::run(const std::atomic<bool>& cancelRequested, const Started
     encodingProducer->set_speed(0);
     encodingProducer->seek(0);
 
-    qCInfo(lcRender) << "Rendering" << total << "frames to" << finalPath << "with" << m_encoder;
+    qCInfo(lcRender) << "Rendering" << total << "frames from" << bounds->projectStart << "to"
+                     << bounds->projectEnd << "to" << finalPath << "with" << m_encoder;
     if (started) {
         started(m_encoder, total);
     }
@@ -340,7 +366,8 @@ Status RenderRunner::run(const std::atomic<bool>& cancelRequested, const Started
     }
     consumer->stop();
     consumer->purge();
-    consumer.reset(); // release FFmpeg/MLT references and output handles first
+    consumer.reset();      // release FFmpeg/MLT references and output handles first
+    rangePlaylist.reset(); // release cut before the full timeline/fps chain it references
     frameRateLink.reset();
     frameRateChain.reset();
     tractor.reset();
@@ -363,7 +390,7 @@ Status RenderRunner::run(const std::atomic<bool>& cancelRequested, const Started
             ? media::probeMedia(partPath)
             : Result<MediaInfo>(makeError(ErrorCode::Io, QStringLiteral("no output")));
     const auto expectedUs =
-        projectSettings.frameRate.framesToMicroseconds(projectTotal).value_or(0);
+        projectSettings.frameRate.framesToMicroseconds(bounds->projectLength()).value_or(0);
     const auto toleranceUs = exportRate.framesToMicroseconds(3).value_or(0) + 50'000;
     // Verify the size as well as the duration. Fast/no-upscale presets must never
     // publish a video with dimensions different from those shown in the dialog.

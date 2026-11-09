@@ -3937,6 +3937,48 @@ private slots:
         QMetaObject::invokeMethod(dialog, "close");
     }
 
+    void exportDialogOffersSafeRangeModesWithoutChangingTimeline()
+    {
+        QObject* dialog = m_window->findChild<QObject*>(QStringLiteral("exportDialog"));
+        QVERIFY(dialog);
+        const Project before = m_app->project()->project();
+        const QString undoBefore = m_app->project()->undoText();
+        QMetaObject::invokeMethod(dialog, "open");
+        QTRY_VERIFY(dialog->property("opened").toBool());
+        QQuickItem* selector = findItem(m_window->contentItem(), QStringLiteral("exportRangeBox"));
+        QQuickItem* start = findItem(m_window->contentItem(), QStringLiteral("exportStartFrame"));
+        QQuickItem* end = findItem(m_window->contentItem(), QStringLiteral("exportEndFrame"));
+        QVERIFY(selector);
+        QVERIFY(start);
+        QVERIFY(end);
+        QCOMPARE(selector->property("currentIndex").toInt(), 0);
+        selector->setProperty("currentIndex", 2); // custom source-time range
+        QTRY_VERIFY(start->isVisible());
+        QTRY_VERIFY(end->isVisible());
+        start->setProperty("text", QStringLiteral("5"));
+        end->setProperty("text", QStringLiteral("15"));
+
+        const QVariantMap validSettings{
+            {QStringLiteral("outputPath"), m_dir.filePath(QStringLiteral("gui-range.mp4"))},
+            {QStringLiteral("rangeStartFrame"), QStringLiteral("5")},
+            {QStringLiteral("rangeEndFrame"), QStringLiteral("15")}};
+        QCOMPARE(m_app->exporter()->validate(validSettings), QString());
+        QVERIFY(m_app->exporter()
+                    ->describeOutput(validSettings)
+                    .contains(QStringLiteral("frames 5–15")));
+
+        QVariantMap invalid = validSettings;
+        invalid[QStringLiteral("rangeEndFrame")] = QStringLiteral("not-an-integer");
+        QVERIFY(!m_app->exporter()->validate(invalid).isEmpty());
+        invalid[QStringLiteral("rangeStartFrame")] = QStringLiteral("50");
+        invalid[QStringLiteral("rangeEndFrame")] = QStringLiteral("5");
+        QVERIFY(!m_app->exporter()->validate(invalid).isEmpty());
+        QCOMPARE(m_app->project()->project(), before);
+        QCOMPARE(m_app->project()->undoText(), undoBefore);
+        selector->setProperty("currentIndex", 0);
+        QMetaObject::invokeMethod(dialog, "close");
+    }
+
     void exportDialogRetainsCustomQualityAndFpsAcrossReopen()
     {
         QObject* dialog = m_window->findChild<QObject*>(QStringLiteral("exportDialog"));

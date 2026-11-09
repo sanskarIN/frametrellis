@@ -246,8 +246,7 @@ Result<std::int64_t> parseTimestamp(const QString& text)
         return makeError(ErrorCode::InvalidDocument,
                          QStringLiteral("Use WebVTT timestamps mm:ss.mmm or hh:mm:ss.mmm."));
     }
-    return match.captured(1).toLongLong() * 3'600'000 +
-           match.captured(2).toLongLong() * 60'000 +
+    return match.captured(1).toLongLong() * 3'600'000 + match.captured(2).toLongLong() * 60'000 +
            match.captured(3).toLongLong() * 1000 + match.captured(4).toLongLong();
 }
 
@@ -317,8 +316,7 @@ Result<SubtitleTrack> fromBytes(const QByteArray& bytes)
     text.replace(QLatin1Char('\r'), QLatin1Char('\n'));
     const QStringList lines = text.split(QLatin1Char('\n'));
     const QString header = lines.front();
-    if (header != QLatin1String("WEBVTT") &&
-        !header.startsWith(QLatin1String("WEBVTT ")) &&
+    if (header != QLatin1String("WEBVTT") && !header.startsWith(QLatin1String("WEBVTT ")) &&
         !header.startsWith(QLatin1String("WEBVTT\t"))) {
         return makeError(ErrorCode::InvalidDocument,
                          QStringLiteral("WebVTT files must begin with the WEBVTT signature."));
@@ -334,10 +332,9 @@ Result<SubtitleTrack> fromBytes(const QByteArray& bytes)
     qsizetype row = 1;
     qsizetype totalText = 0;
     const auto error = [&](const QString& detail) {
-        return makeError(ErrorCode::InvalidDocument,
-                         QStringLiteral("Invalid WebVTT near line %1: %2")
-                             .arg(row + 1)
-                             .arg(detail));
+        return makeError(
+            ErrorCode::InvalidDocument,
+            QStringLiteral("Invalid WebVTT near line %1: %2").arg(row + 1).arg(detail));
     };
     while (row < lines.size()) {
         if (lines.at(row).trimmed().isEmpty()) {
@@ -345,16 +342,14 @@ Result<SubtitleTrack> fromBytes(const QByteArray& bytes)
             continue;
         }
         const QString firstLine = lines.at(row).trimmed();
-        if (firstLine == QLatin1String("NOTE") ||
-            firstLine.startsWith(QLatin1String("NOTE ")) ||
+        if (firstLine == QLatin1String("NOTE") || firstLine.startsWith(QLatin1String("NOTE ")) ||
             firstLine.startsWith(QLatin1String("NOTE\t"))) {
             while (row < lines.size() && !lines.at(row).trimmed().isEmpty()) {
                 ++row;
             }
             continue;
         }
-        if (firstLine == QLatin1String("STYLE") ||
-            firstLine == QLatin1String("REGION")) {
+        if (firstLine == QLatin1String("STYLE") || firstLine == QLatin1String("REGION")) {
             return error(QStringLiteral(
                 "STYLE and REGION metadata cannot be imported without losing formatting."));
         }

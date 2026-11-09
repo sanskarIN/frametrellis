@@ -368,8 +368,9 @@ the MP4 does not contain a switchable subtitle stream.
 Times remain exact milliseconds at fractional frame rates; picture frames sample
 those times, so a cue can begin on the next frame. Cues stay at their sequence
 times after ordinary clip moves, slips, splits and ripple deletes. Source Monitor
-**Ripple Insert** instead shifts subtitle cues beginning at/after the cut and
-rejects cues spanning the cut. Subtitles do not extend the video.
+**Ripple Insert**, **Insert Gap** and **Remove Empty Time** instead shift eligible
+subtitle cues with the sequence. Insertion rejects a subtitle spanning the cut;
+gap closure rejects cues intersecting the removed interval. Subtitles do not extend the video.
 Review alignment after other edits. Cues outside the current video are
 marked in the list and retained, with navigation disabled until they have a frame.
 Input is limited to 8 MiB, 10,000 cues, 2,000 UTF-16 units per cue and 1,000,000
@@ -397,7 +398,8 @@ requirements for your publishing service. The action does not modify the project
 
 Markers are sequence-level notes: they do not change picture, sound, clip trims or export,
 and they do **not** automatically follow ordinary clip moves. Source Monitor
-**Ripple Insert** is an exception: it shifts markers at/after the insertion cut.
+**Ripple Insert** and **Insert Gap** shift markers at/after the insertion cut;
+**Remove Empty Time** shifts later markers left but rejects a gap containing markers.
 The edit-point snapping system also snaps clips to markers when snapping is on. Cues saved beyond the current end
 of a shortened sequence remain in the project but cannot be navigated to until media again
 covers their position.
@@ -757,6 +759,16 @@ risking doubled sound in preview or export. The two resulting clips are selected
 but remain **independently editable**: FrameTrellis does not yet store a
 persistent clip-link relationship. This is a non-rippling placement,
 not a ripple insert or an overwrite.
+
+**Sequence-aware gap editing (v1.5.0 development):** *Edit → Insert Gap at Playhead* and
+*Edit → Remove Empty Time at Playhead* move review markers and subtitles together
+with all affected clips. The *Close Gap to Next Clip* shortcut uses the same
+sequence-safe removal. A cut inside a clip, a locked affected track or a subtitle
+spanning the insertion cut rejects the edit. Closing empty time rejects markers
+inside that interval or subtitles overlapping it; move them first rather than
+silently discarding them. Both actions support one-step Undo/Redo, preserve clip
+identity, trims and automation, and use exact rational-frame conversion for
+subtitle timestamps. These improvements are not in the published v1.4.0 build.
 
 To **ripple insert** a marked source excerpt at the Program playhead, open
 the clip in the Source Monitor, choose **Automatic** or an exact unlocked

@@ -55,6 +55,8 @@ std::unique_ptr<EditCommand> moveClip(const Id& clipId, const Id& targetTrackId,
 std::unique_ptr<EditCommand> nudgeClips(const QList<Id>& clipIds, FrameCount delta);
 /// Make space across all tracks at a common boundary, shifting following clips
 /// without changing their source trims, automation or transition identities.
+/// Sequence markers at/after the cut and eligible subtitle cues also move, with
+/// their exact rational-frame timing; spanning captions reject the whole edit.
 /// Affected locked tracks, intersecting clips and invalid cuts reject the operation.
 std::unique_ptr<EditCommand> insertGap(FrameCount frame, FrameCount duration);
 /// Insert a source excerpt at its timeline start and shift all following clips on
@@ -67,7 +69,9 @@ std::unique_ptr<EditCommand> insertGap(FrameCount frame, FrameCount duration);
 std::unique_ptr<EditCommand> rippleInsertSourceClip(const Id& trackId, const Clip& clip);
 /// Remove an interval that contains no clip frames on any track, moving later
 /// clips earlier as one undoable change. Locked affected tracks and intersecting
-/// clips reject the operation without modifying the project.
+/// clips reject the operation without modifying the project. Markers and captions
+/// at/after the removed interval shift back in the same undo step. Markers within
+/// that interval or subtitles intersecting it must be moved first.
 std::unique_ptr<EditCommand> removeEmptyTime(FrameCount frame, FrameCount duration);
 std::unique_ptr<EditCommand> trimClipStart(const Id& clipId, FrameCount newStart);
 std::unique_ptr<EditCommand> trimClipEnd(const Id& clipId, FrameCount newEnd);

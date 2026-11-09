@@ -120,7 +120,8 @@ public:
             if (m_closing && marker.frame >= m_frame && marker.frame < boundary) {
                 return makeError(
                     ErrorCode::Conflict,
-                    QStringLiteral("Move or delete markers inside the empty time before closing it."));
+                    QStringLiteral(
+                        "Move or delete markers inside the empty time before closing it."));
             }
             if (marker.frame < boundary) {
                 continue;

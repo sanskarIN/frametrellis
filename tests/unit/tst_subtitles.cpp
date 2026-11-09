@@ -170,6 +170,11 @@ private slots:
         QCOMPARE(withIds->cues[1].startMs, std::int64_t{3'600'001});
         QCOMPARE(withIds->cues[1].text, QStringLiteral("कहानी <b>literal</b>"));
         QCOMPARE(webvtt::fromBytes(QByteArray("WEBVTT\n\n"))->cues.size(), size_t{0});
+        const auto literalAmpersand =
+            webvtt::fromBytes(QByteArray("WEBVTT\n\n00:00.000 --> 00:01.000\nRock & Roll"));
+        QVERIFY(literalAmpersand);
+        QCOMPARE(literalAmpersand->cues.front().text, QStringLiteral("Rock & Roll"));
+        QVERIFY(webvtt::toBytes(*literalAmpersand)->contains("Rock &amp; Roll"));
     }
 
     void webVttImportRejectsMarkupSettingsOverlapsAndMalformedInput()

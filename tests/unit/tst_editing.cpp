@@ -446,11 +446,12 @@ private slots:
         reject(f.v1, video, f.a1, audio);
         QVERIFY(f.doc.undo());
 
-        // The insertion is valid only at an actual cut, never through video/audio.
+        // Frame 65 is inside both existing [60,100) clips. Frame 50
+        // is free and would be a valid ripple insertion, not a conflict.
         Clip inside = video;
-        inside.start = 50;
+        inside.start = 65;
         Clip insideAudio = audio;
-        insideAudio.start = 50;
+        insideAudio.start = 65;
         reject(f.v1, inside, f.a1, insideAudio);
     }
 

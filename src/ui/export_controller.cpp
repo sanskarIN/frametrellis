@@ -304,6 +304,7 @@ ExportController::prepareBatch(const QVariantMap& settings, const QStringList& p
         item.rangeStartFrame = common.rangeStartFrame;
         item.rangeEndFrame = common.rangeEndFrame;
         item.includeAudio = common.includeAudio;
+        item.protectExistingOutput = true;
         if (const Status valid =
                 rendering::validateExport(item, m_project->project(), m_project->filePath());
             !valid) {

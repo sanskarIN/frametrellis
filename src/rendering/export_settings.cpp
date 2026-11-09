@@ -213,6 +213,10 @@ Status validateExport(const ExportSettings& settings, const Project& project,
         return makeError(ErrorCode::InvalidArgument,
                          QStringLiteral("The output file name must end in .mp4."));
     }
+    if (settings.protectExistingOutput && output.exists()) {
+        return makeError(ErrorCode::Conflict,
+                         QStringLiteral("Batch output already exists. Choose another filename."));
+    }
     if (output.exists() && !output.isFile()) {
         return makeError(ErrorCode::InvalidArgument,
                          QStringLiteral("The output path is a folder, not a file."));

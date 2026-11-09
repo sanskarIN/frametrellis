@@ -346,10 +346,8 @@ private slots:
     {
         Fixture f;
         const Clip earlier = clipOf(QStringLiteral("m1"), 0, 60, QStringLiteral("before-cut"));
-        const Clip laterVideo =
-            clipOf(QStringLiteral("m1"), 60, 40, QStringLiteral("later-video"));
-        const Clip laterAudio =
-            clipOf(QStringLiteral("m1"), 60, 40, QStringLiteral("later-audio"));
+        const Clip laterVideo = clipOf(QStringLiteral("m1"), 60, 40, QStringLiteral("later-video"));
+        const Clip laterAudio = clipOf(QStringLiteral("m1"), 60, 40, QStringLiteral("later-audio"));
         QVERIFY(f.doc.execute(edits::addClip(f.v1, earlier)));
         QVERIFY(f.doc.execute(edits::addClip(f.v1, laterVideo)));
         QVERIFY(f.doc.execute(edits::addClip(f.a1, laterAudio)));
@@ -366,8 +364,8 @@ private slots:
         sound.id = QStringLiteral("paired-sound");
         sound.properties.muted = false;
         QSignalSpy changed(&f.doc, &ProjectDocument::changed);
-        QVERIFY(f.doc.execute(
-            edits::rippleInsertSynchronizedSourceClips(f.v1, picture, f.a1, sound)));
+        QVERIFY(
+            f.doc.execute(edits::rippleInsertSynchronizedSourceClips(f.v1, picture, f.a1, sound)));
         const Project after = f.doc.project();
         QCOMPARE(after.timeline().clipCount(), before.timeline().clipCount() + 2);
         QCOMPARE(*after.timeline().clip(picture.id), picture);
@@ -415,8 +413,8 @@ private slots:
                                 const Clip& sound) {
             const Project before = f.doc.project();
             const QString undoBefore = f.doc.undoText();
-            QVERIFY(!f.doc.execute(edits::rippleInsertSynchronizedSourceClips(
-                videoTrack, picture, audioTrack, sound)));
+            QVERIFY(!f.doc.execute(edits::rippleInsertSynchronizedSourceClips(videoTrack, picture,
+                                                                              audioTrack, sound)));
             QCOMPARE(f.doc.project(), before);
             QCOMPARE(f.doc.undoText(), undoBefore);
         };

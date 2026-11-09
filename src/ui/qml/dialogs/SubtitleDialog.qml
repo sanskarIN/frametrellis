@@ -322,6 +322,12 @@ FtDialog {
                 RowLayout {
                     Layout.fillWidth: true
                     FtButton { text: qsTr("Preview cue"); enabled: dialog.subtitles.canSeek; onClicked: dialog.subtitles.seekSelected() }
+                    FtButton {
+                        text: qsTr("Split at playhead")
+                        objectName: "subtitleSplitAtPlayhead"
+                        enabled: dialog.subtitles.canSplit
+                        onClicked: dialog.guarded(() => dialog.subtitles.splitSelectedAtPlayhead())
+                    }
                     Label { text: qsTr("%1 / 2,000").arg(captionField.length); color: captionField.length > 2000 ? Theme.danger : Theme.textMuted; font.pixelSize: Theme.fontSizeSmall }
                     Item { Layout.fillWidth: true }
                     FtButton { text: qsTr("Remove cue"); enabled: dialog.subtitles.selectedIndex >= 0; onClicked: dialog.guarded(() => dialog.subtitles.removeSelected()) }

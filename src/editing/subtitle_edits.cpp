@@ -103,6 +103,35 @@ std::unique_ptr<EditCommand> removeSubtitle(Id cueId)
         });
 }
 
+std::unique_ptr<EditCommand> splitSubtitle(Id cueId, std::int64_t splitMilliseconds, Id secondId)
+{
+    return std::make_unique<SubtitleCommand>(
+        QStringLiteral("Split Subtitle"),
+        [cueId = std::move(cueId), splitMilliseconds,
+         secondId = std::move(secondId)](SubtitleTrack& track) -> Status {
+            if (secondId.isEmpty() || secondId == cueId ||
+                findCue(track, secondId) != track.cues.end()) {
+                return makeError(ErrorCode::Conflict,
+                                 QStringLiteral("The new subtitle needs a unique identifier."));
+            }
+            const auto first = findCue(track, cueId);
+            if (first == track.cues.end()) {
+                return makeError(ErrorCode::NotFound,
+                                 QStringLiteral("The subtitle was not found."));
+            }
+            if (splitMilliseconds <= first->startMs || splitMilliseconds >= first->endMs) {
+                return makeError(ErrorCode::OutOfRange,
+                                 QStringLiteral("Split strictly inside the subtitle's timing."));
+            }
+            SubtitleCue second = *first;
+            second.id = secondId;
+            second.startMs = splitMilliseconds;
+            first->endMs = splitMilliseconds;
+            track.cues.insert(first + 1, std::move(second));
+            return {};
+        });
+}
+
 std::unique_ptr<EditCommand> appendSubtitles(std::vector<SubtitleCue> cues)
 {
     return std::make_unique<SubtitleCommand>(

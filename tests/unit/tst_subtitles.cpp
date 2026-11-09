@@ -334,10 +334,10 @@ private slots:
     void mergeAdjacentSubtitlesPreservesLiteralTextAndRejectsGaps()
     {
         ProjectDocument doc(project());
-        QVERIFY(doc.execute(edits::addSubtitle(
-            cue(QStringLiteral("first"), 100, 300, QStringLiteral("नमस्ते")))));
-        QVERIFY(doc.execute(edits::addSubtitle(
-            cue(QStringLiteral("second"), 300, 700, QStringLiteral("Hello")))));
+        QVERIFY(doc.execute(
+            edits::addSubtitle(cue(QStringLiteral("first"), 100, 300, QStringLiteral("नमस्ते")))));
+        QVERIFY(doc.execute(
+            edits::addSubtitle(cue(QStringLiteral("second"), 300, 700, QStringLiteral("Hello")))));
         const Project before = doc.project();
         QVERIFY(doc.execute(edits::mergeSubtitleWithNext(QStringLiteral("first"))));
         const SubtitleTrack merged = doc.project().subtitles();

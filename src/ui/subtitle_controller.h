@@ -26,6 +26,7 @@ class SubtitleController : public QAbstractListModel
     Q_PROPERTY(bool canAdd READ canAdd NOTIFY stateChanged)
     Q_PROPERTY(bool canSeek READ canSeek NOTIFY stateChanged)
     Q_PROPERTY(bool canSplit READ canSplit NOTIFY stateChanged)
+    Q_PROPERTY(bool canMergeWithNext READ canMergeWithNext NOTIFY stateChanged)
     Q_PROPERTY(bool burnIn READ burnIn NOTIFY stateChanged)
     Q_PROPERTY(int fontPercent READ fontPercent NOTIFY stateChanged)
     Q_PROPERTY(bool background READ background NOTIFY stateChanged)
@@ -51,6 +52,7 @@ public:
     [[nodiscard]] bool canAdd() const;
     [[nodiscard]] bool canSeek() const;
     [[nodiscard]] bool canSplit() const;
+    [[nodiscard]] bool canMergeWithNext() const;
     [[nodiscard]] bool burnIn() const { return m_track.burnIn; }
     [[nodiscard]] int fontPercent() const { return m_track.fontPercent; }
     [[nodiscard]] bool background() const { return m_track.background; }
@@ -63,6 +65,8 @@ public:
     Q_INVOKABLE bool updateSelected(const QString& start, const QString& end, const QString& text);
     /// Split selected cue at the paused program playhead; select the second half.
     Q_INVOKABLE bool splitSelectedAtPlayhead();
+    /// Merge adjacent captions with one undo; retains the selected first cue ID.
+    Q_INVOKABLE bool mergeSelectedWithNext();
     Q_INVOKABLE bool removeSelected();
     Q_INVOKABLE bool clearAll();
     Q_INVOKABLE bool shiftAll(int deltaMilliseconds);

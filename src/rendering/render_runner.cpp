@@ -358,8 +358,7 @@ Status RenderRunner::run(const std::atomic<bool>& cancelRequested, const Started
             break;
         }
         QThread::msleep(100);
-        const FrameCount position =
-            std::clamp<FrameCount>(consumer->position(), 0, total);
+        const FrameCount position = std::clamp<FrameCount>(consumer->position(), 0, total);
         if (progress && position != lastReported) {
             lastReported = position;
             progress(Progress{position, total});
@@ -367,7 +366,7 @@ Status RenderRunner::run(const std::atomic<bool>& cancelRequested, const Started
     }
     consumer->stop();
     consumer->purge();
-    consumer.reset(); // release FFmpeg/MLT references and output handles first
+    consumer.reset();      // release FFmpeg/MLT references and output handles first
     rangePlaylist.reset(); // release cut before the full timeline/fps chain it references
     frameRateLink.reset();
     frameRateChain.reset();

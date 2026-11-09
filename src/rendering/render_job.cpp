@@ -177,6 +177,9 @@ Status RenderJob::start(const Project& project, const ExportSettings& settings,
                           QStringLiteral("--render-token"),
                           token,
                           QStringLiteral("--watch-stdin")};
+    if (settings.protectExistingOutput) {
+        arguments << QStringLiteral("--refuse-existing-output");
+    }
     if (!settings.includeAudio) {
         arguments << QStringLiteral("--no-audio");
     }

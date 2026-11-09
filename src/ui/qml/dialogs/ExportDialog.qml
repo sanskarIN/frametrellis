@@ -13,7 +13,11 @@ FtDialog {
 
     required property AppController app
     readonly property ExportController exporter: app.exporter
-    readonly property bool showProgress: exporter.state !== "idle"
+    readonly property bool showProgress: exporter.state !== "idle" || exporter.batchTotal > 0
+    property string batchWarning: ""
+    readonly property int batchSelectionCount: Number(batchCreator.checked) +
+                                               Number(batchReview.checked) +
+                                               Number(batchMobile.checked)
     property string outputPath: ""
     property bool presetInitialized: false
     readonly property var frameRates: [
@@ -63,6 +67,18 @@ FtDialog {
         noUpscaleCheck.checked = p.avoidUpscaling === true
         audioBox.currentIndex = Math.max(0, audioBox.model.indexOf(String(p.audioBitrateKbps)))
     }
+    function selectedBatchIds() {
+        const ids = []
+        if (batchCreator.checked) ids.push("youtube1080p")
+        if (batchReview.checked) ids.push("draft")
+        if (batchMobile.checked) ids.push("review480p")
+        return ids
+    }
+    function startBatchExport() {
+        batchWarning = exporter.validateBatch(settings(), selectedBatchIds())
+        if (batchWarning.length === 0)
+            exporter.startBatch(settings(), selectedBatchIds())
+    }
     function startExport() {
         if (exporter.fileExists(outputPath)) {
             overwrite.open()
@@ -72,8 +88,9 @@ FtDialog {
     }
 
     onOpened: {
-        if (!exporter.busy && exporter.state !== "idle")
+        if (!exporter.busy && (exporter.state !== "idle" || exporter.batchTotal > 0))
             exporter.reset()
+        batchWarning = ""
         if (outputPath.length === 0)
             outputPath = exporter.suggestedOutputPath()
         if (!presetInitialized && presetBox.currentIndex >= 0) {
@@ -271,6 +288,56 @@ FtDialog {
                 Text { text: qsTr("kbit/s"); color: Theme.textFaint; font.pixelSize: Theme.fontSizeSmall }
             }
 
+            Label { text: qsTr("Batch delivery"); color: Theme.textMuted }
+            ColumnLayout {
+                Layout.fillWidth: true
+                spacing: Theme.spacingS
+                RowLayout {
+                    Layout.fillWidth: true
+                    FtCheckBox {
+                        id: batchCreator
+                        objectName: "exportBatchCreator"
+                        text: qsTr("Creator 1080p")
+                        checked: true
+                    }
+                    FtCheckBox {
+                        id: batchReview
+                        objectName: "exportBatchReview"
+                        text: qsTr("Draft 720p")
+                        checked: true
+                    }
+                    FtCheckBox {
+                        id: batchMobile
+                        objectName: "exportBatchMobile"
+                        text: qsTr("Small 480p")
+                    }
+                }
+                RowLayout {
+                    Layout.fillWidth: true
+                    FtButton {
+                        objectName: "exportBatchPresets"
+                        text: qsTr("Export %1 variants").arg(dialog.batchSelectionCount)
+                        enabled: dialog.batchSelectionCount >= 2 && validation.text.length === 0
+                        onClicked: dialog.startBatchExport()
+                    }
+                    Text {
+                        Layout.fillWidth: true
+                        color: Theme.textFaint
+                        font.pixelSize: Theme.fontSizeSmall
+                        text: qsTr("Each preset gets its own -preset.mp4 file. " +
+                                   "Existing outputs are never replaced; all variants use one project snapshot.")
+                        wrapMode: Text.WordWrap
+                    }
+                }
+                Text {
+                    Layout.fillWidth: true
+                    color: Theme.danger
+                    visible: dialog.batchWarning.length > 0
+                    text: dialog.batchWarning
+                    wrapMode: Text.WordWrap
+                }
+            }
+
             Item { width: 1; height: 1 }
             Text {
                 Layout.fillWidth: true
@@ -332,19 +399,26 @@ FtDialog {
             FtProgressBar {
                 Layout.fillWidth: true
                 from: 0; to: 1
-                value: dialog.exporter.progress
+                value: dialog.exporter.batchTotal > 0 ? dialog.exporter.batchProgress
+                                                     : dialog.exporter.progress
                 indeterminate: dialog.exporter.state === "starting"
                 Accessible.name: qsTr("Export progress")
             }
             Text {
-                text: dialog.exporter.progressText + (dialog.exporter.encoder.length > 0 ? "  ·  " + dialog.exporter.encoder : "")
+                text: (dialog.exporter.batchTotal > 0 ? dialog.exporter.batchText
+                                                 : dialog.exporter.progressText) +
+                      (dialog.exporter.encoder.length > 0 ? "  ·  " + dialog.exporter.encoder : "")
                 color: Theme.textMuted
                 font.pixelSize: Theme.fontSizeSmall
             }
             Text {
                 Layout.fillWidth: true
-                visible: dialog.exporter.state === "failed"
-                text: dialog.exporter.errorMessage + (dialog.exporter.errorDetail.length > 0 ? "\n" + dialog.exporter.errorDetail : "")
+                visible: dialog.exporter.batchTotal > 0
+                         ? dialog.exporter.batchState === "failed"
+                         : dialog.exporter.state === "failed"
+                text: (dialog.exporter.batchTotal > 0 ? dialog.exporter.batchText
+                                                     : dialog.exporter.errorMessage +
+                                                       (dialog.exporter.errorDetail.length > 0 ? "\n" + dialog.exporter.errorDetail : ""))
                 color: Theme.danger
                 font.pixelSize: Theme.fontSizeSmall
                 wrapMode: Text.WordWrap

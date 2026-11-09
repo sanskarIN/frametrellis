@@ -712,8 +712,10 @@ bool TimelineController::rippleInsertAssetRangeAtPlayhead(const QString& assetId
     return false;
 }
 
-bool TimelineController::rippleInsertSynchronizedAssetRangeAtPlayhead(
-    const QString& assetId, const QString& targetTrackId, int sourceInFrame, int sourceOutFrame)
+bool TimelineController::rippleInsertSynchronizedAssetRangeAtPlayhead(const QString& assetId,
+                                                                      const QString& targetTrackId,
+                                                                      int sourceInFrame,
+                                                                      int sourceOutFrame)
 {
     const MediaAsset* asset = project().asset(assetId);
     if (!asset || asset->info.kind != MediaKind::Video || !asset->info.hasVideo ||
@@ -741,7 +743,8 @@ bool TimelineController::rippleInsertSynchronizedAssetRangeAtPlayhead(
     const Timeline& sequence = project().timeline();
     const Track* preferred = targetTrackId.isEmpty() ? nullptr : sequence.track(targetTrackId);
     if (!targetTrackId.isEmpty() && (!preferred || !acceptsAsset(targetTrackId, assetId))) {
-        emit statusMessage(QStringLiteral("The chosen picture/audio lane is unavailable or locked."));
+        emit statusMessage(
+            QStringLiteral("The chosen picture/audio lane is unavailable or locked."));
         return false;
     }
     const Track* videoTrack = nullptr;
@@ -773,8 +776,8 @@ bool TimelineController::rippleInsertSynchronizedAssetRangeAtPlayhead(
     Clip audio = video;
     audio.id = createId();
     audio.properties.muted = false;
-    if (!m_project->execute(edits::rippleInsertSynchronizedSourceClips(
-            videoTrack->id, video, audioTrack->id, audio))) {
+    if (!m_project->execute(edits::rippleInsertSynchronizedSourceClips(videoTrack->id, video,
+                                                                       audioTrack->id, audio))) {
         return false;
     }
     setTransitionSelection({});

@@ -165,6 +165,11 @@ PanelFrame {
                && app.timeline.placeSynchronizedAssetRangeAtPlayhead(
                       assetId, selectedTrackId, markInFrame, markOutFrame)
     }
+    function rippleInsertVideoAndAudio() {
+        return validRange && hasPicture && hasSourceAudio && selectedTrackAvailable
+               && app.timeline.rippleInsertSynchronizedAssetRangeAtPlayhead(
+                      assetId, selectedTrackId, markInFrame, markOutFrame)
+    }
 
     function matchSelectedClipLength() {
         if (!canMatchClipLength)
@@ -419,6 +424,16 @@ PanelFrame {
                 ToolTip.text: qsTr("Insert at the Program playhead; shift later clips, markers and eligible subtitle cues together. Refuses cuts through clips, unsafe transitions and subtitles spanning the cut.")
                 Accessible.name: qsTr("Ripple insert marked source range at playhead")
                 onClicked: panel.rippleInsertRange()
+            }
+            FtButton {
+                objectName: "sourceMonitorRippleVideoAudio"
+                text: qsTr("Ripple V+A")
+                visible: panel.loaded && panel.hasPicture && panel.hasSourceAudio
+                enabled: panel.validRange && panel.selectedTrackAvailable
+                ToolTip.visible: hovered
+                ToolTip.text: qsTr("Insert separate picture and sound with one undo step. Mutes picture audio so sound plays once; shifts later clips, markers and eligible captions together. Refuses unsafe cuts.")
+                Accessible.name: qsTr("Ripple insert synchronized picture and audio at playhead")
+                onClicked: panel.rippleInsertVideoAndAudio()
             }
         }
         RowLayout {

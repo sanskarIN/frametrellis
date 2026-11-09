@@ -262,6 +262,68 @@ private slots:
         QVERIFY(doc.execute(edits::setSubtitleAppearance(true, 5, true)));
         QVERIFY(!doc.canUndo());
     }
+    void splitSubtitlePreservesExactMillisecondsTextAndUndoHistory()
+    {
+        ProjectDocument doc(project());
+        const QString caption = QStringLiteral("नमस्ते 😀\nContinue");
+        QVERIFY(doc.execute(edits::addSubtitle(cue(QStringLiteral("first"), 123, 1987, caption))));
+        const Project before = doc.project();
+        QSignalSpy changes(&doc, &ProjectDocument::changed);
+        QVERIFY(doc.execute(edits::splitSubtitle(QStringLiteral("first"), 1001,
+                                                 QStringLiteral("second"))));
+        const Project after = doc.project();
+        QCOMPARE(after.subtitles().cues.size(), size_t{2});
+        const SubtitleCue& first = after.subtitles().cues[0];
+        const SubtitleCue& second = after.subtitles().cues[1];
+        QCOMPARE(first.id, QStringLiteral("first"));
+        QCOMPARE(first.startMs, std::int64_t{123});
+        QCOMPARE(first.endMs, std::int64_t{1001});
+        QCOMPARE(second.id, QStringLiteral("second"));
+        QCOMPARE(second.startMs, std::int64_t{1001});
+        QCOMPARE(second.endMs, std::int64_t{1987});
+        QCOMPARE(first.text, caption);
+        QCOMPARE(second.text, caption);
+        QCOMPARE(doc.undoText(), QStringLiteral("Split Subtitle"));
+        QCOMPARE(changes.size(), 1);
+        QVERIFY(changes.last().at(0).value<ChangeSet>().subtitles);
+        QCOMPARE(doc.project().timeline(), before.timeline());
+        const auto reopened = project_format::fromBytes(project_format::toBytes(after));
+        QVERIFY(reopened);
+        QCOMPARE(reopened->subtitles(), after.subtitles());
+        QVERIFY(doc.undo());
+        QCOMPARE(doc.project(), before);
+        QVERIFY(doc.redo());
+        QCOMPARE(doc.project(), after);
+    }
+
+    void splitSubtitleRejectsBoundariesAndDuplicateIdsAtomically()
+    {
+        ProjectDocument doc(project());
+        QVERIFY(doc.execute(edits::addSubtitle(cue(QStringLiteral("first"), 100, 300))));
+        QVERIFY(doc.execute(edits::addSubtitle(cue(QStringLiteral("other"), 400, 600))));
+        const Project before = doc.project();
+        const QString undoBefore = doc.undoText();
+        const auto reject = [&](const QString& id, std::int64_t ms, const QString& newId) {
+            QVERIFY(!doc.execute(edits::splitSubtitle(id, ms, newId)));
+            QCOMPARE(doc.project(), before);
+            QCOMPARE(doc.undoText(), undoBefore);
+        };
+        reject(QStringLiteral("missing"), 200, QStringLiteral("new"));
+        reject(QStringLiteral("first"), 100, QStringLiteral("new"));
+        reject(QStringLiteral("first"), 300, QStringLiteral("new"));
+        reject(QStringLiteral("first"), -1, QStringLiteral("new"));
+        reject(QStringLiteral("first"), 301, QStringLiteral("new"));
+        reject(QStringLiteral("first"), 200, QString());
+        reject(QStringLiteral("first"), 200, QStringLiteral("first"));
+        reject(QStringLiteral("first"), 200, QStringLiteral("other"));
+        // A valid split can be a single millisecond on either side.
+        QVERIFY(doc.execute(edits::splitSubtitle(QStringLiteral("first"), 101,
+                                                 QStringLiteral("new"))));
+        QCOMPARE(doc.project().subtitles().cues[0].endMs, std::int64_t{101});
+        QVERIFY(doc.undo());
+        QCOMPARE(doc.project(), before);
+    }
+
     void wholeTrackTimingShiftPreservesSpacingAndUndo()
     {
         Project p = project();

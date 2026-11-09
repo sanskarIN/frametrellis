@@ -147,14 +147,14 @@ private slots:
         ExportSettings settings = settingsFor(QStringLiteral("range-invalid.mp4"));
         const Project original = project;
         for (const auto& [start, end] : {std::pair<FrameCount, FrameCount>{-1, -1},
-                                        {-2, 20},
-                                        {60, 60},
-                                        {60, 61},
-                                        {30, 29},
-                                        {0, 0},
-                                        {0, 61},
-                                        {0, -2},
-                                        {2, -4}}) {
+                                         {-2, 20},
+                                         {60, 60},
+                                         {60, 61},
+                                         {30, 29},
+                                         {0, 0},
+                                         {0, 61},
+                                         {0, -2},
+                                         {2, -4}}) {
             settings.rangeStartFrame = start;
             settings.rangeEndFrame = end;
             QVERIFY2(!validateExport(settings, project),

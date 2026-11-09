@@ -379,6 +379,19 @@ Undo/Redo step, preserves exact millisecond boundaries and refuses unsafe
 end-point splits, missing neighbors or an overflowing merged caption.
 These controls are not part of stable v1.4.0.
 
+**Find and Replace subtitle text (v1.5.0 development):** The Subtitle editor
+offers **Find next** to jump among matching cues, wrapping around the list,
+and **Replace all** to update every matching caption as a single Undo/Redo
+operation. Searches are **literal text**, not regular expressions; use
+**Match case** to require exact letter case, or leave it off for Unicode-aware
+case-insensitive matching. The match count is a count of *cues* containing the
+phrase, not individual occurrences. Replacement changes only cue text:
+cue IDs, start/end milliseconds, other cue text, caption style and the
+video/audio timeline stay unchanged. Invalid empty search, zero-change
+replacement, empty resulting captions, unsupported formatting or text-budget
+overflow are refused atomically. Replace with an empty string only when
+every affected cue will remain valid. These controls are not in stable v1.4.0.
+
 Times remain exact milliseconds at fractional frame rates; picture frames sample
 those times, so a cue can begin on the next frame. Cues stay at their sequence
 times after ordinary clip moves, slips, splits and ripple deletes. Source Monitor

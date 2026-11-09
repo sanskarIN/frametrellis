@@ -12,6 +12,8 @@ FtDialog {
     property bool dirty: false
     property bool loading: false
     property var pendingAction: null
+    readonly property int matchingCues: subtitles.revision < 0 ? 0
+        : subtitles.matchingCueCount(subtitleFindField.text, subtitleMatchCase.checked)
     signal importRequested()
     signal exportRequested()
     signal exportWebVttRequested()
@@ -133,6 +135,58 @@ FtDialog {
                 text: qsTr("Negative moves earlier; positive moves later.")
                 color: Theme.textFaint
                 wrapMode: Text.WordWrap
+            }
+        }
+        RowLayout {
+            Layout.fillWidth: true
+            spacing: Theme.spacingS
+            Label { text: qsTr("Find captions"); color: Theme.textMuted }
+            TextField {
+                id: subtitleFindField
+                objectName: "subtitleFindText"
+                Layout.fillWidth: true
+                maximumLength: 512
+                placeholderText: qsTr("Find literal text…")
+                Accessible.name: qsTr("Find subtitle text (literal, not regular expression)")
+            }
+            FtCheckBox {
+                id: subtitleMatchCase
+                objectName: "subtitleMatchCase"
+                text: qsTr("Match case")
+                checked: false
+            }
+            FtButton {
+                text: qsTr("Find next")
+                objectName: "subtitleFindNext"
+                enabled: dialog.matchingCues > 0
+                onClicked: dialog.guarded(() => dialog.subtitles.findNextMatchingCue(
+                                            subtitleFindField.text, subtitleMatchCase.checked))
+            }
+            Label {
+                text: qsTr("%1 matching cue(s)").arg(dialog.matchingCues)
+                color: Theme.textFaint
+                font.pixelSize: Theme.fontSizeSmall
+            }
+        }
+        RowLayout {
+            Layout.fillWidth: true
+            spacing: Theme.spacingS
+            Label { text: qsTr("Replace with"); color: Theme.textMuted }
+            TextField {
+                id: subtitleReplacementField
+                objectName: "subtitleReplacementText"
+                Layout.fillWidth: true
+                maximumLength: 2000
+                placeholderText: qsTr("Replacement text…")
+                Accessible.name: qsTr("Replacement for all matching subtitle cues")
+            }
+            FtButton {
+                text: qsTr("Replace all")
+                objectName: "subtitleReplaceAll"
+                enabled: dialog.matchingCues > 0
+                onClicked: dialog.guarded(() => dialog.subtitles.replaceAllMatchingText(
+                                            subtitleFindField.text, subtitleReplacementField.text,
+                                            subtitleMatchCase.checked))
             }
         }
         RowLayout {

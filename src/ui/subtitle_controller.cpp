@@ -332,6 +332,50 @@ bool SubtitleController::mergeSelectedWithNext()
     return execute(edits::mergeSubtitleWithNext(m_selected));
 }
 
+int SubtitleController::matchingCueCount(const QString& needle, bool matchCase) const
+{
+    if (needle.isEmpty() || needle.size() > kMaxSubtitleTextLength) {
+        return 0;
+    }
+    const Qt::CaseSensitivity sensitivity = matchCase ? Qt::CaseSensitive : Qt::CaseInsensitive;
+    return static_cast<int>(
+        std::count_if(m_track.cues.begin(), m_track.cues.end(), [&](const SubtitleCue& cue) {
+            return cue.text.contains(needle, sensitivity);
+        }));
+}
+
+bool SubtitleController::findNextMatchingCue(const QString& needle, bool matchCase)
+{
+    if (matchingCueCount(needle, matchCase) == 0) {
+        return fail(tr("No subtitle matches the search phrase."));
+    }
+    const Qt::CaseSensitivity sensitivity = matchCase ? Qt::CaseSensitive : Qt::CaseInsensitive;
+    const int count = rowCount();
+    const int selected = selectedIndex();
+    for (int offset = 1; offset <= count; ++offset) {
+        const int row = (selected + offset) % count;
+        const SubtitleCue& cue = m_track.cues[static_cast<size_t>(row)];
+        if (cue.text.contains(needle, sensitivity)) {
+            return selectCue(cue.id);
+        }
+    }
+    return fail(tr("No subtitle matches the search phrase."));
+}
+
+bool SubtitleController::replaceAllMatchingText(const QString& needle, const QString& replacement,
+                                                bool matchCase)
+{
+    const int matching = matchingCueCount(needle, matchCase);
+    if (matching == 0) {
+        return fail(tr("No subtitle matches the search phrase."));
+    }
+    if (!execute(edits::replaceSubtitleText(needle, replacement, matchCase))) {
+        return false;
+    }
+    emit statusMessage(tr("Processed %1 matching subtitle cue(s).").arg(matching));
+    return true;
+}
+
 bool SubtitleController::removeSelected()
 {
     return selectedIndex() >= 0 ? execute(edits::removeSubtitle(m_selected))

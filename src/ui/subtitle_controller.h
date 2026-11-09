@@ -67,6 +67,13 @@ public:
     Q_INVOKABLE bool splitSelectedAtPlayhead();
     /// Merge adjacent captions with one undo; retains the selected first cue ID.
     Q_INVOKABLE bool mergeSelectedWithNext();
+    /// Number of cue entries containing a literal phrase (not occurrence count).
+    Q_INVOKABLE int matchingCueCount(const QString& needle, bool matchCase) const;
+    /// Select and seek to the next matching cue, wrapping to the beginning.
+    Q_INVOKABLE bool findNextMatchingCue(const QString& needle, bool matchCase);
+    /// Replace all matching literal occurrences across cues in one undo step.
+    Q_INVOKABLE bool replaceAllMatchingText(const QString& needle, const QString& replacement,
+                                            bool matchCase);
     Q_INVOKABLE bool removeSelected();
     Q_INVOKABLE bool clearAll();
     Q_INVOKABLE bool shiftAll(int deltaMilliseconds);

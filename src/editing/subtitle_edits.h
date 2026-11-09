@@ -16,6 +16,10 @@ std::unique_ptr<EditCommand> splitSubtitle(Id cueId, std::int64_t splitMilliseco
 /// Join a cue to the immediately adjoining next cue; never fill an intentional
 /// gap. Equal caption text is preserved once; differing text is separated by a line.
 std::unique_ptr<EditCommand> mergeSubtitleWithNext(Id cueId);
+/// Replace literal text across matching cues as one validated Undo/Redo edit.
+/// Preserves cue IDs, timings, style and untouched cues; disallows empty/no-op queries.
+std::unique_ptr<EditCommand> replaceSubtitleText(QString needle, QString replacement,
+                                                 bool matchCase);
 std::unique_ptr<EditCommand> appendSubtitles(std::vector<SubtitleCue> cues);
 std::unique_ptr<EditCommand> replaceSubtitles(SubtitleTrack track);
 std::unique_ptr<EditCommand> clearSubtitles();

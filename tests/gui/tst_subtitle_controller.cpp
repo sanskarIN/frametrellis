@@ -176,6 +176,54 @@ private slots:
         QVERIFY(!m_subtitles->canMergeWithNext());
     }
 
+    void findNextAndReplaceAllCaptionsPreserveExactTimelineAndUndo()
+    {
+        QVERIFY(m_subtitles->addAtPlayhead());
+        QVERIFY(m_subtitles->updateSelected(QStringLiteral("00:00:00,000"),
+                                            QStringLiteral("00:00:01,000"),
+                                            QStringLiteral("Hello नमस्ते")));
+        m_playback->seek(30); // 25 fps: 1200ms, outside first cue
+        QVERIFY(m_subtitles->addAtPlayhead());
+        QVERIFY(m_subtitles->updateSelected(QStringLiteral("00:00:01,200"),
+                                            QStringLiteral("00:00:02,000"),
+                                            QStringLiteral("hELLo World")));
+        const Project original = m_project->project();
+        QCOMPARE(m_subtitles->matchingCueCount(QStringLiteral("hello"), false), 2);
+        QCOMPARE(m_subtitles->matchingCueCount(QStringLiteral("hello"), true), 0);
+        QCOMPARE(m_subtitles->matchingCueCount(QStringLiteral("No match"), false), 0);
+        QVERIFY(!m_subtitles->findNextMatchingCue(QStringLiteral("not found"), false));
+        QCOMPARE(m_project->project(), original);
+
+        QVERIFY(m_subtitles->findNextMatchingCue(QStringLiteral("HELLO"), false));
+        QCOMPARE(m_subtitles->selectedCue().value(QStringLiteral("id")).toString(),
+                 original.subtitles().cues[0].id); // wraps around
+        QCOMPARE(m_playback->positionFrames(), FrameCount{0});
+        QVERIFY(m_subtitles->findNextMatchingCue(QStringLiteral("hello"), false));
+        QCOMPARE(m_subtitles->selectedCue().value(QStringLiteral("id")).toString(),
+                 original.subtitles().cues[1].id);
+        QCOMPARE(m_playback->positionFrames(), FrameCount{30});
+
+        QVERIFY(m_subtitles->replaceAllMatchingText(QStringLiteral("hello"), QStringLiteral("Hi"),
+                                                    false));
+        const Project replaced = m_project->project();
+        QCOMPARE(replaced.subtitles().cues[0].text, QStringLiteral("Hi नमस्ते"));
+        QCOMPARE(replaced.subtitles().cues[1].text, QStringLiteral("Hi World"));
+        QCOMPARE(replaced.timeline(), original.timeline());
+        QCOMPARE(replaced.subtitles().cues[0].startMs, original.subtitles().cues[0].startMs);
+        QCOMPARE(replaced.subtitles().cues[1].endMs, original.subtitles().cues[1].endMs);
+        QCOMPARE(m_subtitles->matchingCueCount(QStringLiteral("hello"), false), 0);
+        QCOMPARE(m_project->undoText(), QStringLiteral("Replace Subtitle Text"));
+
+        QVERIFY(!m_subtitles->replaceAllMatchingText(
+            QStringLiteral("Hi"), QString(kMaxSubtitleTextLength, QLatin1Char('x')), true));
+        QCOMPARE(m_project->project(), replaced);
+        m_project->undo();
+        QCOMPARE(m_project->project(), original);
+        QCOMPARE(m_subtitles->matchingCueCount(QStringLiteral("hello"), false), 2);
+        m_project->redo();
+        QCOMPARE(m_project->project(), replaced);
+    }
+
     void importIsAtomicAndSidecarExportDoesNotEditTheProject()
     {
         const QString input = m_dir.filePath(QStringLiteral("Hindi captions %.SRT"));

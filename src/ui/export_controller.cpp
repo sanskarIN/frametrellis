@@ -537,7 +537,10 @@ bool ExportController::fileExists(const QString& pathOrUrl) const
 
 bool ExportController::copyFailureDetails() const
 {
-    if (!m_job || m_job->state() != RenderJob::State::Failed) {
+    const bool batchFailure = !m_batchActive && !m_batchJobs.isEmpty() &&
+                              m_batchState == QLatin1String("failed");
+    const bool helperFailure = m_job && m_job->state() == RenderJob::State::Failed;
+    if (!batchFailure && !helperFailure) {
         return false;
     }
     QClipboard* clipboard = QGuiApplication::clipboard();
@@ -546,11 +549,32 @@ bool ExportController::copyFailureDetails() const
     }
     // This is a local, opt-in copy only. Do not automatically transmit logs:
     // native stderr may contain source paths and user-specific filesystem data.
-    const QString report = QStringLiteral("FrameTrellis export failure\n"
-                                          "Review and redact private paths before sharing.\n"
-                                          "Destination: %1\nEncoder: %2\nError: %3\nDetails:\n%4")
-                               .arg(m_job->outputPath(), m_job->encoder(), m_job->errorMessage(),
-                                    m_job->errorDetail());
+    QString report;
+    if (batchFailure) {
+        // A batch can fail in preflight between variants while the previous
+        // renderer succeeded. Do not mistake its last successful job for the
+        // failure, and report the *pending* destination rather than the prior one.
+        const QString destination =
+            m_batchCompleted < m_batchJobs.size()
+                ? m_batchJobs.at(m_batchCompleted).outputPath
+                : m_job ? m_job->outputPath() : QString();
+        report = QStringLiteral("FrameTrellis batch export failure\n"
+                                "Review and redact private paths before sharing.\n"
+                                "Completed: %1/%2\nDestination: %3\nError: %4")
+                     .arg(m_batchCompleted)
+                     .arg(m_batchJobs.size())
+                     .arg(destination, m_batchMessage);
+        if (helperFailure) {
+            report += QStringLiteral("\nEncoder: %1\nRenderer error: %2\nDetails:\n%3")
+                          .arg(m_job->encoder(), m_job->errorMessage(), m_job->errorDetail());
+        }
+    } else {
+        report = QStringLiteral("FrameTrellis export failure\n"
+                                "Review and redact private paths before sharing.\n"
+                                "Destination: %1\nEncoder: %2\nError: %3\nDetails:\n%4")
+                     .arg(m_job->outputPath(), m_job->encoder(), m_job->errorMessage(),
+                          m_job->errorDetail());
+    }
     clipboard->setText(report);
     return true;
 }

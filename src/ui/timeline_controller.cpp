@@ -712,6 +712,81 @@ bool TimelineController::rippleInsertAssetRangeAtPlayhead(const QString& assetId
     return false;
 }
 
+bool TimelineController::rippleInsertSynchronizedAssetRangeAtPlayhead(
+    const QString& assetId, const QString& targetTrackId, int sourceInFrame, int sourceOutFrame)
+{
+    const MediaAsset* asset = project().asset(assetId);
+    if (!asset || asset->info.kind != MediaKind::Video || !asset->info.hasVideo ||
+        !asset->info.hasAudio || asset->status == MediaStatus::Missing) {
+        emit statusMessage(QStringLiteral("Choose an online video containing picture and sound."));
+        return false;
+    }
+    if (!engine::MltRuntime::capabilities().volumeFilter) {
+        emit statusMessage(QStringLiteral("Ripple V+A needs the MLT volume filter so sound "
+                                          "is not played twice."));
+        return false;
+    }
+    const std::optional<FrameCount> available = placementLength(*asset);
+    if (!available || sourceInFrame < 0 || sourceOutFrame <= sourceInFrame ||
+        static_cast<FrameCount>(sourceOutFrame) > *available) {
+        emit statusMessage(QStringLiteral("Choose valid source In and Out frames."));
+        return false;
+    }
+    const FrameCount start = m_playback->positionFrames();
+    const FrameCount duration = static_cast<FrameCount>(sourceOutFrame) - sourceInFrame;
+    if (start < 0 || start >= kMaxTimelineFrames || duration > kMaxTimelineFrames - start) {
+        emit statusMessage(QStringLiteral("The marked range exceeds the timeline limit."));
+        return false;
+    }
+    const Timeline& sequence = project().timeline();
+    const Track* preferred = targetTrackId.isEmpty() ? nullptr : sequence.track(targetTrackId);
+    if (!targetTrackId.isEmpty() && (!preferred || !acceptsAsset(targetTrackId, assetId))) {
+        emit statusMessage(QStringLiteral("The chosen picture/audio lane is unavailable or locked."));
+        return false;
+    }
+    const Track* videoTrack = nullptr;
+    const Track* audioTrack = nullptr;
+    for (const Track& track : sequence.tracks()) {
+        if (track.locked) {
+            continue;
+        }
+        if (track.kind == TrackKind::Video && !videoTrack &&
+            (!preferred || preferred->kind != TrackKind::Video || track.id == preferred->id)) {
+            videoTrack = &track;
+        } else if (track.kind == TrackKind::Audio && !audioTrack &&
+                   (!preferred || preferred->kind != TrackKind::Audio ||
+                    track.id == preferred->id)) {
+            audioTrack = &track;
+        }
+    }
+    if (!videoTrack || !audioTrack) {
+        emit statusMessage(QStringLiteral("Ripple V+A requires unlocked video and audio lanes."));
+        return false;
+    }
+    Clip video;
+    video.id = createId();
+    video.assetId = assetId;
+    video.start = start;
+    video.sourceIn = sourceInFrame;
+    video.duration = duration;
+    video.properties.muted = true;
+    Clip audio = video;
+    audio.id = createId();
+    audio.properties.muted = false;
+    if (!m_project->execute(edits::rippleInsertSynchronizedSourceClips(
+            videoTrack->id, video, audioTrack->id, audio))) {
+        return false;
+    }
+    setTransitionSelection({});
+    m_selection = {video.id, audio.id};
+    m_model.updateSelection(m_selection);
+    emit selectionChanged();
+    emit selectedClipChanged();
+    emit statusMessage(QStringLiteral("Ripple inserted picture and sound once; later clips, "
+                                      "markers and subtitles remain synchronized."));
+    return true;
+}
+
 bool TimelineController::placeSynchronizedAssetRangeAtPlayhead(const QString& assetId,
                                                                const QString& targetTrackId,
                                                                int sourceInFrame,

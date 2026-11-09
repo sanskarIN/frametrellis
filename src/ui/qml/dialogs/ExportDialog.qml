@@ -14,6 +14,7 @@ FtDialog {
     required property AppController app
     readonly property ExportController exporter: app.exporter
     readonly property bool showProgress: exporter.state !== "idle" || exporter.batchTotal > 0
+    readonly property string exportState: exporter.batchTotal > 0 ? exporter.batchState : exporter.state
     property string batchWarning: ""
     readonly property int batchSelectionCount: Number(batchCreator.checked) +
                                                Number(batchReview.checked) +
@@ -366,20 +367,23 @@ FtDialog {
             RowLayout {
                 spacing: Theme.spacingS
                 IconImage {
-                    source: "qrc:/qt/qml/FrameTrellis/icons/" + (dialog.exporter.state === "succeeded" ? "check"
-                            : dialog.exporter.state === "failed" ? "warning" : "export") + ".svg"
+                    source: "qrc:/qt/qml/FrameTrellis/icons/" + (dialog.exportState === "succeeded" ? "check"
+                            : dialog.exportState === "failed" ? "warning" : "export") + ".svg"
                     sourceSize.width: 22
                     sourceSize.height: 22
-                    color: dialog.exporter.state === "succeeded" ? Theme.success
-                         : dialog.exporter.state === "failed" ? Theme.danger : Theme.accent
+                    color: dialog.exportState === "succeeded" ? Theme.success
+                         : dialog.exportState === "failed" ? Theme.danger : Theme.accent
                 }
                 Text {
                     Layout.fillWidth: true
                     text: {
-                        switch (dialog.exporter.state) {
-                        case "succeeded": return qsTr("Export finished")
-                        case "failed": return qsTr("Export failed")
-                        case "cancelled": return qsTr("Export cancelled")
+                        switch (dialog.exportState) {
+                        case "succeeded": return dialog.exporter.batchTotal > 0
+                            ? qsTr("Batch finished") : qsTr("Export finished")
+                        case "failed": return dialog.exporter.batchTotal > 0
+                            ? qsTr("Batch stopped") : qsTr("Export failed")
+                        case "cancelled": return dialog.exporter.batchTotal > 0
+                            ? qsTr("Batch cancelled") : qsTr("Export cancelled")
                         case "cancelling": return qsTr("Cancelling…")
                         default: return qsTr("Exporting…")
                         }

@@ -365,15 +365,19 @@ the same protected atomic writes and does not modify the project or Undo history
 Turn burn-in off for sidecar-only delivery. Sidecar export is separate from MP4 export;
 the MP4 does not contain a switchable subtitle stream.
 
-**Split subtitle at playhead (v1.5.0 development):** In the Subtitle editor,
+**Split and merge subtitles (v1.5.0 development):** In the Subtitle editor,
 select a cue, pause playback, and place the Program playhead strictly between that
 cue's start and exclusive end. Choose **Split at playhead** to divide its timing
 without changing any other cues or timeline clips. The first cue retains its ID,
 and the new second cue receives a distinct ID and becomes selected for editing.
 Both halves initially contain the original literal text; edit the second half
-as needed. The action creates a single Undo/Redo step, preserves exact
-millisecond boundaries and refuses an end-point split or a track already at
-its cue limit. These controls are not part of stable v1.4.0.
+as needed. Select the first of two directly adjoining cues and choose
+**Merge next** to combine them without filling intentional silence. Identical
+caption text is retained once, while different text is joined as separate
+lines (up to the 2,000-character cue limit). Each action creates one
+Undo/Redo step, preserves exact millisecond boundaries and refuses unsafe
+end-point splits, missing neighbors or an overflowing merged caption.
+These controls are not part of stable v1.4.0.
 
 Times remain exact milliseconds at fractional frame rates; picture frames sample
 those times, so a cue can begin on the next frame. Cues stay at their sequence

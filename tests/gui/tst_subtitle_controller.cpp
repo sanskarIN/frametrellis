@@ -293,13 +293,13 @@ private slots:
     void webVttImportAppendsCuesWithOneUndoAndRejectsCollisions()
     {
         const QString input = m_dir.filePath(QStringLiteral("captions-import.vtt"));
-        const QByteArray bytes =
-            QStringLiteral("WEBVTT\r\n\r\n"
-                           "NOTE Draft for client review\r\n\r\n"
-                           "Hindi caption\r\n00:01.001 --> 00:02.007\r\n"
-                           "नमस्ते &lt;b&gt;literal&lt;/b&gt; 🌍\r\n"
-                           "Second line\r\n\r\n"
-                           "00:04.050 --> 00:05.000\r\nAfter edit\r\n").toUtf8();
+        const QByteArray bytes = QStringLiteral("WEBVTT\r\n\r\n"
+                                                "NOTE Draft for client review\r\n\r\n"
+                                                "Hindi caption\r\n00:01.001 --> 00:02.007\r\n"
+                                                "नमस्ते &lt;b&gt;literal&lt;/b&gt; 🌍\r\n"
+                                                "Second line\r\n\r\n"
+                                                "00:04.050 --> 00:05.000\r\nAfter edit\r\n")
+                                     .toUtf8();
         QVERIFY(write(input, bytes));
         QCOMPARE(m_subtitles->rowCount(), 0);
         QVERIFY(m_subtitles->importWebVtt(QUrl::fromLocalFile(input).toString()));

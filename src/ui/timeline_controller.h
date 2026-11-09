@@ -114,9 +114,10 @@ public:
     /// Shifts later clips, markers and eligible captions in one validated undo.
     /// An explicit destination pins one lane; the other is the first available
     /// unlocked complementary lane. Does not persist linked clip groups.
-    Q_INVOKABLE bool rippleInsertSynchronizedAssetRangeAtPlayhead(
-        const QString& assetId, const QString& targetTrackId, int sourceInFrame,
-        int sourceOutFrame);
+    Q_INVOKABLE bool rippleInsertSynchronizedAssetRangeAtPlayhead(const QString& assetId,
+                                                                  const QString& targetTrackId,
+                                                                  int sourceInFrame,
+                                                                  int sourceOutFrame);
     /// Place matching picture and sound excerpts on distinct compatible tracks in one
     /// atomic undoable step. The optional target fixes one lane; the other is first-free.
     /// Clips remain independently editable, not persistently linked.

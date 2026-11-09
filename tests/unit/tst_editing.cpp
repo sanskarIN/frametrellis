@@ -602,12 +602,12 @@ private slots:
         QVERIFY(f.doc.execute(edits::addClip(f.v1, early)));
         QVERIFY(f.doc.execute(edits::addClip(f.v1, picture)));
         QVERIFY(f.doc.execute(edits::addClip(f.a1, sound)));
-        QVERIFY(f.doc.execute(edits::addMarker(
-            {QStringLiteral("before"), 59, QStringLiteral("Before the gap")})));
-        QVERIFY(f.doc.execute(edits::addMarker(
-            {QStringLiteral("at"), 60, QStringLiteral("At the gap")})));
-        QVERIFY(f.doc.execute(edits::addMarker(
-            {QStringLiteral("after"), 110, QStringLiteral("After the gap")})));
+        QVERIFY(f.doc.execute(
+            edits::addMarker({QStringLiteral("before"), 59, QStringLiteral("Before the gap")})));
+        QVERIFY(f.doc.execute(
+            edits::addMarker({QStringLiteral("at"), 60, QStringLiteral("At the gap")})));
+        QVERIFY(f.doc.execute(
+            edits::addMarker({QStringLiteral("after"), 110, QStringLiteral("After the gap")})));
         QVERIFY(f.doc.execute(edits::appendSubtitles(
             {{QStringLiteral("early-sub"), 1000, 1500, QStringLiteral("Earlier")},
              {QStringLiteral("at-sub"), 2000, 2500, QStringLiteral("At cut")},

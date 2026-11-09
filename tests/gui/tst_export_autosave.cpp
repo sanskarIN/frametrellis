@@ -242,8 +242,7 @@ private slots:
         const QString failureReport = QGuiApplication::clipboard()->text();
         QVERIFY(failureReport.contains(QStringLiteral("FrameTrellis batch export failure")));
         QVERIFY(failureReport.contains(QStringLiteral("Completed: 1/2")));
-        QVERIFY(failureReport.contains(
-            QStringLiteral("batch-late-destination-review480p.mp4")));
+        QVERIFY(failureReport.contains(QStringLiteral("batch-late-destination-review480p.mp4")));
         QVERIFY(failureReport.contains(QStringLiteral("Batch stopped")));
         QVERIFY(failureReport.contains(QStringLiteral("redact private paths")));
         QVERIFY(competing.open(QIODevice::ReadOnly));

@@ -233,6 +233,179 @@ Result<QByteArray> toBytes(const SubtitleTrack& track)
 
 namespace webvtt {
 
+namespace {
+
+Result<std::int64_t> parseTimestamp(const QString& text)
+{
+    // The editor supports at most 999 hours. The shorter WebVTT mm:ss.mmm
+    // syntax has no hours component; full timestamps keep exact milliseconds.
+    static const QRegularExpression pattern(
+        QStringLiteral("^(?:([0-9]{2,3}):)?([0-5][0-9]):([0-5][0-9])\\.([0-9]{3})$"));
+    const auto match = pattern.match(text);
+    if (!match.hasMatch()) {
+        return makeError(ErrorCode::InvalidDocument,
+                         QStringLiteral("Use WebVTT timestamps mm:ss.mmm or hh:mm:ss.mmm."));
+    }
+    return match.captured(1).toLongLong() * 3'600'000 +
+           match.captured(2).toLongLong() * 60'000 +
+           match.captured(3).toLongLong() * 1000 + match.captured(4).toLongLong();
+}
+
+Result<QString> decodeText(const QString& source)
+{
+    QString decoded;
+    decoded.reserve(source.size());
+    for (qsizetype i = 0; i < source.size(); ++i) {
+        const QChar current = source.at(i);
+        if (current == QLatin1Char('<')) {
+            return makeError(ErrorCode::InvalidDocument,
+                             QStringLiteral("Cue markup is not supported by plain-text captions."));
+        }
+        if (current != QLatin1Char('&')) {
+            decoded += current;
+            continue;
+        }
+        const qsizetype end = source.indexOf(QLatin1Char(';'), i + 1);
+        if (end < 0 || end - i > 12) {
+            return makeError(ErrorCode::InvalidDocument,
+                             QStringLiteral("Cue contains an unsupported WebVTT entity."));
+        }
+        const QString entity = source.mid(i + 1, end - i - 1);
+        if (entity == QLatin1String("amp")) {
+            decoded += QLatin1Char('&');
+        } else if (entity == QLatin1String("lt")) {
+            decoded += QLatin1Char('<');
+        } else if (entity == QLatin1String("gt")) {
+            decoded += QLatin1Char('>');
+        } else if (entity == QLatin1String("quot")) {
+            decoded += QLatin1Char('"');
+        } else if (entity == QLatin1String("apos") || entity == QLatin1String("#39")) {
+            decoded += QLatin1Char('\'');
+        } else if (entity == QLatin1String("nbsp")) {
+            decoded += QChar(0x00a0);
+        } else if (entity == QLatin1String("lrm")) {
+            decoded += QChar(0x200e);
+        } else if (entity == QLatin1String("rlm")) {
+            decoded += QChar(0x200f);
+        } else {
+            return makeError(ErrorCode::InvalidDocument,
+                             QStringLiteral("Cue contains an unsupported WebVTT entity."));
+        }
+        i = end;
+    }
+    return decoded;
+}
+
+} // namespace
+
+Result<SubtitleTrack> fromBytes(const QByteArray& bytes)
+{
+    if (bytes.size() > kMaxSrtBytes) {
+        return makeError(ErrorCode::OutOfRange,
+                         QStringLiteral("WebVTT files must be at most 8 MiB."));
+    }
+    QStringDecoder decoder(QStringDecoder::Utf8, QStringConverter::Flag::Stateless);
+    QString text = decoder(bytes);
+    if (decoder.hasError()) {
+        return makeError(ErrorCode::InvalidDocument,
+                         QStringLiteral("Import WebVTT encoded as valid UTF-8."));
+    }
+    if (text.startsWith(QChar(0xfeff))) {
+        text.remove(0, 1);
+    }
+    text.replace(QStringLiteral("\r\n"), QStringLiteral("\n"));
+    text.replace(QLatin1Char('\r'), QLatin1Char('\n'));
+    const QStringList lines = text.split(QLatin1Char('\n'));
+    const QString header = lines.front();
+    if (header != QLatin1String("WEBVTT") &&
+        !header.startsWith(QLatin1String("WEBVTT ")) &&
+        !header.startsWith(QLatin1String("WEBVTT\t"))) {
+        return makeError(ErrorCode::InvalidDocument,
+                         QStringLiteral("WebVTT files must begin with the WEBVTT signature."));
+    }
+    if (lines.size() > 1 && !lines.at(1).trimmed().isEmpty()) {
+        return makeError(ErrorCode::InvalidDocument,
+                         QStringLiteral("The WebVTT header must end with a blank line."));
+    }
+    static const QRegularExpression timing(
+        QStringLiteral("^([^ \\t]+)[ \\t]+-->[ \\t]+([^ \\t]+)$"));
+
+    SubtitleTrack track;
+    qsizetype row = 1;
+    qsizetype totalText = 0;
+    const auto error = [&](const QString& detail) {
+        return makeError(ErrorCode::InvalidDocument,
+                         QStringLiteral("Invalid WebVTT near line %1: %2")
+                             .arg(row + 1)
+                             .arg(detail));
+    };
+    while (row < lines.size()) {
+        if (lines.at(row).trimmed().isEmpty()) {
+            ++row;
+            continue;
+        }
+        const QString firstLine = lines.at(row).trimmed();
+        if (firstLine == QLatin1String("NOTE") ||
+            firstLine.startsWith(QLatin1String("NOTE ")) ||
+            firstLine.startsWith(QLatin1String("NOTE\t"))) {
+            while (row < lines.size() && !lines.at(row).trimmed().isEmpty()) {
+                ++row;
+            }
+            continue;
+        }
+        if (firstLine == QLatin1String("STYLE") ||
+            firstLine == QLatin1String("REGION")) {
+            return error(QStringLiteral(
+                "STYLE and REGION metadata cannot be imported without losing formatting."));
+        }
+        QString timingLine = firstLine;
+        if (!timingLine.contains(QLatin1String("-->"))) {
+            // An optional WebVTT cue identifier is not the app's project ID.
+            ++row;
+            if (row >= lines.size()) {
+                return error(QStringLiteral("missing timing after cue identifier"));
+            }
+            timingLine = lines.at(row).trimmed();
+        }
+        const auto match = timing.match(timingLine);
+        if (!match.hasMatch()) {
+            return error(QStringLiteral("expected start --> end timestamps without cue settings"));
+        }
+        const auto start = parseTimestamp(match.captured(1));
+        const auto end = parseTimestamp(match.captured(2));
+        if (!start || !end) {
+            return error(QStringLiteral("invalid WebVTT cue timestamps"));
+        }
+        ++row;
+        QStringList caption;
+        qsizetype cueLength = 0;
+        while (row < lines.size() && !lines.at(row).trimmed().isEmpty()) {
+            const auto decoded = decodeText(lines.at(row));
+            if (!decoded) {
+                return error(decoded.error().message);
+            }
+            cueLength += decoded->size() + (caption.isEmpty() ? 0 : 1);
+            if (cueLength > kMaxSubtitleTextLength) {
+                return error(QStringLiteral("a cue exceeds 2000 characters"));
+            }
+            caption.append(*decoded);
+            ++row;
+        }
+        totalText += cueLength;
+        if (track.cues.size() >= static_cast<size_t>(kMaxSubtitleCues) ||
+            totalText > kMaxSubtitleTotalTextLength) {
+            return error(QStringLiteral("subtitle count or total text limit exceeded"));
+        }
+        track.cues.push_back({createId(), *start, *end, caption.join(QLatin1Char('\n'))});
+    }
+    std::sort(track.cues.begin(), track.cues.end(),
+              [](const SubtitleCue& a, const SubtitleCue& b) { return a.startMs < b.startMs; });
+    if (const Status valid = validateSubtitles(track); !valid) {
+        return makeError(ErrorCode::InvalidDocument, valid.error().message);
+    }
+    return track;
+}
+
 Result<QByteArray> toBytes(const SubtitleTrack& track)
 {
     if (const Status valid = validateSubtitles(track); !valid) {

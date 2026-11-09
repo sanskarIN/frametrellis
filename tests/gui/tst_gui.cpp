@@ -4102,8 +4102,7 @@ private slots:
         // five-frame source interval keeps the end-to-end GUI check bounded.
         QQuickItem* startFrame =
             findItem(m_window->contentItem(), QStringLiteral("exportStartFrame"));
-        QQuickItem* endFrame =
-            findItem(m_window->contentItem(), QStringLiteral("exportEndFrame"));
+        QQuickItem* endFrame = findItem(m_window->contentItem(), QStringLiteral("exportEndFrame"));
         QVERIFY(startFrame && endFrame);
         QVERIFY(range->setProperty("currentIndex", 2));
         QVERIFY(startFrame->setProperty("text", QStringLiteral("5")));

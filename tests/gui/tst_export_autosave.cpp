@@ -11,9 +11,11 @@
 #include "ui/export_controller.h"
 #include "ui/project_controller.h"
 
+#include <QClipboard>
 #include <QDir>
 #include <QFile>
 #include <QFileInfo>
+#include <QGuiApplication>
 #include <QSettings>
 #include <QSignalSpy>
 #include <QStandardPaths>
@@ -233,6 +235,16 @@ private slots:
         QVERIFY(!finished.last().at(0).toBool());
         QCOMPARE(exporter.batchState(), QStringLiteral("failed"));
         QCOMPARE(exporter.batchCompleted(), 1);
+        // The prior render succeeded, but the second variant failed its
+        // no-overwrite preflight. A usable report must describe *that* failure
+        // and the pending destination, not the prior successful helper job.
+        QVERIFY(exporter.copyFailureDetails());
+        const QString failureReport = QGuiApplication::clipboard()->text();
+        QVERIFY(failureReport.contains(QStringLiteral("FrameTrellis batch export failure")));
+        QVERIFY(failureReport.contains(QStringLiteral("Completed: 1/2")));
+        QVERIFY(failureReport.contains(QStringLiteral("batch-late-destination-review480p.mp4")));
+        QVERIFY(failureReport.contains(QStringLiteral("Batch stopped")));
+        QVERIFY(failureReport.contains(QStringLiteral("redact private paths")));
         QVERIFY(competing.open(QIODevice::ReadOnly));
         QCOMPARE(competing.readAll(), QByteArray("other-export"));
         competing.close();
@@ -247,6 +259,7 @@ private slots:
         QTRY_COMPARE_WITH_TIMEOUT(finished.size(), 3, 120'000);
         QVERIFY(!finished.last().at(0).toBool());
         QCOMPARE(exporter.batchState(), QStringLiteral("cancelled"));
+        QVERIFY(!exporter.copyFailureDetails()); // cancellation is not a reported failure
         QVERIFY(
             !QFileInfo::exists(m_dir.filePath(QStringLiteral("batch-cancel-next-review480p.mp4"))));
         QVERIFY(!exporter.busy());

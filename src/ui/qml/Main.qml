@@ -589,8 +589,26 @@ ApplicationWindow {
                 Row {
                     id: exportRow
                     spacing: 6
-                    Text { text: qsTr("Exporting"); color: Theme.accent; font.pixelSize: Theme.fontSizeSmall; anchors.verticalCenter: parent.verticalCenter }
-                    FtProgressBar { width: 120; value: window.app.exporter.progress; anchors.verticalCenter: parent.verticalCenter }
+                    Text {
+                        objectName: "exportStatusLabel"
+                        text: window.app.exporter.batchActive
+                            ? qsTr("Batch %1/%2").arg(window.app.exporter.batchCompleted + 1)
+                                                .arg(window.app.exporter.batchTotal)
+                            : qsTr("Exporting")
+                        color: Theme.accent
+                        font.pixelSize: Theme.fontSizeSmall
+                        anchors.verticalCenter: parent.verticalCenter
+                    }
+                    FtProgressBar {
+                        objectName: "exportStatusProgress"
+                        width: 120
+                        value: window.app.exporter.batchActive
+                               ? window.app.exporter.batchProgress : window.app.exporter.progress
+                        anchors.verticalCenter: parent.verticalCenter
+                        Accessible.name: window.app.exporter.batchActive
+                            ? qsTr("Overall batch export progress")
+                            : qsTr("Export progress")
+                    }
                 }
             }
             Text {

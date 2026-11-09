@@ -442,7 +442,7 @@ FtDialog {
         Item { Layout.fillWidth: true }
         FtButton {
             text: qsTr("Copy error details")
-            visible: dialog.exporter.state === "failed"
+            visible: dialog.exportState === "failed"
             onClicked: dialog.exporter.copyFailureDetails()
         }
         FtButton {

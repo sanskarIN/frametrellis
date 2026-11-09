@@ -4114,6 +4114,12 @@ private slots:
         QVERIFY2(finished.first().at(0).toBool(), qPrintable(finished.first().at(1).toString()));
         QCOMPARE(m_app->exporter()->batchState(), QStringLiteral("succeeded"));
         QCOMPARE(m_app->exporter()->batchCompleted(), 2);
+        QQuickItem* statusProgress =
+            findItem(m_window->contentItem(), QStringLiteral("exportStatusProgress"));
+        QQuickItem* statusLabel =
+            findItem(m_window->contentItem(), QStringLiteral("exportStatusLabel"));
+        QVERIFY(statusProgress && statusLabel);
+        QCOMPARE(statusProgress->property("value").toDouble(), 1.0);
         QVERIFY(QFileInfo::exists(m_dir.filePath(QStringLiteral("gui-batch-draft.mp4"))));
         QVERIFY(QFileInfo::exists(m_dir.filePath(QStringLiteral("gui-batch-review480p.mp4"))));
         QCOMPARE(m_app->project()->project(), before);

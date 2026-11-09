@@ -632,9 +632,14 @@ range and audio toggle. Each preset retains its own quality, resolution,
 scaling, encoder speed and audio bitrate. It refuses existing output paths
 instead of overwriting them. A failed or cancelled item stops remaining items,
 while previously completed exports remain intact. **Cancel export** cancels
-the active item and any remaining variants; overall progress counts completed
-files and the active render. A started batch is not a persistent render queue
-across editor restarts, and it is not available in the stable v1.4.0 installers.
+the active item and any remaining variants. The bottom status bar now displays
+**Batch current/total** and aggregate progress across all variants, instead of
+resetting to zero for each item. If a batch fails between variants (for example,
+because a destination filename appeared after the previous render), choose
+**Copy error details** in the export dialog to copy the actual batch failure
+and pending filename, with a reminder to redact private paths before sharing.
+No diagnostics are sent automatically. A started batch is not a persistent
+render queue across editor restarts, and it is not available in stable v1.4.0.
 
 The export runs in the background — you can keep editing; it uses a snapshot of the project.
 The status bar shows progress. The result is written to a temporary file first and only replaces

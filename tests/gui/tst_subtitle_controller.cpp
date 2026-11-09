@@ -158,6 +158,19 @@ private slots:
         QCOMPARE(m_project->project().subtitles().cues[0].text, before.subtitles().cues[0].text);
         QCOMPARE(m_project->project().subtitles().cues[1].text,
                  QStringLiteral("Edited second half"));
+        const Project separatelyEdited = m_project->project();
+        QVERIFY(m_subtitles->selectCue(firstId, false));
+        QVERIFY(m_subtitles->canMergeWithNext());
+        QVERIFY(m_subtitles->mergeSelectedWithNext());
+        QCOMPARE(m_project->project().subtitles().cues.size(), size_t{1});
+        QCOMPARE(m_project->project().subtitles().cues[0].text,
+                 QStringLiteral("New subtitle\nEdited second half"));
+        QCOMPARE(m_project->undoText(), QStringLiteral("Merge Subtitles"));
+        m_project->undo();
+        QCOMPARE(m_project->project(), separatelyEdited);
+        m_project->redo();
+        QCOMPARE(m_project->project().subtitles().cues.size(), size_t{1});
+        QVERIFY(!m_subtitles->canMergeWithNext());
     }
 
     void importIsAtomicAndSidecarExportDoesNotEditTheProject()

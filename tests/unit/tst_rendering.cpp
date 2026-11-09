@@ -146,7 +146,7 @@ private slots:
         const Project project = projectWithClip();
         ExportSettings settings = settingsFor(QStringLiteral("range-invalid.mp4"));
         const Project original = project;
-        for (const auto [start, end] : {std::pair<FrameCount, FrameCount>{-1, -1},
+        for (const auto& [start, end] : {std::pair<FrameCount, FrameCount>{-1, -1},
                                         {-2, 20},
                                         {60, 60},
                                         {60, 61},

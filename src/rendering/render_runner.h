@@ -13,6 +13,12 @@
 
 namespace ft::rendering {
 
+/// Publish a verified part file into place. When replaceExisting is false,
+/// destination creation is atomic and fails if any other process created it.
+/// Never truncate or overwrite a completed file in no-replace mode.
+Status publishRenderedFile(const QString& partPath, const QString& destinationPath,
+                           bool replaceExisting);
+
 /// Lists the video encoders available to MLT's avformat consumer.
 QStringList availableVideoEncoders();
 

@@ -140,7 +140,7 @@ private slots:
     {
         SubtitleTrack original;
         original.cues = {
-            cue(QStringLiteral("one"), 1, 1002, QStringLiteral("नमस्ते <b>&</b> 😀\\nNext --> line")),
+            cue(QStringLiteral("one"), 1, 1002, QStringLiteral("नमस्ते <b>&</b> 😀\nNext --> line")),
             cue(QStringLiteral("two"), 3'723'004, 3'724'005, QStringLiteral("End"))};
         const auto encoded = webvtt::toBytes(original);
         QVERIFY(encoded);
@@ -154,13 +154,13 @@ private slots:
         }
         QCOMPARE(*webvtt::toBytes(*parsed), *encoded);
         const auto withIds = webvtt::fromBytes(
-            QStringLiteral("WEBVTT Track title\\r\\n\\r\\n"
-                           "NOTE Metadata omitted from the project\\r\\n"
-                           "Do not import this line\\r\\n\\r\\n"
-                           "First cue\\r\\n00:01.001 --> 00:02.500\\r\\n"
-                           "Hello &amp; goodbye\\r\\n\\r\\n"
-                           "Last cue\\r\\n01:00:00.001 --> 01:00:01.000\\r\\n"
-                           "कहानी &lt;b&gt;literal&lt;/b&gt;\\r\\n").toUtf8());
+            QStringLiteral("WEBVTT Track title\r\n\r\n"
+                           "NOTE Metadata omitted from the project\r\n"
+                           "Do not import this line\r\n\r\n"
+                           "First cue\r\n00:01.001 --> 00:02.500\r\n"
+                           "Hello &amp; goodbye\r\n\r\n"
+                           "Last cue\r\n01:00:00.001 --> 01:00:01.000\r\n"
+                           "कहानी &lt;b&gt;literal&lt;/b&gt;\r\n").toUtf8());
         QVERIFY2(withIds, qPrintable(withIds ? QString() : withIds.error().toString()));
         QCOMPARE(withIds->cues.size(), size_t{2});
         QCOMPARE(withIds->cues[0].startMs, std::int64_t{1001});
@@ -168,27 +168,27 @@ private slots:
         QCOMPARE(withIds->cues[0].text, QStringLiteral("Hello & goodbye"));
         QCOMPARE(withIds->cues[1].startMs, std::int64_t{3'600'001});
         QCOMPARE(withIds->cues[1].text, QStringLiteral("कहानी <b>literal</b>"));
-        QCOMPARE(webvtt::fromBytes(QByteArray("WEBVTT\\n\\n"))->cues.size(), size_t{0});
+        QCOMPARE(webvtt::fromBytes(QByteArray("WEBVTT\n\n"))->cues.size(), size_t{0});
     }
 
     void webVttImportRejectsMarkupSettingsOverlapsAndMalformedInput()
     {
         for (const QByteArray& bytes : {
                  QByteArray("No WebVTT header"),
-                 QByteArray("WEBVTT\\n00:00.000 --> 00:01.000\\nText"),
-                 QByteArray("WEBVTT\\n\\n01:00.000 --> 02:00.000 line:0\\nText"),
-                 QByteArray("WEBVTT\\n\\nSTYLE\\n::cue {color:red}"),
-                 QByteArray("WEBVTT\\n\\nREGION\\nid:foo"),
-                 QByteArray("WEBVTT\\n\\n00:01.000 --> 00:02.000\\n<i>styled</i>"),
-                 QByteArray("WEBVTT\\n\\n00:01.000 --> 00:02.000\\nUnknown &x; entity"),
-                 QByteArray("WEBVTT\\n\\n00:01.000 --> 00:02.000\\n"),
-                 QByteArray("WEBVTT\\n\\n00:02.000 --> 00:01.000\\nReversed"),
-                 QByteArray("WEBVTT\\n\\n01:99.000 --> 02:00.000\\nInvalid minutes"),
-                 QByteArray("WEBVTT\\n\\n00:00.000 --> 00:02.000\\nOne\\n\\n"
-                            "00:01.000 --> 00:03.000\\nOverlap"),
-                 QByteArray("WEBVTT\\n\\nBad ID"),
+                 QByteArray("WEBVTT\n00:00.000 --> 00:01.000\nText"),
+                 QByteArray("WEBVTT\n\n01:00.000 --> 02:00.000 line:0\nText"),
+                 QByteArray("WEBVTT\n\nSTYLE\n::cue {color:red}"),
+                 QByteArray("WEBVTT\n\nREGION\nid:foo"),
+                 QByteArray("WEBVTT\n\n00:01.000 --> 00:02.000\n<i>styled</i>"),
+                 QByteArray("WEBVTT\n\n00:01.000 --> 00:02.000\nUnknown &x; entity"),
+                 QByteArray("WEBVTT\n\n00:01.000 --> 00:02.000\n"),
+                 QByteArray("WEBVTT\n\n00:02.000 --> 00:01.000\nReversed"),
+                 QByteArray("WEBVTT\n\n01:99.000 --> 02:00.000\nInvalid minutes"),
+                 QByteArray("WEBVTT\n\n00:00.000 --> 00:02.000\nOne\n\n"
+                            "00:01.000 --> 00:03.000\nOverlap"),
+                 QByteArray("WEBVTT\n\nBad ID"),
                  QByteArray::fromHex("fffe0000"),
-                 QByteArray("WEBVTT\\n\\n00:01.000 --> 00:02.000\\n") +
+                 QByteArray("WEBVTT\n\n00:01.000 --> 00:02.000\n") +
                      QByteArray(kMaxSubtitleTextLength + 1, 'x')}) {
             QVERIFY2(!webvtt::fromBytes(bytes), bytes.constData());
         }

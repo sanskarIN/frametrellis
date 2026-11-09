@@ -86,7 +86,7 @@ FtDialog {
         }
         Text {
             Layout.fillWidth: true
-            text: qsTr("Import appends cues. Times use HH:MM:SS,mmm; overlapping cues are refused. Subtitles stay at their sequence times when clips move.")
+            text: qsTr("Import appends cues. Times use HH:MM:SS,mmm; overlapping cues are refused. Ordinary clip moves leave captions at their sequence positions; sequence ripple and gap edits move eligible cues together.")
             color: Theme.textMuted
             font.pixelSize: Theme.fontSizeSmall
             wrapMode: Text.WordWrap

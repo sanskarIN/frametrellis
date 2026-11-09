@@ -156,12 +156,12 @@ public:
     Q_INVOKABLE bool trimStart(const QString& clipId, double newStart);
     Q_INVOKABLE bool trimEnd(const QString& clipId, double newEnd);
     Q_INVOKABLE bool splitAtPlayhead();
-    /// Insert an undoable empty interval at a cut across video and audio tracks.
+    /// Insert a sequence-wide gap, shifting clips, markers and eligible subtitles as one undo.
     Q_INVOKABLE bool insertGapAtPlayhead(int durationFrames);
-    /// Close a clip-free time range across tracks as a single undoable edit.
+    /// Close clip-free time and shift following markers/subtitles in the same undo step.
     Q_INVOKABLE bool removeEmptyTimeAtPlayhead(int durationFrames);
     /// Close the entire empty interval until the nearest later clip on any track.
-    /// Does not trim media or move any marker/subtitle; rejects overlapping media.
+    /// Does not trim media; rejects markers/captions inside the removed interval.
     Q_INVOKABLE bool closeEmptyGapToNextClip();
     /// Duplicates a single selected clip, or a time-aligned block of several selected clips.
     Q_INVOKABLE bool duplicateSelection();

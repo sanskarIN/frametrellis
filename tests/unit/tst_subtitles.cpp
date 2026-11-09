@@ -294,6 +294,13 @@ private slots:
         QCOMPARE(doc.project(), before);
         QVERIFY(doc.redo());
         QCOMPARE(doc.project(), after);
+        QVERIFY(doc.execute(edits::mergeSubtitleWithNext(QStringLiteral("first"))));
+        QCOMPARE(doc.project(), before);
+        QCOMPARE(doc.undoText(), QStringLiteral("Merge Subtitles"));
+        QVERIFY(doc.undo());
+        QCOMPARE(doc.project(), after);
+        QVERIFY(doc.redo());
+        QCOMPARE(doc.project(), before);
     }
 
     void splitSubtitleRejectsBoundariesAndDuplicateIdsAtomically()
@@ -322,6 +329,49 @@ private slots:
         QCOMPARE(doc.project().subtitles().cues[0].endMs, std::int64_t{101});
         QVERIFY(doc.undo());
         QCOMPARE(doc.project(), before);
+    }
+
+    void mergeAdjacentSubtitlesPreservesLiteralTextAndRejectsGaps()
+    {
+        ProjectDocument doc(project());
+        QVERIFY(doc.execute(edits::addSubtitle(
+            cue(QStringLiteral("first"), 100, 300, QStringLiteral("नमस्ते")))));
+        QVERIFY(doc.execute(edits::addSubtitle(
+            cue(QStringLiteral("second"), 300, 700, QStringLiteral("Hello")))));
+        const Project before = doc.project();
+        QVERIFY(doc.execute(edits::mergeSubtitleWithNext(QStringLiteral("first"))));
+        const SubtitleTrack merged = doc.project().subtitles();
+        QCOMPARE(merged.cues.size(), size_t{1});
+        QCOMPARE(merged.cues[0].startMs, std::int64_t{100});
+        QCOMPARE(merged.cues[0].endMs, std::int64_t{700});
+        QCOMPARE(merged.cues[0].text, QStringLiteral("नमस्ते\nHello"));
+        QVERIFY(doc.undo());
+        QCOMPARE(doc.project(), before);
+
+        const Project previous = doc.project();
+        const QString undoBefore = doc.undoText();
+        QVERIFY(!doc.execute(edits::mergeSubtitleWithNext(QStringLiteral("second"))));
+        QVERIFY(!doc.execute(edits::mergeSubtitleWithNext(QStringLiteral("missing"))));
+        QCOMPARE(doc.project(), previous);
+        QCOMPARE(doc.undoText(), undoBefore);
+        QVERIFY(doc.execute(edits::updateSubtitle(
+            cue(QStringLiteral("second"), 400, 700, QStringLiteral("Hello")))));
+        const Project withGap = doc.project();
+        const QString gapUndo = doc.undoText();
+        QVERIFY(!doc.execute(edits::mergeSubtitleWithNext(QStringLiteral("first"))));
+        QCOMPARE(doc.project(), withGap);
+        QCOMPARE(doc.undoText(), gapUndo);
+
+        Project tooLong = project();
+        SubtitleTrack full;
+        full.cues = {
+            cue(QStringLiteral("a"), 0, 100, QString(kMaxSubtitleTextLength, QLatin1Char('x'))),
+            cue(QStringLiteral("b"), 100, 200, QStringLiteral("Another"))};
+        QVERIFY(tooLong.setSubtitles(full));
+        ProjectDocument budget(tooLong);
+        QVERIFY(!budget.execute(edits::mergeSubtitleWithNext(QStringLiteral("a"))));
+        QCOMPARE(budget.project(), tooLong);
+        QVERIFY(!budget.canUndo());
     }
 
     void wholeTrackTimingShiftPreservesSpacingAndUndo()

@@ -155,8 +155,7 @@ private slots:
         QVERIFY(m_subtitles->updateSelected(QStringLiteral("00:00:00,400"),
                                             QStringLiteral("00:00:02,000"),
                                             QStringLiteral("Edited second half")));
-        QCOMPARE(m_project->project().subtitles().cues[0].text,
-                 before.subtitles().cues[0].text);
+        QCOMPARE(m_project->project().subtitles().cues[0].text, before.subtitles().cues[0].text);
         QCOMPARE(m_project->project().subtitles().cues[1].text,
                  QStringLiteral("Edited second half"));
     }

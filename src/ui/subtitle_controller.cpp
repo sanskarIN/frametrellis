@@ -197,6 +197,20 @@ bool SubtitleController::canSplit() const
     return *milliseconds > selected.startMs && *milliseconds < selected.endMs;
 }
 
+bool SubtitleController::canMergeWithNext() const
+{
+    const int row = selectedIndex();
+    if (row < 0 || row + 1 >= rowCount()) {
+        return false;
+    }
+    const SubtitleCue& first = m_track.cues[static_cast<size_t>(row)];
+    const SubtitleCue& second = m_track.cues[static_cast<size_t>(row + 1)];
+    const qsizetype combinedSize = first.text == second.text
+                                      ? first.text.size()
+                                      : first.text.size() + 1 + second.text.size();
+    return first.endMs == second.startMs && combinedSize <= kMaxSubtitleTextLength;
+}
+
 bool SubtitleController::selectCue(const QString& id, bool seek)
 {
     if (!m_rows.contains(id))
@@ -308,6 +322,14 @@ bool SubtitleController::splitSelectedAtPlayhead()
     const Id secondId = createId();
     return execute(edits::splitSubtitle(m_selected, *milliseconds, secondId)) &&
            selectCue(secondId, false);
+}
+
+bool SubtitleController::mergeSelectedWithNext()
+{
+    if (!canMergeWithNext()) {
+        return fail(tr("Select a subtitle immediately followed by another with no timing gap."));
+    }
+    return execute(edits::mergeSubtitleWithNext(m_selected));
 }
 
 bool SubtitleController::removeSelected()

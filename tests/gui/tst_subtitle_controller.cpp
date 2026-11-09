@@ -151,6 +151,9 @@ private slots:
         QCOMPARE(m_project->project(), before);
         m_project->redo();
         QCOMPARE(m_project->project(), after);
+        // Undo removes the second cue, so selection legitimately falls back to
+        // the first ID. Reselect the restored second cue before editing it.
+        QVERIFY(m_subtitles->selectCue(after.subtitles().cues[1].id, false));
 
         QVERIFY(m_subtitles->updateSelected(QStringLiteral("00:00:00,400"),
                                             QStringLiteral("00:00:02,000"),

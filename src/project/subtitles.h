@@ -60,6 +60,11 @@ namespace srt {
 } // namespace srt
 
 namespace webvtt {
+/// Parses plain-text UTF-8 WebVTT (optional BOM, cue identifiers, NOTE blocks,
+/// mm:ss.mmm or hh:mm:ss.mmm timestamps). Preserves literal text/entities and
+/// rejects cue markup, positioning/STYLE/REGION metadata and overlapping cues
+/// rather than silently discarding unsupported formatting.
+[[nodiscard]] Result<SubtitleTrack> fromBytes(const QByteArray& bytes);
 /// Writes UTF-8 WebVTT sidecar captions with exact millisecond cue boundaries.
 /// Cue text is HTML-escaped so angle brackets and ampersands remain literal.
 [[nodiscard]] Result<QByteArray> toBytes(const SubtitleTrack& track);

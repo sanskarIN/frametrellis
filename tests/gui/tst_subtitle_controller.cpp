@@ -290,6 +290,49 @@ private slots:
         QVERIFY(!m_project->isModified());
     }
 
+    void webVttImportAppendsCuesWithOneUndoAndRejectsCollisions()
+    {
+        const QString input = m_dir.filePath(QStringLiteral("captions-import.vtt"));
+        const QByteArray bytes = QStringLiteral("WEBVTT\r\n\r\n"
+                                                "NOTE Draft for client review\r\n\r\n"
+                                                "Hindi caption\r\n00:01.001 --> 00:02.007\r\n"
+                                                "नमस्ते &lt;b&gt;literal&lt;/b&gt; 🌍\r\n"
+                                                "Second line\r\n\r\n"
+                                                "00:04.050 --> 00:05.000\r\nAfter edit\r\n")
+                                     .toUtf8();
+        QVERIFY(write(input, bytes));
+        QCOMPARE(m_subtitles->rowCount(), 0);
+        QVERIFY(m_subtitles->importWebVtt(QUrl::fromLocalFile(input).toString()));
+        QCOMPARE(m_subtitles->rowCount(), 2);
+        const SubtitleTrack imported = m_project->project().subtitles();
+        QCOMPARE(imported.cues[0].startMs, std::int64_t{1001});
+        QCOMPARE(imported.cues[0].endMs, std::int64_t{2007});
+        QCOMPARE(imported.cues[0].text, QStringLiteral("नमस्ते <b>literal</b> 🌍\nSecond line"));
+        QCOMPARE(m_subtitles->selectedIndex(), 0);
+        QVERIFY(m_project->save());
+        QVERIFY(!m_subtitles->importWebVtt(input)); // collision; no partial append
+        QCOMPARE(m_project->project().subtitles(), imported);
+        QVERIFY(!m_project->isModified());
+        const QString output = m_dir.filePath(QStringLiteral("reexported.vtt"));
+        QVERIFY(m_subtitles->exportWebVtt(output));
+        const auto again = webvtt::fromBytes(read(output));
+        QVERIFY(again);
+        QCOMPARE(again->cues.size(), imported.cues.size());
+        QCOMPARE(again->cues[0].text, imported.cues[0].text);
+        QCOMPARE(again->cues[1].endMs, imported.cues[1].endMs);
+
+        QVERIFY(!m_subtitles->importWebVtt(QStringLiteral("https://example.com/captions.vtt")));
+        QVERIFY(!m_subtitles->importWebVtt(m_dir.filePath(QStringLiteral("missing.vtt"))));
+        QVERIFY(!m_subtitles->importWebVtt(m_dir.filePath(QStringLiteral("wrong.srt"))));
+        QCOMPARE(m_project->project().subtitles(), imported);
+        QVERIFY(m_subtitles->clearAll());
+        m_project->undo();
+        QCOMPARE(m_project->project().subtitles(), imported);
+        m_project->undo();
+        QCOMPARE(m_subtitles->rowCount(), 0);
+        QCOMPARE(m_project->project().timeline(), m_base.timeline());
+    }
+
     void webVttExportIsProtectedAndDoesNotModifyProject()
     {
         QVERIFY(m_subtitles->addAtPlayhead());

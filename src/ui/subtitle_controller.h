@@ -81,6 +81,7 @@ public:
     Q_INVOKABLE bool resetAppearance();
     Q_INVOKABLE void clearError() { setError({}); }
     Q_INVOKABLE bool importSrt(const QString& pathOrUrl);
+    Q_INVOKABLE bool importWebVtt(const QString& pathOrUrl);
     Q_INVOKABLE bool exportSrt(const QString& pathOrUrl);
     Q_INVOKABLE bool exportWebVtt(const QString& pathOrUrl);
     Q_INVOKABLE bool exportTranscriptTxt(const QString& pathOrUrl);

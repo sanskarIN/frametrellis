@@ -423,6 +423,31 @@ bool SubtitleController::importSrt(const QString& input)
     return true;
 }
 
+bool SubtitleController::importWebVtt(const QString& input)
+{
+    const auto path = subtitlePath(input, QStringLiteral("vtt"));
+    if (!path)
+        return fail(path.error().message);
+    if (!QFileInfo(*path).isFile())
+        return fail(tr("Choose an existing WebVTT file."));
+    QFile file(*path);
+    if (!file.open(QIODevice::ReadOnly))
+        return fail(tr("Could not open the WebVTT file: %1").arg(file.errorString()));
+    const QByteArray bytes = file.read(kMaxSrtBytes + 1);
+    if (file.error() != QFileDevice::NoError)
+        return fail(tr("Could not read the WebVTT file."));
+    const auto imported = webvtt::fromBytes(bytes);
+    if (!imported)
+        return fail(imported.error().message);
+    if (imported->cues.empty())
+        return fail(tr("The WebVTT file contains no subtitle cues."));
+    if (!execute(edits::appendSubtitles(imported->cues)))
+        return false;
+    (void)selectCue(imported->cues.front().id);
+    emit statusMessage(tr("Imported %1 WebVTT subtitle cues.").arg(imported->cues.size()));
+    return true;
+}
+
 bool SubtitleController::exportSrt(const QString& input)
 {
     const auto path = subtitlePath(input, QStringLiteral("srt"));

@@ -693,9 +693,17 @@ ApplicationWindow {
         id: subtitleImportDialog
         title: qsTr("Import subtitles (append cues)")
         fileMode: FileDialog.OpenFile
-        nameFilters: [qsTr("SubRip subtitles (*.srt *.SRT)")]
+        nameFilters: [qsTr("Subtitle files (*.srt *.SRT *.vtt *.VTT)"),
+                      qsTr("SubRip subtitles (*.srt *.SRT)"),
+                      qsTr("WebVTT subtitles (*.vtt *.VTT)")]
         currentFolder: window.app.fileUrl(window.app.project.projectFolder())
-        onAccepted: window.app.subtitles.importSrt(window.app.localPath(selectedFile))
+        onAccepted: {
+            const path = window.app.localPath(selectedFile)
+            if (path.toLowerCase().endsWith(".vtt"))
+                window.app.subtitles.importWebVtt(path)
+            else
+                window.app.subtitles.importSrt(path)
+        }
     }
     FileDialog {
         id: subtitleExportDialog

@@ -147,11 +147,13 @@ std::unique_ptr<EditCommand> mergeSubtitleWithNext(Id cueId)
                                  QStringLiteral("Choose two adjacent subtitles without a gap."));
             }
             const SubtitleCue& second = *(first + 1);
-            const QString combined =
-                first->text == second.text ? first->text : first->text + QLatin1Char('\n') + second.text;
+            const QString combined = first->text == second.text
+                                         ? first->text
+                                         : first->text + QLatin1Char('\n') + second.text;
             if (combined.size() > kMaxSubtitleTextLength) {
-                return makeError(ErrorCode::OutOfRange,
-                                 QStringLiteral("The merged subtitle would exceed 2,000 characters."));
+                return makeError(
+                    ErrorCode::OutOfRange,
+                    QStringLiteral("The merged subtitle would exceed 2,000 characters."));
             }
             first->endMs = second.endMs;
             first->text = combined;

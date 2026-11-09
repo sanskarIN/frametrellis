@@ -4063,6 +4063,48 @@ private slots:
         QMetaObject::invokeMethod(dialog, "close");
     }
 
+    void exportDialogBatchControlsValidateSelectionWithoutChangingProject()
+    {
+        QObject* dialog = m_window->findChild<QObject*>(QStringLiteral("exportDialog"));
+        QVERIFY(dialog);
+        const Project before = m_app->project()->project();
+        const QString undoBefore = m_app->project()->undoText();
+        m_qmlWarnings.clear();
+        QMetaObject::invokeMethod(dialog, "open");
+        QTRY_VERIFY(dialog->property("opened").toBool());
+        dialog->setProperty("outputPath", m_dir.filePath(QStringLiteral("gui-batch.mp4")));
+        QQuickItem* creator =
+            findItem(m_window->contentItem(), QStringLiteral("exportBatchCreator"));
+        QQuickItem* review = findItem(m_window->contentItem(), QStringLiteral("exportBatchReview"));
+        QQuickItem* mobile = findItem(m_window->contentItem(), QStringLiteral("exportBatchMobile"));
+        QQuickItem* start = findItem(m_window->contentItem(), QStringLiteral("exportBatchPresets"));
+        QQuickItem* range = findItem(m_window->contentItem(), QStringLiteral("exportRangeBox"));
+        QQuickItem* fps =
+            findItem(m_window->contentItem(), QStringLiteral("exportFrameRateBox"));
+        QVERIFY(creator && review && mobile && start && range && fps);
+        QVERIFY(range->setProperty("currentIndex", 0));
+        QVERIFY(fps->setProperty("currentIndex", 0));
+        QVERIFY(creator->setProperty("checked", true));
+        QVERIFY(review->setProperty("checked", true));
+        QVERIFY(mobile->setProperty("checked", false));
+        QTRY_VERIFY(start->isEnabled());
+        QVERIFY(creator->setProperty("checked", false));
+        QTRY_VERIFY(!start->isEnabled()); // one preset is not a batch
+        QVERIFY(mobile->setProperty("checked", true));
+        QTRY_VERIFY(start->isEnabled());
+        const QVariantMap settings{
+            {QStringLiteral("outputPath"), m_dir.filePath(QStringLiteral("gui-batch.mp4"))},
+            {QStringLiteral("frameRate"), QStringLiteral("match")}};
+        QCOMPARE(m_app->exporter()->validateBatch(
+                     settings, {QStringLiteral("draft"), QStringLiteral("review480p")}),
+                 QString());
+        QCOMPARE(m_app->exporter()->batchTotal(), 0); // UI selection alone never exports
+        QCOMPARE(m_app->project()->project(), before);
+        QCOMPARE(m_app->project()->undoText(), undoBefore);
+        QVERIFY2(m_qmlWarnings.isEmpty(), "Batch export dialog produced QML warnings");
+        QMetaObject::invokeMethod(dialog, "close");
+    }
+
     void exportDialogRetainsCustomQualityAndFpsAcrossReopen()
     {
         QObject* dialog = m_window->findChild<QObject*>(QStringLiteral("exportDialog"));

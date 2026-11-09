@@ -21,8 +21,13 @@ resolution, CRF, encoder speed, upscaling and bitrate come from each preset.
 Every item uses the existing helper, output probing and atomic replace protocol.
 The next item starts on the Qt event loop **after** the prior job has emitted
 its terminal signals; never delete a RenderJob from its own stateChanged
-handler. Before each queued launch the output path is checked again, so a file
-created after preflight is not silently overwritten.
+handler. Before each queued launch the output path is checked again. The helper also
+uses an explicit refuse-existing-output mode at final publication: Windows
+`MoveFileExW` without replace-existing, or a same-directory atomic hard-link
+followed by removal of the temporary file on POSIX. If the destination is
+created during rendering, the verified new file is *not* allowed to replace it.
+On a filesystem that cannot create hard links, no-replace publication fails
+safely rather than falling back to a non-atomic copy.
 
 Failures and cancellations stop subsequent launches. Already completed outputs
 are never deleted. The queue is an in-memory UI operation, not crash-persistent

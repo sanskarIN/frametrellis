@@ -1,11 +1,13 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // SPDX-FileCopyrightText: 2026 Sanskar and FrameTrellis contributors
+#include "rendering/export_file.h"
 #include "rendering/export_settings.h"
 #include "rendering/render_job.h"
 #include "rendering/render_protocol.h"
 
 #include <QDir>
 #include <QFile>
+#include <QFileInfo>
 #include <QJsonObject>
 #include <QSignalSpy>
 #include <QTemporaryDir>
@@ -69,6 +71,47 @@ private slots:
             validateExport(settingsFor(QStringLiteral("out.mp4")), projectWithClip());
         QVERIFY2(valid, qPrintable(valid ? QString() : valid.error().toString()));
         QVERIFY(validateExport(settingsFor(QStringLiteral("OUT.MP4")), projectWithClip()));
+    }
+
+    void batchOutputPublicationDoesNotReplaceExistingFiles()
+    {
+        const QString from = m_dir.filePath(QStringLiteral("no-overwrite.part.mp4"));
+        const QString to = m_dir.filePath(QStringLiteral("no-overwrite.mp4"));
+        QFile partial(from);
+        QVERIFY(partial.open(QIODevice::WriteOnly));
+        QCOMPARE(partial.write("finished-new"), qint64{12});
+        partial.close();
+        QFile existing(to);
+        QVERIFY(existing.open(QIODevice::WriteOnly));
+        QCOMPARE(existing.write("original-good"), qint64{13});
+        existing.close();
+
+        QVERIFY(!publishRenderedFile(from, to, false));
+        QVERIFY(existing.open(QIODevice::ReadOnly));
+        QCOMPARE(existing.readAll(), QByteArray("original-good"));
+        existing.close();
+        QVERIFY(partial.open(QIODevice::ReadOnly));
+        QCOMPARE(partial.readAll(), QByteArray("finished-new"));
+        partial.close();
+
+        QVERIFY(existing.remove());
+        QVERIFY(publishRenderedFile(from, to, false));
+        QVERIFY(!QFileInfo::exists(from));
+        QVERIFY(existing.open(QIODevice::ReadOnly));
+        QCOMPARE(existing.readAll(), QByteArray("finished-new"));
+        existing.close();
+
+        // Ordinary single-item exports retain their deliberately different
+        // overwrite-after-success policy.
+        QFile replacement(from);
+        QVERIFY(replacement.open(QIODevice::WriteOnly));
+        QCOMPARE(replacement.write("single"), qint64{6});
+        replacement.close();
+        QVERIFY(publishRenderedFile(from, to, true));
+        QVERIFY(existing.open(QIODevice::ReadOnly));
+        QCOMPARE(existing.readAll(), QByteArray("single"));
+        existing.close();
+        QVERIFY(!QFileInfo::exists(from));
     }
 
     void exportFpsSupportsExactRatesAndRejectsInvalidValues()

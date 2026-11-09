@@ -10,6 +10,33 @@ Export dialog ─► ExportController ─► RenderJob ──QProcess──► f
                                          └──── "@ft {json}" lines ◄┘  progress / result
 ```
 
+## Development: sequential export presets
+
+The development batch controller runs **one RenderJob at a time** using a copy
+of the Project captured at batch initiation. It accepts two to five distinct
+known preset identifiers, validates each output and refuses any existing
+destination. The base filename is suffixed with the preset ID to avoid
+collisions. FPS, project-frame range and audio-enable choice are shared;
+resolution, CRF, encoder speed, upscaling and bitrate come from each preset.
+Every item uses the existing helper, output probing and atomic replace protocol.
+The next item starts on the Qt event loop **after** the prior job has emitted
+its terminal signals; never delete a RenderJob from its own stateChanged
+handler. Before each queued launch the output path is checked again. The helper also
+uses an explicit refuse-existing-output mode at final publication: Windows
+`MoveFileExW` without replace-existing, or a same-directory atomic hard-link
+followed by removal of the temporary file on POSIX. If the destination is
+created during rendering, the verified new file is *not* allowed to replace it.
+On a filesystem that cannot create hard links, no-replace publication fails
+safely rather than falling back to a non-atomic copy.
+
+Failures and cancellations stop subsequent launches. Already completed outputs
+are never deleted. The queue is an in-memory UI operation, not crash-persistent
+background scheduling. The editor autosaves recent changes before capturing
+the batch, while further edits do not enter already queued items. Aggregate
+progress is (completed jobs + current-job progress) / total jobs, with an
+independent terminal batch state. These changes are development-only pending
+full integrated Windows testing; they do not resolve the native export crashes.
+
 ## RenderJob state machine
 
 ```

@@ -7,6 +7,7 @@
 #include "engine/mlt_runtime.h"
 #include "engine/timeline_graph.h"
 #include "media/media_probe.h"
+#include "rendering/export_file.h"
 
 #include <QDir>
 #include <QFile>
@@ -18,12 +19,10 @@
 
 #include <cstdio>
 #include <fcntl.h>
-#include <filesystem>
 #include <memory>
 
 #ifdef Q_OS_WIN
 #include <io.h>
-#include <windows.h>
 #else
 #include <unistd.h>
 #endif
@@ -94,29 +93,6 @@ QString temporaryOutputPath(const QString& outputPath, const QString& requestedT
 
 /// Replaces the destination with the finished file in one step, so an existing export is never
 /// lost to a half-finished rename.
-Status moveIntoPlace(const QString& from, const QString& to)
-{
-#ifdef Q_OS_WIN
-    const std::wstring source = QDir::toNativeSeparators(from).toStdWString();
-    const std::wstring target = QDir::toNativeSeparators(to).toStdWString();
-    if (!MoveFileExW(source.c_str(), target.c_str(),
-                     MOVEFILE_REPLACE_EXISTING | MOVEFILE_WRITE_THROUGH)) {
-        return makeError(ErrorCode::Io,
-                         QStringLiteral("The exported file could not be moved into place."),
-                         QStringLiteral("Windows error %1").arg(GetLastError()));
-    }
-#else
-    std::error_code error;
-    std::filesystem::rename(std::filesystem::path(from.toStdString()),
-                            std::filesystem::path(to.toStdString()), error);
-    if (error) {
-        return makeError(ErrorCode::Io,
-                         QStringLiteral("The exported file could not be moved into place."),
-                         QString::fromStdString(error.message()));
-    }
-#endif
-    return {};
-}
 
 } // namespace
 
@@ -431,7 +407,9 @@ Status RenderRunner::run(const std::atomic<bool>& cancelRequested, const Started
     if (cancelRequested.load()) {
         return cancelledResult();
     }
-    if (const Status moved = moveIntoPlace(partPath, finalPath); !moved) {
+    if (const Status moved =
+            publishRenderedFile(partPath, finalPath, !m_settings.protectExistingOutput);
+        !moved) {
         QFile::remove(partPath);
         return moved;
     }

@@ -23,6 +23,7 @@ struct ExportSettings
     QString speedPreset = QStringLiteral("medium");
     int audioBitrateKbps = 192;
     bool includeAudio = true;
+    bool protectExistingOutput = false; ///< batch delivery must not replace any existing file
     QString frameRate =
         QStringLiteral("match");    ///< match project or exact fps: 30, 29.97, 30000/1001
     FrameCount rangeStartFrame = 0; ///< project frames, inclusive

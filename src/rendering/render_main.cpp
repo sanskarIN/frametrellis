@@ -176,6 +176,9 @@ int main(int argc, char** argv)
         QStringLiteral("token"));
     const QCommandLineOption noAudioOption(QStringLiteral("no-audio"),
                                            QStringLiteral("Export without audio."));
+    const QCommandLineOption refuseOutputOption(
+        QStringLiteral("refuse-existing-output"),
+        QStringLiteral("Fail rather than replace any existing destination file."));
     const QCommandLineOption noUpscaleOption(
         QStringLiteral("no-upscale"),
         QStringLiteral("Keep the source resolution if already smaller than the requested size."));
@@ -192,8 +195,8 @@ int main(int argc, char** argv)
         QStringLiteral("directory"));
     parser.addOptions({projectOption, outputOption, shortSideOption, fpsOption, startFrameOption,
                        endFrameOption, crfOption, presetOption, audioOption, renderTokenOption,
-                       noAudioOption, noUpscaleOption, watchStdinOption, selfTestOption,
-                       inspectProjectOption, listPresetsOption});
+                       noAudioOption, refuseOutputOption, noUpscaleOption, watchStdinOption,
+                       selfTestOption, inspectProjectOption, listPresetsOption});
     parser.process(app);
 
     if (parser.isSet(listPresetsOption)) {
@@ -313,6 +316,7 @@ int main(int argc, char** argv)
     settings.speedPreset = parser.value(presetOption);
     settings.frameRate = parser.value(fpsOption);
     settings.includeAudio = !parser.isSet(noAudioOption);
+    settings.protectExistingOutput = parser.isSet(refuseOutputOption);
     settings.avoidUpscaling = parser.isSet(noUpscaleOption);
     if (!ok1 || !ok2 || !ok3 || !ok4 || !ok5) {
         emitError(makeError(ErrorCode::InvalidArgument,

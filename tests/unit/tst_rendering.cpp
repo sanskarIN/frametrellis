@@ -3,7 +3,7 @@
 #include "rendering/export_settings.h"
 #include "rendering/render_job.h"
 #include "rendering/render_protocol.h"
-#include "rendering/render_runner.h"
+#include "rendering/export_file.h"
 
 #include <QDir>
 #include <QFile>

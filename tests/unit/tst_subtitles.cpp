@@ -269,8 +269,8 @@ private slots:
         QVERIFY(doc.execute(edits::addSubtitle(cue(QStringLiteral("first"), 123, 1987, caption))));
         const Project before = doc.project();
         QSignalSpy changes(&doc, &ProjectDocument::changed);
-        QVERIFY(doc.execute(edits::splitSubtitle(QStringLiteral("first"), 1001,
-                                                 QStringLiteral("second"))));
+        QVERIFY(doc.execute(
+            edits::splitSubtitle(QStringLiteral("first"), 1001, QStringLiteral("second"))));
         const Project after = doc.project();
         QCOMPARE(after.subtitles().cues.size(), size_t{2});
         const SubtitleCue& first = after.subtitles().cues[0];
@@ -317,8 +317,8 @@ private slots:
         reject(QStringLiteral("first"), 200, QStringLiteral("first"));
         reject(QStringLiteral("first"), 200, QStringLiteral("other"));
         // A valid split can be a single millisecond on either side.
-        QVERIFY(doc.execute(edits::splitSubtitle(QStringLiteral("first"), 101,
-                                                 QStringLiteral("new"))));
+        QVERIFY(
+            doc.execute(edits::splitSubtitle(QStringLiteral("first"), 101, QStringLiteral("new"))));
         QCOMPARE(doc.project().subtitles().cues[0].endMs, std::int64_t{101});
         QVERIFY(doc.undo());
         QCOMPARE(doc.project(), before);

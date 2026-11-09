@@ -188,9 +188,8 @@ bool SubtitleController::canSplit() const
         m_playback->positionFrames() >= m_project->project().timeline().duration()) {
         return false;
     }
-    const auto milliseconds =
-        subtitleMillisecondsAtFrame(m_playback->positionFrames(),
-                                    m_project->project().settings().frameRate);
+    const auto milliseconds = subtitleMillisecondsAtFrame(
+        m_playback->positionFrames(), m_project->project().settings().frameRate);
     if (!milliseconds) {
         return false;
     }
@@ -301,9 +300,8 @@ bool SubtitleController::splitSelectedAtPlayhead()
     if (!canSplit()) {
         return fail(tr("Pause and position the playhead strictly inside the selected subtitle."));
     }
-    const auto milliseconds =
-        subtitleMillisecondsAtFrame(m_playback->positionFrames(),
-                                    m_project->project().settings().frameRate);
+    const auto milliseconds = subtitleMillisecondsAtFrame(
+        m_playback->positionFrames(), m_project->project().settings().frameRate);
     if (!milliseconds) {
         return fail(tr("The playhead cannot be converted to subtitle time."));
     }

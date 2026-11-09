@@ -266,8 +266,10 @@ Result<QString> decodeText(const QString& source)
         }
         const qsizetype end = source.indexOf(QLatin1Char(';'), i + 1);
         if (end < 0 || end - i > 12) {
-            return makeError(ErrorCode::InvalidDocument,
-                             QStringLiteral("Cue contains an unsupported WebVTT entity."));
+            // A plain ampersand in non-entity text is literal. The exporter
+            // will escape it as &amp; for subsequent WebVTT round trips.
+            decoded += QLatin1Char('&');
+            continue;
         }
         const QString entity = source.mid(i + 1, end - i - 1);
         if (entity == QLatin1String("amp")) {

@@ -430,7 +430,7 @@ private slots:
         reject(QStringLiteral("Alpha"), QStringLiteral("X"));
         reject(QStringLiteral("alpha"), QStringLiteral("alpha"));
         reject(QStringLiteral("alpha"), QString());
-        reject(QStringLiteral("alpha"), QString(kMaxSubtitleTextLength, QLatin1Char('x')));
+        reject(QStringLiteral("alpha"), QString(kMaxSubtitleTextLength + 1, QLatin1Char('x')));
         reject(QString(kMaxSubtitleTextLength + 1, QLatin1Char('x')), QStringLiteral("value"));
 
         QVERIFY(doc.execute(
@@ -439,6 +439,18 @@ private slots:
         QCOMPARE(doc.project().subtitles().cues[1].text, QStringLiteral("beta"));
         QVERIFY(doc.undo());
         QCOMPARE(doc.project(), original);
+
+        // A replacement can be individually within the input limit but exceed
+        // a cue's final length when retained text surrounds the match.
+        Project withSuffix = original;
+        SubtitleTrack suffixed = withSuffix.subtitles();
+        suffixed.cues[0].text = QStringLiteral("alpha suffix");
+        QVERIFY(withSuffix.setSubtitles(suffixed));
+        ProjectDocument oversized(withSuffix);
+        QVERIFY(!oversized.execute(edits::replaceSubtitleText(
+            QStringLiteral("alpha"), QString(kMaxSubtitleTextLength, QLatin1Char('x')), true)));
+        QCOMPARE(oversized.project(), withSuffix);
+        QVERIFY(!oversized.canUndo());
     }
 
     void wholeTrackTimingShiftPreservesSpacingAndUndo()

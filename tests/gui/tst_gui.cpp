@@ -1499,8 +1499,8 @@ private slots:
 
         QVERIFY(timeline->setTrackFlag(audioTrack, QStringLiteral("locked"), true));
         const Project locked = m_app->project()->project();
-        QVERIFY(!timeline->rippleInsertSynchronizedAssetRangeAtPlayhead(
-            videoId, videoTrack, 40, 55));
+        QVERIFY(
+            !timeline->rippleInsertSynchronizedAssetRangeAtPlayhead(videoId, videoTrack, 40, 55));
         QCOMPARE(m_app->project()->project(), locked);
         m_app->project()->undo();
         QCOMPARE(m_app->project()->project(), prepared);

@@ -106,12 +106,12 @@ Status moveIntoPlace(const QString& from, const QString& to, bool replaceExistin
     const DWORD flags = MOVEFILE_WRITE_THROUGH | (replaceExisting ? MOVEFILE_REPLACE_EXISTING : 0);
     if (!MoveFileExW(source.c_str(), target.c_str(), flags)) {
         const DWORD error = GetLastError();
-        return makeError(
-            !replaceExisting && (error == ERROR_ALREADY_EXISTS || error == ERROR_FILE_EXISTS)
-                ? ErrorCode::Conflict
-                : ErrorCode::Io,
-            QStringLiteral("The exported file could not be moved into place."),
-            QStringLiteral("Windows error %1").arg(error));
+        return makeError(!replaceExisting &&
+                                 (error == ERROR_ALREADY_EXISTS || error == ERROR_FILE_EXISTS)
+                             ? ErrorCode::Conflict
+                             : ErrorCode::Io,
+                         QStringLiteral("The exported file could not be moved into place."),
+                         QStringLiteral("Windows error %1").arg(error));
     }
 #else
     const std::filesystem::path source(from.toStdString());
@@ -128,17 +128,16 @@ Status moveIntoPlace(const QString& from, const QString& to, bool replaceExistin
             std::error_code cleanup;
             std::filesystem::remove(source, cleanup);
             if (cleanup) {
-                qCWarning(lcRender) << "Could not remove published batch temporary file:"
-                                   << from << QString::fromStdString(cleanup.message());
+                qCWarning(lcRender) << "Could not remove published batch temporary file:" << from
+                                    << QString::fromStdString(cleanup.message());
             }
         }
     }
     if (error) {
-        return makeError(
-            !replaceExisting && error == std::errc::file_exists ? ErrorCode::Conflict
-                                                                : ErrorCode::Io,
-            QStringLiteral("The exported file could not be moved into place."),
-            QString::fromStdString(error.message()));
+        return makeError(!replaceExisting && error == std::errc::file_exists ? ErrorCode::Conflict
+                                                                             : ErrorCode::Io,
+                         QStringLiteral("The exported file could not be moved into place."),
+                         QString::fromStdString(error.message()));
     }
 #endif
     return {};

@@ -4079,8 +4079,7 @@ private slots:
         QQuickItem* mobile = findItem(m_window->contentItem(), QStringLiteral("exportBatchMobile"));
         QQuickItem* start = findItem(m_window->contentItem(), QStringLiteral("exportBatchPresets"));
         QQuickItem* range = findItem(m_window->contentItem(), QStringLiteral("exportRangeBox"));
-        QQuickItem* fps =
-            findItem(m_window->contentItem(), QStringLiteral("exportFrameRateBox"));
+        QQuickItem* fps = findItem(m_window->contentItem(), QStringLiteral("exportFrameRateBox"));
         QVERIFY(creator && review && mobile && start && range && fps);
         QVERIFY(range->setProperty("currentIndex", 0));
         QVERIFY(fps->setProperty("currentIndex", 0));

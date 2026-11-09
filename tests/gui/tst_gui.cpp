@@ -4098,6 +4098,25 @@ private slots:
                      settings, {QStringLiteral("draft"), QStringLiteral("review480p")}),
                  QString());
         QCOMPARE(m_app->exporter()->batchTotal(), 0); // UI selection alone never exports
+        // Exercise the real QML -> QStringList invokable path. A short, exact
+        // five-frame source interval keeps the end-to-end GUI check bounded.
+        QQuickItem* startFrame =
+            findItem(m_window->contentItem(), QStringLiteral("exportStartFrame"));
+        QQuickItem* endFrame =
+            findItem(m_window->contentItem(), QStringLiteral("exportEndFrame"));
+        QVERIFY(startFrame && endFrame);
+        QVERIFY(range->setProperty("currentIndex", 2));
+        QVERIFY(startFrame->setProperty("text", QStringLiteral("5")));
+        QVERIFY(endFrame->setProperty("text", QStringLiteral("10")));
+        QTRY_VERIFY(start->isEnabled());
+        QSignalSpy finished(m_app->exporter(), &ui::ExportController::finished);
+        QTest::mouseClick(m_window, Qt::LeftButton, Qt::NoModifier, centreOf(start));
+        QTRY_COMPARE_WITH_TIMEOUT(finished.size(), 1, 120'000);
+        QVERIFY2(finished.first().at(0).toBool(), qPrintable(finished.first().at(1).toString()));
+        QCOMPARE(m_app->exporter()->batchState(), QStringLiteral("succeeded"));
+        QCOMPARE(m_app->exporter()->batchCompleted(), 2);
+        QVERIFY(QFileInfo::exists(m_dir.filePath(QStringLiteral("gui-batch-draft.mp4"))));
+        QVERIFY(QFileInfo::exists(m_dir.filePath(QStringLiteral("gui-batch-review480p.mp4"))));
         QCOMPARE(m_app->project()->project(), before);
         QCOMPARE(m_app->project()->undoText(), undoBefore);
         QVERIFY2(m_qmlWarnings.isEmpty(), "Batch export dialog produced QML warnings");

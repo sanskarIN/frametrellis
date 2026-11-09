@@ -2616,6 +2616,60 @@ private slots:
         QCOMPARE(m_app->project()->undoText(), undoBefore);
     }
 
+    void timelineGapUiMovesMarkersAndSubtitlesAsOneSequenceEdit()
+    {
+        auto* timeline = m_app->timeline();
+        auto* playback = m_app->playback();
+        const Project initial = m_app->project()->project();
+        const QString assetId =
+            m_app->media()->model()->get(0).value(QStringLiteral("assetId")).toString();
+        QVERIFY(!assetId.isEmpty());
+        const FrameCount cut = initial.timeline().duration() + 10;
+        const Id trackId = initial.timeline().tracks().front().id;
+        Clip later;
+        later.id = createId();
+        later.assetId = assetId;
+        later.start = cut + 10;
+        later.sourceIn = 0;
+        later.duration = 10;
+        QVERIFY(m_app->project()->execute(edits::addClip(trackId, later)));
+
+        const Id markerId = createId();
+        const Id subtitleId = createId();
+        const auto cutMs = subtitleMillisecondsAtFrame(cut, initial.settings().frameRate);
+        QVERIFY(cutMs);
+        QVERIFY(m_app->project()->execute(
+            edits::addMarker({markerId, cut, QStringLiteral("Scene after cut")})));
+        QVERIFY(m_app->project()->execute(edits::addSubtitle(
+            {subtitleId, *cutMs + 100, *cutMs + 300, QStringLiteral("Scene caption")})));
+        const Project prepared = m_app->project()->project();
+
+        playback->seek(static_cast<double>(cut));
+        QVERIFY(timeline->insertGapAtPlayhead(10));
+        const Project after = m_app->project()->project();
+        QCOMPARE(after.timeline().clip(later.id)->start, cut + 20);
+        const auto marker = std::find_if(
+            after.markers().begin(), after.markers().end(),
+            [&](const TimelineMarker& value) { return value.id == markerId; });
+        QVERIFY(marker != after.markers().end());
+        QCOMPARE(marker->frame, cut + 10);
+        const auto subtitle = std::find_if(
+            after.subtitles().cues.begin(), after.subtitles().cues.end(),
+            [&](const SubtitleCue& value) { return value.id == subtitleId; });
+        QVERIFY(subtitle != after.subtitles().cues.end());
+        QVERIFY(subtitle->startMs > *cutMs + 100);
+        QCOMPARE(m_app->project()->undoText(), QStringLiteral("Insert Timeline Gap"));
+
+        m_app->project()->undo();
+        QCOMPARE(m_app->project()->project(), prepared);
+        m_app->project()->redo();
+        QCOMPARE(m_app->project()->project(), after);
+        QVERIFY(timeline->removeEmptyTimeAtPlayhead(10));
+        QCOMPARE(m_app->project()->project(), prepared);
+        m_app->project()->undo();
+        QCOMPARE(m_app->project()->project(), after);
+    }
+
     void removingEmptyTimeRestoresClipsAfterGapInsertion()
     {
         const Project before = m_app->project()->project();

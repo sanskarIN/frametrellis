@@ -317,7 +317,7 @@ Result<SubtitleTrack> fromBytes(const QByteArray& bytes)
     text.replace(QStringLiteral("\r\n"), QStringLiteral("\n"));
     text.replace(QLatin1Char('\r'), QLatin1Char('\n'));
     const QStringList lines = text.split(QLatin1Char('\n'));
-    const QString header = lines.front();
+    const QString& header = lines.front();
     if (header != QLatin1String("WEBVTT") && !header.startsWith(QLatin1String("WEBVTT ")) &&
         !header.startsWith(QLatin1String("WEBVTT\t"))) {
         return makeError(ErrorCode::InvalidDocument,

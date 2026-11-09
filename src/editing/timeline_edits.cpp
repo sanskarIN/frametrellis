@@ -142,7 +142,9 @@ public:
         const FrameRate& rate = working.settings().frameRate;
         const auto cutMs = subtitleMillisecondsAtFrame(m_frame, rate);
         const auto boundaryMs = subtitleMillisecondsAtFrame(boundary, rate);
-        if (!cutMs || !boundaryMs) {
+        const std::int64_t cutTime = cutMs.value_or(-1);
+        const std::int64_t boundaryTime = boundaryMs.value_or(-1);
+        if (cutTime < 0 || boundaryTime < 0) {
             return makeError(ErrorCode::OutOfRange,
                              QStringLiteral("The sequence edit time cannot be represented."));
         }
@@ -179,22 +181,22 @@ public:
         };
         for (SubtitleCue& cue : subtitles.cues) {
             if (m_closing) {
-                if (cue.startMs < *boundaryMs && cue.endMs > *cutMs) {
+                if (cue.startMs < boundaryTime && cue.endMs > cutTime) {
                     return makeError(
                         ErrorCode::Conflict,
                         QStringLiteral("Move or split subtitles intersecting the empty time "
                                        "before closing it."));
                 }
-                if (cue.startMs < *boundaryMs) {
+                if (cue.startMs < boundaryTime) {
                     continue;
                 }
             } else {
-                if (cue.startMs < *cutMs && cue.endMs > *cutMs) {
+                if (cue.startMs < cutTime && cue.endMs > cutTime) {
                     return makeError(ErrorCode::Conflict,
                                      QStringLiteral("Split or adjust the subtitle crossing "
                                                     "the insertion point first."));
                 }
-                if (cue.startMs < *cutMs) {
+                if (cue.startMs < cutTime) {
                     continue;
                 }
             }

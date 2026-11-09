@@ -218,6 +218,38 @@ private slots:
         exporter.reset();
         QCOMPARE(exporter.batchTotal(), 0);
         QCOMPARE(exporter.batchState(), QStringLiteral("idle"));
+
+        // A second destination can appear while the first item is rendering.
+        // Never replace that newly created file; stop the remaining batch.
+        QVariantMap late = settings;
+        late[QStringLiteral("outputPath")] =
+            m_dir.filePath(QStringLiteral("batch-late-destination.mp4"));
+        QVERIFY(exporter.startBatch(late, presets));
+        QFile competing(m_dir.filePath(QStringLiteral("batch-late-destination-review480p.mp4")));
+        QVERIFY(competing.open(QIODevice::WriteOnly));
+        QCOMPARE(competing.write("other-export"), qint64{12});
+        competing.close();
+        QTRY_COMPARE_WITH_TIMEOUT(finished.size(), 2, 120'000);
+        QVERIFY(!finished.last().at(0).toBool());
+        QCOMPARE(exporter.batchState(), QStringLiteral("failed"));
+        QCOMPARE(exporter.batchCompleted(), 1);
+        QVERIFY(competing.open(QIODevice::ReadOnly));
+        QCOMPARE(competing.readAll(), QByteArray("other-export"));
+        competing.close();
+
+        exporter.reset();
+        QCOMPARE(exporter.batchTotal(), 0);
+        QVariantMap cancelling = settings;
+        cancelling[QStringLiteral("outputPath")] =
+            m_dir.filePath(QStringLiteral("batch-cancel-next.mp4"));
+        QVERIFY(exporter.startBatch(cancelling, presets));
+        exporter.cancel(); // startup cancellation must also stop future variants
+        QTRY_COMPARE_WITH_TIMEOUT(finished.size(), 3, 120'000);
+        QVERIFY(!finished.last().at(0).toBool());
+        QCOMPARE(exporter.batchState(), QStringLiteral("cancelled"));
+        QVERIFY(!QFileInfo::exists(
+            m_dir.filePath(QStringLiteral("batch-cancel-next-review480p.mp4"))));
+        QVERIFY(!exporter.busy());
     }
 
     void cleanupTestCase() { engine::MltRuntime::shutdown(); }

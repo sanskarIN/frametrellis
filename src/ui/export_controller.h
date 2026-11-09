@@ -39,7 +39,7 @@ class ExportController : public QObject
     Q_PROPERTY(int batchCompleted READ batchCompleted NOTIFY batchChanged)
     Q_PROPERTY(double batchProgress READ batchProgress NOTIFY progressChanged)
     Q_PROPERTY(QString batchState READ batchState NOTIFY batchChanged)
-    Q_PROPERTY(QString batchText READ batchText NOTIFY batchChanged)
+    Q_PROPERTY(QString batchText READ batchText NOTIFY progressChanged)
 
 public:
     ExportController(ProjectController* project, QString helperProgram, QObject* parent = nullptr);

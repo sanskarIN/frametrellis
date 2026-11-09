@@ -217,6 +217,7 @@ Status RenderRunner::run(const std::atomic<bool>& cancelRequested, const Started
     std::unique_ptr<Mlt::Profile> selectedProfile;
     std::unique_ptr<Mlt::Chain> frameRateChain;
     std::unique_ptr<Mlt::Link> frameRateLink;
+    std::unique_ptr<Mlt::Playlist> rangePlaylist;
     Mlt::Profile* encodingProfile = projectProfile.get();
     Mlt::Producer* encodingProducer = tractor.get();
     if (exportRate != projectSettings.frameRate) {
@@ -248,12 +249,22 @@ Status RenderRunner::run(const std::atomic<bool>& cancelRequested, const Started
         encodingProducer = frameRateChain.get();
     }
 
-    // Limit the actual producer's playtime, not just the consumer's requested
-    // in/out values. MLT's avformat consumer stops when the producer reaches its
-    // out frame and emits _speed=0; without this bound a partial export can
-    // continue encoding the remainder of the sequence.
-    encodingProducer->set_in_and_out(static_cast<int>(bounds->outputStart),
-                                     static_cast<int>(bounds->outputEnd - 1));
+    // Consumers do not obey their own in/out properties. Wrap the complete
+    // absolute-time graph in a one-entry playlist cut instead. The cut converts
+    // the requested source interval into a fresh zero-based output timeline,
+    // preserving the correct MLT source timestamps and keeping audio/video PTS
+    // local to the exported segment. Do NOT trim the underlying tractor or
+    // timeremap chain: that would reinterpret absolute positions on a seek.
+    if (bounds->outputStart != 0 || bounds->outputEnd != *fullOutputTotal) {
+        rangePlaylist = std::make_unique<Mlt::Playlist>(*encodingProfile);
+        if (!rangePlaylist->is_valid() ||
+            rangePlaylist->append(*encodingProducer, static_cast<int>(bounds->outputStart),
+                                  static_cast<int>(bounds->outputEnd - 1)) != 0) {
+            return makeError(ErrorCode::Engine,
+                             QStringLiteral("Could not prepare the selected export range."));
+        }
+        encodingProducer = rangePlaylist.get();
+    }
 
     // Do not create an encoder or any temporary output after a cancellation during FPS setup.
     if (cancelRequested.load()) {
@@ -310,12 +321,12 @@ Status RenderRunner::run(const std::atomic<bool>& cancelRequested, const Started
     consumer->set("real_time", 0);
     consumer->set("threads", 0);
     consumer->set("terminate_on_pause", 1);
-    consumer->set("in", static_cast<int>(bounds->outputStart));
-    consumer->set("out", static_cast<int>(bounds->outputEnd - 1));
+    consumer->set("in", 0);
+    consumer->set("out", static_cast<int>(total - 1));
     consumer->connect(*encodingProducer);
     tractor->set_speed(0);
     encodingProducer->set_speed(0);
-    encodingProducer->seek(static_cast<int>(bounds->outputStart));
+    encodingProducer->seek(0);
 
     qCInfo(lcRender) << "Rendering" << total << "frames from" << bounds->projectStart << "to"
                      << bounds->projectEnd << "to" << finalPath << "with" << m_encoder;
@@ -348,7 +359,7 @@ Status RenderRunner::run(const std::atomic<bool>& cancelRequested, const Started
         }
         QThread::msleep(100);
         const FrameCount position =
-            std::clamp<FrameCount>(consumer->position() - bounds->outputStart, 0, total);
+            std::clamp<FrameCount>(consumer->position(), 0, total);
         if (progress && position != lastReported) {
             lastReported = position;
             progress(Progress{position, total});
@@ -357,6 +368,7 @@ Status RenderRunner::run(const std::atomic<bool>& cancelRequested, const Started
     consumer->stop();
     consumer->purge();
     consumer.reset(); // release FFmpeg/MLT references and output handles first
+    rangePlaylist.reset(); // release cut before the full timeline/fps chain it references
     frameRateLink.reset();
     frameRateChain.reset();
     tractor.reset();

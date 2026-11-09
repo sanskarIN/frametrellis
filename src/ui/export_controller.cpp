@@ -537,8 +537,8 @@ bool ExportController::fileExists(const QString& pathOrUrl) const
 
 bool ExportController::copyFailureDetails() const
 {
-    const bool batchFailure = !m_batchActive && !m_batchJobs.isEmpty() &&
-                              m_batchState == QLatin1String("failed");
+    const bool batchFailure =
+        !m_batchActive && !m_batchJobs.isEmpty() && m_batchState == QLatin1String("failed");
     const bool helperFailure = m_job && m_job->state() == RenderJob::State::Failed;
     if (!batchFailure && !helperFailure) {
         return false;
@@ -554,10 +554,10 @@ bool ExportController::copyFailureDetails() const
         // A batch can fail in preflight between variants while the previous
         // renderer succeeded. Do not mistake its last successful job for the
         // failure, and report the *pending* destination rather than the prior one.
-        const QString destination =
-            m_batchCompleted < m_batchJobs.size()
-                ? m_batchJobs.at(m_batchCompleted).outputPath
-                : m_job ? m_job->outputPath() : QString();
+        const QString destination = m_batchCompleted < m_batchJobs.size()
+                                        ? m_batchJobs.at(m_batchCompleted).outputPath
+                                    : m_job ? m_job->outputPath()
+                                            : QString();
         report = QStringLiteral("FrameTrellis batch export failure\n"
                                 "Review and redact private paths before sharing.\n"
                                 "Completed: %1/%2\nDestination: %3\nError: %4")

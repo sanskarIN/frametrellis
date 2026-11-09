@@ -162,6 +162,42 @@ std::unique_ptr<EditCommand> mergeSubtitleWithNext(Id cueId)
         });
 }
 
+std::unique_ptr<EditCommand> replaceSubtitleText(QString needle, QString replacement,
+                                                 bool matchCase)
+{
+    return std::make_unique<SubtitleCommand>(
+        QStringLiteral("Replace Subtitle Text"),
+        [needle = std::move(needle), replacement = std::move(replacement),
+         matchCase](SubtitleTrack& track) -> Status {
+            if (needle.isEmpty() || needle.size() > kMaxSubtitleTextLength ||
+                replacement.size() > kMaxSubtitleTextLength) {
+                return makeError(ErrorCode::InvalidArgument,
+                                 QStringLiteral("Enter a valid, nonempty subtitle search phrase."));
+            }
+            const Qt::CaseSensitivity sensitivity =
+                matchCase ? Qt::CaseSensitive : Qt::CaseInsensitive;
+            bool changed = false;
+            for (SubtitleCue& cue : track.cues) {
+                if (!cue.text.contains(needle, sensitivity)) {
+                    continue;
+                }
+                const QString replaced =
+                    QString(cue.text).replace(needle, replacement, sensitivity);
+                if (replaced != cue.text) {
+                    cue.text = replaced;
+                    changed = true;
+                }
+            }
+            if (!changed) {
+                return makeError(ErrorCode::InvalidArgument,
+                                 QStringLiteral("No subtitle text would change."));
+            }
+            // SubtitleCommand calls Project::setSubtitles, which validates every cue
+            // and the aggregate text budget before committing the copied track.
+            return {};
+        });
+}
+
 std::unique_ptr<EditCommand> appendSubtitles(std::vector<SubtitleCue> cues)
 {
     return std::make_unique<SubtitleCommand>(

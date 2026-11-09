@@ -374,6 +374,85 @@ private slots:
         QVERIFY(!budget.canUndo());
     }
 
+    void literalFindReplaceKeepsCueTimingAndSupportsOneUndo()
+    {
+        Project p = project();
+        SubtitleTrack track;
+        track.cues = {cue(QStringLiteral("a"), 100, 800, QStringLiteral("Hello नमस्ते 😀")),
+                      cue(QStringLiteral("b"), 1000, 1400, QStringLiteral("hELLo World")),
+                      cue(QStringLiteral("c"), 1500, 1700, QStringLiteral("Unaffected"))};
+        QVERIFY(p.setSubtitles(track));
+        ProjectDocument doc(p);
+        QSignalSpy changes(&doc, &ProjectDocument::changed);
+        const Project original = doc.project();
+
+        QVERIFY(doc.execute(
+            edits::replaceSubtitleText(QStringLiteral("hello"), QStringLiteral("नमस्कार"), false)));
+        const Project replaced = doc.project();
+        QCOMPARE(replaced.subtitles().cues[0].text, QStringLiteral("नमस्कार नमस्ते 😀"));
+        QCOMPARE(replaced.subtitles().cues[1].text, QStringLiteral("नमस्कार World"));
+        QCOMPARE(replaced.subtitles().cues[2].text, QStringLiteral("Unaffected"));
+        for (size_t i = 0; i < original.subtitles().cues.size(); ++i) {
+            QCOMPARE(replaced.subtitles().cues[i].id, original.subtitles().cues[i].id);
+            QCOMPARE(replaced.subtitles().cues[i].startMs, original.subtitles().cues[i].startMs);
+            QCOMPARE(replaced.subtitles().cues[i].endMs, original.subtitles().cues[i].endMs);
+        }
+        QCOMPARE(replaced.timeline(), original.timeline());
+        QCOMPARE(doc.undoText(), QStringLiteral("Replace Subtitle Text"));
+        QCOMPARE(changes.size(), 1);
+        QVERIFY(changes.last().at(0).value<ChangeSet>().subtitles);
+        const auto serialized = project_format::fromBytes(project_format::toBytes(replaced));
+        QVERIFY(serialized);
+        QCOMPARE(serialized->subtitles(), replaced.subtitles());
+        QVERIFY(doc.undo());
+        QCOMPARE(doc.project(), original);
+        QVERIFY(doc.redo());
+        QCOMPARE(doc.project(), replaced);
+    }
+
+    void findReplaceRejectsNoopsAndUnsafeCueTextAtomically()
+    {
+        Project p = project();
+        SubtitleTrack track;
+        track.cues = {cue(QStringLiteral("a"), 0, 500, QStringLiteral("alpha")),
+                      cue(QStringLiteral("b"), 500, 1000, QStringLiteral("beta"))};
+        QVERIFY(p.setSubtitles(track));
+        ProjectDocument doc(p);
+        const Project original = doc.project();
+        const auto reject = [&](const QString& needle, const QString& replacement,
+                                bool matchCase = true) {
+            QVERIFY(!doc.execute(edits::replaceSubtitleText(needle, replacement, matchCase)));
+            QCOMPARE(doc.project(), original);
+            QVERIFY(!doc.canUndo());
+        };
+        reject(QString(), QStringLiteral("value"));
+        reject(QStringLiteral("not-found"), QStringLiteral("value"));
+        reject(QStringLiteral("Alpha"), QStringLiteral("X"));
+        reject(QStringLiteral("alpha"), QStringLiteral("alpha"));
+        reject(QStringLiteral("alpha"), QString());
+        reject(QStringLiteral("alpha"), QString(kMaxSubtitleTextLength + 1, QLatin1Char('x')));
+        reject(QString(kMaxSubtitleTextLength + 1, QLatin1Char('x')), QStringLiteral("value"));
+
+        QVERIFY(doc.execute(
+            edits::replaceSubtitleText(QStringLiteral("ALPHA"), QStringLiteral("changed"), false)));
+        QCOMPARE(doc.project().subtitles().cues[0].text, QStringLiteral("changed"));
+        QCOMPARE(doc.project().subtitles().cues[1].text, QStringLiteral("beta"));
+        QVERIFY(doc.undo());
+        QCOMPARE(doc.project(), original);
+
+        // A replacement can be individually within the input limit but exceed
+        // a cue's final length when retained text surrounds the match.
+        Project withSuffix = original;
+        SubtitleTrack suffixed = withSuffix.subtitles();
+        suffixed.cues[0].text = QStringLiteral("alpha suffix");
+        QVERIFY(withSuffix.setSubtitles(suffixed));
+        ProjectDocument oversized(withSuffix);
+        QVERIFY(!oversized.execute(edits::replaceSubtitleText(
+            QStringLiteral("alpha"), QString(kMaxSubtitleTextLength, QLatin1Char('x')), true)));
+        QCOMPARE(oversized.project(), withSuffix);
+        QVERIFY(!oversized.canUndo());
+    }
+
     void wholeTrackTimingShiftPreservesSpacingAndUndo()
     {
         Project p = project();

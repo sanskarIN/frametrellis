@@ -3161,6 +3161,26 @@ private slots:
         QTRY_VERIFY(!dialog->property("dirty").toBool());
         QCOMPARE(m_app->project()->project().subtitles().cues.front().startMs, 123);
         const SubtitleTrack applied = m_app->project()->project().subtitles();
+        // Exercise the actual Find and Replace QML controls, including model
+        // bindings, literal matching, and undo. The scope guard restores data.
+        QQuickItem* search = findItem(m_window->contentItem(), QStringLiteral("subtitleFindText"));
+        QQuickItem* replacement =
+            findItem(m_window->contentItem(), QStringLiteral("subtitleReplacementText"));
+        QQuickItem* findNext =
+            findItem(m_window->contentItem(), QStringLiteral("subtitleFindNext"));
+        QQuickItem* replaceAll =
+            findItem(m_window->contentItem(), QStringLiteral("subtitleReplaceAll"));
+        QVERIFY(search && replacement && findNext && replaceAll);
+        QVERIFY(search->setProperty("text", QStringLiteral("Welcome")));
+        QVERIFY(replacement->setProperty("text", QStringLiteral("Greetings")));
+        QTRY_VERIFY(findNext->isEnabled() && replaceAll->isEnabled());
+        QVERIFY(click(QStringLiteral("subtitleFindNext")));
+        QVERIFY(click(QStringLiteral("subtitleReplaceAll")));
+        QTRY_VERIFY(m_app->project()->project().subtitles().cues.front().text.contains(
+            QStringLiteral("Greetings")));
+        QCOMPARE(m_app->project()->project().subtitles().cues.front().startMs, std::int64_t{123});
+        QVERIFY(click(QStringLiteral("subtitleUndo")));
+        QTRY_COMPARE(m_app->project()->project().subtitles(), applied);
         QVERIFY(click(QStringLiteral("subtitleShiftPlus100")));
         QTRY_COMPARE(m_app->project()->project().subtitles().cues.front().startMs,
                      std::int64_t{223});

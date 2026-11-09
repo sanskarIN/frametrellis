@@ -94,31 +94,63 @@ QString temporaryOutputPath(const QString& outputPath, const QString& requestedT
 
 /// Replaces the destination with the finished file in one step, so an existing export is never
 /// lost to a half-finished rename.
-Status moveIntoPlace(const QString& from, const QString& to)
+Status moveIntoPlace(const QString& from, const QString& to, bool replaceExisting)
 {
+    if (!replaceExisting && QFileInfo::exists(to)) {
+        return makeError(ErrorCode::Conflict,
+                         QStringLiteral("The batch output already exists. Nothing was replaced."));
+    }
 #ifdef Q_OS_WIN
     const std::wstring source = QDir::toNativeSeparators(from).toStdWString();
     const std::wstring target = QDir::toNativeSeparators(to).toStdWString();
-    if (!MoveFileExW(source.c_str(), target.c_str(),
-                     MOVEFILE_REPLACE_EXISTING | MOVEFILE_WRITE_THROUGH)) {
-        return makeError(ErrorCode::Io,
-                         QStringLiteral("The exported file could not be moved into place."),
-                         QStringLiteral("Windows error %1").arg(GetLastError()));
+    const DWORD flags = MOVEFILE_WRITE_THROUGH | (replaceExisting ? MOVEFILE_REPLACE_EXISTING : 0);
+    if (!MoveFileExW(source.c_str(), target.c_str(), flags)) {
+        const DWORD error = GetLastError();
+        return makeError(
+            !replaceExisting && (error == ERROR_ALREADY_EXISTS || error == ERROR_FILE_EXISTS)
+                ? ErrorCode::Conflict
+                : ErrorCode::Io,
+            QStringLiteral("The exported file could not be moved into place."),
+            QStringLiteral("Windows error %1").arg(error));
     }
 #else
+    const std::filesystem::path source(from.toStdString());
+    const std::filesystem::path target(to.toStdString());
     std::error_code error;
-    std::filesystem::rename(std::filesystem::path(from.toStdString()),
-                            std::filesystem::path(to.toStdString()), error);
+    if (replaceExisting) {
+        std::filesystem::rename(source, target, error);
+    } else {
+        // A hard link in the same directory publishes the verified, complete
+        // file atomically and fails with file_exists if another process won
+        // the destination name. POSIX rename would silently replace it.
+        std::filesystem::create_hard_link(source, target, error);
+        if (!error) {
+            std::error_code cleanup;
+            std::filesystem::remove(source, cleanup);
+            if (cleanup) {
+                qCWarning(lcRender) << "Could not remove published batch temporary file:"
+                                   << from << QString::fromStdString(cleanup.message());
+            }
+        }
+    }
     if (error) {
-        return makeError(ErrorCode::Io,
-                         QStringLiteral("The exported file could not be moved into place."),
-                         QString::fromStdString(error.message()));
+        return makeError(
+            !replaceExisting && error == std::errc::file_exists ? ErrorCode::Conflict
+                                                                : ErrorCode::Io,
+            QStringLiteral("The exported file could not be moved into place."),
+            QString::fromStdString(error.message()));
     }
 #endif
     return {};
 }
 
 } // namespace
+
+Status publishRenderedFile(const QString& partPath, const QString& destinationPath,
+                           bool replaceExisting)
+{
+    return moveIntoPlace(partPath, destinationPath, replaceExisting);
+}
 
 QStringList availableVideoEncoders()
 {
@@ -431,7 +463,9 @@ Status RenderRunner::run(const std::atomic<bool>& cancelRequested, const Started
     if (cancelRequested.load()) {
         return cancelledResult();
     }
-    if (const Status moved = moveIntoPlace(partPath, finalPath); !moved) {
+    if (const Status moved =
+            publishRenderedFile(partPath, finalPath, !m_settings.protectExistingOutput);
+        !moved) {
         QFile::remove(partPath);
         return moved;
     }

@@ -113,19 +113,22 @@ private slots:
         ui::ProjectController project;
         QVERIFY(project.openProject(projectPath));
         ui::ExportController exporter(&project, QStringLiteral(FT_RENDER_HELPER));
-        QVariantMap settings{{QStringLiteral("presetId"), QStringLiteral("match")},
-                             {QStringLiteral("outputPath"), m_dir.filePath(QStringLiteral("batch-safe.mp4"))},
-                             {QStringLiteral("frameRate"), QStringLiteral("30")},
-                             {QStringLiteral("rangeStartFrame"), QStringLiteral("0")},
-                             {QStringLiteral("rangeEndFrame"), QStringLiteral("25")},
-                             {QStringLiteral("includeAudio"), false}};
+        QVariantMap settings{
+            {QStringLiteral("presetId"), QStringLiteral("match")},
+            {QStringLiteral("outputPath"), m_dir.filePath(QStringLiteral("batch-safe.mp4"))},
+            {QStringLiteral("frameRate"), QStringLiteral("30")},
+            {QStringLiteral("rangeStartFrame"), QStringLiteral("0")},
+            {QStringLiteral("rangeEndFrame"), QStringLiteral("25")},
+            {QStringLiteral("includeAudio"), false}};
         const QStringList variants{QStringLiteral("draft"), QStringLiteral("review480p")};
         QCOMPARE(exporter.validateBatch(settings, variants), QString());
         QVERIFY(!exporter.validateBatch(settings, {QStringLiteral("draft")}).isEmpty());
-        QVERIFY(!exporter.validateBatch(settings, {QStringLiteral("draft"),
-                                                  QStringLiteral("draft")}).isEmpty());
-        QVERIFY(!exporter.validateBatch(settings, {QStringLiteral("draft"),
-                                                  QStringLiteral("unknown")}).isEmpty());
+        QVERIFY(
+            !exporter.validateBatch(settings, {QStringLiteral("draft"), QStringLiteral("draft")})
+                 .isEmpty());
+        QVERIFY(
+            !exporter.validateBatch(settings, {QStringLiteral("draft"), QStringLiteral("unknown")})
+                 .isEmpty());
         QVariantMap bad = settings;
         bad[QStringLiteral("frameRate")] = QStringLiteral("9999");
         QVERIFY(!exporter.validateBatch(bad, variants).isEmpty());
@@ -195,16 +198,15 @@ private slots:
         QVERIFY(project.execute(edits::addClip(trackId, extra)));
         QCOMPARE(project.project().timeline().duration(), FrameCount{50});
         QTRY_COMPARE_WITH_TIMEOUT(finished.size(), 1, 120'000);
-        QVERIFY2(finished.first().at(0).toBool(),
-                 qPrintable(finished.first().at(1).toString()));
+        QVERIFY2(finished.first().at(0).toBool(), qPrintable(finished.first().at(1).toString()));
         QCOMPARE(exporter.batchState(), QStringLiteral("succeeded"));
         QCOMPARE(exporter.batchCompleted(), 2);
         QCOMPARE(exporter.batchTotal(), 2);
         QCOMPARE(exporter.batchProgress(), 1.0);
         QVERIFY(!exporter.busy());
         for (const QString& id : presets) {
-            const QString path = m_dir.filePath(QStringLiteral("batch-two-variants-") + id +
-                                               QStringLiteral(".mp4"));
+            const QString path =
+                m_dir.filePath(QStringLiteral("batch-two-variants-") + id + QStringLiteral(".mp4"));
             QVERIFY2(QFileInfo(path).size() > 1024, qPrintable(path));
             const Result<MediaInfo> info = media::probeMedia(path);
             QVERIFY2(info, qPrintable(path));

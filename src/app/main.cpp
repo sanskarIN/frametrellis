@@ -13,6 +13,7 @@
 #include <QFile>
 #include <QFileInfo>
 #include <QGuiApplication>
+#include <QImage>
 #include <QIcon>
 #include <QQmlApplicationEngine>
 #include <QQuickStyle>

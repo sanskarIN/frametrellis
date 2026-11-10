@@ -588,57 +588,6 @@ std::unique_ptr<EditCommand> rippleInsertSourceClip(const Id& trackId, const Cli
         });
 }
 
-std::unique_ptr<EditCommand> rippleInsertSynchronizedSourceClips(const Id& videoTrackId,
-                                                                 const Clip& videoClip,
-                                                                 const Id& audioTrackId,
-                                                                 const Clip& audioClip)
-{
-    return std::make_unique<SequenceRippleCommand>(
-        QStringLiteral("Ripple Insert Picture and Sound"), videoClip.start, videoClip.duration,
-        [videoTrackId, videoClip, audioTrackId, audioClip](Timeline& timeline,
-                                                           const SourceLookup& sources) -> Status {
-            if (videoTrackId.isEmpty() || audioTrackId.isEmpty() || videoTrackId == audioTrackId ||
-                videoClip.id.isEmpty() || audioClip.id.isEmpty() || videoClip.id == audioClip.id ||
-                videoClip.assetId.isEmpty() || videoClip.assetId != audioClip.assetId ||
-                videoClip.start != audioClip.start || videoClip.sourceIn != audioClip.sourceIn ||
-                videoClip.duration <= 0 || videoClip.duration != audioClip.duration ||
-                !videoClip.properties.muted || audioClip.properties.muted) {
-                return makeError(
-                    ErrorCode::InvalidArgument,
-                    QStringLiteral("Picture and sound must be distinct clips from the same "
-                                   "range, with picture muted and sound enabled."));
-            }
-            const Track* pictureTrack = timeline.track(videoTrackId);
-            const Track* soundTrack = timeline.track(audioTrackId);
-            if (!pictureTrack || !soundTrack || pictureTrack->kind != TrackKind::Video ||
-                soundTrack->kind != TrackKind::Audio || pictureTrack->locked ||
-                soundTrack->locked) {
-                return makeError(
-                    ErrorCode::Conflict,
-                    QStringLiteral("Choose distinct unlocked video and audio tracks."));
-            }
-            const auto source = sources(videoClip.assetId);
-            if (!source || !source->hasVideo || !source->hasAudio) {
-                return makeError(
-                    ErrorCode::InvalidArgument,
-                    QStringLiteral("Synchronized insertion needs an online video with audio."));
-            }
-            // The SequenceRippleCommand stages both clips, all later tracks,
-            // sequence markers and captions on a temporary project. If either
-            // insertion fails, the entire edit and undo history remain unchanged.
-            if (const Status shifted = shiftTracksForInsertion(timeline, videoClip.start,
-                                                               videoClip.duration, sources, false);
-                !shifted) {
-                return shifted;
-            }
-            if (const Status picture = timeline.insertClip(videoTrackId, videoClip, sources);
-                !picture) {
-                return picture;
-            }
-            return timeline.insertClip(audioTrackId, audioClip, sources);
-        });
-}
-
 std::unique_ptr<EditCommand> removeEmptyTime(FrameCount frame, FrameCount duration)
 {
     return std::make_unique<SequenceRippleCommand>(

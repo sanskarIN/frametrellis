@@ -845,9 +845,21 @@ at or after the cut also move, with frame-rate-aware millisecond timing.
 Subtitles ending before or at the cut keep their positions; if a subtitle
 spans the insertion point, adjust or split that cue before inserting.
 Markers, subtitles and clips are restored together by one Undo/Redo,
-and failed operations do not change the project. This does not insert
-synchronized picture and audio together: **Place V+A** remains a
-separate, non-rippling operation.
+and failed operations do not change the project.
+
+**Ripple V+A (v1.5.0 development):** For an online video source with sound,
+use the new **Ripple V+A** action to place a matched picture clip and a
+separate audio clip at the Program playhead. Picture sound is muted; the
+dedicated audio clip plays the soundtrack once. Both clips share source
+In/Out and duration, while later video/audio material, review markers and
+eligible subtitle cues shift together in **one project transaction**. An
+explicit Target track pins one stream and the other uses an available unlocked
+complementary lane. Cuts through any clip, locked affected lanes, invalid
+transitions, a subtitle spanning the cut, unavailable volume filtering or a
+missing complementary track reject the entire operation. Undo/Redo restores
+both new clips and every shifted marker/caption together. The clips remain
+independently editable afterward; this does **not** create persistent links.
+**Place V+A** remains the non-rippling option.
 
 To replace one existing timeline clip without changing its cut, select that
 clip on an unlocked track and open replacement media in the Source Monitor.
@@ -875,8 +887,8 @@ project. The panel clears a source when its project is closed/replaced or
 that media is removed.
 
 This is still an independent **silent frame viewer**, not yet a source player
-with audio transport, persistent linked clip groups, linked picture/audio
-ripple insertion, or destructive overwrite editing. For those workflows, see the
+with audio transport, persistent linked clip groups or destructive overwrite
+editing. For those workflows, see the
 [professional-editor gap assessment](../development/pro-editor-assessment.md).
 This post-v1.4.0 improvement is not in the stable v1.4.0 downloads.
 

@@ -67,6 +67,15 @@ std::unique_ptr<EditCommand> insertGap(FrameCount frame, FrameCount duration);
 /// A subtitle spanning the cut blocks the edit until it is adjusted explicitly.
 /// Marker, subtitle and clip changes share one atomic undo/redo command.
 std::unique_ptr<EditCommand> rippleInsertSourceClip(const Id& trackId, const Clip& clip);
+/// Insert synchronized picture and sound excerpts at a shared cut, shifting all
+/// subsequent tracks, sequence markers and eligible captions atomically.
+/// Video must be muted and sound audible so the soundtrack plays exactly once.
+/// Rejects invalid pairs, locked lanes, spanning cuts, unsafe transitions or
+/// subtitle boundaries; never leaves half a pair or partial sequence edit.
+std::unique_ptr<EditCommand> rippleInsertSynchronizedSourceClips(const Id& videoTrackId,
+                                                                 const Clip& videoClip,
+                                                                 const Id& audioTrackId,
+                                                                 const Clip& audioClip);
 /// Remove an interval that contains no clip frames on any track, moving later
 /// clips earlier as one undoable change. Locked affected tracks and intersecting
 /// clips reject the operation without modifying the project. Markers and captions

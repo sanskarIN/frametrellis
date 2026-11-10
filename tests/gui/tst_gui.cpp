@@ -3334,6 +3334,16 @@ private slots:
         QVERIFY(click(QStringLiteral("subtitlesButton")));
         QTRY_VERIFY(dialog->property("visible").toBool());
         screenshot(QStringLiteral("13-subtitles"));
+        // The additional caption timing controls must not push the cue editor
+        // action row underneath the dialog footer at the 1200x800 baseline.
+        QQuickItem* cueActions =
+            findItem(m_window->contentItem(), QStringLiteral("subtitleCueActions"));
+        QQuickItem* footerActions =
+            findItem(m_window->contentItem(), QStringLiteral("subtitleActionsFooter"));
+        QVERIFY(cueActions && footerActions);
+        QVERIFY(cueActions->isVisible() && footerActions->isVisible());
+        QTRY_VERIFY(cueActions->mapToScene(QPointF(0.0, cueActions->height())).y() + 4.0 <
+                    footerActions->mapToScene(QPointF(0.0, 0.0)).y());
         m_app->setTheme(QStringLiteral("light"));
         screenshot(QStringLiteral("14-subtitles-light"));
         QVERIFY2(m_qmlWarnings.isEmpty(), "Subtitle editor produced QML warnings");

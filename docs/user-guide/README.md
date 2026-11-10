@@ -616,7 +616,11 @@ sharing outside your machine. Available in v1.4.0.
 1. Choose a preset (*Match project*, *1080p*, *720p*, *2160p*, *Fast draft*).
 2. Choose where to save the `.mp4` file.
 3. Optionally adjust quality (lower CRF = better quality, bigger file), encoder speed and audio.
-4. Click **Export**.
+4. In v1.5.0 development, choose a separate output FPS or a custom/selected timeline range.
+   The live summary shows the **exact encoded-frame count** at the selected output FPS,
+   even when it differs from the project FPS. Invalid/too-short ranges show an error
+   instead of a misleading frame count. The project timeline is not retimed.
+5. Click **Export**.
 
 The v1.4.0 presets include **Low-bandwidth review (up to 480p)** and
 **Creator upload (up to 1440p)**. Both preserve smaller project canvases

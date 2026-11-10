@@ -330,7 +330,10 @@ FtDialog {
                 FrameView {
                     objectName: "subtitlePreview"
                     Layout.fillWidth: true
-                    Layout.preferredHeight: 170
+                    // Keep cue editor buttons and the dialog footer accessible at
+                    // 1200x800 and other compact window sizes. A fixed 170px
+                    // monitor used to over-constrain the layout after the timing tools.
+                    Layout.preferredHeight: Math.max(80, Math.min(150, dialog.height - 575))
                     visible: dialog.height >= 600
                     source: dialog.visible ? dialog.app.playback : null
                     backgroundColor: Theme.monitorBackground
@@ -402,6 +405,7 @@ FtDialog {
                     }
                 }
                 RowLayout {
+                    objectName: "subtitleCueActions"
                     Layout.fillWidth: true
                     FtButton { text: qsTr("Preview cue"); enabled: dialog.subtitles.canSeek; onClicked: dialog.subtitles.seekSelected() }
                     FtButton {
@@ -440,6 +444,7 @@ FtDialog {
         }
     }
     footer: DialogButtons {
+        objectName: "subtitleActionsFooter"
         FtButton { text: qsTr("Clear track"); enabled: dialog.subtitles.count > 0; onClicked: dialog.guarded(() => dialog.subtitles.clearAll()) }
         Label { text: dialog.dirty ? qsTr("Unapplied changes") : qsTr("All cue changes applied"); color: dialog.dirty ? Theme.warning : Theme.textMuted; font.pixelSize: Theme.fontSizeSmall }
         Item { Layout.fillWidth: true }

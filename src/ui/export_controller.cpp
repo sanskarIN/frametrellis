@@ -245,12 +245,11 @@ QString ExportController::describeOutput(const QVariantMap& settings) const
                 : QString();
     QString frameCountText;
     if (rate) {
-        const auto bounds = rendering::resolveExportFrameBounds(
-            s, m_project->project().timeline().duration(), m_project->project().settings().frameRate,
-            *rate);
+        const auto bounds =
+            rendering::resolveExportFrameBounds(s, m_project->project().timeline().duration(),
+                                                m_project->project().settings().frameRate, *rate);
         if (bounds) {
-            frameCountText =
-                QStringLiteral(" · %1 output frames").arg(bounds->outputLength());
+            frameCountText = QStringLiteral(" · %1 output frames").arg(bounds->outputLength());
         }
     }
     return QStringLiteral("%1×%2 · %3 · H.264 + %4%5%6%7")

@@ -283,12 +283,12 @@ Status validateExport(const ExportSettings& settings, const Project& project,
 Status verifyExportStreams(const MediaInfo& encoded, bool includeAudio)
 {
     if (encoded.kind != MediaKind::Video || !encoded.hasVideo) {
-        return makeError(ErrorCode::Io,
-                         QStringLiteral("The rendered file has no video stream."));
+        return makeError(ErrorCode::Io, QStringLiteral("The rendered file has no video stream."));
     }
     if (includeAudio && (!encoded.hasAudio || encoded.audioCodec != QLatin1String("aac"))) {
-        return makeError(ErrorCode::Io,
-                         QStringLiteral("The rendered file is missing the expected AAC audio stream."));
+        return makeError(
+            ErrorCode::Io,
+            QStringLiteral("The rendered file is missing the expected AAC audio stream."));
     }
     if (!includeAudio && encoded.hasAudio) {
         return makeError(ErrorCode::Io,

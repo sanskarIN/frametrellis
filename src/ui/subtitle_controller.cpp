@@ -389,6 +389,10 @@ bool SubtitleController::shiftAll(int deltaMilliseconds)
 {
     return execute(edits::shiftSubtitles(deltaMilliseconds));
 }
+bool SubtitleController::stretchAllTiming(int percentage)
+{
+    return execute(edits::stretchSubtitleTiming(percentage));
+}
 bool SubtitleController::setAppearance(bool burn, int percent, bool plate)
 {
     return execute(edits::setSubtitleAppearance(burn, percent, plate));

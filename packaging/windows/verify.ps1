@@ -138,7 +138,7 @@ function Test-Editor([string] $Folder, [string] $Project, [string] $What) {
     if (-not $process.WaitForExit(180000)) {
         Stop-Process -Id $process.Id -Force
         Check $false "$What editor finished within three minutes"
-        Write-Host "Last smoke checkpoints for $What:"
+        Write-Host "Last smoke checkpoints for ${What}:"
         if (Test-Path $smoke) {
             Get-Content -LiteralPath $smoke -Tail 30 | ForEach-Object { Write-Host "  $_" }
         } else {

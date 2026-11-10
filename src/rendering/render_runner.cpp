@@ -374,8 +374,8 @@ Status RenderRunner::run(const std::atomic<bool>& cancelRequested, const Started
         written && written->width == size.width() && written->height == size.height();
     const bool expectedRate =
         written && written->frameRate == Rational(exportRate.numerator(), exportRate.denominator());
-    const Status streams = written ? verifyExportStreams(*written, m_settings.includeAudio)
-                                   : Status{};
+    const Status streams =
+        written ? verifyExportStreams(*written, m_settings.includeAudio) : Status{};
     if (!written || !streams || !expectedSize || !expectedRate ||
         std::abs(written->durationUs - expectedUs) > toleranceUs) {
         QFile::remove(partPath);
@@ -385,31 +385,28 @@ Status RenderRunner::run(const std::atomic<bool>& cancelRequested, const Started
         const QString detail =
             written ? QStringLiteral(
                           "expected %1x%2 at %3 fps and %4 us, got %5x%6 at %7 fps and %8 us")
-                          .arg(size.width())
-                          .arg(size.height())
-                          .arg(exportRate.displayName())
-                          .arg(expectedUs)
-                          .arg(written->width)
-                          .arg(written->height)
-                          .arg(written->frameRate.toString())
-                          .arg(written->durationUs) +
+                              .arg(size.width())
+                              .arg(size.height())
+                              .arg(exportRate.displayName())
+                              .arg(expectedUs)
+                              .arg(written->width)
+                              .arg(written->height)
+                              .arg(written->frameRate.toString())
+                              .arg(written->durationUs) +
                           QStringLiteral("; expected audio: %1; got audio: %2 (%3)%4")
                               .arg(m_settings.includeAudio ? QStringLiteral("AAC")
                                                            : QStringLiteral("none"),
-                                   written->hasAudio ? QStringLiteral("yes")
-                                                     : QStringLiteral("no"),
+                                   written->hasAudio ? QStringLiteral("yes") : QStringLiteral("no"),
                                    written->audioCodec,
                                    streams ? QString()
                                            : QStringLiteral("; %1").arg(streams.error().message))
                     : written.error().toString();
         qCWarning(lcRender) << "Render verification failed:" << detail;
-        return makeError(
-            ErrorCode::Io,
-            diskFull
-                ? QStringLiteral("Rendering failed: the disk is full.")
-                : QStringLiteral(
-                      "Rendering failed: the output audio, dimensions, FPS or duration were incorrect."),
-            detail);
+        return makeError(ErrorCode::Io,
+                         diskFull ? QStringLiteral("Rendering failed: the disk is full.")
+                                  : QStringLiteral("Rendering failed: the output audio, "
+                                                   "dimensions, FPS or duration were incorrect."),
+                         detail);
     }
     if (progress) {
         progress(Progress{total, total});

@@ -4204,10 +4204,9 @@ private slots:
             {QStringLiteral("outputPath"), m_dir.filePath(QStringLiteral("gui-batch-all.mp4"))},
             {QStringLiteral("frameRate"), QStringLiteral("match")}};
         QCOMPARE(m_app->exporter()->validateBatch(
-                     allSettings,
-                     {QStringLiteral("youtube1080p"), QStringLiteral("draft"),
-                      QStringLiteral("review480p"), QStringLiteral("youtube1440p"),
-                      QStringLiteral("youtube4k")}),
+                     allSettings, {QStringLiteral("youtube1080p"), QStringLiteral("draft"),
+                                   QStringLiteral("review480p"), QStringLiteral("youtube1440p"),
+                                   QStringLiteral("youtube4k")}),
                  QString());
         QVERIFY(creator1440->setProperty("checked", false));
         QVERIFY(creator4k->setProperty("checked", false));

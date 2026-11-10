@@ -34,8 +34,8 @@ their actual tag and packages are verified.
   also shifts markers at/after the cut and eligible subtitle cues at rational
   frame-rate boundaries in the same undo step. Subtitles spanning the cut must
   be adjusted or split before insertion; marker and subtitle time overflow is
-  rejected without a partial edit. Paired V+A ripple insertion is documented
-  separately below; this is not a destructive overwrite.
+  rejected without a partial edit. This is not a linked V+A ripple or a
+  destructive overwrite.
 
 - **Match Source Monitor excerpt to selected clip length:** one click sets
   exclusive Out to the selected timeline clip's duration after the existing
@@ -55,17 +55,8 @@ their actual tag and packages are verified.
   video/audio tracks at the Program playhead as one undoable edit. Honors a
   selected destination and chooses the other compatible free lane. A collision,
   lock, invalid range or missing lane rolls back the complete operation.
-  The clips remain independently editable, not persistently linked. The
-  separate synchronized ripple V+A operation is now integrated; destructive
-  overwrite and Source Monitor audio playback are still not available.
-
-- **Synchronized ripple V+A insertion ([#210](https://github.com/sanskarIN/frametrellis/pull/210)):**
-  marked video with sound inserts matched picture and audio excerpts at the
-  Program playhead, mutes picture audio to avoid doubles, and shifts later
-  clips, markers and eligible subtitles together with one atomic Undo/Redo.
-  Unsafe cuts, locked lanes, missing audio and subtitle boundary conflicts are
-  rejected without a partial edit. Clips are not persistently linked. This
-  feature is only in development `main`, not stable v1.4.0.
+  The clips remain independently editable, not persistently linked; there is
+  no *paired* V+A ripple insertion, overwrite or source audio playback.
 
 - **Append a source excerpt to the chosen track:** Source Monitor **Append range**
   now honors its Target track picker; when automatic, it skips compatible

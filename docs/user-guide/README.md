@@ -616,15 +616,21 @@ sharing outside your machine. Available in v1.4.0.
 1. Choose a preset (*Match project*, *1080p*, *720p*, *2160p*, *Fast draft*).
 2. Choose where to save the `.mp4` file.
 3. Optionally adjust quality (lower CRF = better quality, bigger file), encoder speed and audio.
-4. Click **Export**.
+4. In v1.5.0 development, choose a separate output FPS or a custom/selected timeline range.
+   The live summary shows the **exact encoded-frame count** at the selected output FPS,
+   even when it differs from the project FPS. Invalid/too-short ranges show an error
+   instead of a misleading frame count. The project timeline is not retimed.
+5. Click **Export**.
 
 The v1.4.0 presets include **Low-bandwidth review (up to 480p)** and
 **Creator upload (up to 1440p)**. Both preserve smaller project canvases
 without upscaling and work for landscape and portrait projects.
 
-**Batch delivery (v1.5.0 development only):** In the export dialog, select two
-or three delivery variants (*Creator 1080p*, *Draft 720p* and *Small 480p*),
-then choose **Export N variants**. FrameTrellis creates separate
+**Batch delivery (v1.5.0 development only):** In the export dialog, select
+between two and five delivery variants (*Creator 1080p*, *Draft 720p*,
+*Small 480p*, *Creator 1440p* and *Creator 4K*), then choose
+**Export N variants**. The creator presets never upscale a smaller project,
+and high-resolution output still requires matching real source quality. FrameTrellis creates separate
 `<base>-<preset-id>.mp4` files (for example `scene-draft.mp4`), sequentially
 rather than starting multiple encoders at once. Every variant uses a single
 frozen project snapshot captured at batch start, plus the chosen FPS, timeline

@@ -209,6 +209,12 @@ $unlicensed = @($components | Where-Object {
     -not (Get-ChildItem (Join-Path $portable "licenses\$_") -Recurse -File -ErrorAction SilentlyContinue) })
 Check ($components.Count -gt 0 -and $unlicensed.Count -eq 0) `
     "every bundled component has license texts ($($components.Count) components$(if ($unlicensed) { '; missing: ' + ($unlicensed -join ', ') }))"
+# SDL2-compat loads SDL3 outside the ordinary PE import table. It must be
+# present in the standalone ZIP and independently attributed in the SBOM.
+if ($components -contains 'mingw-w64-ucrt-x86_64-sdl2-compat') {
+    Check (Test-Path (Join-Path $portable 'SDL3.dll')) 'SDL2-compat includes its SDL3 runtime DLL'
+    Check ($components -contains 'mingw-w64-ucrt-x86_64-sdl3') 'SDL3 is listed as a bundled component'
+}
 $version = (Get-Item (Join-Path $portable 'frametrellis.exe')).VersionInfo.ProductVersion
 Write-Host "frametrellis.exe product version: $version"
 Check ($Zip -match [regex]::Escape("FrameTrellis-$version-")) 'version resource matches the package name'

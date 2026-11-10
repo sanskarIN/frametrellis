@@ -18,7 +18,9 @@ FtDialog {
     property string batchWarning: ""
     readonly property int batchSelectionCount: Number(batchCreator.checked) +
                                                Number(batchReview.checked) +
-                                               Number(batchMobile.checked)
+                                               Number(batchMobile.checked) +
+                                               Number(batchCreator1440.checked) +
+                                               Number(batchCreator4k.checked)
     property string outputPath: ""
     property bool presetInitialized: false
     readonly property var frameRates: [
@@ -73,6 +75,8 @@ FtDialog {
         if (batchCreator.checked) ids.push("youtube1080p")
         if (batchReview.checked) ids.push("draft")
         if (batchMobile.checked) ids.push("review480p")
+        if (batchCreator1440.checked) ids.push("youtube1440p")
+        if (batchCreator4k.checked) ids.push("youtube4k")
         return ids
     }
     function startBatchExport() {
@@ -315,6 +319,20 @@ FtDialog {
                 }
                 RowLayout {
                     Layout.fillWidth: true
+                    FtCheckBox {
+                        id: batchCreator1440
+                        objectName: "exportBatchCreator1440"
+                        text: qsTr("Creator 1440p")
+                    }
+                    FtCheckBox {
+                        id: batchCreator4k
+                        objectName: "exportBatchCreator4k"
+                        text: qsTr("Creator 4K")
+                    }
+                    Item { Layout.fillWidth: true }
+                }
+                RowLayout {
+                    Layout.fillWidth: true
                     FtButton {
                         objectName: "exportBatchPresets"
                         text: qsTr("Export %1 variants").arg(dialog.batchSelectionCount)
@@ -325,7 +343,7 @@ FtDialog {
                         Layout.fillWidth: true
                         color: Theme.textFaint
                         font.pixelSize: Theme.fontSizeSmall
-                        text: qsTr("Each preset gets its own -preset.mp4 file. " +
+                        text: qsTr("Choose 2–5 variants. Each gets its own -preset.mp4 file. " +
                                    "Existing outputs are never replaced; all variants use one project snapshot.")
                         wrapMode: Text.WordWrap
                     }

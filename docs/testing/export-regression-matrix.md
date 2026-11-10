@@ -5,7 +5,8 @@ This document defines repeatable acceptance checks for FrameTrellis MP4 export. 
 | Case | Setup | Expected result |
 | --- | --- | --- |
 | Short video | Single short video clip | Valid MP4 with expected picture duration |
-| Audio retention | Video and separate audio track | Audible output and expected duration |
+| Audio retention | Video and separate audio track | Audible AAC output and expected duration; missing/wrong audio stream fails verification before publication |
+| Video-only output | Disable audio in Export dialog | No audio stream in the resulting MP4; an unexpected stream fails verification before publication |
 | Quick profile | Supported source and Quick preset | Valid H.264/AAC output |
 | Turbo preview | Supported source and Turbo preset | Valid preview-size output |
 | No-upscale | Small source and no-upscale enabled | Output does not exceed permitted source dimensions |

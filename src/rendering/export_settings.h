@@ -84,6 +84,11 @@ Result<ExportFrameBounds> resolveExportFrameBounds(const ExportSettings& setting
 Status validateExport(const ExportSettings& settings, const Project& project,
                       const QString& projectFilePath = {});
 
+/// Verify the *encoded* media streams before publishing the finished output. A
+/// valid picture-only file must never be reported as a successful audio export,
+/// and a video-only export must not accidentally contain a soundtrack.
+Status verifyExportStreams(const MediaInfo& encoded, bool includeAudio);
+
 /// Video encoders in order of preference; the first one MLT/FFmpeg provides is used.
 QStringList preferredVideoEncoders();
 QString chooseVideoEncoder(const QStringList& available);

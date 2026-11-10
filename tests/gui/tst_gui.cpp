@@ -3350,12 +3350,22 @@ private slots:
         // action row underneath the dialog footer at the 1200x800 baseline.
         QQuickItem* cueActions =
             findItem(m_window->contentItem(), QStringLiteral("subtitleCueActions"));
-        QQuickItem* footerActions =
-            findItem(m_window->contentItem(), QStringLiteral("subtitleActionsFooter"));
-        QVERIFY(cueActions && footerActions);
-        QVERIFY(cueActions->isVisible() && footerActions->isVisible());
+        QQuickItem* closeButton =
+            findItem(m_window->contentItem(), QStringLiteral("subtitleClose"));
+        QQuickItem* workflowHint =
+            findItem(m_window->contentItem(), QStringLiteral("subtitleWorkflowHint"));
+        QVERIFY(cueActions && closeButton && workflowHint);
+        QVERIFY(cueActions->isVisible() && closeButton->isVisible() &&
+                workflowHint->isVisible());
+        // Compare real visible controls and note text with the button row:
+        // the footer item's own padded bounding box can extend above its buttons.
+        const auto closeTop = [&] {
+            return closeButton->mapToScene(QPointF(0.0, 0.0)).y();
+        };
         QTRY_VERIFY(cueActions->mapToScene(QPointF(0.0, cueActions->height())).y() + 4.0 <
-                    footerActions->mapToScene(QPointF(0.0, 0.0)).y());
+                    closeTop());
+        QTRY_VERIFY(workflowHint->mapToScene(QPointF(0.0, workflowHint->height())).y() + 2.0 <
+                    closeTop());
         m_app->setTheme(QStringLiteral("light"));
         screenshot(QStringLiteral("14-subtitles-light"));
         QVERIFY2(m_qmlWarnings.isEmpty(), "Subtitle editor produced QML warnings");

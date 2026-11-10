@@ -4186,11 +4186,31 @@ private slots:
         QQuickItem* start = findItem(m_window->contentItem(), QStringLiteral("exportBatchPresets"));
         QQuickItem* range = findItem(m_window->contentItem(), QStringLiteral("exportRangeBox"));
         QQuickItem* fps = findItem(m_window->contentItem(), QStringLiteral("exportFrameRateBox"));
-        QVERIFY(creator && review && mobile && start && range && fps);
+        QQuickItem* creator1440 =
+            findItem(m_window->contentItem(), QStringLiteral("exportBatchCreator1440"));
+        QQuickItem* creator4k =
+            findItem(m_window->contentItem(), QStringLiteral("exportBatchCreator4k"));
+        QVERIFY(creator && review && mobile && creator1440 && creator4k && start && range && fps);
         QVERIFY(range->setProperty("currentIndex", 0));
         QVERIFY(fps->setProperty("currentIndex", 0));
         QVERIFY(creator->setProperty("checked", true));
         QVERIFY(review->setProperty("checked", true));
+        QVERIFY(mobile->setProperty("checked", false));
+        QVERIFY(creator1440->setProperty("checked", true));
+        QVERIFY(creator4k->setProperty("checked", true));
+        QVERIFY(mobile->setProperty("checked", true));
+        QTRY_COMPARE(dialog->property("batchSelectionCount").toInt(), 5);
+        const QVariantMap allSettings{
+            {QStringLiteral("outputPath"), m_dir.filePath(QStringLiteral("gui-batch-all.mp4"))},
+            {QStringLiteral("frameRate"), QStringLiteral("match")}};
+        QCOMPARE(m_app->exporter()->validateBatch(
+                     allSettings,
+                     {QStringLiteral("youtube1080p"), QStringLiteral("draft"),
+                      QStringLiteral("review480p"), QStringLiteral("youtube1440p"),
+                      QStringLiteral("youtube4k")}),
+                 QString());
+        QVERIFY(creator1440->setProperty("checked", false));
+        QVERIFY(creator4k->setProperty("checked", false));
         QVERIFY(mobile->setProperty("checked", false));
         QTRY_VERIFY(start->isEnabled());
         QVERIFY(creator->setProperty("checked", false));

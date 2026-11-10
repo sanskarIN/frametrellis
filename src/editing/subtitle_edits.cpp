@@ -257,10 +257,8 @@ std::unique_ptr<EditCommand> shiftSubtitles(std::int64_t deltaMilliseconds)
 std::unique_ptr<EditCommand> stretchSubtitleTiming(int percentage)
 {
     return std::make_unique<SubtitleCommand>(
-        QStringLiteral("Stretch Subtitle Timing"),
-        [percentage](SubtitleTrack& track) -> Status {
-            if (track.cues.empty() || percentage < 25 || percentage > 400 ||
-                percentage == 100) {
+        QStringLiteral("Stretch Subtitle Timing"), [percentage](SubtitleTrack& track) -> Status {
+            if (track.cues.empty() || percentage < 25 || percentage > 400 || percentage == 100) {
                 return makeError(
                     ErrorCode::InvalidArgument,
                     QStringLiteral("Add subtitles and choose a timing scale from 25–400%, "

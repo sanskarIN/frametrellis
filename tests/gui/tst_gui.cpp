@@ -3301,6 +3301,19 @@ private slots:
                      std::int64_t{373});
         QVERIFY(click(QStringLiteral("subtitleUndo")));
         QTRY_COMPARE(m_app->project()->project().subtitles(), applied);
+        // Exercise the actual QML SpinBox and Apply button, including 123ms
+        // * 150% = 184.5ms rounding to 185ms. One Undo restores both boundaries.
+        QQuickItem* stretch =
+            findItem(m_window->contentItem(), QStringLiteral("subtitleStretchPercent"));
+        QVERIFY(stretch && stretch->isVisible());
+        QVERIFY(stretch->setProperty("value", 150));
+        QVERIFY(click(QStringLiteral("subtitleApplyTimingStretch")));
+        QTRY_COMPARE(m_app->project()->project().subtitles().cues.front().startMs,
+                     std::int64_t{185});
+        QCOMPARE(m_app->project()->project().subtitles().cues.front().endMs,
+                 std::int64_t{3000});
+        QVERIFY(click(QStringLiteral("subtitleUndo")));
+        QTRY_COMPARE(m_app->project()->project().subtitles(), applied);
         QVERIFY(click(QStringLiteral("subtitleUndo")));
         QTRY_COMPARE(m_app->project()->project().subtitles().cues.front().startMs, 0);
         m_app->project()->redo();

@@ -374,7 +374,9 @@ Status RenderRunner::run(const std::atomic<bool>& cancelRequested, const Started
         written && written->width == size.width() && written->height == size.height();
     const bool expectedRate =
         written && written->frameRate == Rational(exportRate.numerator(), exportRate.denominator());
-    if (!written || written->kind != MediaKind::Video || !expectedSize || !expectedRate ||
+    const Status streams = written ? verifyExportStreams(*written, m_settings.includeAudio)
+                                   : Status{};
+    if (!written || !streams || !expectedSize || !expectedRate ||
         std::abs(written->durationUs - expectedUs) > toleranceUs) {
         QFile::remove(partPath);
         const QStorageInfo storage(QFileInfo(finalPath).absolutePath());
@@ -390,7 +392,15 @@ Status RenderRunner::run(const std::atomic<bool>& cancelRequested, const Started
                           .arg(written->width)
                           .arg(written->height)
                           .arg(written->frameRate.toString())
-                          .arg(written->durationUs)
+                          .arg(written->durationUs) +
+                          QStringLiteral("; expected audio: %1; got audio: %2 (%3)%4")
+                              .arg(m_settings.includeAudio ? QStringLiteral("AAC")
+                                                           : QStringLiteral("none"),
+                                   written->hasAudio ? QStringLiteral("yes")
+                                                     : QStringLiteral("no"),
+                                   written->audioCodec,
+                                   streams ? QString()
+                                           : QStringLiteral("; %1").arg(streams.error().message))
                     : written.error().toString();
         qCWarning(lcRender) << "Render verification failed:" << detail;
         return makeError(
@@ -398,7 +408,7 @@ Status RenderRunner::run(const std::atomic<bool>& cancelRequested, const Started
             diskFull
                 ? QStringLiteral("Rendering failed: the disk is full.")
                 : QStringLiteral(
-                      "Rendering failed: the output dimensions, FPS or duration were incorrect."),
+                      "Rendering failed: the output audio, dimensions, FPS or duration were incorrect."),
             detail);
     }
     if (progress) {

@@ -73,6 +73,35 @@ private slots:
         QVERIFY(validateExport(settingsFor(QStringLiteral("OUT.MP4")), projectWithClip()));
     }
 
+    void verifiesAudioStreamsBeforePublishingEncodedVideo()
+    {
+        MediaInfo encoded;
+        encoded.kind = MediaKind::Video;
+        encoded.hasVideo = true;
+        encoded.hasAudio = true;
+        encoded.audioCodec = QStringLiteral("aac");
+        QVERIFY(verifyExportStreams(encoded, true));
+        QVERIFY(!verifyExportStreams(encoded, false));
+
+        encoded.hasAudio = false;
+        encoded.audioCodec.clear();
+        QVERIFY(verifyExportStreams(encoded, false));
+        QVERIFY(!verifyExportStreams(encoded, true));
+
+        encoded.hasAudio = true;
+        encoded.audioCodec = QStringLiteral("mp3");
+        QVERIFY(!verifyExportStreams(encoded, true));
+
+        encoded.audioCodec = QStringLiteral("aac");
+        encoded.hasVideo = false;
+        QVERIFY(!verifyExportStreams(encoded, true));
+        QVERIFY(!verifyExportStreams(encoded, false));
+
+        encoded.hasVideo = true;
+        encoded.kind = MediaKind::Audio;
+        QVERIFY(!verifyExportStreams(encoded, true));
+    }
+
     void batchOutputPublicationDoesNotReplaceExistingFiles()
     {
         const QString from = m_dir.filePath(QStringLiteral("no-overwrite.part.mp4"));

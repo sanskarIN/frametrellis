@@ -341,10 +341,12 @@ FtDialog {
 
             Item { width: 1; height: 1 }
             Text {
+                objectName: "exportOutputSummary"
                 Layout.fillWidth: true
                 text: dialog.exporter.describeOutput(dialog.settings())
                 color: Theme.textMuted
                 font.pixelSize: Theme.fontSizeSmall
+                wrapMode: Text.WordWrap
             }
 
             Item { width: 1; height: 1 }

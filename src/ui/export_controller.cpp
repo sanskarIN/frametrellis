@@ -243,13 +243,23 @@ QString ExportController::describeOutput(const QVariantMap& settings) const
                       .arg(s.rangeEndFrame == -1 ? m_project->project().timeline().duration()
                                                  : s.rangeEndFrame)
                 : QString();
-    return QStringLiteral("%1×%2 · %3 · H.264 + %4%5%6")
+    QString frameCountText;
+    if (rate) {
+        const auto bounds =
+            rendering::resolveExportFrameBounds(s, m_project->project().timeline().duration(),
+                                                m_project->project().settings().frameRate, *rate);
+        if (bounds) {
+            frameCountText = QStringLiteral(" · %1 output frames").arg(bounds->outputLength());
+        }
+    }
+    return QStringLiteral("%1×%2 · %3 · H.264 + %4%5%6%7")
         .arg(size.width())
         .arg(size.height())
         .arg(rate ? rate->displayName() : QStringLiteral("invalid FPS"),
              s.includeAudio ? QStringLiteral("AAC %1 kbit/s").arg(s.audioBitrateKbps)
                             : QStringLiteral("no audio"),
-             s.avoidUpscaling ? QStringLiteral(" · no upscaling") : QString(), rangeText);
+             s.avoidUpscaling ? QStringLiteral(" · no upscaling") : QString(), rangeText,
+             frameCountText);
 }
 
 Result<QVector<rendering::ExportSettings>>

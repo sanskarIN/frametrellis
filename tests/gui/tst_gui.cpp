@@ -4153,9 +4153,18 @@ private slots:
             {QStringLiteral("rangeStartFrame"), QStringLiteral("5")},
             {QStringLiteral("rangeEndFrame"), QStringLiteral("15")}};
         QCOMPARE(m_app->exporter()->validate(validSettings), QString());
-        QVERIFY(m_app->exporter()
-                    ->describeOutput(validSettings)
-                    .contains(QStringLiteral("frames 5–15")));
+        const QString summary = m_app->exporter()->describeOutput(validSettings);
+        QVERIFY(summary.contains(QStringLiteral("frames 5–15")));
+        QVERIFY(summary.contains(QStringLiteral("10 output frames")));
+        QVariantMap at60 = validSettings;
+        at60[QStringLiteral("frameRate")] = QStringLiteral("60");
+        QCOMPARE(m_app->exporter()->validate(at60), QString());
+        QVERIFY(
+            m_app->exporter()->describeOutput(at60).contains(QStringLiteral("20 output frames")));
+        QQuickItem* outputSummary =
+            findItem(m_window->contentItem(), QStringLiteral("exportOutputSummary"));
+        QVERIFY(outputSummary);
+        QVERIFY(outputSummary->isVisible());
 
         QVariantMap invalid = validSettings;
         invalid[QStringLiteral("rangeEndFrame")] = QStringLiteral("not-an-integer");

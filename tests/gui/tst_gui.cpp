@@ -4159,9 +4159,8 @@ private slots:
         QVariantMap at60 = validSettings;
         at60[QStringLiteral("frameRate")] = QStringLiteral("60");
         QCOMPARE(m_app->exporter()->validate(at60), QString());
-        QVERIFY(m_app->exporter()
-                    ->describeOutput(at60)
-                    .contains(QStringLiteral("20 output frames")));
+        QVERIFY(
+            m_app->exporter()->describeOutput(at60).contains(QStringLiteral("20 output frames")));
         QQuickItem* outputSummary =
             findItem(m_window->contentItem(), QStringLiteral("exportOutputSummary"));
         QVERIFY(outputSummary);

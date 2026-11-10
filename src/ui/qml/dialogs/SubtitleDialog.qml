@@ -21,7 +21,7 @@ FtDialog {
 
     title: qsTr("Subtitles")
     implicitWidth: 1000
-    height: Math.min(700, parent ? parent.height - 48 : 700)
+    height: Math.min(740, parent ? parent.height - 24 : 740)
     closePolicy: Popup.NoAutoClose
 
     function loadDraft() {
@@ -74,7 +74,7 @@ FtDialog {
     Shortcut { sequence: "Ctrl+Return"; enabled: dialog.visible && !draftGuard.visible; onActivated: dialog.applyIfDirty() }
 
     contentItem: ColumnLayout {
-        spacing: Theme.spacingS
+        spacing: dialog.height < 740 ? 4 : Theme.spacingS
         RowLayout {
             Layout.fillWidth: true
             FtButton { text: qsTr("Import SRT/WebVTT…"); objectName: "subtitleImport"; onClicked: dialog.guarded(() => dialog.importRequested()) }
@@ -436,6 +436,7 @@ FtDialog {
             font.pixelSize: Theme.fontSizeSmall
         }
         Text {
+            objectName: "subtitleWorkflowHint"
             Layout.fillWidth: true
             text: qsTr("Cues do not extend the video. SRT export keeps every cue. Install fonts for the languages you use; long text shrinks to fit the picture.")
             color: Theme.textMuted

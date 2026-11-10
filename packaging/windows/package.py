@@ -10,8 +10,8 @@ Run it in an MSYS2 UCRT64 shell after building the project:
 It
  1. copies the executables and deploys Qt (libraries, plugins and QML modules) with windeployqt,
  2. adds the MLT modules and data files the media engine needs,
- 3. copies every DLL the binaries depend on, found by reading their import tables, and stops
-    if a dependency can be found neither in MSYS2 nor in Windows itself,
+ 3. copies DLLs found in import tables plus known dynamically loaded runtime dependencies,
+    and stops if a dependency can be found neither in MSYS2 nor in Windows itself,
  4. attributes every bundled file to the MSYS2 package that installed it, copies the license
     files of those packages and writes a list of bundled components; for packages that install
     no license file, it takes the license texts from their MSYS2 source package instead,

@@ -438,8 +438,23 @@ class Packager:
         return (lower.startswith(("api-ms-win-", "ext-ms-"))
                 or (self.system_dir / name).is_file())
 
+    def runtime_loaded_dependencies(self, binary: Path) -> list[str]:
+        """DLLs resolved at runtime rather than declared in a PE import table.
+
+        MSYS2's replacement of genuine SDL2 with sdl2-compat brings in SDL3 as
+        a runtime dependency. On a clean Windows machine SDL3 is not installed;
+        silently omitting it can break the bundled SDL2 audio backend. Identify
+        the actual installed file owner, not the apparent SDL2 DLL filename:
+        older genuine SDL2 packages must remain supported.
+        """
+        if binary.name.lower() == "sdl2.dll":
+            owner = self.owner_of(self.prefix / "bin" / binary.name)
+            if owner and owner.lower().endswith("-sdl2-compat"):
+                return ["SDL3.dll"]
+        return []
+
     def deploy_dependencies(self) -> None:
-        """Copies the transitive DLL closure of every binary into the package root.
+        """Copies PE imports and known dynamic runtime DLLs into the package root.
 
         A dependency that MSYS2 provides is always bundled, even if a file of the same name
         exists on this machine: libraries such as vulkan-1.dll or OpenCL.dll come with graphics
@@ -456,7 +471,7 @@ class Packager:
             if binary in scanned:
                 continue
             scanned.add(binary)
-            for name in self.imports_of(binary):
+            for name in self.imports_of(binary) + self.runtime_loaded_dependencies(binary):
                 lower = name.lower()
                 if lower in root_dlls:
                     continue

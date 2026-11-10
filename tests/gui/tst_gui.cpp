@@ -3310,8 +3310,7 @@ private slots:
         QVERIFY(click(QStringLiteral("subtitleApplyTimingStretch")));
         QTRY_COMPARE(m_app->project()->project().subtitles().cues.front().startMs,
                      std::int64_t{185});
-        QCOMPARE(m_app->project()->project().subtitles().cues.front().endMs,
-                 std::int64_t{3000});
+        QCOMPARE(m_app->project()->project().subtitles().cues.front().endMs, std::int64_t{3000});
         QVERIFY(click(QStringLiteral("subtitleUndo")));
         QTRY_COMPARE(m_app->project()->project().subtitles(), applied);
         QVERIFY(click(QStringLiteral("subtitleUndo")));

@@ -384,6 +384,26 @@ private slots:
         QCOMPARE(m_project->project().timeline(), m_base.timeline());
     }
 
+    void timingStretchUpdatesSelectedCueWithoutRetimingProject()
+    {
+        QVERIFY(m_subtitles->addAtPlayhead());
+        const Project before = m_project->project();
+        QVERIFY(m_subtitles->stretchAllTiming(150));
+        const Project after = m_project->project();
+        QCOMPARE(after.subtitles().cues.front().startMs, std::int64_t{0});
+        QCOMPARE(after.subtitles().cues.front().endMs, std::int64_t{3000});
+        QCOMPARE(after.timeline(), before.timeline());
+        QCOMPARE(after.settings().frameRate, before.settings().frameRate);
+        QCOMPARE(m_subtitles->selectedCue().value(QStringLiteral("end")).toString(),
+                 QStringLiteral("00:00:03,000"));
+        QVERIFY(!m_subtitles->stretchAllTiming(100));
+        QCOMPARE(m_project->project(), after);
+        m_project->undo();
+        QCOMPARE(m_project->project(), before);
+        m_project->redo();
+        QCOMPARE(m_project->project(), after);
+    }
+
     void badFilesAndProtectedPathsLeaveExistingContentIntact()
     {
         const QString invalid = m_dir.filePath(QStringLiteral("invalid.srt"));

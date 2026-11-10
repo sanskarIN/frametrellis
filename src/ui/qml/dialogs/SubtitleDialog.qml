@@ -140,6 +140,34 @@ FtDialog {
         RowLayout {
             Layout.fillWidth: true
             spacing: Theme.spacingS
+            Label { text: qsTr("Stretch cue times (%)"); color: Theme.textMuted }
+            SpinBox {
+                id: subtitleStretchPercent
+                objectName: "subtitleStretchPercent"
+                editable: true
+                from: 25
+                to: 400
+                value: 100
+                stepSize: 5
+                Accessible.name: qsTr("Subtitle timing scale from sequence start")
+            }
+            FtButton {
+                objectName: "subtitleApplyTimingStretch"
+                text: qsTr("Apply stretch")
+                enabled: dialog.subtitles.count > 0 && subtitleStretchPercent.value !== 100
+                onClicked: dialog.guarded(() =>
+                    dialog.subtitles.stretchAllTiming(subtitleStretchPercent.value))
+            }
+            Label {
+                Layout.fillWidth: true
+                text: qsTr("Scales all cue start/end times from 00:00 in one undo. Clips, audio and FPS do not change.")
+                color: Theme.textFaint
+                wrapMode: Text.WordWrap
+            }
+        }
+        RowLayout {
+            Layout.fillWidth: true
+            spacing: Theme.spacingS
             Label { text: qsTr("Find captions"); color: Theme.textMuted }
             TextField {
                 id: subtitleFindField

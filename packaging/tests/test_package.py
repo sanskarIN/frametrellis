@@ -95,6 +95,63 @@ class PackageDatabaseTest(unittest.TestCase):
         self.assertNotIn("ucrt64/bin/", owners)
 
 
+class DynamicRuntimeDependencyTest(unittest.TestCase):
+    """A portable ZIP must ship the libraries that SDL2-compat loads at runtime."""
+
+    def _packager(self, directory: Path, owner: str, include_sdl3: bool = True):
+        root = directory
+        dlls = root / "ucrt64/bin"
+        dlls.mkdir(parents=True)
+        (dlls / "SDL2.dll").write_bytes(b"SDL2 stub")
+        if include_sdl3:
+            (dlls / "SDL3.dll").write_bytes(b"SDL3 stub")
+        stage = root / "stage"
+        stage.mkdir()
+        (stage / "frametrellis.exe").write_bytes(b"portable editor")
+        packager = object.__new__(package.Packager)
+        packager.msys_root = root
+        packager.prefix = root / "ucrt64"
+        packager.stage = stage
+        packager.system_dir = root / "Windows/System32"
+        packager.origins = {}
+        packager.owners = {
+            "ucrt64/bin/sdl2.dll": owner,
+            "ucrt64/bin/sdl3.dll": "mingw-w64-ucrt-x86_64-sdl3",
+        }
+        packager.imports_of = lambda binary: (
+            ["SDL2.dll"] if binary.name == "frametrellis.exe" else []
+        )
+        return packager
+
+    def test_sdl2_compat_brings_sdl3_and_records_its_package_origin(self):
+        with tempfile.TemporaryDirectory() as directory:
+            packager = self._packager(
+                Path(directory), "mingw-w64-ucrt-x86_64-sdl2-compat")
+            packager.deploy_dependencies()
+            self.assertTrue((packager.stage / "SDL2.dll").is_file())
+            self.assertTrue((packager.stage / "SDL3.dll").is_file())
+            self.assertEqual(
+                packager.origins["SDL3.dll"],
+                packager.prefix / "bin/SDL3.dll")
+
+    def test_genuine_sdl2_does_not_pull_in_unneeded_sdl3(self):
+        with tempfile.TemporaryDirectory() as directory:
+            packager = self._packager(
+                Path(directory), "mingw-w64-ucrt-x86_64-SDL2")
+            packager.deploy_dependencies()
+            self.assertTrue((packager.stage / "SDL2.dll").is_file())
+            self.assertFalse((packager.stage / "SDL3.dll").exists())
+
+    def test_sdl2_compat_without_sdl3_fails_closed(self):
+        with tempfile.TemporaryDirectory() as directory:
+            packager = self._packager(
+                Path(directory), "mingw-w64-ucrt-x86_64-sdl2-compat",
+                include_sdl3=False)
+            with self.assertRaises(SystemExit):
+                packager.deploy_dependencies()
+            self.assertFalse((packager.stage / "SDL3.dll").exists())
+
+
 class LicensePathTest(unittest.TestCase):
     def test_accepts_license_files_near_the_top(self):
         for name, expected in [

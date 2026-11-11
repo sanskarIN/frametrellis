@@ -9,7 +9,7 @@ require project format v6. The stable Windows downloads do not include this work
 | SRT | Hindi/emoji/literal markup, UTF-8 BOM, CRLF/CR/LF, unordered counters, canonical export; malformed/truncated UTF-8, timestamps, missing fields, overlaps and capacity limits refuse the whole input |
 | WebVTT (v1.5 candidate) | UTF-8/BOM, CRLF, mm:ss.mmm and hh:mm:ss.mmm timestamps, cue IDs, NOTE comments, escaped Unicode text, exact export/import round-trip; unsupported positioning/STYLE/REGION/markup, overlaps, invalid entities and malformed UTF-8 refuse import atomically |
 | Clock | Exact rational conversions including 29.97 fps and high rates; boundaries, exclusive ends and cues between sampled frames |
-| Commands | Exact undo/redo for add/update/remove/append/clear/style, whole-track shifting and 25–400% timing stretch; collapsed/overflowing cue times reject the entire edit without modifying timeline or history |
+| Commands | Exact undo/redo for add/update/remove/append/clear/style, whole-track shifting and 25–400% timing stretch; candidate project-frame alignment rounds cue start/end forward using rational 25/29.97 FPS; collapsed/overflowing cue times reject the entire edit without modifying timeline or history |
 | Persistence | Exact v6 roundtrip, v1–v6 reads, required fields/types/bounds, pre-v6 subtitle rejection and minimum-version selection after clearing/resetting |
 | Preview graph | Active/inactive boundary frames, one-frame clips, unchanged audio/duration, burn-in disabled, canonical wrapping across smaller previews |
 | MP4 helper | Render a v6 snapshot; decoded frames show text only in the expected interval; sidecar-only mode removes it; future cues do not lengthen the video |

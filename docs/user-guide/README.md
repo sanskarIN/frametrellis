@@ -47,6 +47,9 @@ themes and between compact, normal and tall tracks.
 * **Save** (Ctrl+S) writes a `.ftproj` file. Saving is atomic: if it fails (for example, the disk
   is full), the previous file is kept. FrameTrellis also refuses to save a project over
   a referenced source media file, including through an alternate path or symlink.
+* **Rename project** (*File → Rename Project…*, v1.5.0 development) edits the project's
+  display name without renaming the `.ftproj` file or any source media. Unicode names are
+  supported. The change is undoable and stored with the next project save.
 * **Open** (Ctrl+O) and *File → Open Recent* reopen projects. FrameTrellis asks before discarding
   unsaved changes.
 

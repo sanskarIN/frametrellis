@@ -71,6 +71,8 @@ public:
     Q_INVOKABLE bool openProject(const QString& pathOrUrl);
     Q_INVOKABLE bool save();
     Q_INVOKABLE bool saveAs(const QString& pathOrUrl);
+    /// Rename project metadata (not its disk filename) as an undoable edit.
+    Q_INVOKABLE bool renameProject(const QString& newName);
     /// Atomically write a read-only CSV report of timeline clips; does not alter undo or save
     /// state.
     Q_INVOKABLE bool exportClipListCsv(const QString& pathOrUrl);

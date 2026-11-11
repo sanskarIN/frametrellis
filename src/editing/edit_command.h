@@ -146,17 +146,16 @@ private:
 class ProjectSettingsCommand final : public EditCommand
 {
 public:
-    ProjectSettingsCommand(const ProjectSettings& settings, QString name);
-    [[nodiscard]] QString text() const override
-    {
-        return QStringLiteral("Change Project Settings");
-    }
+    ProjectSettingsCommand(const ProjectSettings& settings, QString name,
+                           QString description = QStringLiteral("Change Project Settings"));
+    [[nodiscard]] QString text() const override { return m_description; }
     Result<ChangeSet> redo(Project& project) override;
     ChangeSet undo(Project& project) override;
 
 private:
     ProjectSettings m_settings;
     QString m_name;
+    QString m_description;
     ProjectSettings m_oldSettings;
     QString m_oldName;
 };

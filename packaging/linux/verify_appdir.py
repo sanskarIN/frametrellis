@@ -71,7 +71,8 @@ def check_appdir(appdir: Path) -> list[str]:
         root / "lib/mlt-7",
     ]
     problems = [f"Missing installed desktop asset: {p}" for p in required if not p.exists()]
-    modules = [root / "lib/mlt-7" / f"libmlt{name}.so" for name in ("core", "avformat", "plus", "normalize")]
+    names = ("core", "avformat", "plus", "normalize")
+    modules = [root / "lib/mlt-7" / f"libmlt{name}.so" for name in names]
     problems.extend(f"Missing required MLT module: {p}" for p in modules if not p.exists())
     if problems:
         return problems

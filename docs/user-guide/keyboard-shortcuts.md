@@ -31,6 +31,7 @@
 | Ctrl+Alt+R | Select all timeline uses of the single selected media source (v1.4 development) |
 | N | Toggle snapping |
 | + / − | Zoom timeline in / out |
+| Ctrl+0 | Fit the whole sequence to the visible timeline width, without changing edits |
 | Ctrl+Shift+0 | Fit all selected clips in the timeline (v1.4 development) |
 | Ctrl+Shift+L | Center timeline viewport on playhead without seeking (v1.4 development) |
 | Ctrl+mouse wheel | Zoom around the pointer |

@@ -384,6 +384,25 @@ private slots:
         screenshot(QStringLiteral("03-timeline"));
     }
 
+    void controlZeroFitsEntireTimelineWithoutEditingProject()
+    {
+        QQuickItem* lanes = findItem(m_window->contentItem(), QStringLiteral("timelineLanes"));
+        QVERIFY(lanes);
+        QVERIFY(lanes->width() > 100);
+        QVERIFY(m_app->timeline()->duration() > 0);
+        const Project before = m_app->project()->project();
+        const QString history = m_app->project()->undoText();
+
+        m_app->timeline()->zoomToFit(lanes->width());
+        const double fitted = m_app->timeline()->pixelsPerFrame();
+        m_app->timeline()->zoomIn();
+        QVERIFY(!qFuzzyCompare(m_app->timeline()->pixelsPerFrame(), fitted));
+        QTest::keyClick(m_window, Qt::Key_0, Qt::ControlModifier);
+        QTRY_VERIFY(qFuzzyCompare(m_app->timeline()->pixelsPerFrame(), fitted));
+        QCOMPARE(m_app->project()->project(), before);
+        QCOMPARE(m_app->project()->undoText(), history);
+    }
+
     void mediaBinCanFindTimelineUsesWithoutEditing()
     {
         auto* timeline = m_app->timeline();

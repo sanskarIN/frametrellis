@@ -416,7 +416,7 @@ private slots:
         const auto endFrame = subtitleFrameAtMilliseconds(1199, rate);
         QVERIFY(firstFrame && endFrame);
         QVERIFY(m_subtitles->alignAllTimingToFrames());
-        const SubtitleCue& aligned = m_project->project().subtitles().cues.front();
+        const SubtitleCue aligned = m_project->project().subtitles().cues.front();
         QCOMPARE(aligned.startMs, *subtitleMillisecondsAtFrame(*firstFrame, rate));
         QCOMPARE(aligned.endMs, *subtitleMillisecondsAtFrame(*endFrame, rate));
         QCOMPARE(aligned.text, QStringLiteral("Frame aligned"));

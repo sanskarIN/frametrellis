@@ -120,8 +120,23 @@ function Test-StandaloneExports([string] $Folder, [string] $Project, [string] $W
 
         $exists = Test-Path -LiteralPath $output -PathType Leaf
         $bytes = if ($exists) { [int64](Get-Item -LiteralPath $output).Length } else { [int64]0 }
-        Check ($result.ExitCode -eq 0 -and $bytes -gt 1024) `
-            "$What packaged renderer standalone $($case.Label) creates nonempty MP4"
+        # This does not replace media probing, but it independently detects
+        # wrong-container/garbage outputs even if a process exits successfully.
+        $isMp4 = $false
+        if ($bytes -gt 1024) {
+            $stream = [IO.File]::OpenRead($output)
+            try {
+                $header = [byte[]]::new(8)
+                if ($stream.Read($header, 0, 8) -eq 8) {
+                    $isMp4 = [Text.Encoding]::ASCII.GetString($header, 4, 4) -eq 'ftyp'
+                }
+            }
+            finally {
+                $stream.Dispose()
+            }
+        }
+        Check ($result.ExitCode -eq 0 -and $bytes -gt 1024 -and $isMp4) `
+            "$What packaged renderer standalone $($case.Label) creates MP4 container"
         if ($result.ExitCode -ne 0) {
             Write-Host "Renderer exit $($result.ExitCode): $($result.Errors)"
         }

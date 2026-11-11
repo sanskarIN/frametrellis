@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- SPDX-License-Identifier: GPL-3.0-or-later -->
+<mime-info xmlns="http://www.freedesktop.org/standards/shared-mime-info">
+  <mime-type type="application/x-frametrellis-project">
+    <comment>FrameTrellis video editing project</comment>
+    <glob pattern="*.ftproj"/>
+  </mime-type>
+</mime-info>

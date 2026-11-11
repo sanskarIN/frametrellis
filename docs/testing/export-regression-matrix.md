@@ -31,6 +31,32 @@ This document defines repeatable acceptance checks for FrameTrellis MP4 export. 
 
 `tests/integration/tst_render.cpp::unicodeExportPathProducesPlayableMedia` now exercises an MP4 export to a Unicode-named directory and filename, probes the video and audio streams, and verifies temporary-part cleanup. The case must still pass on CI before it can be considered verified; this does not cover all internationalized filesystem configurations.
 
+
+## Opt-in Windows resource samples (v1.5 development)
+
+The packaged-renderer harness can optionally record **peak working-set** and
+**peak private-memory** bytes per repeated export. For example, in an ordinary
+PowerShell terminal, invoke `scripts/windows/Test-FrameTrellisRepeatedExports.ps1`
+with `-Renderer <installed-frametrellis-render.exe>`,
+`-OutputDirectory <new-local-test-folder>`, `-Project <copy-of-project.ftproj>`,
+`-Runs 3`, `-SampleResources` and `-SampleIntervalMs 500`.
+
+This mode polls **only the child renderer started by the harness**. It does not
+inspect the editor or other processes and does not change any existing media.
+The local JSON summary adds `resourceSamples`, `peakWorkingSetBytes` and
+`peakPrivateBytes` per run, with null memory values when no sample was
+obtained. The flag is **off by default**; without it, the original timeout
+and output-integrity behavior remains unchanged. Peak memory is a sampled
+observation, not a precise allocation trace, and cannot establish the native
+root cause of crashes #175/#185. Use Windows Event Viewer and private WER
+call stacks where appropriate.
+
+Output directories, input project paths, stdout/stderr and JSON summaries can
+contain private filesystem details. Nothing is uploaded automatically. Review
+and redact files before sharing; never publish crash dumps with private media.
+The disposable Windows fixture checks both default-off and enabled sampling,
+along with output-missing/empty/nonempty classifications.
+
 ## Future automation priorities
 
 - Add generated-media integration tests for Unicode paths and destination replacement.

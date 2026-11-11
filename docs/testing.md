@@ -16,13 +16,41 @@ ctest --preset linux -L unit    # only unit tests
 ctest --preset linux -R engine  # tests whose name matches "engine"
 ```
 
+## v1.4 integrated release acceptance
+
+Use the [v1.4.0 release preflight](releases/v1.4.0-preflight.md) and
+[v1.4 editing acceptance matrix](testing/v1.4-integrated-editing-acceptance.md)
+to record manual multi-track, precision editing, batch properties, preview/export
+parity, project-format migration, media recovery and clean-host package checks.
+This is a **pending manual checklist**, not an assertion that those checks have
+passed. Automated CI and hands-on testing provide different evidence.
+
 ## Test media
+
+Subtitle regressions cover exact SRT roundtrips, format-v6 persistence, undo/redo,
+atomic rejection, rational frame sampling, preview layout, encoded burn-in and
+real editor draft protection. See the [subtitle acceptance matrix](testing/subtitle-workflow.md).
 
 No media files are stored in the repository. `tests/support/media_fixtures.cpp` generates them
 with MLT at test time: MP4 files with one solid colour per second and a sine tone, WAV files and
 PNG stills. Because the colours and tones are known, tests assert on real pixel colours and
 audio levels (for example, that the clip trimmed to the "green second" really shows green, or
 that a muted clip is silent).
+
+## Concurrent MLT profile initialization
+
+The `tst_engine_threads` integration test opens media on multiple threads
+while video profiles are being prepared. MLT 7.22 may update process-global
+profile normalization settings during `Mlt::Profile` construction; concurrent
+initialization was observed to trigger an AddressSanitizer heap-use-after-free.
+The engine's `createProfile()` factory now serializes construction and
+initial configuration, while normal work on independently owned profiles
+continues on the worker threads.
+
+An additional stress test constructs many profiles in parallel under the
+existing sanitizers. This guards the known profile-construction path but
+does not establish that all third-party MLT services are thread-safe; any
+new direct `Mlt::Profile` constructions from workers should be reviewed.
 
 ## Headless runs
 
@@ -74,6 +102,24 @@ confirm that unrelated clip attributes are preserved and that a failed edit make
 no partial changes. A real QML GUI test drives Ctrl+D and the clip attribute
 clipboard shortcuts and inspects the resulting timeline and undo state.
 
+## Batch picture changes: pixels, export and history (v1.4 development)
+
+The batch picture adjustment editing unit tests check that brightness, contrast
+and saturation presets affect exactly the chosen video properties and reject
+invalid selections atomically. The `tst_engine` integration regression also
+renders two separate video clips after a shared saturation preset, checks the
+actual grayscale pixels and confirms that Undo and Redo restore the exact
+rendered images. The `tst_render` integration regression runs the real export
+helper and inspects decoded MP4 frames from two graded video tracks. Together
+these test both the preview-graph path and the exported picture rather than
+relying only on the serialized property values.
+
+These tests need MLT's `avfilter.eq` capability. If that optional filter is
+missing, the targeted tests skip with an explicit reason; that does **not**
+count as positive color-grading verification for a release. The additional
+manual v1.4 matrix remains necessary for interactive performance, GPU
+preview and complete output-quality validation.
+
 ## Windows portable GUI stability checks (v1.2.1 work in progress)
 
 The Windows package workflow builds a portable ZIP and an installer, then opens the editor
@@ -115,6 +161,22 @@ For manual diagnosis on a Windows test machine with the release files available:
 
 Keep the run's full log and screenshots when investigating a failure. A passing
 emulated runner does not replace testing on physical ARM64 machines.
+
+## Signed frame-range boundary regressions (v1.3.0 candidate)
+
+Timeline insertion now checks both source and sequence endpoints **before** adding
+signed frame counts. A clip must have a positive duration and its source and timeline
+ranges must end at or before `kMaxTimelineFrames`. The `isRangeFree` query also
+rejects negative starts, zero durations and endpoints beyond that limit before
+calculating the exclusive end frame.
+
+`tests/unit/tst_timeline.cpp` exercises the maximum signed `FrameCount`, values just
+past the allowed limit, the exact valid endpoint and unknown tracks. These checks
+combine the overlapping changes originally proposed in
+[#31](https://github.com/sanskarIN/frametrellis/pull/31) and
+[#32](https://github.com/sanskarIN/frametrellis/pull/32); they belong together so
+that the compiler and sanitizers validate the same final timeline model. These are
+**unreleased changes** until merged and verified on the integrated branch.
 
 ## What is not covered automatically
 

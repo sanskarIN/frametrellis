@@ -5,6 +5,7 @@
 #include <QFileInfo>
 
 #include <algorithm>
+#include <utility>
 
 namespace ft::ui {
 
@@ -59,6 +60,46 @@ QVariant ClipListModel::data(const QModelIndex& index, int role) const
                    : QStringLiteral("image://ft-thumbnail/%1").arg(c.assetId);
     case WaveformRole:
         return row.waveform;
+    case AudioEnvelopeRole: {
+        QVariantList points;
+        if (c.audioKeyframes.empty()) {
+            return points;
+        }
+        const auto append = [&](FrameCount frame, double decibels, bool keyframe) {
+            points.append(QVariantMap{{QStringLiteral("frame"), static_cast<double>(frame)},
+                                      {QStringLiteral("decibels"), decibels},
+                                      {QStringLiteral("keyframe"), keyframe}});
+        };
+        append(0, audioKeyframeDecibels(c.audioKeyframes, c.sourceIn), false);
+        for (const AudioKeyframe& point : c.audioKeyframes) {
+            if (point.sourceFrame >= c.sourceIn && point.sourceFrame < c.sourceOut()) {
+                append(point.sourceFrame - c.sourceIn, point.decibels, true);
+            }
+        }
+        append(c.duration - 1, audioKeyframeDecibels(c.audioKeyframes, c.sourceOut() - 1), false);
+        return points;
+    }
+    case TransformPointCountRole:
+        return row.onAudioTrack ? 0 : static_cast<int>(c.transformKeyframes.size());
+    case OpacityEnvelopeRole: {
+        QVariantList points;
+        if (c.opacityKeyframes.empty() || row.onAudioTrack) {
+            return points;
+        }
+        const auto append = [&](FrameCount frame, double opacity, bool keyframe) {
+            points.append(QVariantMap{{QStringLiteral("frame"), static_cast<double>(frame)},
+                                      {QStringLiteral("opacity"), opacity},
+                                      {QStringLiteral("keyframe"), keyframe}});
+        };
+        append(0, opacityKeyframeValue(c.opacityKeyframes, c.sourceIn), false);
+        for (const OpacityKeyframe& point : c.opacityKeyframes) {
+            if (point.sourceFrame >= c.sourceIn && point.sourceFrame < c.sourceOut()) {
+                append(point.sourceFrame - c.sourceIn, point.opacity, true);
+            }
+        }
+        append(c.duration - 1, opacityKeyframeValue(c.opacityKeyframes, c.sourceOut() - 1), false);
+        return points;
+    }
     default:
         return {};
     }
@@ -81,7 +122,10 @@ QHash<int, QByteArray> ClipListModel::roleNames() const
             {FadeInRole, "fadeIn"},
             {FadeOutRole, "fadeOut"},
             {ThumbnailRole, "thumbnail"},
-            {WaveformRole, "waveform"}};
+            {WaveformRole, "waveform"},
+            {AudioEnvelopeRole, "audioEnvelope"},
+            {OpacityEnvelopeRole, "opacityEnvelope"},
+            {TransformPointCountRole, "transformPointCount"}};
 }
 
 void ClipListModel::setClips(const Track& track, const Project& project, const QSet<Id>& selection)
@@ -115,9 +159,32 @@ void ClipListModel::setClips(const Track& track, const Project& project, const Q
         std::equal(rows.begin(), rows.end(), m_rows.begin(),
                    [](const Row& a, const Row& b) { return a.clip.id == b.clip.id; });
     if (sameIds) {
+        // Keep stable delegate identities and notify only the clips whose displayed state
+        // changed. A full-range dataChanged forces QML to re-evaluate every clip on a
+        // track even when only one trim, gain or selection changes.
+        std::vector<std::pair<int, int>> changedRanges;
+        int rangeStart = -1;
+        for (int i = 0; i < static_cast<int>(rows.size()); ++i) {
+            const Row& next = rows[static_cast<size_t>(i)];
+            const Row& current = m_rows[static_cast<size_t>(i)];
+            const bool changed =
+                next.clip != current.clip || next.name != current.name ||
+                next.kind != current.kind || next.offline != current.offline ||
+                next.sourceLength != current.sourceLength || next.selected != current.selected ||
+                next.onAudioTrack != current.onAudioTrack || next.waveform != current.waveform;
+            if (changed && rangeStart < 0) {
+                rangeStart = i;
+            } else if (!changed && rangeStart >= 0) {
+                changedRanges.emplace_back(rangeStart, i - 1);
+                rangeStart = -1;
+            }
+        }
+        if (rangeStart >= 0) {
+            changedRanges.emplace_back(rangeStart, static_cast<int>(rows.size()) - 1);
+        }
         m_rows = std::move(rows);
-        if (!m_rows.empty()) {
-            emit dataChanged(index(0), index(rowCount() - 1));
+        for (const auto& [first, last] : changedRanges) {
+            emit dataChanged(index(first), index(last));
         }
         return;
     }

@@ -16,6 +16,8 @@ qt_add_qml_module(ft_ui
         qml/Main.qml
         qml/Theme.qml
         qml/controls/DialogButtons.qml
+        qml/controls/AutomationEnvelope.qml
+        qml/controls/TransformOverlay.qml
         qml/controls/EmptyState.qml
         qml/controls/FtButton.qml
         qml/controls/FtCheckBox.qml
@@ -28,15 +30,19 @@ qt_add_qml_module(ft_ui
         qml/dialogs/ConfirmDialog.qml
         qml/dialogs/ExportDialog.qml
         qml/dialogs/FtDialog.qml
+        qml/dialogs/GoToTimecodeDialog.qml
+        qml/dialogs/MarkerDialog.qml
         qml/dialogs/MessageBox.qml
         qml/dialogs/NewProjectDialog.qml
         qml/dialogs/ShortcutsDialog.qml
+        qml/dialogs/SubtitleDialog.qml
         qml/dialogs/TitleDialog.qml
         qml/dialogs/WelcomeOverlay.qml
         qml/panels/ClipItem.qml
         qml/panels/InspectorPanel.qml
         qml/panels/MediaBinPanel.qml
         qml/panels/MonitorPanel.qml
+        qml/panels/SourceMonitorPanel.qml
         qml/panels/TimeRuler.qml
         qml/panels/TimelinePanel.qml
         qml/panels/TrackHeader.qml
@@ -52,6 +58,7 @@ qt_add_qml_module(ft_ui
         thumbnail_provider.cpp thumbnail_provider.h
         waveform_provider.cpp waveform_provider.h
         timeline_controller.cpp timeline_controller.h
+        subtitle_controller.cpp subtitle_controller.h
         title_image.cpp title_image.h
         timeline_model.cpp timeline_model.h
     RESOURCES

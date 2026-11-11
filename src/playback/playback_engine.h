@@ -21,6 +21,8 @@ namespace ft::playback {
 /// frames at preview resolution and paces them by the audio device clock, or by the wall clock
 /// when no audio device is available. Seeks are coalesced so that scrubbing never queues work, and
 /// only the most recent frame is handed to the UI thread, so a slow UI cannot cause a backlog.
+/// Requests invalidate superseded frames before publication and queued GUI delivery, keeping
+/// an old picture from reversing a newer seek or restoring a replaced project snapshot.
 ///
 /// The engine works on snapshots: setProject() copies the project, so edits never race with
 /// rendering.
@@ -42,6 +44,8 @@ public:
     /// Largest picture size the UI wants; frames keep the project's aspect ratio.
     void setMaximumPreviewSize(QSize size);
     void setAudioEnabled(bool enabled);
+    /// Repeat the sequence during preview playback; the default is to stop at the end.
+    void setLoopEnabled(bool enabled);
     void setVolume(double volume);
 
     [[nodiscard]] FrameCount position() const { return m_position.load(); }
@@ -68,7 +72,6 @@ private:
 
     void deliverFromWorker();
 
-    std::unique_ptr<Worker> m_worker;
     std::atomic<FrameCount> m_position{0};
     std::atomic<FrameCount> m_duration{0};
     std::atomic<bool> m_playing{false};
@@ -78,6 +81,9 @@ private:
     FrameCount m_lastEmittedDuration = -1;
     bool m_lastEmittedPlaying = false;
     QImage m_displayed;
+    // Construct last: Worker starts its thread in its constructor and can immediately
+    // publish audio/position state. All shared owner members must already be alive.
+    std::unique_ptr<Worker> m_worker;
 };
 
 } // namespace ft::playback

@@ -6,6 +6,7 @@
 
 #include <QAbstractListModel>
 #include <QQmlEngine>
+#include <QSortFilterProxyModel>
 
 namespace ft::ui {
 
@@ -24,6 +25,7 @@ public:
         NameRole,
         KindRole,
         DurationRole,
+        DurationUsRole,
         DetailsRole,
         StatusRole,
         FilePathRole,
@@ -56,6 +58,45 @@ private:
     };
     std::vector<Row> m_rows;
     int m_revision = 0;
+};
+
+/// Keeps the media bin responsive by filtering and sorting model rows before QML creates tiles.
+/// Sorting never changes the project's media order; missing durations are sorted last.
+class MediaBinFilterModel : public QSortFilterProxyModel
+{
+    Q_OBJECT
+    QML_ELEMENT
+    Q_PROPERTY(QString searchText READ searchText WRITE setSearchText NOTIFY searchTextChanged)
+    Q_PROPERTY(QString category READ category WRITE setCategory NOTIFY categoryChanged)
+    Q_PROPERTY(QString sortMode READ sortMode WRITE setSortMode NOTIFY sortModeChanged)
+    Q_PROPERTY(int count READ count NOTIFY countChanged)
+
+public:
+    explicit MediaBinFilterModel(QObject* parent = nullptr);
+
+    [[nodiscard]] QString searchText() const;
+    void setSearchText(const QString& text);
+    [[nodiscard]] QString category() const;
+    void setCategory(const QString& category);
+    [[nodiscard]] QString sortMode() const;
+    void setSortMode(const QString& mode);
+    [[nodiscard]] int count() const;
+
+signals:
+    void searchTextChanged();
+    void categoryChanged();
+    void sortModeChanged();
+    void countChanged();
+
+protected:
+    [[nodiscard]] bool filterAcceptsRow(int sourceRow,
+                                        const QModelIndex& sourceParent) const override;
+    [[nodiscard]] bool lessThan(const QModelIndex& left, const QModelIndex& right) const override;
+
+private:
+    QString m_searchText;
+    QString m_category = QStringLiteral("all");
+    QString m_sortMode = QStringLiteral("import");
 };
 
 QString formatDuration(std::int64_t microseconds);

@@ -169,6 +169,51 @@ ChangeSet RemoveMediaCommand::undo(Project& project)
     return changes;
 }
 
+Result<ChangeSet> RemoveUnusedMediaCommand::redo(Project& project)
+{
+    if (m_removed.empty()) {
+        const auto& assets = project.media();
+        for (int index = 0; index < static_cast<int>(assets.size()); ++index) {
+            const MediaAsset& asset = assets[static_cast<size_t>(index)];
+            if (!project.timeline().usesAsset(asset.id)) {
+                m_removed.push_back({index, asset});
+            }
+        }
+    }
+    if (m_removed.empty()) {
+        return makeError(ErrorCode::Conflict,
+                         QStringLiteral("No unused media was found in this project."));
+    }
+
+    // Work on a copy: any validation failure leaves the live project unchanged.
+    Project updated = project;
+    for (auto it = m_removed.rbegin(); it != m_removed.rend(); ++it) {
+        if (updated.assetIndex(it->asset.id) != it->index ||
+            updated.timeline().usesAsset(it->asset.id)) {
+            return makeError(ErrorCode::Conflict,
+                             QStringLiteral("An unused media reference changed."));
+        }
+        if (const Result<MediaAsset> removed = updated.removeAsset(it->asset.id); !removed) {
+            return removed.error();
+        }
+    }
+    project = std::move(updated);
+    ChangeSet changes;
+    changes.media = true;
+    return changes;
+}
+
+ChangeSet RemoveUnusedMediaCommand::undo(Project& project)
+{
+    // Original ascending indices preserve exact media-bin order on undo.
+    for (const RemovedAsset& item : m_removed) {
+        (void)project.addAsset(item.asset, item.index);
+    }
+    ChangeSet changes;
+    changes.media = true;
+    return changes;
+}
+
 UpdateMediaCommand::UpdateMediaCommand(MediaAsset updated, QString text)
     : m_after(std::move(updated))
     , m_text(std::move(text))
@@ -213,6 +258,76 @@ ChangeSet UpdateMediaCommand::undo(Project& project)
     changes.media = true;
     for (const Track& t : project.timeline().tracks()) {
         changes.tracks.insert(t.id);
+    }
+    return changes;
+}
+
+RelinkMediaBatchCommand::RelinkMediaBatchCommand(std::vector<MediaAsset> updated)
+    : m_after(std::move(updated))
+{}
+
+Result<ChangeSet> RelinkMediaBatchCommand::redo(Project& project)
+{
+    if (m_after.empty()) {
+        return makeError(ErrorCode::InvalidArgument,
+                         QStringLiteral("No missing media was found to relink."));
+    }
+
+    // Validate against a copy: no half-relinked project can escape on a
+    // duplicate path, invalid source or clips requiring longer handles.
+    Project working = project;
+    std::vector<MediaAsset> originals;
+    QSet<Id> ids;
+    for (const MediaAsset& updated : m_after) {
+        if (ids.contains(updated.id)) {
+            return makeError(ErrorCode::InvalidArgument,
+                             QStringLiteral("The same media reference was relinked twice."));
+        }
+        ids.insert(updated.id);
+        const MediaAsset* old = project.asset(updated.id);
+        if (!old || old->status != MediaStatus::Missing || updated.status != MediaStatus::Online) {
+            return makeError(ErrorCode::InvalidArgument,
+                             QStringLiteral("A replacement media reference is invalid."));
+        }
+        originals.push_back(*old);
+        if (const Status replaced = working.replaceAsset(updated); !replaced) {
+            return replaced.error();
+        }
+    }
+    if (const Status checked = working.validate(); !checked) {
+        return makeError(
+            ErrorCode::Conflict,
+            QStringLiteral("At least one replacement cannot support its timeline clips."),
+            checked.error().toString());
+    }
+
+    project = std::move(working);
+    if (!m_applied) {
+        m_before = std::move(originals);
+        m_applied = true;
+    }
+    ChangeSet changes;
+    changes.media = true;
+    for (const Track& track : project.timeline().tracks()) {
+        if (std::any_of(track.clips.begin(), track.clips.end(),
+                        [&](const Clip& clip) { return ids.contains(clip.assetId); })) {
+            changes.tracks.insert(track.id);
+        }
+    }
+    return changes;
+}
+
+ChangeSet RelinkMediaBatchCommand::undo(Project& project)
+{
+    Project working = project;
+    for (const MediaAsset& original : m_before) {
+        (void)working.replaceAsset(original);
+    }
+    project = std::move(working);
+    ChangeSet changes;
+    changes.media = true;
+    for (const Track& track : project.timeline().tracks()) {
+        changes.tracks.insert(track.id);
     }
     return changes;
 }

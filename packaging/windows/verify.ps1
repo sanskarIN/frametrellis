@@ -27,7 +27,9 @@ param(
     [Parameter(Mandatory)] [string] $WorkDir,
     [string] $Label = 'windows',
     [string] $Artifacts,
-    [ValidateRange(1, 5)] [int] $PortableGuiRuns = 1
+    [ValidateRange(1, 8)] [int] $PortableGuiRuns = 1,
+    [switch] $SoftwareBackendDiagnostics,
+    [switch] $DummyAudioDiagnostics
 )
 
 . (Join-Path $PSScriptRoot 'module-paths.ps1')
@@ -50,7 +52,8 @@ Write-Host "Independent portable GUI launches required: $PortableGuiRuns"
 $env:PATH = @("$env:SystemRoot\System32", $env:SystemRoot, "$env:SystemRoot\System32\Wbem",
     "$env:SystemRoot\System32\WindowsPowerShell\v1.0") -join ';'
 foreach ($name in 'QT_PLUGIN_PATH', 'QML_IMPORT_PATH', 'QML2_IMPORT_PATH', 'QT_QPA_PLATFORM',
-    'MLT_REPOSITORY', 'MLT_DATA', 'FRAMETRELLIS_MLT_REPOSITORY') {
+    'QT_QUICK_BACKEND', 'QSG_RHI_BACKEND', 'SDL_AUDIODRIVER', 'MLT_REPOSITORY',
+    'MLT_DATA', 'FRAMETRELLIS_MLT_REPOSITORY') {
     Remove-Item "Env:$name" -ErrorAction SilentlyContinue
 }
 
@@ -98,16 +101,22 @@ function Test-Editor([string] $Folder, [string] $Project, [string] $What) {
     $shot = Join-Path $Artifacts "screenshot-$Label-$What.png"
     $stdout = Join-Path $Artifacts "editor-$Label-$What.stdout.log"
     $stderr = Join-Path $Artifacts "editor-$Label-$What.stderr.log"
+    $smoke = Join-Path $Artifacts "editor-$Label-$What.smoke.log"
     $arguments = @('--screenshot', "`"$shot`"", '--screenshot-delay', '15000', "`"$Project`"")
+    $backend = if ($env:QT_QUICK_BACKEND) { $env:QT_QUICK_BACKEND } else { 'default' }
+    $audio = if ($env:SDL_AUDIODRIVER) { $env:SDL_AUDIODRIVER } else { 'default' }
+    Write-Host "Starting independent GUI verification: $What (Qt Quick: $backend; SDL audio: $audio)"
     # A repeated manual verification must not accept artifacts from an earlier run.
-    foreach ($file in @($shot, $stdout, $stderr)) {
+    foreach ($file in @($shot, $stdout, $stderr, $smoke)) {
         Remove-Item -LiteralPath $file -Force -ErrorAction SilentlyContinue
     }
     # Qt Quick GUI applications often send diagnostics to the debugger instead of
     # stderr. Force Qt logging to stderr and retain it as a workflow artifact.
     $env:QT_FORCE_STDERR_LOGGING = '1'
+    $env:FT_GUI_SMOKE_LOG = $smoke
     $process = Start-Process -FilePath $exe -ArgumentList $arguments -PassThru `
         -RedirectStandardOutput $stdout -RedirectStandardError $stderr
+    Remove-Item Env:FT_GUI_SMOKE_LOG -ErrorAction SilentlyContinue
     $null = $process.Handle # keeps the exit code available after the process ends
     Start-Sleep -Seconds 10
     if (-not $process.HasExited) {
@@ -129,11 +138,20 @@ function Test-Editor([string] $Folder, [string] $Project, [string] $What) {
     if (-not $process.WaitForExit(180000)) {
         Stop-Process -Id $process.Id -Force
         Check $false "$What editor finished within three minutes"
+        Write-Host "Last smoke checkpoints for ${What}:"
+        if (Test-Path $smoke) {
+            Get-Content -LiteralPath $smoke -Tail 30 | ForEach-Object { Write-Host "  $_" }
+        } else {
+            Write-Host "  No checkpoint written: stalled before first checkpoint or log path unavailable."
+        }
         Write-CrashReport $process.StartTime $What
         return
     }
     Check ($process.ExitCode -eq 0) "$What editor started, opened the project and rendered its window (exit code $($process.ExitCode))"
     Check ((Test-Path $shot) -and (Get-Item $shot).Length -gt 20000) "$What editor screenshot saved"
+    if ($process.ExitCode -ne 0 -and (Test-Path $smoke)) {
+        Get-Content -LiteralPath $smoke -Tail 30 | ForEach-Object { Write-Host "  $_" }
+    }
     if ($process.ExitCode -ne 0) {
         if (Test-Path $stderr) {
             Write-Host "Last lines of Qt stderr ($stderr):"
@@ -153,9 +171,17 @@ function Write-CrashReport([datetime] $Since, [string] $What) {
     } catch {
         Write-Host "No crash event was recorded: $_"
     }
-    $logs = Join-Path $env:APPDATA 'FrameTrellis\FrameTrellis\logs'
-    $latest = Get-ChildItem $logs -Filter *.log -ErrorAction SilentlyContinue |
-        Sort-Object LastWriteTime -Descending | Select-Object -First 1
+    # Qt's AppDataLocation differs by Qt version and whether an organisation name
+    # is included. Probe only the expected FrameTrellis locations; never scan a
+    # user's entire profile or copy unrelated application logs.
+    $roots = @($env:APPDATA, $env:LOCALAPPDATA) | Where-Object { $_ }
+    $logDirs = foreach ($root in $roots) {
+        Join-Path $root 'FrameTrellis\logs'
+        Join-Path $root 'FrameTrellis\FrameTrellis\logs'
+    }
+    $latest = $logDirs | ForEach-Object {
+        Get-ChildItem -LiteralPath $_ -Filter frametrellis.log -ErrorAction SilentlyContinue
+    } | Sort-Object LastWriteTime -Descending | Select-Object -First 1
     if ($latest) {
         Write-Host "Last lines of $($latest.FullName):"
         Get-Content $latest.FullName -Tail 40 | ForEach-Object { Write-Host "  $_" }
@@ -183,6 +209,12 @@ $unlicensed = @($components | Where-Object {
     -not (Get-ChildItem (Join-Path $portable "licenses\$_") -Recurse -File -ErrorAction SilentlyContinue) })
 Check ($components.Count -gt 0 -and $unlicensed.Count -eq 0) `
     "every bundled component has license texts ($($components.Count) components$(if ($unlicensed) { '; missing: ' + ($unlicensed -join ', ') }))"
+# SDL2-compat loads SDL3 outside the ordinary PE import table. It must be
+# present in the standalone ZIP and independently attributed in the SBOM.
+if ($components -contains 'mingw-w64-ucrt-x86_64-sdl2-compat') {
+    Check (Test-Path (Join-Path $portable 'SDL3.dll')) 'SDL2-compat includes its SDL3 runtime DLL'
+    Check ($components -contains 'mingw-w64-ucrt-x86_64-sdl3') 'SDL3 is listed as a bundled component'
+}
 $version = (Get-Item (Join-Path $portable 'frametrellis.exe')).VersionInfo.ProductVersion
 Write-Host "frametrellis.exe product version: $version"
 Check ($Zip -match [regex]::Escape("FrameTrellis-$version-")) 'version resource matches the package name'
@@ -196,6 +228,49 @@ if (Test-Path $project) {
         # Every launch has its own screenshot and results. A later success never
         # cancels out an earlier failure in the check accumulator.
         Test-Editor $portable $project $name
+    }
+}
+
+# Diagnostic launches are additional, independent checks; they do not turn a failed
+# default-backend launch into a passing verification. On ARM64 Windows, x64 emulation,
+# Qt Quick graphics and native decoder startup are all plausible crash variables.
+# Compare each backend using the exact same synthetic self-test project.
+if ($SoftwareBackendDiagnostics -and (Test-Path $project)) {
+    Write-Host 'Running two additional Qt Quick software-backend GUI launch checks.'
+    $previousBackend = [Environment]::GetEnvironmentVariable('QT_QUICK_BACKEND', 'Process')
+    try {
+        $env:QT_QUICK_BACKEND = 'software'
+        for ($run = 1; $run -le 2; ++$run) {
+            Test-Editor $portable $project "software-$run"
+        }
+    }
+    finally {
+        if ($null -eq $previousBackend) {
+            Remove-Item Env:QT_QUICK_BACKEND -ErrorAction SilentlyContinue
+        } else {
+            $env:QT_QUICK_BACKEND = $previousBackend
+        }
+    }
+}
+
+# A dummy SDL audio device removes dependency on the runner's default WASAPI
+# endpoint. Compare these runs with the unchanged graphics backend to narrow
+# intermittent startup crashes. Every attempt is an independent required check.
+if ($DummyAudioDiagnostics -and (Test-Path $project)) {
+    Write-Host 'Running two additional GUI checks with SDL dummy audio (default graphics).'
+    $previousAudio = [Environment]::GetEnvironmentVariable('SDL_AUDIODRIVER', 'Process')
+    try {
+        $env:SDL_AUDIODRIVER = 'dummy'
+        for ($run = 1; $run -le 2; ++$run) {
+            Test-Editor $portable $project "dummy-audio-$run"
+        }
+    }
+    finally {
+        if ($null -eq $previousAudio) {
+            Remove-Item Env:SDL_AUDIODRIVER -ErrorAction SilentlyContinue
+        } else {
+            $env:SDL_AUDIODRIVER = $previousAudio
+        }
     }
 }
 

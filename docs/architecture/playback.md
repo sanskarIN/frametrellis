@@ -15,6 +15,11 @@
 * **No backlog.** Seeks are coalesced (only the latest pending seek is kept) and the UI receives
   only the most recent frame through a single pending notification, so scrubbing or a slow
   repaint cannot pile up work.
+* **Current requests win.** Picture-affecting commands advance a generation under the command
+  lock. The worker tags frames with the applied generation; publication and GUI delivery both
+  reject superseded frames. An older queued picture cannot reverse a newer seek or display a
+  replaced project. Owner atomics and displayed-frame state are constructed before the worker
+  starts, so even its first audio/position updates address initialized storage.
 * **Display.** `FrameView` uploads the frame as a texture through the scene graph and draws it
   aspect-fitted. It works with every Qt Quick backend, including the software renderer.
 

@@ -66,11 +66,15 @@ private:
     void setState(State state);
     void fail(const QString& message, const QString& detail = {});
     void onReadyRead();
+    void drainStandardError();
     void onProcessFinished(int exitCode, QProcess::ExitStatus status);
     void onProcessError(QProcess::ProcessError error);
+    void sendPendingCancel();
     void handleEvent(const QJsonObject& event);
+    void removeOwnedPartialOutput();
 
     QString m_helperProgram;
+    QString m_partialOutputPath;
     State m_state = State::Idle;
     ExportSettings m_settings;
     std::unique_ptr<QProcess> m_process;
@@ -79,12 +83,17 @@ private:
     QElapsedTimer m_elapsed;
     qint64 m_finalElapsed = -1;
     QByteArray m_buffer;
+    QByteArray m_stderrTail; // bounded recent renderer diagnostics for failed exports
+    bool m_discardingOversizedLine = false;
     FrameCount m_framesDone = 0;
     FrameCount m_totalFrames = 0;
+    int m_lastLoggedProgressBucket = -1;
     QString m_encoder;
     QString m_errorMessage;
     QString m_errorDetail;
     bool m_sawFinished = false;
+    bool m_cancelSent = false;
+    bool m_cancelKillIssued = false;
 };
 
 } // namespace ft::rendering

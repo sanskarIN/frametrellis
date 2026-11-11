@@ -4,6 +4,7 @@ add_library(ft_engine STATIC
     mlt_profile.cpp mlt_profile.h
     mlt_runtime.cpp mlt_runtime.h
     still_producer.cpp still_producer.h
+    subtitle_producer.cpp subtitle_producer.h
     timeline_graph.cpp timeline_graph.h
 )
 target_link_libraries(ft_engine

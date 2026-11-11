@@ -62,3 +62,279 @@ be undone or redone with **Ctrl+Z / Ctrl+Shift+Z**.
 ## Frame-accurate group nudging
 
 Select any combination of video or audio clips. Use **Alt+Left / Alt+Right** to move them one project frame, or **Alt+Shift+Left / Alt+Shift+Right** to move ten frames. Edits retain source trims and synchronized spacing; all clips move together in one undo step. Moves are refused if a track is locked, the move overlaps an unselected clip, exceeds timeline boundaries, or would invalidate a transition. Undo restores every clip and transition.
+
+## Copy selection timecodes (v1.4 development)
+
+Select one or more clips on any video/audio tracks and choose **Playback →
+Copy Selection Timecodes**. The editor copies SMPTE start, **exclusive** end,
+last visible frame, exact duration in frames, and rational project frame rate
+to the system clipboard. It reports the *outer* span of selected clips,
+including any gaps; it does not sum clip durations. An empty selection leaves
+the clipboard unchanged. This is read-only: it cannot alter the sequence,
+track locks, selection, source files, project dirty state or Undo history.
+
+## Align one clip edge to the playhead (v1.4 development)
+
+Select **one** timeline clip and position the playhead on the exact destination
+frame. Under **Edit → Align Selected Clip to Playhead**, choose **Align Start** to
+place the selected clip's start at the playhead, or **Align End** to place its
+exclusive end at that frame. The clip remains on its current track and keeps
+its source in/out, duration, volume, picture adjustments and fades.
+
+This command moves the complete clip; it does **not** trim, ripple neighboring
+clips, change source media or seek the playhead. An overlap, locked track,
+negative start or invalid transition rejects the operation atomically without
+changing the edit. A successful move is one undoable command. The feature is
+only in development builds, not the published v1.3.1 stable release.
+
+## Insert time across tracks (v1.4 development)
+
+Move the playhead to a safe boundary or empty interval, then use **Edit →
+Insert Gap at Playhead** and choose **1 Frame**, **10 Frames**, **About 1 Second**
+or **About 5 Seconds**. Every clip starting at or after that frame moves later by
+that duration, across video and audio tracks. Existing source trims, clip
+adjustments, automation points and fully shifted transitions remain unchanged.
+The command is one undoable operation.
+
+This operation does not split a clip. If any clip spans the playhead, an affected
+track is locked, a transition would be disconnected, or the new positions exceed
+the timeline limit, nothing changes. Timeline markers and subtitle cues stay at
+their original sequence times; move those separately where necessary. The
+approximate second choices use a rounded number of project frames. The feature
+is not in the published v1.3.1 stable release.
+
+## Remove known empty time across tracks (v1.4 development)
+
+Choose **Edit → Remove Empty Time at Playhead**, selecting **1 Frame**,
+**10 Frames**, **About 1 Second** or **About 5 Seconds**. FrameTrellis checks that
+the entire time interval is empty on *every* video and audio track, then moves
+all later clips earlier by that many frames in one undoable edit. Existing
+source trims, effects, automation and transitions within the shifted clips
+remain unchanged.
+
+If any clip overlaps the selected time, or a locked track would need to move,
+the command refuses the change without altering the project. It also rejects
+invalid ranges and operations with no later clips. Subtitle cues and review
+markers remain at their original absolute sequence times, so adjust those
+separately. Removing an empty interval does not delete source media or trim a
+clip. This workflow requires the preceding multi-track gap feature, and
+neither feature is in stable v1.3.1.
+
+## Select complete clips before or after the playhead (v1.4 development)
+
+Use **Edit → Select Entire Clips Before Playhead** or **Select Entire Clips
+After Playhead** to select complete clips across all audio/video tracks. An
+earlier clip must end at or before the playhead; a later clip must start at or
+after it. Clips that straddle the playhead are intentionally excluded. Locked
+tracks remain selectable for inspection, but their edits are still protected.
+An empty match leaves your existing selection intact. These commands never
+modify the project, media files or undo history. They are development-only.
+
+## Trim selected clip to the playhead (v1.4 development)
+
+Select one clip, position the playhead **strictly within** that clip, and use
+**Edit → Trim Selected Clip to Playhead → Trim Start** or **Trim End**.
+Trimming the start advances its source In frame while leaving the source Out
+frame fixed. Trimming the end leaves the source In frame fixed. Only the selected
+clip is affected, in one undoable edit. This is not a ripple trim.
+
+Locked clips, a playhead outside the selected clip, or clips participating
+in a transition are rejected instead of silently changing adjacent edits.
+No original media files are modified. This command is development-only
+and does not appear in the v1.3.1 stable release.
+
+
+## Duplicate a selected group at the playhead (v1.4 development)
+
+Select one or several clips across video/audio tracks, then position the
+playhead at the **earliest desired copy start** and choose **Edit → Duplicate
+Selection at Playhead** (`Ctrl+Shift+D`). All copied clips keep their source
+In/Out frames, full picture/audio properties and source-anchored automation.
+Their original track assignments and relative time offsets are preserved.
+The editor selects the new copies so you can move or adjust them together.
+
+The operation is a single Undo/Redo step and **does not ripple or overwrite
+existing clips**. Place the playhead over a genuinely free interval on each
+affected track. Empty selections, duplicate/missing IDs, locked tracks,
+collisions, and copies beyond the project frame limit reject the entire edit
+without partially inserting clips or replacing the previous selection.
+Transitions at cuts are not duplicated: create the new transitions explicitly
+if required. The original **Duplicate Selected Clips** (`Ctrl+D`) action
+continues to append copies to the sequence instead.
+
+This is a development feature and is not included in stable v1.3.1.
+
+## Align a group of clips to the playhead (v1.4 development)
+
+Select one or more clips on video and/or audio tracks, then choose **Edit →
+Align Selection Start to Playhead**. The earliest selected clip start moves
+exactly to the playhead. Every selected clip shifts by the same signed number
+of frames, preserving track assignment, relative offsets, source In/Out, fades
+and automation. This is an atomic **Nudge Clips** undo step. A locked track,
+collision with an unselected clip, timeline overflow or an unsafe transition
+rejects the whole edit. Empty selections and no-op alignment create no undo
+entry. This does not ripple, trim or move unselected clips.
+
+### Align the selection end to the playhead
+
+Use **Edit → Align Selection End to Playhead** to move the *latest exclusive
+end* of selected video/audio clips to the playhead. All selected clips shift
+by the same number of frames, preserving track assignments, trims, relative
+offsets, fades and automation. One undo step moves the whole selection.
+
+This differs from the single-clip **Align End** action: it works on a
+multi-track group and uses the last ending clip to determine its shift.
+Negative timeline positions, collisions, locked tracks, unsafe transitions
+and selections with no valid clips reject the edit atomically. The playhead
+cannot normally move beyond the sequence's last visible frame, so aligning
+the very last clip end can move the group one frame earlier. This action is
+not available in stable v1.3.1.
+
+### Center the selection on the playhead
+
+Choose **Edit → Center Selection on Playhead** to shift the entire selected
+video/audio group until the midpoint of its outer `[start, end)` range
+matches the current playhead frame. The group retains its internal timing,
+tracks, source trims, fades, keyframes and all other clip attributes. For
+odd-length ranges, the center rounds down to the earlier whole frame.
+
+The edit is a single atomic **Nudge Clips** undo step; an empty selection,
+already-centered group, locked track, collision or movement before frame zero
+is refused without affecting the project or its history. As with start/end
+alignment, this does not change media content, markers, subtitles or
+unselected clips. It is not in stable v1.3.1.
+
+## Apply fades to multiple selected clips (v1.4 development)
+
+Select several clips across video and audio tracks, then choose **Edit →
+Fade Selected Clips**. Apply **Fade In** or **Fade Out** over ten frames or
+approximately one second, or clear the chosen fade on the whole selection.
+The command preserves gain, muting, picture corrections and source trims,
+and is recorded as **one** undoable step. Each requested fade is shortened to
+fit its clip's duration after retaining the fade at the opposite end; a short
+clip never receives overlapping fades. Clips on locked tracks, invalid or
+duplicated IDs, and selections already at the requested value are rejected
+without modifying any clip. Source media is not altered; the same properties
+apply to playback and the final renderer. This is not in stable v1.3.1.
+
+## Use exact picture-adjustment percentages (v1.4 development)
+
+The **Edit → Picture Adjustments for Selected Clips → Custom Picture
+Adjustment…** dialog lets you enter precise whole-percentage values instead
+of choosing only from presets: brightness from -100% through +100%, contrast
+from 0% through 200%, and saturation from 0% through 300%. Neutral values
+are 0% brightness and 100% contrast/saturation. Select video clips across
+tracks before applying; the chosen adjustment is applied to all selected
+clips as **one undoable command**.
+
+The dialog rejects mixed audio/video selections, locked tracks and requests
+that would change nothing. It stays open and explains the failure so that
+you can correct the selection or value. Only the chosen picture property
+changes: clip source trims, fades, audio gain, opacity, other picture
+properties and source-anchored keyframes remain untouched. This custom
+dialog is available on the development branch, not stable v1.3.1.
+
+## Change selected clips' audio gain together (v1.4 development)
+
+Select clips across audio and video tracks, then choose **Edit → Audio Gain
+for Selected Clips** to set all their linear gain controls to 0% (silence),
+50%, 100% (normal), 150%, or 200%. The command changes only the audio gain,
+not the clip's mute state, keyframes, fades, trims, picture adjustments, or
+timeline position. It makes one undoable change for the entire selection.
+
+The underlying gain control accepts finite values from 0.0 to 4.0 (400%).
+Missing/duplicate selections, locked tracks, invalid values, and settings
+already identical across the selection are rejected without changing the
+project. Gain above 100% may cause clipping depending on the source audio.
+This is a development feature and is not in stable v1.3.1.
+
+## Set base opacity across video clips (v1.4 development)
+
+Select one or more clips on video tracks and choose **Edit → Video Opacity for
+Selected Clips**. Presets set the selected clips to 0%, 25%, 50%, 75% or
+100% opacity, with one undoable action for the whole selection. Base opacity
+changes without changing trim points, fades, gain, color corrections, source
+media, or source-anchored opacity keyframes. Existing animation still applies.
+
+The command requires an **all-video selection**: a selected audio-track clip,
+locked track, duplicate/missing clip, invalid setting, or a selection already
+at the requested opacity rejects the entire operation without changing the
+project or its undo history. Opacity affects visual compositing; transparent
+clips reveal underlying layers when available. This feature is not included
+in stable v1.3.1.
+
+## Batch brightness, contrast and saturation (v1.4 development)
+
+Select any number of clips on video tracks and choose **Edit → Picture
+Adjustments for Selected Clips**. Set brightness to darker (-20%), neutral
+(0%) or brighter (+20%); contrast to soft (80%), neutral (100%) or strong
+(120%); and saturation to monochrome (0%), soft (75%), neutral (100%) or
+vivid (125%). Each action changes only that one picture property and records
+one undoable command for the complete selection.
+
+The underlying edit validates brightness in -1.0 to +1.0, contrast in 0.0
+to 2.0 and saturation in 0.0 to 3.0. Clips must be on unlocked video tracks:
+mixed audio/video selections, missing or duplicated clip IDs, non-finite or
+out-of-range settings, and requests that produce no change all fail without
+partially updating the project or its undo history. Existing opacity,
+animation curves, audio gain, fades and source trims are preserved. This
+development feature is not in the published v1.3.1 release.
+
+## Exact gap duration and automatic gap closure (v1.4 development)
+
+Use **Edit → Insert Gap at Playhead → Custom Duration…** or **Edit →
+Remove Empty Time at Playhead → Custom Duration…** to enter any positive
+duration up to one million project frames. The dialog gives an approximate
+seconds conversion, but the edit uses the exact integer frame count. A failed
+operation keeps the dialog open; undo/redo works as for the preset durations.
+
+Use **Edit → Remove Empty Time at Playhead → Close Gap to Next Clip** to find
+the earliest later clip on *any* video or audio track and close exactly that
+empty interval. The command refuses an occupied playhead position, a missing
+later clip, a protected track, any intersecting clip or an unsafe transition.
+It never trims or deletes footage. Subtitles and timeline markers stay at their
+absolute sequence frame positions. Neither command is present in v1.3.1.
+
+## Select clips by the current selection range (v1.4 development)
+
+Select at least two timeline clips to define the time span from the earliest
+selected start to the latest selected exclusive end. Then choose either
+**Edit → Select Clips Overlapping Selection Range** to include every clip on
+all video/audio tracks with any frames in that span, or **Edit → Select Clips
+Entirely Inside Selection Range** to include only clips whose full duration
+falls inside the span. These are selection operations only: they do not trim,
+move, ripple, copy, delete or create an Undo command.
+
+The range uses half-open intervals: a clip beginning exactly at the selected
+range's end is excluded; a clip ending exactly at its start is excluded from
+the overlapping mode. Locked tracks are included for inspection, not edited.
+An empty selection or a selection already matching the requested mode leaves
+the project and edit history untouched.
+
+## Traverse selected clips' visible edges (v1.4 development)
+
+Select any set of timeline clips, then use **Playback → Previous Selected Clip
+Edge** or **Playback → Next Selected Clip Edge** to seek among every selected
+clip's first and final **visible** frame. Edges from overlapping clips on
+multiple audio/video tracks are combined, sorted and deduplicated.
+
+These commands skip the current frame and never wrap around the sequence.
+The final visible frame is the exclusive clip end minus one, avoiding
+one-past-the-end seeks on the last clip. Neither action edits project data,
+undo history, track locks or the current selection. Empty selections and a
+missing preceding/following edge leave the playhead where it is.
+
+## Navigate to selected clip edges (v1.4 development)
+
+Select one or more video/audio clips, then use **Playback → Go to Selection
+Start** to seek to the earliest selected start. Use **Playback → Go to
+Selection Last Frame** to seek to the last visible frame before the latest
+selected clip's exclusive end. This respects the timeline's half-open clip
+intervals and prevents an accidental seek one frame past the selection.
+**Playback → Go to Selection Midpoint** seeks to the earlier middle visible
+frame in the outer span of the selection, including any gaps between selected
+clips. For an even frame count the earlier of the two central frames wins.
+It never seeks to the exclusive end and works across audio/video tracks.
+
+Navigation does not edit clips, alter track locks, clear selections or create
+undo history; empty selections have no effect. This is a development feature.

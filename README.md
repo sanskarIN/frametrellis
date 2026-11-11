@@ -16,11 +16,13 @@ account, no cloud processing, no telemetry and no advertising.
 
 ![The FrameTrellis workspace with media bin, program monitor, clip inspector and a three-track timeline](docs/images/workspace.png)
 
-> **Latest stable release: 1.2.2.** Faster MP4 export includes Quick and Turbo H.264
-> profiles, optional no-upscale output and live render-speed feedback.
-> Download released Windows installers and portable ZIPs from the
-> [releases page](https://github.com/sanskarIN/frametrellis/releases).
-> On Linux, build from source. Keep backups of important projects.
+> **Latest stable release: 1.4.0 (2 November 2026).** Includes timeline gap/slip/roll
+> editing, volume/opacity/transform keyframes, subtitles and review exports.
+> Download the Windows installer or portable ZIP from the
+> [v1.4.0 release](https://github.com/sanskarIN/frametrellis/releases/tag/v1.4.0).
+> Both Windows packages, SHA-256 checksums, SPDX SBOM and corresponding-source archive
+> are attached. On Linux, build from source. **Back up projects before upgrading:**
+> files using newer format versions may not reopen in v1.3.1.
 
 
 ## Features
@@ -32,7 +34,8 @@ What works today (each item is implemented and covered by automated tests):
 - [x] Import video, audio and still images (common formats FFmpeg can decode), probed in the
       background with real thumbnails; duplicate imports are detected
 - [x] Missing-media detection with offline placeholders and relinking; projects resolve media
-      relative to a moved project folder
+      relative to a moved project folder; duplicate canonical media paths are refused
+- [x] Search and category-filter the media bin without removing any project assets
 - [x] Multi-track timeline with any number of video and audio tracks (up to 99)
 - [x] Drag media from the bin onto tracks, move clips (also between tracks), trim either edge,
       split at the playhead, delete and ripple delete — overlapping edits are refused, not destructive
@@ -40,7 +43,7 @@ What works today (each item is implemented and covered by automated tests):
 - [x] Create transparent PNG title overlays with font size and colour choices, stored beside
       the saved project and editable on the timeline as ordinary image clips
 - [x] Snapping to clip edges and the playhead, zoom, frame-accurate timecode (including
-      drop-frame for 29.97/59.94 fps)
+      drop-frame for 29.97/59.94 fps), and Go to Timecode (Ctrl+G)
 - [x] Real-time preview with audio (SDL2), seeking, frame stepping and edit-point navigation
 - [x] Track mute, hide and lock; clip volume, mute, fade in/out and opacity; batch mute/unmute,
       copy/paste clip attributes and reset picture adjustments for multi-selections
@@ -51,11 +54,26 @@ What works today (each item is implemented and covered by automated tests):
 - [x] Export to MP4 (H.264 + AAC) with Quick and Turbo profiles, no-upscale controls,
       real-time render frames/s, quality and encoder-speed settings, in a separate process
       with progress, cancellation and verification of the result
+- [x] Read-only project inspection via `frametrellis-render --inspect-project --project FILE`,
+      including media and track counts without revealing source paths
 - [x] Autosave every minute and crash recovery
 - [x] Recent projects, dark and light themes, keyboard shortcuts, first-run guide
+- [x] Slip and roll edits, multi-track gap insertion/removal, track reorder/duplication,
+      selected-clip alignment and precision timeline selection/navigation
+- [x] Source-anchored volume, opacity and position/scale/rotation keyframes,
+      with inspector and timeline controls and corresponding preview/export support
+- [x] Timeline markers and subtitles, UTF-8 SRT import/export, WebVTT and transcript
+      exports, optional caption burn-in, cuts-only EDL and formula-safe CSV reports
+- [x] Asynchronous folder import, media audits and usage/health filters,
+      undoable unused-media cleanup and protected preview PNG snapshots
+- [x] Creator upload and low-bandwidth review MP4 profiles with no-upscale safeguards
 
-Planned (see the [roadmap](docs/roadmap.md)): editable title layers, subtitles, keyframes,
-proxy media, customisable shortcuts, more export formats, and Linux and macOS packages.
+Planned (see the [roadmap](docs/roadmap.md)): editable native text titles, animation
+easing and custom pivots, proxy media, customisable shortcuts, additional export
+formats, and Linux and macOS packages. These are **not included** in v1.4.0.
+See the [v1.4.0 notes](docs/releases/v1.4.0.md) for the exact shipped scope
+and the [professional-editor assessment](docs/development/pro-editor-assessment.md)
+for remaining engineering gaps.
 
 ## Platforms
 
@@ -112,9 +130,13 @@ and Turbo presets and how to measure improvements. The [user guide](docs/user-gu
 
 ## Current limitations
 
-- Titles are PNG image overlays, not editable text layers; there are no keyframes yet and
-  dissolve/crossfade is the only transition. Keep generated PNGs when moving the project.
-- Only MP4 (H.264 + AAC) export; frame rate is fixed once clips are on the timeline.
+- Titles are PNG image overlays rather than editable text layers, and dissolve/crossfade
+  is the only transition. Volume, opacity and position/scale/rotation keyframes are
+  available in v1.4.0; easing curves and custom pivots remain planned. Keep generated
+  PNGs when moving the project.
+- Video export supports MP4 (H.264 + AAC), with optional subtitle burn-in;
+  embedded switchable subtitle tracks and alternative video codecs/containers are
+  not yet supported. Frame rate is fixed once clips are on the timeline.
 - Very large timelines (thousands of clips) are not optimised yet.
 - Picture adjustments need an FFmpeg/MLT build with a working `eq` filter; the inspector says
   when they are unavailable.

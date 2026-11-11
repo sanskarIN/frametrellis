@@ -12,8 +12,19 @@ PanelFrame {
     id: panel
 
     required property AppController app
+    readonly property bool excerptDialogOpen: excerptDialog.visible
     signal importRequested()
     signal relinkRequested(string assetId, string name)
+    signal sourceMonitorRequested(string assetId)
+
+    MediaBinFilterModel {
+        id: filteredMedia
+        sourceModel: panel.app.media.model
+        searchText: searchBox.text
+        category: ["all", "video", "audio", "image", "offline", "changed", "used", "unused"][kindBox.currentIndex] || "all"
+        sortMode: ["import", "name-asc", "name-desc", "duration-desc", "duration-asc",
+                   "usage-desc"][sortBox.currentIndex] || "import"
+    }
 
     title: qsTr("Media") + (app.media.model.count > 0 ? "  ·  " + app.media.model.count : "")
 
@@ -54,6 +65,41 @@ PanelFrame {
         visible: fileDrop.containsDrag
     }
 
+    RowLayout {
+        id: filterBar
+        anchors.left: parent.left
+        anchors.right: parent.right
+        anchors.top: parent.top
+        anchors.margins: Theme.spacingS
+        height: 34
+        spacing: Theme.spacingS
+        z: 2
+
+        TextField {
+            id: searchBox
+            objectName: "mediaSearchField"
+            Layout.fillWidth: true
+            placeholderText: qsTr("Search media…")
+            Accessible.name: qsTr("Search imported media by name or path")
+        }
+        ComboBox {
+            id: kindBox
+            objectName: "mediaKindFilter"
+            Layout.preferredWidth: 124
+            model: [qsTr("All"), qsTr("Video"), qsTr("Audio"), qsTr("Images"), qsTr("Offline"),
+                    qsTr("Changed"), qsTr("Used"), qsTr("Unused")]
+            Accessible.name: qsTr("Media kind filter")
+        }
+        ComboBox {
+            id: sortBox
+            objectName: "mediaSortOrder"
+            Layout.preferredWidth: 124
+            model: [qsTr("Imported"), qsTr("Name A–Z"), qsTr("Name Z–A"),
+                    qsTr("Longest first"), qsTr("Shortest first"), qsTr("Most used")]
+            Accessible.name: qsTr("Media sort order")
+        }
+    }
+
     EmptyState {
         anchors.centerIn: parent
         visible: panel.app.media.model.count === 0
@@ -64,14 +110,295 @@ PanelFrame {
         onActionTriggered: panel.importRequested()
     }
 
+    EmptyState {
+        anchors.centerIn: parent
+        visible: panel.app.media.model.count > 0 && filteredMedia.count === 0
+        iconName: "film"
+        title: qsTr("No matching media")
+        message: qsTr("Try another search or media kind.")
+        actionText: qsTr("Clear filters")
+        onActionTriggered: {
+            searchBox.text = ""
+            kindBox.currentIndex = 0
+        }
+    }
+
+    FtDialog {
+        id: mediaPropertiesDialog
+        objectName: "mediaPropertiesDialog"
+        property string assetId: ""
+        property var facts: ({})
+
+        title: qsTr("Media properties")
+        implicitWidth: 560
+        closePolicy: Popup.CloseOnEscape
+
+        function openFor(id) {
+            const data = panel.app.media.mediaProperties(id)
+            if (!data || !data.name)
+                return
+            mediaPropertiesDialog.assetId = id
+            mediaPropertiesDialog.facts = data
+            open()
+        }
+
+        contentItem: ScrollView {
+            implicitHeight: 390
+            clip: true
+            ColumnLayout {
+                width: parent.width
+                spacing: Theme.spacingS
+                Repeater {
+                    model: [
+                        { label: qsTr("Name"), value: mediaPropertiesDialog.facts.name },
+                        { label: qsTr("File"), value: mediaPropertiesDialog.facts.filePath },
+                        { label: qsTr("Type"), value: mediaPropertiesDialog.facts.kind },
+                        { label: qsTr("Status"), value: mediaPropertiesDialog.facts.status },
+                        { label: qsTr("Duration"), value: mediaPropertiesDialog.facts.duration },
+                        { label: qsTr("Resolution"), value: mediaPropertiesDialog.facts.resolution },
+                        { label: qsTr("Source frame rate"), value: mediaPropertiesDialog.facts.frameRate },
+                        { label: qsTr("Video codec"), value: mediaPropertiesDialog.facts.videoCodec },
+                        { label: qsTr("Audio codec"), value: mediaPropertiesDialog.facts.audioCodec },
+                        { label: qsTr("Container"), value: mediaPropertiesDialog.facts.container },
+                        { label: qsTr("Audio sample rate"), value: mediaPropertiesDialog.facts.sampleRate },
+                        { label: qsTr("Audio channels"), value: mediaPropertiesDialog.facts.channels },
+                        { label: qsTr("File size"), value: mediaPropertiesDialog.facts.fileSize },
+                        { label: qsTr("Modified (UTC)"), value: mediaPropertiesDialog.facts.lastModified },
+                        { label: qsTr("Timeline uses"), value: mediaPropertiesDialog.facts.timelineUses },
+                        { label: qsTr("Media ID"), value: mediaPropertiesDialog.facts.assetId }
+                    ]
+                    delegate: RowLayout {
+                        required property var modelData
+                        Layout.fillWidth: true
+                        spacing: Theme.spacingS
+                        Label {
+                            Layout.preferredWidth: 128
+                            Layout.alignment: Qt.AlignTop
+                            color: Theme.textMuted
+                            text: modelData.label
+                            font.pixelSize: Theme.fontSizeSmall
+                        }
+                        Label {
+                            Layout.fillWidth: true
+                            color: Theme.text
+                            text: modelData.value === undefined ? "" : String(modelData.value)
+                            font.pixelSize: Theme.fontSizeSmall
+                            wrapMode: Text.WrapAnywhere
+                            textFormat: Text.PlainText
+                        }
+                    }
+                }
+            }
+        }
+
+        footer: DialogButtons {
+            Item { Layout.fillWidth: true }
+            FtButton {
+                objectName: "copyMediaProperties"
+                text: qsTr("Copy details")
+                onClicked: panel.app.media.copyMediaProperties(mediaPropertiesDialog.assetId)
+            }
+            FtButton { text: qsTr("Close"); onClicked: mediaPropertiesDialog.close() }
+        }
+    }
+
+    FtDialog {
+        id: excerptDialog
+        objectName: "sourceExcerptDialog"
+        property string assetId: ""
+        property string sourceName: ""
+        property int maxFrames: 1
+        property bool failed: false
+        property bool hasPicture: false
+        property int pictureFrame: 0
+
+        title: qsTr("Preview and append source excerpt")
+        implicitWidth: 560
+        closePolicy: Popup.CloseOnEscape
+
+        function openFor(assetId, name) {
+            excerptDialog.assetId = assetId
+            excerptDialog.sourceName = name
+            excerptDialog.maxFrames = Math.max(1, Math.floor(panel.app.timeline.assetDuration(assetId)))
+            excerptDialog.failed = false
+            excerptDialog.hasPicture = panel.app.media.mediaProperties(assetId).kind === "video"
+            open()
+            sourceInFrame.value = 0
+            sourceOutFrame.value = excerptDialog.maxFrames
+            sourcePreviewFrame.value = 0
+            sourcePreviewDebounce.stop()
+            excerptDialog.pictureFrame = 0
+        }
+
+        // Fast scrubbing can otherwise spawn a new decoder for every pointer
+        // movement. Coalesce those requests while keeping the frame input live.
+        Timer {
+            id: sourcePreviewDebounce
+            interval: 100
+            repeat: false
+            onTriggered: excerptDialog.pictureFrame = sourcePreviewFrame.value
+        }
+
+        contentItem: ColumnLayout {
+            spacing: Theme.spacingS
+            Label {
+                Layout.fillWidth: true
+                text: excerptDialog.sourceName
+                color: Theme.text
+                elide: Text.ElideMiddle
+            }
+            Label {
+                Layout.fillWidth: true
+                text: qsTr("Preview exact project-rate source frames. Out is exclusive (the first frame not used).")
+                wrapMode: Text.WordWrap
+                color: Theme.textMuted
+            }
+            Rectangle {
+                Layout.fillWidth: true
+                Layout.preferredHeight: 210
+                color: Theme.monitorBackground
+                radius: Theme.radiusSmall
+                clip: true
+                Image {
+                    id: sourceFrameImage
+                    objectName: "sourceFramePreviewImage"
+                    anchors.fill: parent
+                    anchors.margins: 4
+                    source: panel.app.media.sourcePreviewUrl(excerptDialog.assetId,
+                                                             excerptDialog.pictureFrame)
+                    sourceSize.width: 640
+                    sourceSize.height: 360
+                    fillMode: Image.PreserveAspectFit
+                    asynchronous: true
+                    cache: false
+                    Accessible.role: Accessible.Graphic
+                    Accessible.name: qsTr("Source frame %1").arg(excerptDialog.pictureFrame)
+                }
+                BusyIndicator {
+                    anchors.centerIn: parent
+                    running: sourceFrameImage.status === Image.Loading
+                    visible: running
+                }
+                Label {
+                    anchors.centerIn: parent
+                    visible: !excerptDialog.hasPicture
+                    text: qsTr("Audio-only source — no picture available")
+                    color: Theme.textMuted
+                }
+                Label {
+                    anchors.centerIn: parent
+                    visible: excerptDialog.hasPicture && sourceFrameImage.status === Image.Error
+                    text: qsTr("Frame preview unavailable. Check the source file.")
+                    color: Theme.danger
+                }
+            }
+            RowLayout {
+                Layout.fillWidth: true
+                Label { text: qsTr("Preview frame"); color: Theme.textMuted }
+                SpinBox {
+                    id: sourcePreviewFrame
+                    objectName: "sourcePreviewFrame"
+                    from: 0
+                    to: Math.max(0, excerptDialog.maxFrames - 1)
+                    editable: true
+                    Layout.fillWidth: true
+                    onValueChanged: sourcePreviewDebounce.restart()
+                    Accessible.name: qsTr("Preview source frame")
+                }
+                FtButton {
+                    text: qsTr("Mark In")
+                    enabled: sourcePreviewFrame.value < sourceOutFrame.value
+                    onClicked: sourceInFrame.value = sourcePreviewFrame.value
+                }
+                FtButton {
+                    text: qsTr("Mark Out")
+                    enabled: sourcePreviewFrame.value >= sourceInFrame.value
+                    onClicked: sourceOutFrame.value = sourcePreviewFrame.value + 1
+                }
+            }
+            Slider {
+                objectName: "sourcePreviewScrubber"
+                Layout.fillWidth: true
+                from: 0
+                to: Math.max(0, excerptDialog.maxFrames - 1)
+                stepSize: 1
+                snapMode: Slider.SnapAlways
+                value: sourcePreviewFrame.value
+                onMoved: sourcePreviewFrame.value = Math.round(value)
+                Accessible.name: qsTr("Scrub source frames")
+            }
+            RowLayout {
+                Layout.fillWidth: true
+                Label { text: qsTr("In frame"); color: Theme.textMuted }
+                SpinBox {
+                    id: sourceInFrame
+                    objectName: "sourceExcerptIn"
+                    from: 0
+                    to: Math.max(0, excerptDialog.maxFrames - 1)
+                    editable: true
+                    Layout.fillWidth: true
+                    Accessible.name: qsTr("Source In frame")
+                    onValueModified: {
+                        excerptDialog.failed = false
+                        sourcePreviewFrame.value = value
+                    }
+                }
+                Label { text: qsTr("Out frame"); color: Theme.textMuted }
+                SpinBox {
+                    id: sourceOutFrame
+                    objectName: "sourceExcerptOut"
+                    from: 1
+                    to: excerptDialog.maxFrames
+                    editable: true
+                    Layout.fillWidth: true
+                    Accessible.name: qsTr("Exclusive source Out frame")
+                    onValueModified: {
+                        excerptDialog.failed = false
+                        sourcePreviewFrame.value = Math.max(0, value - 1)
+                    }
+                }
+            }
+            Label {
+                Layout.fillWidth: true
+                color: excerptDialog.failed || sourceOutFrame.value <= sourceInFrame.value
+                       ? Theme.danger : Theme.textFaint
+                wrapMode: Text.WordWrap
+                text: excerptDialog.failed
+                      ? qsTr("Cannot append this excerpt. Check the range and the destination track.")
+                      : qsTr("%1 frames selected from a %2-frame source.")
+                          .arg(Math.max(0, sourceOutFrame.value - sourceInFrame.value))
+                          .arg(excerptDialog.maxFrames)
+            }
+        }
+
+        footer: DialogButtons {
+            Item { Layout.fillWidth: true }
+            FtButton { text: qsTr("Cancel"); onClicked: excerptDialog.close() }
+            FtButton {
+                objectName: "sourceExcerptAppend"
+                text: qsTr("Append excerpt")
+                primary: true
+                enabled: sourceOutFrame.value > sourceInFrame.value
+                onClicked: {
+                    if (panel.app.timeline.appendAssetRange(excerptDialog.assetId,
+                                                            sourceInFrame.value, sourceOutFrame.value))
+                        excerptDialog.close()
+                    else
+                        excerptDialog.failed = true
+                }
+            }
+        }
+    }
+
     GridView {
         id: grid
         objectName: "mediaGrid"
         anchors.fill: parent
         anchors.margins: Theme.spacingS
+        anchors.topMargin: filterBar.height + 2 * Theme.spacingS
         clip: true
         visible: count > 0
-        model: panel.app.media.model
+        model: filteredMedia
         cellWidth: Math.max(140, Math.floor(width / Math.max(1, Math.floor(width / 150))))
         cellHeight: cellWidth * 9 / 16 + 46
         boundsBehavior: Flickable.StopAtBounds
@@ -229,8 +556,13 @@ PanelFrame {
                 ToolTip.delay: 900
                 ToolTip.text: tile.tooltip
                 onPressed: mouse => {
-                    grid.currentIndex = tile.index
-                    grid.forceActiveFocus()
+                    // Delegates do not inherit a reliable lexical reference to the view.
+                    // The attached view resolves correctly even after delegate reparenting.
+                    const view = tile.GridView.view
+                    if (view) {
+                        view.currentIndex = tile.index
+                        view.forceActiveFocus()
+                    }
                     dragProxy.x = mouse.x
                     dragProxy.y = mouse.y
                 }
@@ -252,7 +584,13 @@ PanelFrame {
                 }
             }
 
-            Keys.onReturnPressed: panel.app.timeline.appendAsset(tile.assetId)
+            Keys.onReturnPressed: {
+                // Keep keyboard activation consistent with double-click for offline media.
+                if (tile.status === "missing")
+                    panel.relinkRequested(tile.assetId, tile.name)
+                else
+                    panel.app.timeline.appendAsset(tile.assetId)
+            }
 
             Menu {
                 id: contextMenu
@@ -262,13 +600,42 @@ PanelFrame {
                     onTriggered: panel.app.timeline.appendAsset(tile.assetId)
                 }
                 MenuItem {
+                    text: qsTr("Open in Source Monitor")
+                    enabled: tile.status !== "missing" && tile.kind !== "image"
+                             && panel.app.timeline.assetDuration(tile.assetId) > 0
+                    onTriggered: panel.sourceMonitorRequested(tile.assetId)
+                }
+                MenuItem {
+                    text: qsTr("Append source excerpt…")
+                    enabled: tile.status !== "missing" && tile.kind !== "image" && panel.app.timeline.assetDuration(tile.assetId) > 1
+                    onTriggered: excerptDialog.openFor(tile.assetId, tile.name)
+                }
+                MenuItem {
                     text: tile.status === "missing" ? qsTr("Relink missing file…") : qsTr("Replace file…")
                     onTriggered: panel.relinkRequested(tile.assetId, tile.name)
+                }
+                MenuItem {
+                    text: qsTr("Properties…")
+                    onTriggered: mediaPropertiesDialog.openFor(tile.assetId)
                 }
                 MenuItem {
                     text: qsTr("Show in folder")
                     enabled: tile.status !== "missing"
                     onTriggered: panel.app.media.revealInFolder(tile.assetId)
+                }
+                MenuSeparator {}
+                MenuItem {
+                    text: qsTr("Select timeline uses (%1)").arg(tile.usage)
+                    enabled: tile.usage > 0
+                    onTriggered: panel.app.timeline.selectMediaOccurrences(tile.assetId)
+                }
+                MenuItem {
+                    text: qsTr("Go to first timeline use")
+                    enabled: tile.usage > 0
+                    onTriggered: {
+                        if (panel.app.timeline.selectMediaOccurrences(tile.assetId))
+                            panel.app.timeline.seekToSelectionBoundary(false)
+                    }
                 }
                 MenuSeparator {}
                 MenuItem {

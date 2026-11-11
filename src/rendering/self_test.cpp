@@ -2,7 +2,10 @@
 // SPDX-FileCopyrightText: 2026 Sanskar and FrameTrellis contributors
 #include "rendering/self_test.h"
 
+#include "engine/frame_utils.h"
+#include "engine/mlt_profile.h"
 #include "engine/mlt_runtime.h"
+#include "engine/timeline_graph.h"
 #include "media/media_probe.h"
 #include "project/project.h"
 #include "project/project_serializer.h"
@@ -12,6 +15,7 @@
 
 #include <QDir>
 #include <QImage>
+#include <mlt++/Mlt.h>
 
 #include <algorithm>
 #include <atomic>
@@ -185,6 +189,11 @@ SelfTestReport runSelfTest(const QString& workDirectory,
             place(findTrack(TrackKind::Video, 1), assets[2], 0.5) &&
             place(findTrack(TrackKind::Audio, 0), assets[1], 1.0) &&
             static_cast<bool>(project.validate());
+    SubtitleTrack captions;
+    captions.fontPercent = 6;
+    captions.cues = {{QStringLiteral("self-test-subtitle"), 100, 1500,
+                      QStringLiteral("FrameTrellis subtitles")}};
+    built = built && project.setSubtitles(captions);
     report.projectPath = dir.filePath(QStringLiteral("self-test.ftproj"));
     const Status saved = built ? project_format::saveToFile(project, report.projectPath)
                                : Status(makeError(ErrorCode::InvalidArgument,
@@ -192,7 +201,8 @@ SelfTestReport runSelfTest(const QString& workDirectory,
     Result<Project> reloaded =
         saved ? project_format::loadFromFile(report.projectPath) : Result<Project>(saved.error());
     const bool roundTrip = reloaded && reloaded->timeline() == project.timeline() &&
-                           reloaded->media().size() == project.media().size();
+                           reloaded->media().size() == project.media().size() &&
+                           reloaded->subtitles() == project.subtitles();
     if (!record(QStringLiteral("project"), roundTrip,
                 roundTrip ? QStringLiteral("saved and reloaded %1 clips on %2 tracks")
                                 .arg(3)
@@ -213,6 +223,32 @@ SelfTestReport runSelfTest(const QString& workDirectory,
     if (!record(QStringLiteral("export"), static_cast<bool>(rendered),
                 rendered ? QStringLiteral("encoded with %1").arg(runner.encoder())
                          : rendered.error().toString())) {
+        return report;
+    }
+
+    // Font plugins are runtime dependencies: decode actual subtitle pixels from the
+    // packaged helper's export instead of accepting a successful encoder alone.
+    auto profile = engine::createProfile(settings.width, settings.height, settings.frameRate);
+    auto decoded = engine::TimelineGraphBuilder::openProducer(*profile, report.outputPath,
+                                                              MediaKind::Video, false);
+    const auto whitePixels = [](const QImage& image) {
+        int count = 0;
+        for (int y = image.height() / 2; y < image.height(); ++y) {
+            for (int x = 0; x < image.width(); ++x) {
+                const QColor pixel = image.pixelColor(x, y);
+                if (pixel.red() > 200 && pixel.green() > 200 && pixel.blue() > 200)
+                    ++count;
+            }
+        }
+        return count;
+    };
+    const bool captionPixels =
+        decoded &&
+        whitePixels(engine::grabFrame(*decoded, 10, QSize(settings.width, settings.height))) > 10;
+    if (!record(QStringLiteral("subtitles"), captionPixels,
+                captionPixels
+                    ? QStringLiteral("headless font rendering and encoded caption pixels verified")
+                    : QStringLiteral("subtitle text was not visible in the encoded file"))) {
         return report;
     }
 

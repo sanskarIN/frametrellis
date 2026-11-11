@@ -4,6 +4,7 @@
 # testable without the media engine.
 add_library(ft_rendering STATIC
     export_settings.cpp export_settings.h
+    export_file.cpp export_file.h
     render_job.cpp render_job.h
     render_protocol.cpp render_protocol.h
 )

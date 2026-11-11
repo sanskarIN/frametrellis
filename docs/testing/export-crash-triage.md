@@ -92,6 +92,14 @@ publish unredacted local summaries, media or crash dumps.
 | Export completes but MP4 cannot play | Output metadata, probing/verification error, preset and FPS |
 | Failure only with altered output FPS | Exact source FPS, selected output FPS, FPS conversion test results |
 
+For sequential batch delivery, a **real helper failure after a cancellation request**
+must remain a failed batch, with the error code and local diagnostic report
+available to the user. A cooperative cancellation stops the batch and starts
+no more variants. A failed item must not be silently marked "cancelled" merely
+because the user also clicked Cancel. The regression uses a disposable
+helper fixture that exits with code 42 after reading the cancellation request;
+it does not simulate or resolve a native crash.
+
 A successful CI run or short sample export does **not** prove that every imported media format,
 hardware configuration, or long-running Windows export is stable.
 

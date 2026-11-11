@@ -401,10 +401,11 @@ bool ExportController::startBatchJob()
                 if (!m_batchActive) {
                     return;
                 }
-                if (m_batchCancelRequested) {
-                    finishBatch(RenderJob::State::Cancelled);
-                } else if (state != RenderJob::State::Succeeded) {
+                if (state == RenderJob::State::Failed) {
+                    // A renderer failure must not be masked by a cancel request.
                     finishBatch(state);
+                } else if (m_batchCancelRequested || state == RenderJob::State::Cancelled) {
+                    finishBatch(RenderJob::State::Cancelled);
                 } else if (m_batchCompleted >= m_batchJobs.size()) {
                     finishBatch(RenderJob::State::Succeeded);
                 } else {
@@ -434,7 +435,8 @@ void ExportController::finishBatch(RenderJob::State state, const QString& explic
     m_tick.stop();
     const int total = m_batchJobs.size();
     const bool success = state == RenderJob::State::Succeeded && m_batchCompleted == total;
-    const bool cancelled = state == RenderJob::State::Cancelled || m_batchCancelRequested;
+    const bool cancelled = state == RenderJob::State::Cancelled ||
+                           (m_batchCancelRequested && state != RenderJob::State::Failed);
     const QString error = !explicitError.isEmpty() ? explicitError
                           : m_job                  ? m_job->errorMessage()
                                                    : QString();

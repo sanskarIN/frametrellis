@@ -4217,12 +4217,15 @@ private slots:
         QTRY_VERIFY(dialog->property("opened").toBool());
         dialog->setProperty("outputPath", m_dir.filePath(QStringLiteral("custom-width-gui.mp4")));
 
+        QQuickItem* noUpscale =
+            findItem(m_window->contentItem(), QStringLiteral("exportAvoidUpscaling"));
         QQuickItem* enabled =
             findItem(m_window->contentItem(), QStringLiteral("exportCustomWidthEnabled"));
         QQuickItem* width = findItem(m_window->contentItem(), QStringLiteral("exportCustomWidth"));
         QQuickItem* summary =
             findItem(m_window->contentItem(), QStringLiteral("exportOutputSummary"));
-        QVERIFY(enabled && width && summary);
+        QVERIFY(enabled && width && summary && noUpscale);
+        QVERIFY(noUpscale->setProperty("checked", false));
         QVERIFY(enabled->isVisible());
         QVERIFY(!width->property("enabled").toBool());
         QVERIFY(enabled->setProperty("checked", true));

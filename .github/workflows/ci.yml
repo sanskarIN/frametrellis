@@ -199,6 +199,9 @@ jobs:
             }
           }
           & (Resolve-Path 'scripts/windows/FrameTrellis-CrashDumps.ps1').Path -Status
+      - name: Test Windows repeated-export harness output integrity
+        shell: powershell
+        run: ./packaging/tests/test_repeated_export_harness.ps1
       - uses: msys2/setup-msys2@v2
         with:
           msystem: UCRT64

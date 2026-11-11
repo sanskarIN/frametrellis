@@ -39,7 +39,9 @@ def assert_dependency(
     if dependency.startswith("@executable_path/"):
         paths = [contents / "MacOS" / dependency.removeprefix("@executable_path/")]
     elif dependency.startswith("@loader_path/"):
-        paths = [file.parent / dependency.removeprefix("@loader_path/")]
+        # Framework entrypoints are often symlinks into Versions/A; dyld
+        # resolves @loader_path relative to the actual Mach-O image.
+        paths = [file.resolve().parent / dependency.removeprefix("@loader_path/")]
     elif dependency.startswith("@rpath/"):
         rest = dependency.removeprefix("@rpath/")
         paths = [

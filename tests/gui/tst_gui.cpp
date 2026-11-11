@@ -189,18 +189,15 @@ private slots:
             QVERIFY(revision.size() >= 12 && revision.size() <= 40);
             for (const QChar ch : revision) {
                 const char c = ch.toLatin1();
-                QVERIFY((c >= '0' && c <= '9') || (c >= 'a' && c <= 'f') ||
-                        (c >= 'A' && c <= 'F'));
+                QVERIFY((c >= '0' && c <= '9') || (c >= 'a' && c <= 'f') || (c >= 'A' && c <= 'F'));
             }
         }
-        QVERIFY(m_app->diagnostics().contains(
-            QStringLiteral("Source revision: %1").arg(revision)));
+        QVERIFY(m_app->diagnostics().contains(QStringLiteral("Source revision: %1").arg(revision)));
         QObject* about = m_window->findChild<QObject*>(QStringLiteral("aboutDialog"));
         QVERIFY(about);
         QVERIFY(QMetaObject::invokeMethod(about, "open"));
         QTRY_VERIFY(about->property("visible").toBool());
-        QQuickItem* label =
-            findItem(m_window->contentItem(), QStringLiteral("aboutBuildRevision"));
+        QQuickItem* label = findItem(m_window->contentItem(), QStringLiteral("aboutBuildRevision"));
         QVERIFY(label);
         QTRY_VERIFY(label->property("text").toString().contains(revision));
         QVERIFY(QMetaObject::invokeMethod(about, "close"));

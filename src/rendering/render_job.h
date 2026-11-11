@@ -93,6 +93,7 @@ private:
     QString m_errorDetail;
     bool m_sawFinished = false;
     bool m_cancelSent = false;
+    bool m_cancelKillIssued = false;
 };
 
 } // namespace ft::rendering

@@ -216,8 +216,21 @@ check is what catches it.
 ### Linux
 
 `cmake --install build/linux --prefix <dir>` installs the binaries, the desktop entry and the
-icon. A self-contained Linux package (AppImage or Flatpak) is planned. It will be published
-only after it has been verified.
+icon. The new [Linux/macOS desktop workflow](../../.github/workflows/desktop-platforms.yml)
+also runs Linux GUI smoke tests and stages a development `.tar.gz` using
+this install layout. Its executables still require compatible Linux Qt
+6.8+, MLT 7 and FFmpeg system libraries. **It is not** a self-contained
+AppImage/Flatpak and must not be offered as a verified stable Linux package.
+A self-contained Linux package will be published only after it passes
+independent clean-machine and real media playback/export validation.
+
+### macOS
+
+Native Apple Silicon and Intel macOS CI compile the `frametrellis.app` bundle,
+run tests and check the adjacent render helper. The staged development
+tarballs require Homebrew Qt, MLT and SDL2 at runtime. Do not describe the
+tarball as an installer/DMG; the stable macOS distribution requires all
+dynamic dependencies inside the app plus signing and notarization.
 
 ### Automation
 

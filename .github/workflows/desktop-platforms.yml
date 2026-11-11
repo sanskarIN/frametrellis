@@ -87,6 +87,12 @@ jobs:
           test -s "$stage/share/icons/hicolor/scalable/apps/frametrellis.svg"
           grep -Fq 'application/x-frametrellis-project' "$stage/share/mime/packages/frametrellis.xml"
           grep -Fq '*.ftproj' "$stage/share/mime/packages/frametrellis.xml"
+          # The staged executable must also start outside the build tree.
+          QT_QPA_PLATFORM=offscreen QT_QUICK_BACKEND=software SDL_AUDIODRIVER=dummy \
+            "$stage/bin/frametrellis" \
+            --screenshot "$RUNNER_TEMP/linux-installed-gui.png" \
+            --screenshot-delay 1000 "$RUNNER_TEMP/linux-smoke/self-test.ftproj"
+          test -s "$RUNNER_TEMP/linux-installed-gui.png"
           {
             echo "GUI ELF dependency links:"
             ldd "$stage/bin/frametrellis"
@@ -114,6 +120,7 @@ jobs:
           name: linux-desktop-smoke
           path: |
             ${{ runner.temp }}/linux-gui.png
+            ${{ runner.temp }}/linux-installed-gui.png
             build/linux/Testing/Temporary/
           if-no-files-found: ignore
           retention-days: 14
@@ -175,6 +182,12 @@ jobs:
           cmake --install build/macos --prefix "$stage"
           test -x "$stage/frametrellis.app/Contents/MacOS/frametrellis"
           test -x "$stage/frametrellis.app/Contents/MacOS/frametrellis-render"
+          # Finder-style installed bundle layout, not the original build tree.
+          QT_QPA_PLATFORM=offscreen QT_QUICK_BACKEND=software SDL_AUDIODRIVER=dummy \
+            "$stage/frametrellis.app/Contents/MacOS/frametrellis" \
+            --screenshot "$RUNNER_TEMP/macos-installed-gui.png" \
+            --screenshot-delay 1000 "$RUNNER_TEMP/macos-smoke/self-test.ftproj"
+          test -s "$RUNNER_TEMP/macos-installed-gui.png"
           {
             echo "GUI Mach-O dependencies:"
             otool -L "$stage/frametrellis.app/Contents/MacOS/frametrellis"
@@ -201,6 +214,8 @@ jobs:
         uses: actions/upload-artifact@v6
         with:
           name: macos-${{ matrix.arch }}-ctest-logs
-          path: build/macos/Testing/Temporary/
+          path: |
+            build/macos/Testing/Temporary/
+            ${{ runner.temp }}/macos-installed-gui.png
           if-no-files-found: ignore
           retention-days: 14

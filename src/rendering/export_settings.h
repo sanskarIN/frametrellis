@@ -17,7 +17,8 @@ namespace ft::rendering {
 struct ExportSettings
 {
     QString outputPath;
-    int shortSide = 0; ///< 0 keeps the project size; otherwise scales so the shorter side matches
+    int shortSide = 0;   ///< 0 keeps the project size; otherwise scales so the shorter side matches
+    int customWidth = 0; ///< 0 uses the preset; positive even width scales aspect ratio
     bool avoidUpscaling = false; ///< fast exports never magnify smaller source resolutions
     int crf = 20;                ///< constant rate factor, 0 (lossless) .. 51 (worst)
     QString speedPreset = QStringLiteral("medium");
@@ -50,6 +51,7 @@ ExportSettings applyPreset(const ExportPreset& preset, const QString& outputPath
 QStringList speedPresets();
 
 /// Output frame size for the settings and project, keeping the aspect ratio and even dimensions.
+/// Custom width overrides the preset's short side. No-upscale may retain native size.
 QSize outputSize(const ExportSettings& settings, const ProjectSettings& project);
 
 /// Resolves an optional export-only FPS override without editing the project's frame rate.

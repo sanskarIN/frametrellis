@@ -207,6 +207,11 @@ rendering::ExportSettings ExportController::toSettings(const QVariantMap& map) c
     if (map.contains(QStringLiteral("avoidUpscaling"))) {
         s.avoidUpscaling = map.value(QStringLiteral("avoidUpscaling")).toBool();
     }
+    if (map.contains(QStringLiteral("customWidth"))) {
+        bool valid = false;
+        const int width = map.value(QStringLiteral("customWidth")).toString().toInt(&valid);
+        s.customWidth = valid ? width : -1;
+    }
     if (map.contains(QStringLiteral("frameRate"))) {
         s.frameRate = map.value(QStringLiteral("frameRate")).toString();
     }

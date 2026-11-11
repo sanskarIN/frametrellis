@@ -51,6 +51,10 @@ def parse_ldd_output(text: str) -> list[tuple[str, str | None]]:
 def check_link(soname: str, resolved: str | None, appdir: Path) -> str | None:
     if resolved is None:
         return f"{soname}: unresolved dynamic library"
+    # CI stages AppDir inside /home/runner/work/_temp: checking a prefix
+    # before membership would misclassify every *correctly bundled* library.
+    if Path(resolved).resolve().is_relative_to(appdir):
+        return None
     if any(resolved.startswith(prefix) for prefix in DANGEROUS_BUILDER_PATHS):
         return f"{soname}: references build-machine library {resolved}"
     if soname.startswith(MEDIA_PREFIXES) and not Path(resolved).resolve().is_relative_to(appdir):

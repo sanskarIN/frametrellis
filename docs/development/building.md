@@ -28,8 +28,12 @@ Build options (`-D<option>=ON|OFF`):
 | `FT_WARNINGS_AS_ERRORS` | OFF | treat compiler warnings as errors |
 | `FT_ENABLE_SANITIZERS` | OFF | AddressSanitizer + UBSan (GCC/Clang) |
 
-The executables are written to `build/<preset>/bin/`: `frametrellis` (the editor) and
-`frametrellis-render` (the export helper, which must stay next to the editor).
+On Linux, the executables are written to `build/<preset>/bin/`: `frametrellis`
+(the editor) and `frametrellis-render` (the export helper, which must remain
+next to the editor). On macOS, the GUI is in
+`build/macos/bin/frametrellis.app/Contents/MacOS/frametrellis` and the
+build copies `frametrellis-render` into that same `Contents/MacOS` folder,
+so exports can be launched from Finder as well as from the command line.
 
 ## Windows 11 (MSYS2, UCRT64)
 
@@ -103,16 +107,27 @@ If your distribution's MLT pulls in a Qt-based MLT module linked against a *diff
 version than the one you build with, point FrameTrellis at a module folder without it
 (`FRAMETRELLIS_MLT_REPOSITORY=/path/to/mlt-7`) or use `scripts/build-mlt.sh`.
 
-## macOS (experimental)
+## macOS (development support; bundled distribution still pending)
 
-macOS is not officially supported yet. With [Homebrew](https://brew.sh/):
+On macOS 15 or newer, with [Homebrew](https://brew.sh/) installed, use
+the native toolchain and install Qt 6, MLT 7, SDL2, and their codecs:
 
 ```sh
-brew install cmake ninja qt mlt sdl2
+brew install cmake ninja pkg-config qt mlt ffmpeg sdl2
 cmake --preset macos -DCMAKE_PREFIX_PATH="$(brew --prefix qt);$(brew --prefix mlt)"
 cmake --build --preset macos
-ctest --preset macos
+QT_QPA_PLATFORM=offscreen QT_QUICK_BACKEND=software SDL_AUDIODRIVER=dummy ctest --preset macos
+./build/macos/bin/frametrellis-render --self-test "$HOME/Library/Caches/frametrellis-smoke"
+open ./build/macos/bin/frametrellis.app
 ```
+
+The helper is copied into the app's `Contents/MacOS` folder. Verify it is
+present before exporting; the app is not yet a self-contained notarized
+installer. Qt/MLT/FFmpeg/SDL2 libraries are still supplied by Homebrew
+for these **development** builds. A ZIP or DMG is not ready for distribution
+until those native runtime libraries, MLT data/services, Qt Quick plugins,
+bundled-component licenses, architecture, code signing, notarization, and
+clean-host tests pass on both Apple Silicon and Intel.
 
 ## Running from the build tree
 

@@ -566,8 +566,8 @@ private slots:
         const QString projectPath = m_dir.filePath(QStringLiteral("custom-width-cli.ftproj"));
         QVERIFY(project_format::saveToFile(source, projectPath));
         invalid.start(QStringLiteral(FT_RENDER_HELPER),
-                      {QStringLiteral("--project"), projectPath, QStringLiteral("--output"),
-                       denied, QStringLiteral("--width"), QStringLiteral("127")});
+                      {QStringLiteral("--project"), projectPath, QStringLiteral("--output"), denied,
+                       QStringLiteral("--width"), QStringLiteral("127")});
         QVERIFY(invalid.waitForFinished(15'000));
         QCOMPARE(invalid.exitStatus(), QProcess::NormalExit);
         QVERIFY(invalid.exitCode() != 0);

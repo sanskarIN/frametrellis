@@ -73,6 +73,65 @@ private slots:
         QVERIFY(validateExport(settingsFor(QStringLiteral("OUT.MP4")), projectWithClip()));
     }
 
+    void customWidthKeepsAspectRatioAndHonoursNoUpscale()
+    {
+        const Project original = projectWithClip(); // 1920x1080, 30 fps
+        ExportSettings settings = settingsFor(QStringLiteral("custom-width.mp4"));
+        settings.shortSide = 720; // the custom width must take precedence
+        settings.customWidth = 1280;
+        QCOMPARE(outputSize(settings, original.settings()), QSize(1280, 720));
+        QVERIFY(validateExport(settings, original));
+        settings.customWidth = 854;
+        QCOMPARE(outputSize(settings, original.settings()), QSize(854, 480));
+        settings.customWidth = 3840;
+        settings.avoidUpscaling = true;
+        QCOMPARE(outputSize(settings, original.settings()), QSize(1920, 1080));
+        settings.avoidUpscaling = false;
+        QCOMPARE(outputSize(settings, original.settings()), QSize(3840, 2160));
+
+        ProjectSettings portrait = original.settings();
+        portrait.width = 1080;
+        portrait.height = 1920;
+        settings.customWidth = 720;
+        QCOMPARE(outputSize(settings, portrait), QSize(720, 1280));
+        ProjectSettings wide = original.settings();
+        wide.width = 2000;
+        wide.height = 1000;
+        settings.customWidth = 1000;
+        QCOMPARE(outputSize(settings, wide), QSize(1000, 500));
+
+        settings.customWidth = 0;
+        QCOMPARE(outputSize(settings, original.settings()), QSize(1280, 720));
+        settings.shortSide = 0;
+        QCOMPARE(outputSize(settings, original.settings()), QSize(1920, 1080));
+        QVERIFY(validateExport(settings, original));
+    }
+
+    void customWidthRejectsInvalidAndOversizeOutput()
+    {
+        const Project original = projectWithClip();
+        ExportSettings settings = settingsFor(QStringLiteral("invalid-width.mp4"));
+        for (int invalid : {-1, 1, 15, 17, 8193, 8194, 10000}) {
+            settings.customWidth = invalid;
+            QVERIFY2(!validateExport(settings, original),
+                     qPrintable(QStringLiteral("Unexpected valid width: %1").arg(invalid)));
+        }
+        settings.customWidth = 16;
+        QVERIFY(validateExport(settings, original));
+        settings.customWidth = 8192;
+        QVERIFY(validateExport(settings, original));
+
+        // Extreme tall project: requested width fits, but derived height does not.
+        ProjectSettings tall;
+        tall.width = 16;
+        tall.height = 8192;
+        settings.customWidth = 1024;
+        QCOMPARE(outputSize(settings, tall).width(), 1024);
+        QVERIFY(outputSize(settings, tall).height() > kMaxFrameDimension);
+        settings.customWidth = 0;
+        QCOMPARE(outputSize(settings, tall), QSize(16, 8192));
+    }
+
     void verifiesAudioStreamsBeforePublishingEncodedVideo()
     {
         MediaInfo encoded;

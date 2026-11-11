@@ -1,5 +1,8 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 add_library(ft_timeline STATIC
+    audio_keyframes.cpp audio_keyframes.h
+    opacity_keyframes.cpp opacity_keyframes.h
+    transform_keyframes.cpp transform_keyframes.h
     clip.h
     timeline.cpp timeline.h
     track.cpp track.h

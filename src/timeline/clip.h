@@ -4,6 +4,9 @@
 
 #include "core/framerate.h"
 #include "core/ids.h"
+#include "timeline/audio_keyframes.h"
+#include "timeline/opacity_keyframes.h"
+#include "timeline/transform_keyframes.h"
 
 namespace ft {
 
@@ -25,7 +28,8 @@ struct VideoAdjustments
 /// Editable clip properties that do not affect the clip's placement on the timeline.
 struct ClipProperties
 {
-    double gain = 1.0; ///< linear audio gain, 0.0 .. 4.0 (about +12 dB)
+    double gain = 1.0;    ///< linear audio gain, 0.0 .. 4.0 (about +12 dB)
+    double balance = 0.0; ///< stereo channel balance, -1.0 left .. 0 centre .. +1.0 right
     bool muted = false;
     FrameCount fadeIn = 0;  ///< frames of fade-in at the clip start
     FrameCount fadeOut = 0; ///< frames of fade-out at the clip end
@@ -43,6 +47,9 @@ struct Clip
     FrameCount sourceIn = 0; ///< first source frame used
     FrameCount duration = 1; ///< number of frames, always >= 1
     ClipProperties properties;
+    std::vector<AudioKeyframe> audioKeyframes;         ///< source-anchored volume envelope, in dB
+    std::vector<OpacityKeyframe> opacityKeyframes;     ///< source-anchored alpha multiplier
+    std::vector<TransformKeyframe> transformKeyframes; ///< source-anchored absolute geometry
 
     [[nodiscard]] FrameCount end() const { return start + duration; }          ///< exclusive
     [[nodiscard]] FrameCount sourceOut() const { return sourceIn + duration; } ///< exclusive

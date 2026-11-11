@@ -37,3 +37,5 @@ jobs:
         run: gh api "repos/${{ github.repository }}/releases/latest" > release.json || echo '{}' > release.json
       - name: Build and check the links, including the download links
         run: node web/build.mjs --release-json release.json --verify-downloads
+      - name: Test documentation navigation and code copying
+        run: node --test web/tests/*.test.mjs

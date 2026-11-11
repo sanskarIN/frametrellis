@@ -68,6 +68,30 @@ private slots:
         }
         QCOMPARE(opened.load(), threadCount);
     }
+
+    void profilesRemainSafeAcrossConcurrentRebuilds()
+    {
+        constexpr int threadCount = 12;
+        constexpr int iterations = 24;
+        std::latch start(threadCount);
+        std::atomic<int> created = 0;
+        std::vector<std::thread> threads;
+        threads.reserve(threadCount);
+        for (int i = 0; i < threadCount; ++i) {
+            threads.emplace_back([&] {
+                start.arrive_and_wait();
+                for (int j = 0; j < iterations; ++j) {
+                    if (engine::createProfile(64, 36, FrameRate::integer(25))) {
+                        ++created;
+                    }
+                }
+            });
+        }
+        for (std::thread& thread : threads) {
+            thread.join();
+        }
+        QCOMPARE(created.load(), threadCount * iterations);
+    }
 };
 
 QTEST_GUILESS_MAIN(TestEngineThreads)

@@ -1,9 +1,11 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // SPDX-FileCopyrightText: 2026 Sanskar and FrameTrellis contributors
+#include "project/media_audit.h"
 #include "project/project_serializer.h"
 
 #include <QDir>
 #include <QFile>
+#include <QFileInfo>
 #include <QJsonArray>
 #include <QJsonDocument>
 #include <QTemporaryDir>
@@ -103,6 +105,174 @@ class ProjectFormatTest : public QObject
     Q_OBJECT
 
 private slots:
+    void stereoBalanceUsesVersionSevenAndRejectsInvalidDocuments()
+    {
+        Project project = makeProject(QStringLiteral("/media"));
+        const Clip* original = project.timeline().clip(QStringLiteral("clip1"));
+        QVERIFY(original);
+        ClipProperties properties = original->properties;
+        properties.balance = -0.75;
+        QVERIFY(project.timeline().setClipProperties(original->id, properties));
+        QVERIFY(project.validate());
+
+        const QJsonObject encoded = project_format::toJson(project);
+        QCOMPARE(encoded.value(QStringLiteral("version")).toInt(), 7);
+        const QJsonArray tracks = encoded.value(QStringLiteral("project"))
+                                      .toObject()
+                                      .value(QStringLiteral("tracks"))
+                                      .toArray();
+        const QJsonObject savedClip =
+            tracks[0].toObject().value(QStringLiteral("clips")).toArray()[0].toObject();
+        QCOMPARE(savedClip.value(QStringLiteral("balance")).toDouble(), -0.75);
+        auto decoded = project_format::fromJson(encoded);
+        QVERIFY2(decoded, qPrintable(decoded ? QString() : decoded.error().toString()));
+        // Media status is a runtime-only field: the reader reconstructs it
+        // rather than persisting the original online/offline state.
+        QCOMPARE(decoded->timeline(), project.timeline());
+        QCOMPARE(decoded->settings(), project.settings());
+        QCOMPARE(decoded->name(), project.name());
+        QCOMPARE(decoded->id(), project.id());
+        QCOMPARE(project_format::toBytes(*decoded), project_format::toBytes(project));
+
+        // Never allow an older application to silently discard the new audio control.
+        QJsonObject misversioned = encoded;
+        misversioned[QStringLiteral("version")] = 6;
+        const auto older = project_format::fromJson(misversioned);
+        QVERIFY(!older);
+        QCOMPARE(older.error().code, ErrorCode::InvalidDocument);
+
+        for (const QJsonValue& invalid :
+             {QJsonValue(1.01), QJsonValue(-1.01), QJsonValue(QStringLiteral("left")),
+              QJsonValue(QJsonValue::Null)}) {
+            QJsonObject bad = encoded;
+            QJsonObject body = bad.value(QStringLiteral("project")).toObject();
+            QJsonArray bTracks = body.value(QStringLiteral("tracks")).toArray();
+            QJsonObject firstTrack = bTracks[0].toObject();
+            QJsonArray clips = firstTrack.value(QStringLiteral("clips")).toArray();
+            QJsonObject firstClip = clips[0].toObject();
+            firstClip[QStringLiteral("balance")] = invalid;
+            clips[0] = firstClip;
+            firstTrack[QStringLiteral("clips")] = clips;
+            bTracks[0] = firstTrack;
+            body[QStringLiteral("tracks")] = bTracks;
+            bad[QStringLiteral("project")] = body;
+            const auto rejected = project_format::fromJson(bad);
+            QVERIFY(!rejected);
+            QCOMPARE(rejected.error().code, ErrorCode::InvalidDocument);
+        }
+
+        // A source relink to mono cannot make nonzero stereo balance silently inaudible.
+        MediaAsset mono = *project.asset(QStringLiteral("m1"));
+        mono.info.audioChannels = 1;
+        QVERIFY(project.replaceAsset(mono));
+        QVERIFY(!project.validate());
+    }
+
+    void rejectsBlankMediaAndProjectNames()
+    {
+        Project project = makeProject(QStringLiteral("/media"));
+        const QString originalPath = project.asset(QStringLiteral("m3"))->filePath;
+
+        MediaAsset added =
+            makeAsset(QStringLiteral("blank-media"), QStringLiteral("   "), MediaKind::Video, 1);
+        const Status inserted = project.addAsset(added);
+        QVERIFY(!inserted);
+        QCOMPARE(inserted.error().code, ErrorCode::InvalidArgument);
+        QVERIFY(!project.asset(added.id));
+
+        MediaAsset replacement = *project.asset(QStringLiteral("m3"));
+        replacement.filePath = QStringLiteral("  ");
+        const Status replaced = project.replaceAsset(replacement);
+        QVERIFY(!replaced);
+        QCOMPARE(replaced.error().code, ErrorCode::InvalidArgument);
+        QCOMPARE(project.asset(QStringLiteral("m3"))->filePath, originalPath);
+
+        const QString oldName = project.name();
+        project.setName(QStringLiteral(" \t "));
+        QVERIFY(!project.validate());
+        project.setName(QString(121, QLatin1Char('x')));
+        QVERIFY(!project.validate());
+        project.setName(oldName);
+        QVERIFY(project.validate());
+    }
+
+    void invalidProjectCannotOverwritePreviouslySavedDocument()
+    {
+        QTemporaryDir dir;
+        QVERIFY(dir.isValid());
+        const QString path = dir.filePath(QStringLiteral("protected.ftproj"));
+        Project project = makeProject(QStringLiteral("/media"));
+        QVERIFY(project_format::saveToFile(project, path));
+        QFile initial(path);
+        QVERIFY(initial.open(QIODevice::ReadOnly));
+        const QByteArray original = initial.readAll();
+        initial.close();
+        QVERIFY(!original.isEmpty());
+
+        project.setName(QStringLiteral(" \t "));
+        const Status rejected = project_format::saveToFile(project, path);
+        QVERIFY(!rejected);
+        QCOMPARE(rejected.error().code, ErrorCode::InvalidDocument);
+        QFile preserved(path);
+        QVERIFY(preserved.open(QIODevice::ReadOnly));
+        QCOMPARE(preserved.readAll(), original);
+        preserved.close();
+        QVERIFY(project_format::loadFromFile(path));
+    }
+
+    void rejectsOversizedMediaFieldsBeforeCreatingUnreadableProjects()
+    {
+        Project project = makeProject(QStringLiteral("/media"));
+        const QString originalPath = project.asset(QStringLiteral("m3"))->filePath;
+        const QString originalName = project.asset(QStringLiteral("m3"))->name;
+        MediaAsset newAsset =
+            makeAsset(QStringLiteral("long-new"), QStringLiteral("/media/new.mp4"),
+                      MediaKind::Video, 1000000);
+
+        newAsset.filePath = QStringLiteral("/") + QString(4096, QLatin1Char('p'));
+        const Status rejectedPath = project.addAsset(newAsset);
+        QVERIFY(!rejectedPath);
+        QCOMPARE(rejectedPath.error().code, ErrorCode::OutOfRange);
+        QVERIFY(!project.asset(newAsset.id));
+
+        newAsset.filePath = QStringLiteral("/media/new.mp4");
+        newAsset.name = QString(513, QLatin1Char('n'));
+        const Status rejectedName = project.addAsset(newAsset);
+        QVERIFY(!rejectedName);
+        QCOMPARE(rejectedName.error().code, ErrorCode::OutOfRange);
+        QVERIFY(!project.asset(newAsset.id));
+
+        MediaAsset replacement = *project.asset(QStringLiteral("m3"));
+        replacement.filePath = QStringLiteral("/") + QString(4096, QLatin1Char('r'));
+        QVERIFY(!project.replaceAsset(replacement));
+        QCOMPARE(project.asset(QStringLiteral("m3"))->filePath, originalPath);
+        replacement.filePath = originalPath;
+        replacement.name = QString(513, QLatin1Char('n'));
+        QVERIFY(!project.replaceAsset(replacement));
+        QCOMPARE(project.asset(QStringLiteral("m3"))->name, originalName);
+
+        // The serializer's exact upper boundary remains accepted.
+        newAsset.name = QString(512, QLatin1Char('n'));
+        QVERIFY(project.addAsset(newAsset));
+        QVERIFY(project.validate());
+        QVERIFY(project_format::fromBytes(project_format::toBytes(project)));
+
+        QCOMPARE(project.asset(newAsset.id)->name.size(), qsizetype{kMaxMediaNameLength});
+    }
+
+    void suggestedTrackNamesIgnoreCase()
+    {
+        Project project = Project::createNew(QStringLiteral("Names"), ProjectSettings{});
+        QCOMPARE(project.nextTrackName(TrackKind::Video), QStringLiteral("V3"));
+        Track track;
+        track.id = QStringLiteral("extra-video");
+        track.kind = TrackKind::Video;
+        track.name = QStringLiteral("v3");
+        QVERIFY(project.timeline().insertTrack(track));
+        QCOMPARE(project.nextTrackName(TrackKind::Video), QStringLiteral("V4"));
+        QVERIFY(project.validate());
+    }
+
     void roundTripPreservesEverything()
     {
         const Project original = makeProject(QStringLiteral("/media"));
@@ -143,6 +313,40 @@ private slots:
                                       .toArray()[0]
                                       .toObject();
         QCOMPARE(media[QLatin1String("relativePath")].toString(), QStringLiteral("media/clip.mp4"));
+    }
+
+    void oversizedRelativePathFallsBackToStoredAbsolutePath()
+    {
+        // These two separately valid absolute paths produce a relative
+        // traversal too long for the .ftproj reader's optional field.
+        const QString directory =
+            QStringLiteral("/") + QStringLiteral("a/").repeated(1450) + QStringLiteral("edit");
+        const QString mediaPath =
+            QStringLiteral("/") + QStringLiteral("b/").repeated(1450) + QStringLiteral("clip.mp4");
+        QVERIFY(directory.size() <= kMaxMediaPathLength);
+        QVERIFY(mediaPath.size() <= kMaxMediaPathLength);
+        QVERIFY(QDir(directory).relativeFilePath(mediaPath).size() > kMaxMediaPathLength);
+
+        Project project = Project::createNew(QStringLiteral("Relocation hints"), ProjectSettings{});
+        MediaAsset media =
+            makeAsset(QStringLiteral("long-path-media"), mediaPath, MediaKind::Video, 1'000'000);
+        QVERIFY(project.addAsset(media));
+        QVERIFY(project.validate());
+
+        const QByteArray data = project_format::toBytes(project, directory);
+        const QJsonObject root = QJsonDocument::fromJson(data).object();
+        const QJsonObject entry = root.value(QLatin1String("project"))
+                                      .toObject()
+                                      .value(QLatin1String("media"))
+                                      .toArray()
+                                      .at(0)
+                                      .toObject();
+        QCOMPARE(entry.value(QLatin1String("path")).toString(), mediaPath);
+        QVERIFY(entry.value(QLatin1String("relativePath")).isUndefined());
+
+        const Result<Project> loaded = project_format::fromBytes(data, directory);
+        QVERIFY2(loaded, qPrintable(loaded ? QString() : loaded.error().toString()));
+        QCOMPARE(loaded->asset(media.id)->filePath, mediaPath);
     }
 
     void movedProjectFolderResolvesRelativePaths()
@@ -321,6 +525,49 @@ private slots:
         QVERIFY(!project_format::fromJson(root));
     }
 
+    void rejectsDuplicateMediaPathsWhenLoading()
+    {
+        QJsonObject root = validDocument();
+        QJsonObject body;
+        projectBody(root, body);
+        QJsonArray media = body[QLatin1String("media")].toArray();
+        QJsonObject duplicate = media.at(0).toObject();
+        duplicate[QLatin1String("id")] = QStringLiteral("unique-alias-id");
+        // Different IDs and spellings must not permit the same media twice.
+        duplicate[QLatin1String("path")] = QStringLiteral("/media/../media/clip.mp4");
+        media.append(duplicate);
+        body[QLatin1String("media")] = media;
+        root[QLatin1String("project")] = body;
+        QVERIFY(!project_format::fromJson(root));
+    }
+
+    void rejectsDuplicateMediaPathsInProjectApi()
+    {
+        Project project = makeProject(QStringLiteral("/media"));
+        const QString original = project.asset(QStringLiteral("m3"))->filePath;
+
+        const MediaAsset duplicate =
+            makeAsset(QStringLiteral("new-id"), QStringLiteral("/media/../media/clip.mp4"),
+                      MediaKind::Video, 1'000'000);
+        const Status rejected = project.addAsset(duplicate);
+        QVERIFY(!rejected);
+        QCOMPARE(rejected.error().code, ErrorCode::Conflict);
+
+        MediaAsset replacement = *project.asset(QStringLiteral("m3"));
+        replacement.filePath = duplicate.filePath;
+        const Status replaced = project.replaceAsset(replacement);
+        QVERIFY(!replaced);
+        QCOMPARE(replaced.error().code, ErrorCode::Conflict);
+        QCOMPARE(project.asset(QStringLiteral("m3"))->filePath, original);
+        QVERIFY(project.validate());
+
+        // Valid new assets are still accepted.
+        QVERIFY(
+            project.addAsset(makeAsset(QStringLiteral("fresh-id"), QStringLiteral("/media/new.mp4"),
+                                       MediaKind::Video, 1'000'000)));
+        QVERIFY(project.validate());
+    }
+
     void ignoresUnknownFields()
     {
         QJsonObject root = validDocument();
@@ -348,6 +595,40 @@ private slots:
         QVERIFY(!failed);
         QCOMPARE(failed.error().code, ErrorCode::Io);
         QVERIFY(project_format::loadFromFile(file));
+    }
+
+    void saveCannotOverwriteReferencedMedia()
+    {
+        QTemporaryDir dir;
+        QVERIFY(dir.isValid());
+        const QString mediaPath = dir.filePath(QStringLiteral("clip.mp4"));
+        const QByteArray original = QByteArrayLiteral("original source media bytes");
+        {
+            QFile source(mediaPath);
+            QVERIFY(source.open(QIODevice::WriteOnly));
+            QCOMPARE(source.write(original), static_cast<qint64>(original.size()));
+        }
+
+        const Project project = makeProject(dir.path());
+        const Status refused = project_format::saveToFile(project, mediaPath);
+        QVERIFY(!refused);
+        QCOMPARE(refused.error().code, ErrorCode::Conflict);
+
+        // Alternate path spellings must not bypass the same-media check.
+        QVERIFY(QDir().mkpath(dir.filePath(QStringLiteral("nested"))));
+        const Status aliased =
+            project_format::saveToFile(project, dir.filePath(QStringLiteral("nested/../clip.mp4")));
+        QVERIFY(!aliased);
+        QCOMPARE(aliased.error().code, ErrorCode::Conflict);
+
+        QFile unchanged(mediaPath);
+        QVERIFY(unchanged.open(QIODevice::ReadOnly));
+        QCOMPARE(unchanged.readAll(), original);
+
+        // Legitimate project saves still work and remain readable.
+        const QString projectPath = dir.filePath(QStringLiteral("edit.ftproj"));
+        QVERIFY(project_format::saveToFile(project, projectPath));
+        QVERIFY(project_format::loadFromFile(projectPath));
     }
 
     void rejectsOversizedDocuments()
@@ -389,6 +670,179 @@ private slots:
         changed.width = 1920;
         changed.height = 1080;
         QVERIFY(p.setSettings(changed));
+    }
+
+    void mediaAuditReportsCurrentStatusAndUsageWithoutChangingProject()
+    {
+        QTemporaryDir dir;
+        QVERIFY(dir.isValid());
+        Project project = makeProject(dir.path());
+
+        QFile video(dir.filePath(QStringLiteral("clip.mp4")));
+        QVERIFY(video.open(QIODevice::WriteOnly));
+        QCOMPARE(video.write("ABCD", 4), qint64{4});
+        video.close();
+
+        MediaAsset current = *project.asset(QStringLiteral("m1"));
+        current.name = QStringLiteral("फ़ुटेज video");
+        current.info.fileSize = 4;
+        current.info.lastModified = QFileInfo(video.fileName()).lastModified();
+        QVERIFY(project.replaceAsset(current));
+
+        QFile image(dir.filePath(QStringLiteral("logo.png")));
+        QVERIFY(image.open(QIODevice::WriteOnly));
+        QCOMPARE(image.write("different", 9), qint64{9});
+        image.close();
+        QVERIFY(project.addAsset(makeAsset(QStringLiteral("unused"),
+                                           dir.filePath(QStringLiteral("missing-unused.mp4")),
+                                           MediaKind::Video, 1)));
+
+        const Project before = project;
+        const QJsonObject report = media_audit::buildReport(project);
+        QCOMPARE(report.value(QLatin1String("schemaVersion")).toInt(), 1);
+        QCOMPARE(report.value(QLatin1String("projectName")).toString(), project.name());
+        const QJsonObject summary = report.value(QLatin1String("summary")).toObject();
+        QCOMPARE(summary.value(QLatin1String("total")).toInt(), 4);
+        QCOMPARE(summary.value(QLatin1String("online")).toInt(), 1);
+        QCOMPARE(summary.value(QLatin1String("missing")).toInt(), 2);
+        QCOMPARE(summary.value(QLatin1String("changed")).toInt(), 1);
+        QCOMPARE(summary.value(QLatin1String("unused")).toInt(), 1);
+        QCOMPARE(summary.value(QLatin1String("clipUses")).toInt(), 4);
+
+        const QJsonArray assets = report.value(QLatin1String("assets")).toArray();
+        QCOMPARE(assets.size(), 4);
+        QCOMPARE(assets.at(0).toObject().value(QLatin1String("status")).toString(),
+                 QStringLiteral("online"));
+        QCOMPARE(assets.at(0).toObject().value(QLatin1String("clipUses")).toInt(), 2);
+        QCOMPARE(assets.at(1).toObject().value(QLatin1String("status")).toString(),
+                 QStringLiteral("missing"));
+        QCOMPARE(assets.at(2).toObject().value(QLatin1String("status")).toString(),
+                 QStringLiteral("changed"));
+        const QJsonArray reasons =
+            assets.at(2).toObject().value(QLatin1String("changeReasons")).toArray();
+        QVERIFY(reasons.contains(QStringLiteral("size")));
+        QVERIFY(reasons.contains(QStringLiteral("modified")));
+        QVERIFY(assets.at(2).toObject().contains(QStringLiteral("currentModifiedUtc")));
+        QVERIFY(!assets.at(1).toObject().contains(QStringLiteral("currentModifiedUtc")));
+        QCOMPARE(assets.at(3).toObject().value(QLatin1String("clipUses")).toInt(), 0);
+
+        const QString dest = dir.filePath(QStringLiteral("फ़ुटेज-audit.json"));
+        QVERIFY(media_audit::saveReport(project, dest));
+        QFile exported(dest);
+        QVERIFY(exported.open(QIODevice::ReadOnly));
+        const QJsonDocument decoded = QJsonDocument::fromJson(exported.readAll());
+        QVERIFY(decoded.isObject());
+        QCOMPARE(decoded.object().value(QLatin1String("summary")).toObject(), summary);
+        QCOMPARE(decoded.object().value(QLatin1String("assets")).toArray(), assets);
+        QCOMPARE(project, before);
+    }
+
+    void mediaAuditCannotReplaceSourceOrProjectFile()
+    {
+        QTemporaryDir dir;
+        QVERIFY(dir.isValid());
+        Project project = makeProject(dir.path());
+        const QString mediaPath = dir.filePath(QStringLiteral("source.json"));
+        QFile source(mediaPath);
+        QVERIFY(source.open(QIODevice::WriteOnly));
+        const QByteArray original = QByteArrayLiteral("original media bytes");
+        QCOMPARE(source.write(original), static_cast<qint64>(original.size()));
+        source.close();
+        QVERIFY(project.addAsset(
+            makeAsset(QStringLiteral("json-source"), mediaPath, MediaKind::Image, 0)));
+
+        const Status refusedSource = media_audit::saveReport(project, mediaPath);
+        QVERIFY(!refusedSource);
+        QCOMPARE(refusedSource.error().code, ErrorCode::Conflict);
+        QVERIFY(source.open(QIODevice::ReadOnly));
+        QCOMPARE(source.readAll(), original);
+        source.close();
+
+        const QString projectPath = dir.filePath(QStringLiteral("project.json"));
+        QFile existing(projectPath);
+        QVERIFY(existing.open(QIODevice::WriteOnly));
+        QCOMPARE(existing.write(original), static_cast<qint64>(original.size()));
+        existing.close();
+        const Status refusedProject = media_audit::saveReport(project, projectPath, projectPath);
+        QVERIFY(!refusedProject);
+        QCOMPARE(refusedProject.error().code, ErrorCode::Conflict);
+        QVERIFY(existing.open(QIODevice::ReadOnly));
+        QCOMPARE(existing.readAll(), original);
+        QVERIFY(!media_audit::saveReport(project, dir.filePath(QStringLiteral("no.json.txt"))));
+
+#ifndef Q_OS_WIN
+        // POSIX symbolic-link destinations must not bypass source-file protection.
+        const QString alias = dir.filePath(QStringLiteral("source-alias.json"));
+        QVERIFY(QFile::link(mediaPath, alias));
+        const Status refusedAlias = media_audit::saveReport(project, alias);
+        QVERIFY(!refusedAlias);
+        QCOMPARE(refusedAlias.error().code, ErrorCode::Conflict);
+        QVERIFY(source.open(QIODevice::ReadOnly));
+        QCOMPARE(source.readAll(), original);
+#endif
+    }
+
+    void mediaAuditRecognizesSameSecondModificationDifferences()
+    {
+        QTemporaryDir dir;
+        QVERIFY(dir.isValid());
+        Project project = makeProject(dir.path());
+        QFile file(dir.filePath(QStringLiteral("clip.mp4")));
+        QVERIFY(file.open(QIODevice::WriteOnly));
+        QCOMPARE(file.write("same", 4), qint64{4});
+        file.close();
+
+        MediaAsset saved = *project.asset(QStringLiteral("m1"));
+        const QDateTime actual = QFileInfo(file.fileName()).lastModified();
+        QVERIFY(actual.isValid());
+        saved.info.fileSize = 4;
+        saved.info.lastModified = actual.addMSecs(actual.time().msec() == 999 ? -1 : 1);
+        QCOMPARE(saved.info.lastModified.toSecsSinceEpoch(), actual.toSecsSinceEpoch());
+        QVERIFY(project.replaceAsset(saved));
+
+        const QJsonObject report = media_audit::buildReport(project);
+        const QJsonObject asset =
+            report.value(QStringLiteral("assets")).toArray().first().toObject();
+        QCOMPARE(asset.value(QStringLiteral("status")).toString(), QStringLiteral("changed"));
+        QVERIFY(asset.value(QStringLiteral("changeReasons"))
+                    .toArray()
+                    .contains(QStringLiteral("modified")));
+        QVERIFY(
+            asset.value(QStringLiteral("storedModifiedUtc")).toString().contains(QLatin1Char('.')));
+
+        const QByteArray serialized = project_format::toBytes(project);
+        Result<Project> restored = project_format::fromBytes(serialized);
+        QVERIFY(restored);
+        const MediaAsset* restoredAsset = restored->asset(QStringLiteral("m1"));
+        QVERIFY(restoredAsset);
+        QCOMPARE(restoredAsset->info.lastModified.toMSecsSinceEpoch(),
+                 saved.info.lastModified.toMSecsSinceEpoch());
+        const QJsonObject restoredReport = media_audit::buildReport(*restored);
+        const QJsonObject restoredEntry =
+            restoredReport.value(QStringLiteral("assets")).toArray().first().toObject();
+        QCOMPARE(restoredEntry.value(QStringLiteral("status")).toString(),
+                 QStringLiteral("changed"));
+
+        MediaAsset legacy = *restoredAsset;
+        legacy.info.lastModified = actual.addMSecs(-actual.time().msec());
+        QVERIFY(restored->replaceAsset(legacy));
+        const QJsonObject legacyReport = media_audit::buildReport(*restored);
+        const QJsonObject legacyEntry =
+            legacyReport.value(QStringLiteral("assets")).toArray().first().toObject();
+        QCOMPARE(legacyEntry.value(QStringLiteral("status")).toString(), QStringLiteral("online"));
+    }
+
+    void mediaAuditEmptyProjectHasValidSchema()
+    {
+        Project empty = Project::createNew(QStringLiteral("Empty audit"), ProjectSettings{});
+        const QJsonObject report = media_audit::buildReport(empty);
+        QCOMPARE(report.value(QLatin1String("schemaVersion")).toInt(), 1);
+        QCOMPARE(report.value(QLatin1String("assets")).toArray().size(), 0);
+        const QJsonObject totals = report.value(QLatin1String("summary")).toObject();
+        QCOMPARE(totals.value(QLatin1String("total")).toInt(), 0);
+        QCOMPARE(totals.value(QLatin1String("missing")).toInt(), 0);
+        QCOMPARE(totals.value(QLatin1String("changed")).toInt(), 0);
+        QCOMPARE(totals.value(QLatin1String("clipUses")).toInt(), 0);
     }
 
     void presetsAreValid()

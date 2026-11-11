@@ -2,7 +2,11 @@
 // SPDX-FileCopyrightText: 2026 Sanskar and FrameTrellis contributors
 #include "rendering/render_protocol.h"
 
+#include "timeline/timeline.h"
+
 #include <QJsonDocument>
+
+#include <cmath>
 
 namespace ft::rendering::protocol {
 
@@ -13,6 +17,10 @@ QByteArray encode(const QJsonObject& event)
 
 std::optional<QJsonObject> decode(const QByteArray& line)
 {
+    // Reject oversized payloads before allocating or parsing a large JSON document.
+    if (line.size() > kMaxEventBytes) {
+        return std::nullopt;
+    }
     const QByteArray trimmed = line.trimmed();
     if (!trimmed.startsWith(kPrefix)) {
         return std::nullopt;
@@ -28,6 +36,44 @@ std::optional<QJsonObject> decode(const QByteArray& line)
         return std::nullopt;
     }
     return object;
+}
+
+std::optional<FrameCount> frameCount(const QJsonValue& value)
+{
+    if (!value.isDouble()) {
+        return std::nullopt;
+    }
+    const double number = value.toDouble();
+    // An unchecked double-to-int64 conversion outside representable bounds is UB.
+    // Restrict it to values the FrameTrellis timeline can actually represent.
+    if (!std::isfinite(number) || number < 0.0 ||
+        number > static_cast<double>(kMaxTimelineFrames) || std::trunc(number) != number) {
+        return std::nullopt;
+    }
+    return static_cast<FrameCount>(number);
+}
+
+bool CancelCommandReader::ingest(std::string_view bytes)
+{
+    for (const char character : bytes) {
+        if (character == '\n') {
+            const bool cancelled = !m_discarding && (m_line == "cancel" || m_line == "cancel\r");
+            m_line.clear();
+            m_discarding = false;
+            if (cancelled) {
+                return true;
+            }
+        } else if (!m_discarding) {
+            // A command can contain at most 16 bytes; never buffer untrusted stdin indefinitely.
+            if (m_line.size() < 16) {
+                m_line.push_back(character);
+            } else {
+                m_line.clear();
+                m_discarding = true;
+            }
+        }
+    }
+    return false;
 }
 
 } // namespace ft::rendering::protocol

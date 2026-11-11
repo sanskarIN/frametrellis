@@ -240,11 +240,17 @@ QStringList EngineCapabilities::missingOptional() const
     if (!volumeFilter) {
         missing << QStringLiteral("volume filter (clip volume and audio fades)");
     }
+    if (!pannerFilter) {
+        missing << QStringLiteral("panner filter (clip stereo balance)");
+    }
     if (!brightnessFilter) {
         missing << QStringLiteral("brightness filter (video fades and opacity)");
     }
     if (!eqFilter) {
         missing << QStringLiteral("avfilter.eq (brightness, contrast and saturation)");
+    }
+    if (!transformFilter) {
+        missing << QStringLiteral("affine filter (clip position, scale and rotation)");
     }
     return missing;
 }
@@ -291,7 +297,9 @@ Status MltRuntime::initialize()
         caps.compositor = QStringLiteral("affine");
     }
     caps.volumeFilter = hasService(repository, mlt_service_filter_type, "volume");
+    caps.pannerFilter = hasService(repository, mlt_service_filter_type, "panner");
     caps.brightnessFilter = hasService(repository, mlt_service_filter_type, "brightness");
+    caps.transformFilter = hasService(repository, mlt_service_filter_type, "affine");
     caps.eqFilter =
         hasService(repository, mlt_service_filter_type, "avfilter.eq") && eqFilterWorks();
     g_capabilities = caps;

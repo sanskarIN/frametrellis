@@ -26,6 +26,27 @@ private slots:
         QVERIFY(Rational(30, 1) > Rational(30000, 1001));
     }
 
+    void rationalHandlesInt64Limits()
+    {
+        const auto minimum = std::numeric_limits<std::int64_t>::min();
+        const auto maximum = std::numeric_limits<std::int64_t>::max();
+
+        // Normalization must never negate INT64_MIN or take its signed absolute value.
+        QCOMPARE(Rational(minimum, 1).numerator(), minimum);
+        QCOMPARE(Rational(minimum, 1).denominator(), std::int64_t{1});
+        QCOMPARE(Rational(minimum, minimum), Rational(1, 1));
+        QCOMPARE(Rational(minimum, -2), Rational(std::int64_t{1} << 62, 1));
+        QCOMPARE(Rational(-2, minimum), Rational(1, std::int64_t{1} << 62));
+        QCOMPARE(Rational(0, minimum), Rational(0, 1));
+        QCOMPARE(Rational(minimum, maximum).numerator(), minimum);
+
+        // Mathematically valid fractions are invalid as Rational if their normalized
+        // numerator or positive denominator cannot fit in signed 64-bit storage.
+        QVERIFY(!Rational(minimum, -1).isValid());
+        QVERIFY(!Rational(1, minimum).isValid());
+        QVERIFY(!Rational(-1, minimum).isValid());
+    }
+
     void rationalParsing_data()
     {
         QTest::addColumn<QString>("text");
@@ -57,6 +78,13 @@ private slots:
         QVERIFY(!Rational::fromString(QStringLiteral("1/0")));
         QVERIFY(!Rational::fromString(QStringLiteral("1/2/3")));
         QVERIFY(!Rational::fromString(QStringLiteral("-5.5")));
+        // Fraction parsing must not report an unrepresentable Rational as a valid result.
+        QVERIFY(!Rational::fromString(QStringLiteral("1/-9223372036854775808")));
+        QVERIFY(!Rational::fromString(QStringLiteral("-9223372036854775808/-1")));
+        const auto reduced =
+            Rational::fromString(QStringLiteral("-9223372036854775808/-9223372036854775808"));
+        QVERIFY(reduced.has_value());
+        QCOMPARE(*reduced, Rational(1, 1));
     }
 
     void mulDivRoundsAndDetectsOverflow()
@@ -71,6 +99,19 @@ private slots:
         // A large value that would overflow a naive a*b but fits after division.
         const std::int64_t big = std::int64_t{1} << 40;
         QCOMPARE(*mulDiv(big, 1'000'000, 1'000'000), big);
+
+        // A negative divisor must not negate INT64_MIN (undefined behavior).
+        const auto minimum = std::numeric_limits<std::int64_t>::min();
+        const auto maximum = std::numeric_limits<std::int64_t>::max();
+        QCOMPARE(*mulDiv(minimum, 1, -2), std::int64_t{1} << 62);
+        QCOMPARE(*mulDiv(-7, 3, -2, Rounding::Down), std::int64_t{10});
+        QCOMPARE(*mulDiv(-7, 3, -2, Rounding::Up), std::int64_t{11});
+        QVERIFY(!mulDiv(minimum, 1, -1).has_value());
+        QVERIFY(!mulDiv(1, 1, minimum).has_value());
+
+        // Nearest rounding must not double a remainder near INT64_MAX.
+        QCOMPARE(*mulDiv(maximum - 1, 1, maximum, Rounding::Nearest), std::int64_t{1});
+        QCOMPARE(*mulDiv(-(maximum - 1), 1, maximum, Rounding::Nearest), std::int64_t{-1});
     }
 
     void frameRateValidation()
@@ -170,6 +211,32 @@ private slots:
                 QCOMPARE(*parsed, f);
             }
         }
+    }
+
+    void extremeFrameCountsAreSafe()
+    {
+        const FrameRate pal = *FrameRate::create(25, 1);
+        const FrameRate ntsc = *FrameRate::create(30000, 1001);
+        const FrameCount minimum = std::numeric_limits<FrameCount>::min();
+        const FrameCount maximum = std::numeric_limits<FrameCount>::max();
+
+        // Neither abs(INT64_MIN) nor drop-frame label insertion may overflow.
+        const QString minPal = timecode::format(minimum, pal);
+        QVERIFY(minPal.startsWith(QLatin1Char('-')));
+        QVERIFY(minPal.contains(QLatin1Char(':')));
+        const QString maxPal = timecode::format(maximum, pal);
+        QVERIFY(!maxPal.startsWith(QLatin1Char('-')));
+        const QString minNtsc = timecode::format(minimum, ntsc);
+        QVERIFY(minNtsc.startsWith(QLatin1Char('-')));
+        QVERIFY(minNtsc.contains(QLatin1Char(';')));
+        const QString maxNtsc = timecode::format(maximum, ntsc);
+        QVERIFY(maxNtsc.contains(QLatin1Char(';')));
+        QVERIFY(!maxNtsc.startsWith(QLatin1Char('-')));
+
+        // Clock units overflow for such extreme inputs; show an explicit unavailable marker.
+        QCOMPARE(timecode::formatClock(minimum, pal), QStringLiteral("--"));
+        QCOMPARE(timecode::formatClock(maximum, pal), QStringLiteral("--"));
+        QCOMPARE(timecode::formatClock(-42, pal), QStringLiteral("-0:01.680"));
     }
 
     void clockFormat()

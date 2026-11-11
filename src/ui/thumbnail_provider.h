@@ -36,6 +36,9 @@ class ThumbnailProvider : public QQuickAsyncImageProvider
 public:
     ThumbnailProvider(std::shared_ptr<ThumbnailRegistry> registry,
                       std::shared_ptr<media::ThumbnailCache> cache);
+    /// Bound decoder allocations from dynamic QML requests without scaling small
+    /// thumbnails up. Preserve aspect ratio when a request exceeds the limit.
+    [[nodiscard]] static QSize boundedRequestSize(QSize requestedSize);
     QQuickImageResponse* requestImageResponse(const QString& id,
                                               const QSize& requestedSize) override;
 

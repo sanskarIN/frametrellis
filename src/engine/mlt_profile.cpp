@@ -6,12 +6,20 @@
 
 #include <algorithm>
 #include <cmath>
+#include <mutex>
 #include <numeric>
 
 namespace ft::engine {
 
 std::unique_ptr<Mlt::Profile> createProfile(int width, int height, const FrameRate& rate)
 {
+    // MLT's default Profile constructor reads and updates process-wide profile
+    // normalization state (mlt_profile_load_file / set_mlt_normalization).
+    // Concurrent construction races the shared string storage on MLT 7.22:
+    // tst_engine_threads caught a heap-use-after-free under ASan. Serialize
+    // creation and initial configuration; no MLT objects escape until ready.
+    static std::mutex profileCreationMutex;
+    std::lock_guard lock(profileCreationMutex);
     auto profile = std::make_unique<Mlt::Profile>();
     profile->set_explicit(1);
     profile->set_width(width);

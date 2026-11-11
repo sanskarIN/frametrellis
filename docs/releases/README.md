@@ -3,8 +3,18 @@
 Release notes for each tagged version live in this folder (`vX.Y.Z.md`) and are used as the
 GitHub release description. Unreleased changes are collected in [unreleased.md](unreleased.md).
 
+## Next proposed release (not yet published)
+
+The [v1.5.0 candidate notes](v1.5.0.md) and
+[v1.5.0 preflight gates](v1.5.0-preflight.md) are **drafts**, not
+release announcements or verified physical Windows QA.
+Keep v1.4.0 as the latest stable until all release gates pass.
+
 | Version | Notes |
 |---|---|
+| 1.4.0 | [v1.4.0.md](v1.4.0.md) — **published stable 2 November 2026**; see the [publication record](v1.4.0-preflight.md) |
+| 1.3.1 | [v1.3.1.md](v1.3.1.md) — maintenance fixes for media-bin selection, offline keyboard relink and regression coverage (published stable) |
+| 1.3.0 | [v1.3.0.md](v1.3.0.md) — source safety, searchable media bin, timecode navigation and render diagnostics |
 | 1.2.2 | [v1.2.2.md](v1.2.2.md) — faster MP4 export presets and verified resolution safety |
 | 1.2.1 | [v1.2.1.md](v1.2.1.md) — startup diagnostics and Windows package verification |
 | 1.2.0 | [v1.2.0.md](v1.2.0.md) — multi-clip editing, clip attributes clipboard and batch adjustments |
@@ -12,23 +22,30 @@ GitHub release description. Unreleased changes are collected in [unreleased.md](
 | 1.1.0 | [v1.1.0.md](v1.1.0.md) — clip duplication, title overlays and container renderer |
 | 1.0.0 | [v1.0.0.md](v1.0.0.md) — the first stable release |
 
-## Publishing a release
+The stable [v1.4.0 GitHub release](https://github.com/sanskarIN/frametrellis/releases/tag/v1.4.0)
+was published on **2 November 2026** from commit
+[`1ba161ed`](https://github.com/sanskarIN/frametrellis/commit/1ba161ed8b7d7f8a0a38494e535e3ac8644d797f).
+Its Windows installer, portable ZIP, SPDX bill of materials, corresponding
+source archive and SHA-256 checksums are attached. The exact release commit
+passed [main CI](https://github.com/sanskarIN/frametrellis/actions/runs/41466264193),
+[Windows packages](https://github.com/sanskarIN/frametrellis/actions/runs/41466264022)
+and [release-asset attachment](https://github.com/sanskarIN/frametrellis/actions/runs/41470759563).
+These automated results do **not** establish physical-device QA.
+The older [v1.3.1 release](https://github.com/sanskarIN/frametrellis/releases/tag/v1.3.1)
+remains available for projects that do not need v1.4 functionality.
+The [v1.3.0 verification report](v1.3.0-verification.md) documents
+that earlier release's automated/manual testing distinction.
 
-1. Make sure the version in `CMakeLists.txt` is the version to release, that
-   `docs/releases/vX.Y.Z.md` exists and is not marked as a draft, and that CI and the Windows
-   packages workflow are green on `main`. Optionally rehearse the release first: run the
-   **Release** workflow by hand from the Actions tab with **publish=false**; it builds and
-   verifies everything and keeps the release notes and checksums without publishing.
-   A maintainer may instead choose **publish=true** to create or update the release only
-   after the verified packages and source archive have been produced.
-2. Publish the release, in either of two ways:
-   * **In the web interface:** *Releases → Draft a new release*, choose a new tag `vX.Y.Z` on
-     `main`, title it `FrameTrellis X.Y.Z`, and either paste the notes from `vX.Y.Z.md` or leave
-     the description empty, then *Publish release*.
-   * **From the command line:** `git tag -a vX.Y.Z -m "FrameTrellis X.Y.Z"` on `main`, then
-     `git push origin vX.Y.Z`. The workflow creates the release.
-3. The **Release** workflow builds the packages, verifies them on clean Windows machines and
-   attaches them to the release, usually within 30 minutes. If the release has no description,
-   it uses `vX.Y.Z.md`; otherwise it keeps the description and adds the download list and the
-   checksums. If any check fails, nothing is attached.
-4. The website's download page is updated automatically when the packages have been published.
+## Publishing a release as the repository owner
+
+For v1.4.0 and subsequent releases, use the [direct GitHub release publishing
+checklist](manual-publication.md). The **Prepare manual release** workflow only
+rebuilds, verifies and assembles files; it never creates a GitHub tag or
+release. Once physical-device acceptance is recorded and the owner publishes
+the release in the GitHub UI, the **Attach verified release assets** workflow
+automatically verifies and uploads all five matching assets. A failed job
+means the publicly visible release may be missing files: inspect the run.
+
+The `Windows packages` CI workflow can still run automatically. After asset
+attachment succeeds, `Publish website` refreshes the download page. **No
+Actions workflow creates or publishes a GitHub release.**

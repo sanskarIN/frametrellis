@@ -1,5 +1,7 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 add_library(ft_media STATIC
+    folder_import.cpp folder_import.h
+    folder_relink.cpp folder_relink.h
     media_importer.cpp media_importer.h
     media_probe.cpp media_probe.h
     thumbnail_cache.cpp thumbnail_cache.h

@@ -99,6 +99,57 @@ Acceptance criteria, each checked before the release:
 - ⏳ Evaluate WinGet package identifier, installer metadata and hash-verified manifests;
   do not claim a WinGet listing without confirmed upstream acceptance
 
+## v1.3.0 — Editing safeguards, media search and diagnostics ✅
+- ✅ Reject project saves or exports that overwrite referenced media or the opened project
+- ✅ Detect same-size external media changes and reject duplicate canonical paths
+- ✅ Make timecode, fade and clip-end validation resilient to signed overflow
+- ✅ Protect against concurrent MLT profile initialization and invalid render commands
+- ✅ Search and category-filter the media bin; navigate directly to a SMPTE timecode
+- ✅ Inspect project track/media counts with a read-only render-helper command
+- ✅ Upgrade documentation search, section navigation and code copy controls
+- ✅ Passed integrated Linux/Windows CI and automated clean-machine Windows package checks
+- ✅ Stable v1.3.0 published from the verified `e86cab7d7eef7c287716abedc6721fa1bd76e719` release commit
+- ℹ️ [Automated release verification](releases/v1.3.0-verification.md) is recorded separately
+  from the still-unrecorded manual desktop smoke-test checklist
+
+## v1.4.0 — Editing, automation and review workflows ✅
+- ✅ Integrated on `main`: persistent review markers, WebVTT chapters, cuts-only
+  picture EDL export, source slip, roll editing, source-anchored volume and opacity
+  automation (PRs #75–#79, #82–#84).
+- ✅ Source-anchored position/scale/rotation animation, direct program-monitor
+  handles, format-v5 persistence and preview/export parity (PR #85).
+- ✅ Preview generation guards protect against outdated queued or in-flight frames.
+- ✅ Subtitle cue editing, UTF-8 SRT import/export, timeline display and MP4
+  burn-in, with backward-incompatible format-v6 persistence (PR #86).
+- ✅ Media health/usage JSON and CSV audits, safe recursive/asynchronous folder
+  imports, deletion of unused project references without deleting disk files
+  (PRs #65–#67, #95, #109).
+- ✅ Multi-track gap insertion/removal, exact frame gap dialog, automatic gap
+  closure, selected clip trim, select before/after playhead, start alignment,
+  selection-boundary navigation and protected source-excerpt append
+  (PRs #103–#107, #110–#112).
+- ✅ Atomic bulk fade and audio-gain presets with per-clip duration/range checks,
+  locked-track guards, unit/GUI regressions and undo/redo (PRs #114–#115).
+- ✅ Video-opacity presets for multi-clip selections and group selection-end
+  alignment to the playhead, with atomic validation and undo/redo (PRs #116–#117).
+- ✅ Multi-clip brightness/contrast/saturation presets and selection duplication
+  at the playhead, preserving attributes and refusing unsafe placement
+  (PRs #119, #122).
+- ✅ Evidence-driven v1.4 editor acceptance matrix with all hands-on release
+  checks explicitly pending until verified (PR #120).
+- ✅ Published stable **v1.4.0** on 2 November 2026 from commit
+  [`1ba161ed`](https://github.com/sanskarIN/frametrellis/commit/1ba161ed8b7d7f8a0a38494e535e3ac8644d797f).
+  Exact-commit main CI, Windows packaging and release-asset attachment passed;
+  the installer, portable ZIP, checksums, SBOM and source archive are attached.
+- ℹ️ Automated verification does not prove hands-on playback, audio or GPU
+  acceptance on a physical Windows computer. Back up projects before upgrading;
+  files using project formats v2–v6 may not open in v1.3.1.
+  See the [release notes](releases/v1.4.0.md) and
+  [publication evidence](releases/v1.4.0-preflight.md).
+
+The [professional-editor assessment](development/pro-editor-assessment.md) records
+the audited source state, concrete capability gaps and the next implementation order.
+
 ## Next milestones
 - ⏳ A Linux package (AppImage or Flatpak), published once it has been verified
 - ⏳ A macOS build in CI, then a `.dmg` package once it has been verified
@@ -110,8 +161,8 @@ Acceptance criteria, each checked before the release:
 - ⏳ Evaluate WinGet, Flathub and Homebrew as additional distribution channels
 
 ## Later
-- Subtitles (import, edit, burn-in and export as SRT)
-- Keyframes for opacity, volume and position
+- Subtitle refinements: multiple tracks/languages, richer styling and additional formats
+- Animation easing, numeric transform entry, custom pivots and crop controls
 - Customisable keyboard shortcuts
 - More export formats (WebM/VP9, ProRes, image sequences, audio-only)
 - Plugin extension points (effects and exporters) with documentation

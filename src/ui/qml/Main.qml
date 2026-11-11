@@ -16,10 +16,14 @@ ApplicationWindow {
     property var pendingAction: null
     // Single-key editing shortcuts are disabled while a dialog is open, so that keys such as
     // Space, Delete or the arrows act on the dialog instead of the timeline.
-    readonly property bool dialogOpen: newDialog.visible || titleDialog.visible || exportDialog.visible || aboutDialog.visible
-                                       || shortcutsDialog.visible || renameProjectDialog.visible || welcome.visible || messageBox.visible
+    readonly property bool dialogOpen: newDialog.visible || renameProjectDialog.visible || titleDialog.visible || exportDialog.visible || aboutDialog.visible
+                                       || shortcutsDialog.visible || goToTimecodeDialog.visible || markerDialog.visible || welcome.visible || messageBox.visible
                                        || unsavedDialog.visible || exportRunningDialog.visible || recoveryDialog.visible
+                                       || subtitleDialog.visible || subtitleImportDialog.visible || subtitleExportDialog.visible || subtitleVttExportDialog.visible || subtitleTranscriptExportDialog.visible
+                                       || previewFrameDialog.visible || clipListDialog.visible || mediaAuditCsvDialog.visible || preciseGapDialog.visible
+                                       || customPictureDialog.visible || mediaPanel.excerptDialogOpen
     readonly property bool editKeys: !dialogOpen
+    readonly property bool sourceMode: monitorTabs.currentIndex === 1
 
     width: Math.min(1440, Screen.desktopAvailableWidth - 40)
     height: Math.min(900, Screen.desktopAvailableHeight - 40)
@@ -51,10 +55,14 @@ ApplicationWindow {
 
     Binding { target: Theme; property: "mode"; value: window.app.theme }
 
-    function showRenameProject() { renameProjectDialog.open() }
-
     // ---------- Unsaved-changes guard ----------
     function guarded(action, verb) {
+        if (subtitleDialog.visible && subtitleDialog.dirty) {
+            subtitleDialog.guarded(() => window.guarded(action, verb))
+            return
+        }
+        if (subtitleDialog.visible)
+            subtitleDialog.close()
         if (!app.project.modified) {
             action()
             return
@@ -70,6 +78,8 @@ ApplicationWindow {
             action()
     }
     function save(thenRun) {
+        if (subtitleDialog.visible && !subtitleDialog.applyIfDirty())
+            return
         if (app.project.hasFilePath) {
             if (app.project.save() && thenRun)
                 runPending()
@@ -133,22 +143,55 @@ ApplicationWindow {
             }
             MenuSeparator {}
             Action { text: qsTr("&Save"); shortcut: StandardKey.Save; onTriggered: window.save(false) }
-            Action { text: qsTr("Save &As…"); shortcut: "Ctrl+Shift+S"; onTriggered: { saveDialog.runAfterSave = false; saveDialog.open() } }
-            Action { text: qsTr("Rename &Project…"); onTriggered: window.showRenameProject() }
+            Action { text: qsTr("Save &As…"); shortcut: "Ctrl+Shift+S"; onTriggered: { if (subtitleDialog.visible && !subtitleDialog.applyIfDirty()) return; saveDialog.runAfterSave = false; saveDialog.open() } }
+            Action { text: qsTr("Rename &Project…"); onTriggered: renameProjectDialog.open() }
             MenuSeparator {}
             Action { text: qsTr("&Import Media…"); shortcut: "Ctrl+I"; onTriggered: importDialog.open() }
+            Action {
+                text: qsTr("Export Media Audit (JSON)…")
+                enabled: window.app.media.model.count > 0
+                onTriggered: mediaAuditDialog.open()
+            }
+            Action {
+                text: qsTr("Export Media Audit (CSV)…")
+                enabled: window.app.media.model.count > 0
+                onTriggered: mediaAuditCsvDialog.open()
+            }
+            Action {
+                text: qsTr("Import Media &Folder…")
+                enabled: !window.app.media.importing
+                onTriggered: importFolderDialog.open()
+            }
+            Action {
+                text: qsTr("Remove Unused Media from Project")
+                enabled: window.app.media.model.count > 0 && !window.app.media.importing
+                onTriggered: window.app.media.removeUnused()
+            }
             Action { text: qsTr("Create &Title…"); onTriggered: titleDialog.open() }
+            Action {
+                text: qsTr("Save Preview &Frame as PNG…")
+                enabled: window.app.playback.hasFrame
+                onTriggered: previewFrameDialog.open()
+            }
+            Action { text: qsTr("&Subtitles…"); shortcut: "Ctrl+Alt+S"; enabled: window.editKeys; onTriggered: subtitleDialog.open() }
+            Action { text: qsTr("Copy Picture EDL (CMX3600)"); enabled: window.editKeys && !window.app.timeline.empty; onTriggered: window.app.timeline.copyPictureAsEdl() }
             Action { text: qsTr("&Export…"); shortcut: "Ctrl+E"; enabled: !window.app.timeline.empty || window.app.exporter.busy; onTriggered: exportDialog.open() }
+            Action {
+                text: qsTr("Export Clip List (CSV)…")
+                enabled: !window.app.timeline.empty
+                onTriggered: clipListDialog.open()
+            }
             MenuSeparator {}
             Action { text: qsTr("&Quit"); shortcut: StandardKey.Quit; onTriggered: window.close() }
         }
         Menu {
             title: qsTr("&Edit")
-            Action { text: window.app.project.canUndo ? qsTr("&Undo %1").arg(window.app.project.undoText) : qsTr("&Undo"); shortcut: StandardKey.Undo; enabled: window.app.project.canUndo; onTriggered: window.app.project.undo() }
-            Action { text: window.app.project.canRedo ? qsTr("&Redo %1").arg(window.app.project.redoText) : qsTr("&Redo"); shortcut: "Ctrl+Shift+Z"; enabled: window.app.project.canRedo; onTriggered: window.app.project.redo() }
+            Action { text: window.app.project.canUndo ? qsTr("&Undo %1").arg(window.app.project.undoText) : qsTr("&Undo"); shortcut: StandardKey.Undo; enabled: window.editKeys && window.app.project.canUndo; onTriggered: window.app.project.undo() }
+            Action { text: window.app.project.canRedo ? qsTr("&Redo %1").arg(window.app.project.redoText) : qsTr("&Redo"); shortcut: "Ctrl+Shift+Z"; enabled: window.editKeys && window.app.project.canRedo; onTriggered: window.app.project.redo() }
             MenuSeparator {}
             Action { text: qsTr("&Split at Playhead"); shortcut: "S"; enabled: window.editKeys; onTriggered: window.app.timeline.splitAtPlayhead() }
             Action { text: qsTr("D&uplicate Selected Clips"); shortcut: "Ctrl+D"; enabled: window.editKeys && window.app.timeline.selection.length > 0; onTriggered: window.app.timeline.duplicateSelection() }
+            Action { text: qsTr("Duplicate Selection at Playhead"); shortcut: "Ctrl+Shift+D"; enabled: window.editKeys && window.app.timeline.selection.length > 0; onTriggered: window.app.timeline.duplicateSelectionAtPlayhead() }
             Menu {
                 title: qsTr("Nudge Selected Clips")
                 enabled: window.editKeys && window.app.timeline.selection.length > 0
@@ -157,25 +200,167 @@ ApplicationWindow {
                 Action { text: qsTr("Left 10 Frames"); shortcut: "Alt+Shift+Left"; onTriggered: window.app.timeline.nudgeSelection(-10) }
                 Action { text: qsTr("Right 10 Frames"); shortcut: "Alt+Shift+Right"; onTriggered: window.app.timeline.nudgeSelection(10) }
             }
+            Menu {
+                title: qsTr("Insert Gap at Playhead")
+                enabled: window.editKeys && !window.app.timeline.empty
+                Action { text: qsTr("1 Frame"); onTriggered: window.app.timeline.insertGapAtPlayhead(1) }
+                Action { text: qsTr("10 Frames"); onTriggered: window.app.timeline.insertGapAtPlayhead(10) }
+                Action { text: qsTr("About 1 Second"); onTriggered: window.app.timeline.insertGapAtPlayhead(Math.max(1, Math.round(window.app.timeline.frameRate))) }
+                Action { text: qsTr("About 5 Seconds"); onTriggered: window.app.timeline.insertGapAtPlayhead(Math.max(1, Math.round(window.app.timeline.frameRate)) * 5) }
+                Action { text: qsTr("Custom Duration…"); onTriggered: preciseGapDialog.openEditor(false) }
+            }
+            Menu {
+                title: qsTr("Remove Empty Time at Playhead")
+                enabled: window.editKeys && !window.app.timeline.empty
+                Action { text: qsTr("1 Frame"); onTriggered: window.app.timeline.removeEmptyTimeAtPlayhead(1) }
+                Action { text: qsTr("10 Frames"); onTriggered: window.app.timeline.removeEmptyTimeAtPlayhead(10) }
+                Action { text: qsTr("About 1 Second"); onTriggered: window.app.timeline.removeEmptyTimeAtPlayhead(Math.max(1, Math.round(window.app.timeline.frameRate))) }
+                Action { text: qsTr("About 5 Seconds"); onTriggered: window.app.timeline.removeEmptyTimeAtPlayhead(Math.max(1, Math.round(window.app.timeline.frameRate)) * 5) }
+                Action { text: qsTr("Custom Duration…"); onTriggered: preciseGapDialog.openEditor(true) }
+                Action { text: qsTr("Close Gap to Next Clip"); onTriggered: window.app.timeline.closeEmptyGapToNextClip() }
+            }
+            Menu {
+                title: qsTr("Align Selected Clip to Playhead")
+                enabled: window.editKeys && window.app.timeline.selection.length === 1
+                Action { text: qsTr("Align Start"); onTriggered: window.app.timeline.alignSelectionToPlayhead(false) }
+                Action { text: qsTr("Align End"); onTriggered: window.app.timeline.alignSelectionToPlayhead(true) }
+            }
+            Action {
+                text: qsTr("Align Selection Start to Playhead")
+                enabled: window.editKeys && window.app.timeline.selection.length > 0
+                onTriggered: window.app.timeline.alignSelectionStartToPlayhead()
+            }
+            Action {
+                text: qsTr("Align Selection End to Playhead")
+                enabled: window.editKeys && window.app.timeline.selection.length > 0
+                onTriggered: window.app.timeline.alignSelectionEndToPlayhead()
+            }
+            Action {
+                text: qsTr("Center Selection on Playhead")
+                enabled: window.editKeys && window.app.timeline.selection.length > 0
+                onTriggered: window.app.timeline.alignSelectionCenterToPlayhead()
+            }
+            Menu {
+                title: qsTr("Trim Selected Clip to Playhead")
+                enabled: window.editKeys && window.app.timeline.selection.length === 1
+                Action { text: qsTr("Trim Start to Playhead"); onTriggered: window.app.timeline.trimSelectionToPlayhead(false) }
+                Action { text: qsTr("Trim End to Playhead"); onTriggered: window.app.timeline.trimSelectionToPlayhead(true) }
+            }
+            Menu {
+                title: qsTr("Slip Selected Clips (Source)")
+                enabled: window.editKeys && window.app.timeline.selection.length > 0
+                Action { text: qsTr("Earlier 1 Frame"); shortcut: "Ctrl+Alt+Left"; onTriggered: window.app.timeline.slipSelection(-1) }
+                Action { text: qsTr("Later 1 Frame"); shortcut: "Ctrl+Alt+Right"; onTriggered: window.app.timeline.slipSelection(1) }
+                Action { text: qsTr("Earlier 10 Frames"); shortcut: "Ctrl+Alt+Shift+Left"; onTriggered: window.app.timeline.slipSelection(-10) }
+                Action { text: qsTr("Later 10 Frames"); shortcut: "Ctrl+Alt+Shift+Right"; onTriggered: window.app.timeline.slipSelection(10) }
+            }
+            Menu {
+                title: qsTr("Roll Cut After Selected Clip")
+                enabled: window.editKeys && window.app.timeline.selection.length === 1
+                Action { text: qsTr("Earlier 1 Frame"); onTriggered: window.app.timeline.rollSelection(-1) }
+                Action { text: qsTr("Later 1 Frame"); onTriggered: window.app.timeline.rollSelection(1) }
+                Action { text: qsTr("Earlier 10 Frames"); onTriggered: window.app.timeline.rollSelection(-10) }
+                Action { text: qsTr("Later 10 Frames"); onTriggered: window.app.timeline.rollSelection(10) }
+            }
             Action { text: qsTr("Copy Clip &Attributes"); shortcut: "Ctrl+Alt+C"; enabled: window.editKeys && window.app.timeline.selection.length === 1; onTriggered: window.app.timeline.copySelectionAttributes() }
             Action { text: qsTr("&Paste Clip Attributes"); shortcut: "Ctrl+Alt+V"; enabled: window.editKeys && window.app.timeline.selection.length > 0 && window.app.timeline.hasCopiedClipAttributes; onTriggered: window.app.timeline.pasteSelectionAttributes() }
             MenuSeparator {}
             Action { text: qsTr("&Mute Selected Clips"); shortcut: "Ctrl+Alt+M"; enabled: window.editKeys && window.app.timeline.selection.length > 0; onTriggered: window.app.timeline.muteSelection(true) }
             Action { text: qsTr("Unmute Selected Clips"); shortcut: "Ctrl+Alt+U"; enabled: window.editKeys && window.app.timeline.selection.length > 0; onTriggered: window.app.timeline.muteSelection(false) }
+            Menu {
+                title: qsTr("Fade Selected Clips")
+                enabled: window.editKeys && window.app.timeline.selection.length > 0
+                Action { text: qsTr("Fade In — 10 Frames"); onTriggered: window.app.timeline.setSelectionFade(false, 10) }
+                Action { text: qsTr("Fade Out — 10 Frames"); onTriggered: window.app.timeline.setSelectionFade(true, 10) }
+                Action { text: qsTr("Fade In — About 1 Second"); onTriggered: window.app.timeline.setSelectionFade(false, Math.max(1, Math.round(window.app.timeline.frameRate))) }
+                Action { text: qsTr("Fade Out — About 1 Second"); onTriggered: window.app.timeline.setSelectionFade(true, Math.max(1, Math.round(window.app.timeline.frameRate))) }
+                MenuSeparator {}
+                Action { text: qsTr("Clear Selected Fade Ins"); onTriggered: window.app.timeline.setSelectionFade(false, 0) }
+                Action { text: qsTr("Clear Selected Fade Outs"); onTriggered: window.app.timeline.setSelectionFade(true, 0) }
+            }
+            Menu {
+                title: qsTr("Audio Gain for Selected Clips")
+                enabled: window.editKeys && window.app.timeline.selection.length > 0
+                Action { text: qsTr("0% — Silence"); onTriggered: window.app.timeline.setSelectionGain(0.0) }
+                Action { text: qsTr("50%"); onTriggered: window.app.timeline.setSelectionGain(0.5) }
+                Action { text: qsTr("100% — Normal"); onTriggered: window.app.timeline.setSelectionGain(1.0) }
+                Action { text: qsTr("150%"); onTriggered: window.app.timeline.setSelectionGain(1.5) }
+                Action { text: qsTr("200%"); onTriggered: window.app.timeline.setSelectionGain(2.0) }
+            }
+            Menu {
+                title: qsTr("Stereo Balance for Selected Clips")
+                enabled: window.editKeys && window.app.timeline.selection.length > 0
+                Action { text: qsTr("Full left"); onTriggered: window.app.timeline.setSelectionBalance(-1.0) }
+                Action { text: qsTr("50% left"); onTriggered: window.app.timeline.setSelectionBalance(-0.5) }
+                Action { text: qsTr("Centre"); onTriggered: window.app.timeline.setSelectionBalance(0.0) }
+                Action { text: qsTr("50% right"); onTriggered: window.app.timeline.setSelectionBalance(0.5) }
+                Action { text: qsTr("Full right"); onTriggered: window.app.timeline.setSelectionBalance(1.0) }
+            }
+            Menu {
+                title: qsTr("Video Opacity for Selected Clips")
+                enabled: window.editKeys && window.app.timeline.selection.length > 0
+                Action { text: qsTr("0% — Transparent"); onTriggered: window.app.timeline.setSelectionOpacity(0.0) }
+                Action { text: qsTr("25%"); onTriggered: window.app.timeline.setSelectionOpacity(0.25) }
+                Action { text: qsTr("50%"); onTriggered: window.app.timeline.setSelectionOpacity(0.5) }
+                Action { text: qsTr("75%"); onTriggered: window.app.timeline.setSelectionOpacity(0.75) }
+                Action { text: qsTr("100% — Opaque"); onTriggered: window.app.timeline.setSelectionOpacity(1.0) }
+            }
+            Menu {
+                title: qsTr("Picture Adjustments for Selected Clips")
+                enabled: window.editKeys && window.app.timeline.selection.length > 0
+                Menu {
+                    title: qsTr("Brightness")
+                    Action { text: qsTr("Darker (-20%)"); onTriggered: window.app.timeline.setSelectionVideoAdjustment("brightness", -0.2) }
+                    Action { text: qsTr("Neutral (0%)"); onTriggered: window.app.timeline.setSelectionVideoAdjustment("brightness", 0.0) }
+                    Action { text: qsTr("Brighter (+20%)"); onTriggered: window.app.timeline.setSelectionVideoAdjustment("brightness", 0.2) }
+                }
+                Menu {
+                    title: qsTr("Contrast")
+                    Action { text: qsTr("Soft (80%)"); onTriggered: window.app.timeline.setSelectionVideoAdjustment("contrast", 0.8) }
+                    Action { text: qsTr("Neutral (100%)"); onTriggered: window.app.timeline.setSelectionVideoAdjustment("contrast", 1.0) }
+                    Action { text: qsTr("Strong (120%)"); onTriggered: window.app.timeline.setSelectionVideoAdjustment("contrast", 1.2) }
+                }
+                Menu {
+                    title: qsTr("Saturation")
+                    Action { text: qsTr("Monochrome (0%)"); onTriggered: window.app.timeline.setSelectionVideoAdjustment("saturation", 0.0) }
+                    Action { text: qsTr("Soft (75%)"); onTriggered: window.app.timeline.setSelectionVideoAdjustment("saturation", 0.75) }
+                    Action { text: qsTr("Neutral (100%)"); onTriggered: window.app.timeline.setSelectionVideoAdjustment("saturation", 1.0) }
+                    Action { text: qsTr("Vivid (125%)"); onTriggered: window.app.timeline.setSelectionVideoAdjustment("saturation", 1.25) }
+                }
+                MenuSeparator {}
+                Action { text: qsTr("Custom Picture Adjustment…"); onTriggered: customPictureDialog.openEditor() }
+            }
             Action { text: qsTr("&Reset Selected Picture Adjustments"); enabled: window.editKeys && window.app.timeline.selection.length > 0; onTriggered: window.app.timeline.resetSelectionPictures() }
             Action { text: qsTr("Add &Transition"); shortcut: "T"; enabled: window.editKeys; onTriggered: window.app.timeline.addTransition() }
             Action { text: qsTr("&Delete"); shortcut: StandardKey.Delete; enabled: window.editKeys; onTriggered: window.app.timeline.deleteSelection(false) }
             Action { text: qsTr("Ripple De&lete"); shortcut: "Shift+Delete"; enabled: window.editKeys; onTriggered: window.app.timeline.deleteSelection(true) }
             MenuSeparator {}
             Action { text: qsTr("Select &All Clips"); shortcut: StandardKey.SelectAll; enabled: window.editKeys; onTriggered: window.app.timeline.selectAll() }
+            Action { text: qsTr("Select Clips at &Playhead"); shortcut: "Ctrl+Shift+J"; enabled: window.editKeys && !window.app.timeline.empty; onTriggered: window.app.timeline.selectClipsAtPlayhead() }
+            Action { text: qsTr("Select Clips Overlapping Selection Range"); enabled: window.editKeys && window.app.timeline.selection.length > 0; onTriggered: window.app.timeline.selectClipsInSelectionRange(true) }
+            Action { text: qsTr("Select Clips Entirely Inside Selection Range"); enabled: window.editKeys && window.app.timeline.selection.length > 0; onTriggered: window.app.timeline.selectClipsInSelectionRange(false) }
+            Action { text: qsTr("Select Entire Clips Before Playhead"); enabled: window.editKeys && !window.app.timeline.empty; onTriggered: window.app.timeline.selectClipsBeforePlayhead() }
+            Action { text: qsTr("Select Entire Clips After Playhead"); enabled: window.editKeys && !window.app.timeline.empty; onTriggered: window.app.timeline.selectClipsAfterPlayhead() }
+            Action { text: qsTr("Select All Occurrences of &Media"); shortcut: "Ctrl+Alt+R"; enabled: window.editKeys && window.app.timeline.selection.length === 1; onTriggered: window.app.timeline.selectAllMediaOccurrences() }
             Action { text: qsTr("Clear Selection"); onTriggered: window.app.timeline.clearSelection() }
             MenuSeparator {}
+            Action { text: qsTr("Lock All Tracks"); enabled: window.editKeys; onTriggered: window.app.timeline.setAllTracksLocked(true) }
+            Action { text: qsTr("Unlock All Tracks"); enabled: window.editKeys; onTriggered: window.app.timeline.setAllTracksLocked(false) }
+            MenuSeparator {}
             Action { text: qsTr("Check for Missing Media"); onTriggered: window.app.media.rescan() }
+            Action {
+                text: qsTr("Relink Missing Media from Folder…")
+                enabled: window.app.media.model.missingCount > 0 && !window.app.media.importing
+                onTriggered: relinkFolderDialog.open()
+            }
         }
         Menu {
             title: qsTr("&View")
             Action { text: qsTr("Zoom &In"); shortcut: "+"; enabled: window.editKeys; onTriggered: window.app.timeline.zoomIn() }
             Action { text: qsTr("Zoom &Out"); shortcut: "-"; enabled: window.editKeys; onTriggered: window.app.timeline.zoomOut() }
+            Action { text: qsTr("&Fit Entire Timeline"); shortcut: "Ctrl+0"; enabled: window.editKeys && !window.app.timeline.empty; onTriggered: timelinePanel.fitTimeline() }
+            Action { text: qsTr("Zoom to &Selection"); shortcut: "Ctrl+Shift+0"; enabled: window.editKeys && window.app.timeline.selection.length > 0; onTriggered: timelinePanel.zoomToSelection() }
+            Action { text: qsTr("Center on &Playhead"); shortcut: "Ctrl+Shift+L"; enabled: window.editKeys && !window.app.timeline.empty; onTriggered: timelinePanel.centerOnPlayhead() }
             Action { text: qsTr("&Snapping"); shortcut: "N"; enabled: window.editKeys; checkable: true; checked: window.app.timeline.snapping; onTriggered: window.app.timeline.snapping = checked }
             MenuSeparator {}
             Action { text: qsTr("Compact Tracks"); checkable: true; checked: timelinePanel.trackHeight === 44; onTriggered: timelinePanel.trackHeight = 44 }
@@ -187,16 +372,48 @@ ApplicationWindow {
         }
         Menu {
             title: qsTr("&Playback")
-            Action { text: window.app.playback.playing ? qsTr("&Pause") : qsTr("&Play"); shortcut: "Space"; enabled: window.editKeys; onTriggered: window.app.playback.togglePlay() }
-            Action { text: qsTr("Previous Frame"); shortcut: "Left"; enabled: window.editKeys; onTriggered: window.app.playback.step(-1) }
-            Action { text: qsTr("Next Frame"); shortcut: "Right"; enabled: window.editKeys; onTriggered: window.app.playback.step(1) }
-            Action { text: qsTr("Back One Second"); shortcut: "Shift+Left"; enabled: window.editKeys; onTriggered: window.app.playback.step(-Math.round(window.app.timeline.frameRate)) }
-            Action { text: qsTr("Forward One Second"); shortcut: "Shift+Right"; enabled: window.editKeys; onTriggered: window.app.playback.step(Math.round(window.app.timeline.frameRate)) }
-            Action { text: qsTr("Previous Edit Point"); shortcut: "Up"; enabled: window.editKeys; onTriggered: window.app.timeline.previousEditPoint() }
-            Action { text: qsTr("Next Edit Point"); shortcut: "Down"; enabled: window.editKeys; onTriggered: window.app.timeline.nextEditPoint() }
-            Action { text: qsTr("Go to Start"); shortcut: "Home"; enabled: window.editKeys; onTriggered: window.app.playback.goToStart() }
-            Action { text: qsTr("Go to End"); shortcut: "End"; enabled: window.editKeys; onTriggered: window.app.playback.goToEnd() }
+            Action { text: window.app.playback.playing ? qsTr("&Pause") : qsTr("&Play"); shortcut: "Space"; enabled: window.editKeys && !window.sourceMode; onTriggered: window.app.playback.togglePlay() }
+            Action { text: window.sourceMode ? qsTr("Previous Source Frame") : qsTr("Previous Frame"); shortcut: "Left"; enabled: window.editKeys && (!window.sourceMode || sourceMonitor.loaded); onTriggered: window.sourceMode ? sourceMonitor.step(-1) : window.app.playback.step(-1) }
+            Action { text: window.sourceMode ? qsTr("Next Source Frame") : qsTr("Next Frame"); shortcut: "Right"; enabled: window.editKeys && (!window.sourceMode || sourceMonitor.loaded); onTriggered: window.sourceMode ? sourceMonitor.step(1) : window.app.playback.step(1) }
+            Action { text: qsTr("Back One Second"); shortcut: "Shift+Left"; enabled: window.editKeys && (!window.sourceMode || sourceMonitor.loaded); onTriggered: window.sourceMode ? sourceMonitor.step(-Math.round(window.app.timeline.frameRate)) : window.app.playback.step(-Math.round(window.app.timeline.frameRate)) }
+            Action { text: qsTr("Forward One Second"); shortcut: "Shift+Right"; enabled: window.editKeys && (!window.sourceMode || sourceMonitor.loaded); onTriggered: window.sourceMode ? sourceMonitor.step(Math.round(window.app.timeline.frameRate)) : window.app.playback.step(Math.round(window.app.timeline.frameRate)) }
+            Action { text: qsTr("Back Five Seconds"); shortcut: "Ctrl+Left"; enabled: window.editKeys && (window.sourceMode ? sourceMonitor.loaded : !window.app.timeline.empty); onTriggered: window.sourceMode ? sourceMonitor.step(-Math.round(window.app.timeline.frameRate * 5)) : window.app.playback.skipSeconds(-5) }
+            Action { text: qsTr("Forward Five Seconds"); shortcut: "Ctrl+Right"; enabled: window.editKeys && (window.sourceMode ? sourceMonitor.loaded : !window.app.timeline.empty); onTriggered: window.sourceMode ? sourceMonitor.step(Math.round(window.app.timeline.frameRate * 5)) : window.app.playback.skipSeconds(5) }
+            Action { text: qsTr("Back Ten Seconds"); shortcut: "Ctrl+Shift+Left"; enabled: window.editKeys && (window.sourceMode ? sourceMonitor.loaded : !window.app.timeline.empty); onTriggered: window.sourceMode ? sourceMonitor.step(-Math.round(window.app.timeline.frameRate * 10)) : window.app.playback.skipSeconds(-10) }
+            Action { text: qsTr("Forward Ten Seconds"); shortcut: "Ctrl+Shift+Right"; enabled: window.editKeys && (window.sourceMode ? sourceMonitor.loaded : !window.app.timeline.empty); onTriggered: window.sourceMode ? sourceMonitor.step(Math.round(window.app.timeline.frameRate * 10)) : window.app.playback.skipSeconds(10) }
+            Action { text: qsTr("Previous Edit Point"); shortcut: "Up"; enabled: window.editKeys && !window.sourceMode; onTriggered: window.app.timeline.previousEditPoint() }
+            Action { text: qsTr("Next Edit Point"); shortcut: "Down"; enabled: window.editKeys && !window.sourceMode; onTriggered: window.app.timeline.nextEditPoint() }
+            Action { text: qsTr("Go to Selection Start"); enabled: window.editKeys && window.app.timeline.selection.length > 0; onTriggered: window.app.timeline.seekToSelectionBoundary(false) }
+            Action { text: qsTr("Go to Selection Last Frame"); enabled: window.editKeys && window.app.timeline.selection.length > 0; onTriggered: window.app.timeline.seekToSelectionBoundary(true) }
+            Action { text: qsTr("Go to Selection Midpoint"); enabled: window.editKeys && window.app.timeline.selection.length > 0; onTriggered: window.app.timeline.seekToSelectionMidpoint() }
+            Action { text: qsTr("Copy Selection Timecodes"); enabled: window.editKeys && window.app.timeline.selection.length > 0; onTriggered: window.app.timeline.copySelectionTimecodes() }
+            Action { text: qsTr("Previous Selected Clip Edge"); enabled: window.editKeys && window.app.timeline.selection.length > 0; onTriggered: window.app.timeline.seekToSelectedClipEdge(false) }
+            Action { text: qsTr("Next Selected Clip Edge"); enabled: window.editKeys && window.app.timeline.selection.length > 0; onTriggered: window.app.timeline.seekToSelectedClipEdge(true) }
+            Action { text: qsTr("&Go to Timecode…"); shortcut: "Ctrl+G"; enabled: window.editKeys && !window.sourceMode && !window.app.timeline.empty; onTriggered: goToTimecodeDialog.open() }
             MenuSeparator {}
+            Action { text: qsTr("Add Timeline &Marker…"); shortcut: "Shift+M"; enabled: window.editKeys; onTriggered: markerDialog.openNew(window.app.playback.position) }
+            Action { text: qsTr("Previous Marker"); shortcut: "Ctrl+PgUp"; enabled: window.editKeys && window.app.timeline.markers.length > 0; onTriggered: window.app.timeline.previousMarker() }
+            Action { text: qsTr("Next Marker"); shortcut: "Ctrl+PgDown"; enabled: window.editKeys && window.app.timeline.markers.length > 0; onTriggered: window.app.timeline.nextMarker() }
+            Action { text: qsTr("Copy Markers as Video Chapters"); enabled: window.editKeys && window.app.timeline.markers.length > 0; onTriggered: window.app.timeline.copyMarkersAsChapters() }
+            Action { text: qsTr("Copy Markers as WebVTT Chapters"); enabled: window.editKeys && window.app.timeline.markers.length > 0; onTriggered: window.app.timeline.copyMarkersAsWebVtt() }
+            Action { text: qsTr("Paste Video Chapters as Markers"); enabled: window.editKeys && !window.app.timeline.empty; onTriggered: window.app.timeline.pasteChaptersAsMarkers() }
+            Action { text: qsTr("Clear All Markers"); enabled: window.editKeys && window.app.timeline.markers.length > 0; onTriggered: window.app.timeline.clearAllMarkers() }
+            Action { text: window.sourceMode ? qsTr("Go to Source Start") : qsTr("Go to Start"); shortcut: "Home"; enabled: window.editKeys && (!window.sourceMode || sourceMonitor.loaded); onTriggered: window.sourceMode ? (sourceMonitor.previewFrame = 0) : window.app.playback.goToStart() }
+            Action { text: window.sourceMode ? qsTr("Go to Source End") : qsTr("Go to End"); shortcut: "End"; enabled: window.editKeys && (!window.sourceMode || sourceMonitor.loaded); onTriggered: window.sourceMode ? (sourceMonitor.previewFrame = sourceMonitor.maxFrames - 1) : window.app.playback.goToEnd() }
+            Action { text: qsTr("Mark Source In"); shortcut: "I"; enabled: window.editKeys && window.sourceMode && sourceMonitor.loaded; onTriggered: sourceMonitor.markIn() }
+            Action { text: qsTr("Mark Source Out"); shortcut: "O"; enabled: window.editKeys && window.sourceMode && sourceMonitor.loaded; onTriggered: sourceMonitor.markOut() }
+            Action { text: qsTr("Reset Source In/Out"); enabled: window.editKeys && window.sourceMode && sourceMonitor.loaded && (sourceMonitor.markInFrame !== 0 || sourceMonitor.markOutFrame !== sourceMonitor.maxFrames); onTriggered: sourceMonitor.resetMarks() }
+            Action {
+                text: qsTr("Match Source Range to Selected Clip Length")
+                shortcut: "Ctrl+Shift+M"
+                enabled: window.editKeys && window.sourceMode && sourceMonitor.canMatchClipLength
+                         && sourceMonitor.markOutFrame !== sourceMonitor.markInFrame
+                                                          + sourceMonitor.selectedTimelineClip.duration
+                onTriggered: sourceMonitor.matchSelectedClipLength()
+            }
+            Action { text: qsTr("Go to Sequence Midpoint"); enabled: window.editKeys && !window.app.timeline.empty; onTriggered: window.app.playback.goToSequenceMidpoint() }
+            MenuSeparator {}
+            Action { text: qsTr("Loop Preview"); shortcut: "Ctrl+Alt+L"; checkable: true; checked: window.app.playback.loopPreview; enabled: window.editKeys && !window.app.timeline.empty; onTriggered: window.app.playback.loopPreview = checked }
             Action { text: qsTr("Mute Preview"); checkable: true; checked: window.app.playback.muted; enabled: window.app.playback.audioAvailable; onTriggered: window.app.playback.muted = checked }
         }
         Menu {
@@ -235,6 +452,7 @@ ApplicationWindow {
             IconButton { iconName: "redo"; tip: window.app.project.canRedo ? qsTr("Redo %1 (Ctrl+Shift+Z)").arg(window.app.project.redoText) : qsTr("Nothing to redo"); enabled: window.app.project.canRedo; onClicked: window.app.project.redo() }
             Rectangle { width: 1; height: 22; color: Theme.border; Layout.leftMargin: 6; Layout.rightMargin: 6 }
             IconButton { iconName: "import"; text: qsTr("Import"); tip: qsTr("Import media (Ctrl+I)"); onClicked: importDialog.open() }
+            IconButton { iconName: "subtitles"; text: qsTr("Subtitles"); objectName: "subtitlesButton"; tip: qsTr("Edit subtitles (Ctrl+Alt+S)"); onClicked: subtitleDialog.open() }
             IconButton { iconName: "export"; text: qsTr("Export"); tip: qsTr("Export video (Ctrl+E)"); enabled: !window.app.timeline.empty || window.app.exporter.busy; onClicked: exportDialog.open() }
             Item { Layout.fillWidth: true }
             Text {
@@ -274,16 +492,50 @@ ApplicationWindow {
             }
 
             MediaBinPanel {
+                id: mediaPanel
                 app: window.app
                 SplitView.preferredWidth: 330
                 SplitView.minimumWidth: 200
                 onImportRequested: importDialog.open()
                 onRelinkRequested: (assetId, name) => { relinkDialog.assetId = assetId; relinkDialog.title = qsTr("Locate “%1”").arg(name); relinkDialog.open() }
+                onSourceMonitorRequested: assetId => {
+                    if (sourceMonitor.openFor(assetId))
+                        monitorTabs.currentIndex = 1
+                }
             }
-            MonitorPanel {
-                app: window.app
+            Item {
                 SplitView.fillWidth: true
                 SplitView.minimumWidth: 320
+                ColumnLayout {
+                    anchors.fill: parent
+                    spacing: 0
+                    TabBar {
+                        id: monitorTabs
+                        objectName: "monitorTabs"
+                        Layout.fillWidth: true
+                        currentIndex: 0
+                        TabButton {
+                            objectName: "programMonitorTab"
+                            text: qsTr("Program")
+                        }
+                        TabButton {
+                            objectName: "sourceMonitorTab"
+                            text: qsTr("Source")
+                        }
+                    }
+                    StackLayout {
+                        Layout.fillWidth: true
+                        Layout.fillHeight: true
+                        currentIndex: monitorTabs.currentIndex
+                        MonitorPanel {
+                            app: window.app
+                        }
+                        SourceMonitorPanel {
+                            id: sourceMonitor
+                            app: window.app
+                        }
+                    }
+                }
             }
             InspectorPanel {
                 app: window.app
@@ -293,6 +545,9 @@ ApplicationWindow {
         }
 
         TimelinePanel {
+            onEditSubtitlesRequested: subtitleDialog.open()
+            onMarkerAddRequested: frame => markerDialog.openNew(frame)
+            onMarkerEditRequested: (id, frame, label) => markerDialog.openExisting(id, frame, label)
             id: timelinePanel
             app: window.app
             SplitView.fillHeight: true
@@ -314,6 +569,7 @@ ApplicationWindow {
                 Layout.fillWidth: true
                 text: window.app.statusMessage.length > 0 ? window.app.statusMessage
                       : (window.app.media.importing ? qsTr("Importing %1 file(s)…").arg(window.app.media.pendingImports) : qsTr("Ready"))
+                textFormat: Text.PlainText
                 color: Theme.textMuted
                 font.pixelSize: Theme.fontSizeSmall
                 elide: Text.ElideRight
@@ -335,8 +591,26 @@ ApplicationWindow {
                 Row {
                     id: exportRow
                     spacing: 6
-                    Text { text: qsTr("Exporting"); color: Theme.accent; font.pixelSize: Theme.fontSizeSmall; anchors.verticalCenter: parent.verticalCenter }
-                    FtProgressBar { width: 120; value: window.app.exporter.progress; anchors.verticalCenter: parent.verticalCenter }
+                    Text {
+                        objectName: "exportStatusLabel"
+                        text: window.app.exporter.batchActive
+                            ? qsTr("Batch %1/%2").arg(window.app.exporter.batchCompleted + 1)
+                                                .arg(window.app.exporter.batchTotal)
+                            : qsTr("Exporting")
+                        color: Theme.accent
+                        font.pixelSize: Theme.fontSizeSmall
+                        anchors.verticalCenter: parent.verticalCenter
+                    }
+                    FtProgressBar {
+                        objectName: "exportStatusProgress"
+                        width: 120
+                        value: window.app.exporter.batchActive
+                               ? window.app.exporter.batchProgress : window.app.exporter.progress
+                        anchors.verticalCenter: parent.verticalCenter
+                        Accessible.name: window.app.exporter.batchActive
+                            ? qsTr("Overall batch export progress")
+                            : qsTr("Export progress")
+                    }
                 }
             }
             Text {
@@ -370,6 +644,58 @@ ApplicationWindow {
         }
     }
     FileDialog {
+        id: mediaAuditDialog
+        title: qsTr("Export media audit as JSON")
+        fileMode: FileDialog.SaveFile
+        defaultSuffix: "json"
+        nameFilters: [qsTr("JSON reports (*.json)")]
+        currentFolder: window.app.fileUrl(window.app.project.projectFolder())
+        onAccepted: window.app.media.exportMediaAudit(window.app.localPath(selectedFile))
+    }
+    FileDialog {
+        id: mediaAuditCsvDialog
+        title: qsTr("Export media audit as CSV")
+        fileMode: FileDialog.SaveFile
+        defaultSuffix: "csv"
+        nameFilters: [qsTr("CSV reports (*.csv)")]
+        currentFolder: window.app.fileUrl(window.app.project.projectFolder())
+        onAccepted: window.app.media.exportMediaAuditCsv(window.app.localPath(selectedFile))
+    }
+    FolderDialog {
+        id: relinkFolderDialog
+        title: qsTr("Find missing media in folder (including subfolders)")
+        currentFolder: window.app.fileUrl(window.app.project.projectFolder())
+        onAccepted: window.app.media.relinkMissingFolder(
+                        window.app.localPath(selectedFolder))
+    }
+    FolderDialog {
+        id: importFolderDialog
+        title: qsTr("Import media from folder (including subfolders)")
+        currentFolder: window.app.fileUrl(window.app.project.projectFolder())
+        onAccepted: window.app.media.importFolder(window.app.localPath(selectedFolder))
+    }
+    FileDialog {
+        id: previewFrameDialog
+        title: qsTr("Save current preview frame as PNG")
+        fileMode: FileDialog.SaveFile
+        defaultSuffix: "png"
+        nameFilters: [qsTr("PNG images (*.png)")]
+        currentFolder: window.app.fileUrl(window.app.project.projectFolder())
+        onAccepted: {
+            if (window.app.playback.savePreviewFrame(window.app.localPath(selectedFile)))
+                window.app.showStatus(qsTr("Saved current preview frame as PNG."))
+        }
+    }
+    FileDialog {
+        id: clipListDialog
+        title: qsTr("Export timeline clip list")
+        fileMode: FileDialog.SaveFile
+        defaultSuffix: "csv"
+        nameFilters: [qsTr("CSV clip lists (*.csv)")]
+        currentFolder: window.app.fileUrl(window.app.project.projectFolder())
+        onAccepted: window.app.project.exportClipListCsv(window.app.localPath(selectedFile))
+    }
+    FileDialog {
         id: importDialog
         title: qsTr("Import media")
         fileMode: FileDialog.OpenFiles
@@ -383,6 +709,203 @@ ApplicationWindow {
         nameFilters: window.app.media.nameFilters
         onAccepted: window.app.media.relink(assetId, window.app.localPath(selectedFile))
     }
+    FileDialog {
+        id: subtitleImportDialog
+        title: qsTr("Import subtitles (append cues)")
+        fileMode: FileDialog.OpenFile
+        nameFilters: [qsTr("Subtitle files (*.srt *.SRT *.vtt *.VTT)"),
+                      qsTr("SubRip subtitles (*.srt *.SRT)"),
+                      qsTr("WebVTT subtitles (*.vtt *.VTT)")]
+        currentFolder: window.app.fileUrl(window.app.project.projectFolder())
+        onAccepted: {
+            const path = window.app.localPath(selectedFile)
+            if (path.toLowerCase().endsWith(".vtt"))
+                window.app.subtitles.importWebVtt(path)
+            else
+                window.app.subtitles.importSrt(path)
+        }
+    }
+    FileDialog {
+        id: subtitleExportDialog
+        title: qsTr("Export subtitles")
+        fileMode: FileDialog.SaveFile
+        defaultSuffix: "srt"
+        nameFilters: [qsTr("SubRip subtitles (*.srt)")]
+        currentFolder: window.app.fileUrl(window.app.project.projectFolder())
+        selectedFile: window.app.fileUrl(window.app.project.projectFolder() + "/" + window.app.project.suggestedFileName().replace(/\.ftproj$/i, ".srt"))
+        onAccepted: window.app.subtitles.exportSrt(window.app.localPath(selectedFile))
+    }
+    FileDialog {
+        id: subtitleVttExportDialog
+        title: qsTr("Export WebVTT subtitles")
+        fileMode: FileDialog.SaveFile
+        defaultSuffix: "vtt"
+        nameFilters: [qsTr("WebVTT subtitles (*.vtt)")]
+        currentFolder: window.app.fileUrl(window.app.project.projectFolder())
+        selectedFile: window.app.fileUrl(window.app.project.projectFolder() + "/" + window.app.project.suggestedFileName().replace(/\.ftproj$/i, ".vtt"))
+        onAccepted: window.app.subtitles.exportWebVtt(window.app.localPath(selectedFile))
+    }
+
+    FileDialog {
+        id: subtitleTranscriptExportDialog
+        title: qsTr("Export timestamped text transcript")
+        fileMode: FileDialog.SaveFile
+        defaultSuffix: "txt"
+        nameFilters: [qsTr("Plain text transcripts (*.txt)")]
+        currentFolder: window.app.fileUrl(window.app.project.projectFolder())
+        selectedFile: window.app.fileUrl(window.app.project.projectFolder() + "/" + window.app.project.suggestedFileName().replace(/\.ftproj$/i, ".txt"))
+        onAccepted: window.app.subtitles.exportTranscriptTxt(window.app.localPath(selectedFile))
+    }
+
+    FtDialog {
+        id: preciseGapDialog
+        objectName: "preciseGapDialog"
+        property bool removing: false
+        property bool failed: false
+        title: removing ? qsTr("Remove Empty Time") : qsTr("Insert Timeline Gap")
+        implicitWidth: 440
+        closePolicy: Popup.CloseOnEscape
+
+        function openEditor(removeTime) {
+            removing = removeTime
+            failed = false
+            open()
+        }
+
+        onOpened: {
+            gapFrameCount.value = Math.max(1, Math.round(window.app.timeline.frameRate))
+            gapFrameCount.forceActiveFocus()
+        }
+
+        contentItem: ColumnLayout {
+            spacing: Theme.spacingS
+            Label {
+                Layout.fillWidth: true
+                text: qsTr("Choose an exact duration in project frames.")
+                wrapMode: Text.WordWrap
+                color: Theme.textMuted
+            }
+            SpinBox {
+                id: gapFrameCount
+                objectName: "preciseGapFrameCount"
+                Layout.fillWidth: true
+                editable: true
+                from: 1
+                to: 1000000
+                value: 1
+                onValueModified: preciseGapDialog.failed = false
+                Accessible.name: qsTr("Timeline gap duration in frames")
+            }
+            Label {
+                Layout.fillWidth: true
+                color: preciseGapDialog.failed ? Theme.danger : Theme.textFaint
+                wrapMode: Text.WordWrap
+                text: preciseGapDialog.failed
+                      ? qsTr("Cannot edit that interval. Check clip boundaries, locked tracks, and transitions.")
+                      : qsTr("%1 frames — approximately %2 seconds at the current frame rate.")
+                          .arg(gapFrameCount.value)
+                          .arg((gapFrameCount.value / window.app.timeline.frameRate).toFixed(3))
+            }
+        }
+
+        footer: DialogButtons {
+            Item { Layout.fillWidth: true }
+            FtButton { text: qsTr("Cancel"); onClicked: preciseGapDialog.close() }
+            FtButton {
+                objectName: "preciseGapConfirm"
+                text: preciseGapDialog.removing ? qsTr("Remove Empty Time") : qsTr("Insert Gap")
+                primary: true
+                onClicked: {
+                    const ok = preciseGapDialog.removing
+                               ? window.app.timeline.removeEmptyTimeAtPlayhead(gapFrameCount.value)
+                               : window.app.timeline.insertGapAtPlayhead(gapFrameCount.value)
+                    if (ok)
+                        preciseGapDialog.close()
+                    else
+                        preciseGapDialog.failed = true
+                }
+            }
+        }
+    }
+
+    FtDialog {
+        id: customPictureDialog
+        objectName: "customPictureDialog"
+        property bool failed: false
+        title: qsTr("Custom Picture Adjustment")
+        implicitWidth: 440
+        closePolicy: Popup.CloseOnEscape
+
+        function openEditor() {
+            failed = false
+            pictureAdjustmentProperty.currentIndex = 0
+            pictureAdjustmentPercent.value = 0
+            open()
+        }
+
+        contentItem: ColumnLayout {
+            spacing: Theme.spacingS
+            Label {
+                Layout.fillWidth: true
+                text: qsTr("Set an exact picture adjustment for all selected video clips.")
+                wrapMode: Text.WordWrap
+                color: Theme.textMuted
+            }
+            ComboBox {
+                id: pictureAdjustmentProperty
+                objectName: "customPictureProperty"
+                Layout.fillWidth: true
+                model: [qsTr("Brightness"), qsTr("Contrast"), qsTr("Saturation")]
+                onCurrentIndexChanged: {
+                    customPictureDialog.failed = false
+                    pictureAdjustmentPercent.value = currentIndex === 0 ? 0 : 100
+                }
+                Accessible.name: qsTr("Picture adjustment type")
+            }
+            SpinBox {
+                id: pictureAdjustmentPercent
+                objectName: "customPicturePercent"
+                Layout.fillWidth: true
+                editable: true
+                from: pictureAdjustmentProperty.currentIndex === 0 ? -100 : 0
+                to: pictureAdjustmentProperty.currentIndex === 1 ? 200 :
+                    pictureAdjustmentProperty.currentIndex === 2 ? 300 : 100
+                stepSize: 1
+                value: 0
+                onValueModified: customPictureDialog.failed = false
+                Accessible.name: qsTr("Custom picture adjustment percentage")
+            }
+            Label {
+                Layout.fillWidth: true
+                color: customPictureDialog.failed ? Theme.danger : Theme.textFaint
+                wrapMode: Text.WordWrap
+                text: customPictureDialog.failed
+                      ? qsTr("Cannot apply this adjustment. Select unlocked video clips with a different setting.")
+                      : qsTr("The entire selection receives %1% %2 as one undoable change.")
+                          .arg(pictureAdjustmentPercent.value)
+                          .arg(pictureAdjustmentProperty.currentText.toLowerCase())
+            }
+        }
+
+        footer: DialogButtons {
+            Item { Layout.fillWidth: true }
+            FtButton { text: qsTr("Cancel"); onClicked: customPictureDialog.close() }
+            FtButton {
+                objectName: "customPictureApply"
+                text: qsTr("Apply to Selection")
+                primary: true
+                onClicked: {
+                    const property = ["brightness", "contrast", "saturation"][pictureAdjustmentProperty.currentIndex]
+                    const success = window.app.timeline.setSelectionVideoAdjustment(
+                        property, pictureAdjustmentPercent.value / 100.0)
+                    if (success)
+                        customPictureDialog.close()
+                    else
+                        customPictureDialog.failed = true
+                }
+            }
+        }
+    }
 
     NewProjectDialog { id: newDialog; app: window.app }
     RenameProjectDialog { id: renameProjectDialog; objectName: "renameProjectDialog"; app: window.app }
@@ -390,6 +913,17 @@ ApplicationWindow {
     ExportDialog { id: exportDialog; objectName: "exportDialog"; app: window.app }
     AboutDialog { id: aboutDialog; objectName: "aboutDialog"; app: window.app }
     ShortcutsDialog { id: shortcutsDialog }
+    GoToTimecodeDialog { id: goToTimecodeDialog; objectName: "goToTimecodeDialog"; app: window.app }
+    MarkerDialog { id: markerDialog; objectName: "markerDialog"; app: window.app }
+    SubtitleDialog {
+        id: subtitleDialog
+        objectName: "subtitleDialog"
+        app: window.app
+        onImportRequested: subtitleImportDialog.open()
+        onExportRequested: subtitleExportDialog.open()
+        onExportWebVttRequested: subtitleVttExportDialog.open()
+        onExportTranscriptRequested: subtitleTranscriptExportDialog.open()
+    }
     WelcomeOverlay { id: welcome; objectName: "welcome"; app: window.app; onImportRequested: importDialog.open() }
     MessageBox { id: messageBox }
 

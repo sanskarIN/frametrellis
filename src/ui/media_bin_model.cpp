@@ -4,6 +4,7 @@
 
 #include <QFileInfo>
 #include <QLocale>
+#include <QtGlobal>
 
 namespace ft::ui {
 
@@ -79,6 +80,8 @@ QVariant MediaBinModel::data(const QModelIndex& index, int role) const
         return mediaKindToString(a.info.kind);
     case DurationRole:
         return row.duration;
+    case DurationUsRole:
+        return a.info.kind == MediaKind::Image ? qint64{0} : a.info.durationUs;
     case DetailsRole:
         return describeMedia(a);
     case StatusRole:
@@ -114,9 +117,16 @@ QVariant MediaBinModel::data(const QModelIndex& index, int role) const
 
 QHash<int, QByteArray> MediaBinModel::roleNames() const
 {
-    return {{IdRole, "assetId"},        {NameRole, "name"},           {KindRole, "kind"},
-            {DurationRole, "duration"}, {DetailsRole, "details"},     {StatusRole, "status"},
-            {FilePathRole, "filePath"}, {ThumbnailRole, "thumbnail"}, {UsageRole, "usage"},
+    return {{IdRole, "assetId"},
+            {NameRole, "name"},
+            {KindRole, "kind"},
+            {DurationRole, "duration"},
+            {DurationUsRole, "durationUs"},
+            {DetailsRole, "details"},
+            {StatusRole, "status"},
+            {FilePathRole, "filePath"},
+            {ThumbnailRole, "thumbnail"},
+            {UsageRole, "usage"},
             {TooltipRole, "tooltip"}};
 }
 
@@ -148,6 +158,179 @@ QVariantMap MediaBinModel::get(int row) const
         map.insert(QString::fromLatin1(it.value()), data(index(row), it.key()));
     }
     return map;
+}
+
+MediaBinFilterModel::MediaBinFilterModel(QObject* parent)
+    : QSortFilterProxyModel(parent)
+{
+    setDynamicSortFilter(true);
+    connect(this, &QAbstractItemModel::rowsInserted, this, &MediaBinFilterModel::countChanged);
+    connect(this, &QAbstractItemModel::rowsRemoved, this, &MediaBinFilterModel::countChanged);
+    connect(this, &QAbstractItemModel::modelReset, this, &MediaBinFilterModel::countChanged);
+}
+
+QString MediaBinFilterModel::searchText() const
+{
+    return m_searchText;
+}
+
+void MediaBinFilterModel::setSearchText(const QString& text)
+{
+    const QString normalized = text.trimmed();
+    if (m_searchText == normalized) {
+        return;
+    }
+#if QT_VERSION >= QT_VERSION_CHECK(6, 10, 0)
+    beginFilterChange();
+#endif
+    m_searchText = normalized;
+#if QT_VERSION >= QT_VERSION_CHECK(6, 10, 0)
+    endFilterChange(QSortFilterProxyModel::Direction::Rows);
+#else
+    invalidateFilter();
+#endif
+    emit searchTextChanged();
+}
+
+QString MediaBinFilterModel::category() const
+{
+    return m_category;
+}
+
+void MediaBinFilterModel::setCategory(const QString& category)
+{
+    const QString normalized = category.toLower();
+    const QString next =
+        (normalized == QLatin1String("video") || normalized == QLatin1String("audio") ||
+         normalized == QLatin1String("image") || normalized == QLatin1String("offline") ||
+         normalized == QLatin1String("changed") || normalized == QLatin1String("used") ||
+         normalized == QLatin1String("unused"))
+            ? normalized
+            : QStringLiteral("all");
+    if (m_category == next) {
+        return;
+    }
+#if QT_VERSION >= QT_VERSION_CHECK(6, 10, 0)
+    beginFilterChange();
+#endif
+    m_category = next;
+#if QT_VERSION >= QT_VERSION_CHECK(6, 10, 0)
+    endFilterChange(QSortFilterProxyModel::Direction::Rows);
+#else
+    invalidateFilter();
+#endif
+    emit categoryChanged();
+}
+
+QString MediaBinFilterModel::sortMode() const
+{
+    return m_sortMode;
+}
+
+void MediaBinFilterModel::setSortMode(const QString& mode)
+{
+    const QString requested = mode.toLower();
+    const QString next = requested == QLatin1String("name-asc") ||
+                                 requested == QLatin1String("name-desc") ||
+                                 requested == QLatin1String("duration-asc") ||
+                                 requested == QLatin1String("duration-desc") ||
+                                 requested == QLatin1String("usage-desc")
+                             ? requested
+                             : QStringLiteral("import");
+    if (m_sortMode == next) {
+        return;
+    }
+    m_sortMode = next;
+    // Reset the proxy's active sort column before changing modes: two modes can
+    // use the same Qt direction but a different comparison. Calling sort(0)
+    // again without resetting may keep the previous cached proxy ordering.
+    sort(-1); // Also restores import order when the requested mode is "import".
+    if (m_sortMode != QLatin1String("import")) {
+        // lessThan handles direction and unknown-duration-last consistently.
+        sort(0, Qt::AscendingOrder);
+    }
+    emit sortModeChanged();
+}
+
+bool MediaBinFilterModel::lessThan(const QModelIndex& left, const QModelIndex& right) const
+{
+    const QAbstractItemModel* model = sourceModel();
+    if (!model) {
+        return left.row() < right.row();
+    }
+    if (m_sortMode == QLatin1String("duration-asc") ||
+        m_sortMode == QLatin1String("duration-desc")) {
+        const qint64 a = model->data(left, MediaBinModel::DurationUsRole).toLongLong();
+        const qint64 b = model->data(right, MediaBinModel::DurationUsRole).toLongLong();
+        // Still images and assets with unknown durations do not belong at zero
+        // seconds when searching for short clips. Put them last in both modes.
+        const bool knownA = a > 0;
+        const bool knownB = b > 0;
+        if (knownA != knownB) {
+            return knownA;
+        }
+        if (knownA && a != b) {
+            return m_sortMode == QLatin1String("duration-asc") ? a < b : a > b;
+        }
+        return left.row() < right.row();
+    }
+    if (m_sortMode == QLatin1String("usage-desc")) {
+        const int a = model->data(left, MediaBinModel::UsageRole).toInt();
+        const int b = model->data(right, MediaBinModel::UsageRole).toInt();
+        return a == b ? left.row() < right.row() : a > b;
+    }
+    const QString a = model->data(left, MediaBinModel::NameRole).toString();
+    const QString b = model->data(right, MediaBinModel::NameRole).toString();
+    const int comparison = QString::compare(a, b, Qt::CaseInsensitive);
+    if (comparison == 0) {
+        return left.row() < right.row();
+    }
+    return m_sortMode == QLatin1String("name-desc") ? comparison > 0 : comparison < 0;
+}
+
+int MediaBinFilterModel::count() const
+{
+    return rowCount();
+}
+
+bool MediaBinFilterModel::filterAcceptsRow(int sourceRow, const QModelIndex& sourceParent) const
+{
+    const QAbstractItemModel* model = sourceModel();
+    if (!model) {
+        return false;
+    }
+    const QModelIndex sourceIndex = model->index(sourceRow, 0, sourceParent);
+    if (!sourceIndex.isValid()) {
+        return false;
+    }
+    if (m_category == QLatin1String("offline")) {
+        if (model->data(sourceIndex, MediaBinModel::StatusRole).toString() !=
+            QLatin1String("missing")) {
+            return false;
+        }
+    } else if (m_category == QLatin1String("changed")) {
+        if (model->data(sourceIndex, MediaBinModel::StatusRole).toString() !=
+            QLatin1String("changed")) {
+            return false;
+        }
+    } else if (m_category == QLatin1String("used") || m_category == QLatin1String("unused")) {
+        const bool isUsed = model->data(sourceIndex, MediaBinModel::UsageRole).toInt() > 0;
+        if (isUsed != (m_category == QLatin1String("used"))) {
+            return false;
+        }
+    } else if (m_category != QLatin1String("all") &&
+               model->data(sourceIndex, MediaBinModel::KindRole).toString() != m_category) {
+        return false;
+    }
+    if (m_searchText.isEmpty()) {
+        return true;
+    }
+    return model->data(sourceIndex, MediaBinModel::NameRole)
+               .toString()
+               .contains(m_searchText, Qt::CaseInsensitive) ||
+           model->data(sourceIndex, MediaBinModel::FilePathRole)
+               .toString()
+               .contains(m_searchText, Qt::CaseInsensitive);
 }
 
 } // namespace ft::ui

@@ -13,22 +13,55 @@ FtDialog {
 
     required property AppController app
     readonly property ExportController exporter: app.exporter
-    readonly property bool showProgress: exporter.state !== "idle"
+    readonly property bool showProgress: exporter.state !== "idle" || exporter.batchTotal > 0
+    readonly property string exportState: exporter.batchTotal > 0 ? exporter.batchState : exporter.state
+    property string batchWarning: ""
+    readonly property int batchSelectionCount: Number(batchCreator.checked) +
+                                               Number(batchReview.checked) +
+                                               Number(batchMobile.checked) +
+                                               Number(batchCreator1440.checked) +
+                                               Number(batchCreator4k.checked)
     property string outputPath: ""
+    property bool presetInitialized: false
+    readonly property var frameRates: [
+        { label: qsTr("Match project"), value: "match" },
+        { label: "23.976", value: "24000/1001" },
+        { label: "24", value: "24" },
+        { label: "25", value: "25" },
+        { label: "29.97", value: "30000/1001" },
+        { label: "30", value: "30" },
+        { label: "50", value: "50" },
+        { label: "59.94", value: "60000/1001" },
+        { label: "60", value: "60" },
+        { label: qsTr("Custom FPS…"), value: "custom" }
+    ]
 
     title: qsTr("Export video")
     implicitWidth: 560
     closePolicy: exporter.busy ? Popup.NoAutoClose : Popup.CloseOnEscape
 
     function settings() {
+        const selection = app.timeline.selectedFrameRange()
+        const useSelection = rangeBox.currentIndex === 1
+        const useCustom = rangeBox.currentIndex === 2
+        const startFrame = useSelection ? (selection.start === undefined ? "-2" : String(selection.start))
+                           : useCustom ? startFrameBox.text.trim() : "0"
+        const endFrame = useSelection ? (selection.end === undefined ? "-2" : String(selection.end))
+                         : useCustom ? endFrameBox.text.trim() : "-1"
         return {
+            rangeStartFrame: startFrame,
+            rangeEndFrame: endFrame,
             presetId: presetBox.currentIndex >= 0 ? exporter.presets[presetBox.currentIndex].id : "match",
             outputPath: outputPath,
             crf: Math.round(quality.value),
             speedPreset: speedBox.currentText,
             avoidUpscaling: noUpscaleCheck.checked,
+            customWidth: customWidthCheck.checked ? customWidthField.text.trim() : "0",
             audioBitrateKbps: parseInt(audioBox.currentText),
-            includeAudio: audioCheck.checked
+            includeAudio: audioCheck.checked,
+            frameRate: fpsBox.currentIndex < 0 ? "match"
+                : dialog.frameRates[fpsBox.currentIndex].value === "custom"
+                  ? customFps.text.trim() : dialog.frameRates[fpsBox.currentIndex].value
         }
     }
     function applyPreset(index) {
@@ -36,7 +69,22 @@ FtDialog {
         quality.value = p.crf
         speedBox.currentIndex = Math.max(0, exporter.speedPresets.indexOf(p.speedPreset))
         noUpscaleCheck.checked = p.avoidUpscaling === true
+        customWidthCheck.checked = false
         audioBox.currentIndex = Math.max(0, audioBox.model.indexOf(String(p.audioBitrateKbps)))
+    }
+    function selectedBatchIds() {
+        const ids = []
+        if (batchCreator.checked) ids.push("youtube1080p")
+        if (batchReview.checked) ids.push("draft")
+        if (batchMobile.checked) ids.push("review480p")
+        if (batchCreator1440.checked) ids.push("youtube1440p")
+        if (batchCreator4k.checked) ids.push("youtube4k")
+        return ids
+    }
+    function startBatchExport() {
+        batchWarning = exporter.validateBatch(settings(), selectedBatchIds())
+        if (batchWarning.length === 0)
+            exporter.startBatch(settings(), selectedBatchIds())
     }
     function startExport() {
         if (exporter.fileExists(outputPath)) {
@@ -47,11 +95,15 @@ FtDialog {
     }
 
     onOpened: {
-        if (!exporter.busy && exporter.state !== "idle")
+        if (!exporter.busy && (exporter.state !== "idle" || exporter.batchTotal > 0))
             exporter.reset()
+        batchWarning = ""
         if (outputPath.length === 0)
             outputPath = exporter.suggestedOutputPath()
-        applyPreset(presetBox.currentIndex)
+        if (!presetInitialized && presetBox.currentIndex >= 0) {
+            applyPreset(presetBox.currentIndex)
+            presetInitialized = true
+        }
     }
 
     FileDialog {
@@ -84,13 +136,21 @@ FtDialog {
             rowSpacing: Theme.spacingS
 
             Label { text: qsTr("Preset"); color: Theme.textMuted }
-            ComboBox {
-                id: presetBox
+            RowLayout {
                 Layout.fillWidth: true
-                model: dialog.exporter.presets
-                textRole: "name"
-                onActivated: index => dialog.applyPreset(index)
-                Accessible.name: qsTr("Export preset")
+                ComboBox {
+                    id: presetBox
+                    Layout.fillWidth: true
+                    model: dialog.exporter.presets
+                    textRole: "name"
+                    onActivated: index => dialog.applyPreset(index)
+                    Accessible.name: qsTr("Export preset")
+                }
+                FtButton {
+                    text: qsTr("Reset preset")
+                    enabled: presetBox.currentIndex >= 0
+                    onClicked: dialog.applyPreset(presetBox.currentIndex)
+                }
             }
             Item { width: 1; height: 1 }
             Text {
@@ -113,12 +173,90 @@ FtDialog {
                 FtButton { text: qsTr("Browse…"); onClicked: fileDialog.open() }
             }
 
+            Label { text: qsTr("Export FPS"); color: Theme.textMuted }
+            RowLayout {
+                Layout.fillWidth: true
+                ComboBox {
+                    id: fpsBox
+                    objectName: "exportFrameRateBox"
+                    Layout.fillWidth: true
+                    model: dialog.frameRates
+                    textRole: "label"
+                    valueRole: "value"
+                    Accessible.name: qsTr("Export frame rate")
+                }
+                TextField {
+                    id: customFps
+                    objectName: "exportCustomFrameRate"
+                    visible: fpsBox.currentIndex === dialog.frameRates.length - 1
+                    Layout.preferredWidth: 155
+                    placeholderText: qsTr("e.g. 48 or 30000/1001")
+                    Accessible.name: qsTr("Custom export frame rate")
+                }
+            }
+            Item { width: 1; height: 1 }
+            Text {
+                Layout.fillWidth: true
+                text: qsTr("Changes the MP4 FPS only; project timing and audio speed stay unchanged.")
+                color: Theme.textFaint
+                font.pixelSize: Theme.fontSizeSmall
+                wrapMode: Text.WordWrap
+            }
+
+            Label { text: qsTr("Timeline range"); color: Theme.textMuted }
+            ComboBox {
+                id: rangeBox
+                objectName: "exportRangeBox"
+                Layout.fillWidth: true
+                model: [qsTr("Entire timeline"), qsTr("Selected clips' time span"),
+                        qsTr("Custom frame interval")]
+                currentIndex: 0
+                Accessible.name: qsTr("Export timeline range")
+            }
+            RowLayout {
+                Layout.fillWidth: true
+                visible: rangeBox.currentIndex === 2
+                spacing: Theme.spacingS
+                Label { text: qsTr("Start"); color: Theme.textMuted }
+                TextField {
+                    id: startFrameBox
+                    objectName: "exportStartFrame"
+                    Layout.fillWidth: true
+                    text: "0"
+                    placeholderText: qsTr("First frame")
+                    validator: IntValidator { bottom: 0; top: 1000000000 }
+                    Accessible.name: qsTr("First project frame to export (inclusive)")
+                }
+                Label { text: qsTr("End"); color: Theme.textMuted }
+                TextField {
+                    id: endFrameBox
+                    objectName: "exportEndFrame"
+                    Layout.fillWidth: true
+                    text: String(dialog.app.timeline.duration)
+                    placeholderText: qsTr("Exclusive end frame")
+                    validator: IntValidator { bottom: 0; top: 1000000000 }
+                    Accessible.name: qsTr("Last project boundary (exclusive)")
+                }
+            }
+            Text {
+                Layout.fillWidth: true
+                text: qsTr("Frame numbers use project FPS; start is included, end is excluded. " +
+                           "Selection mode exports every visible track across the selected time span. " +
+                           "The project and playhead are not changed.")
+                visible: rangeBox.currentIndex !== 0
+                color: Theme.textFaint
+                font.pixelSize: Theme.fontSizeSmall
+                wrapMode: Text.WordWrap
+            }
+            Item { width: 1; height: 1 }
+
             Label { text: qsTr("Quality"); color: Theme.textMuted }
             RowLayout {
                 Layout.fillWidth: true
                 Text { text: qsTr("Best"); color: Theme.textFaint; font.pixelSize: Theme.fontSizeSmall }
                 FtSlider {
                     id: quality
+                    objectName: "exportQualitySlider"
                     Layout.fillWidth: true
                     from: 14; to: 34; stepSize: 1; value: 20
                     Accessible.name: qsTr("Quality (constant rate factor)")
@@ -137,11 +275,35 @@ FtDialog {
             }
 
             Label { text: qsTr("Scaling"); color: Theme.textMuted }
-            FtCheckBox {
-                id: noUpscaleCheck
+            ColumnLayout {
                 Layout.fillWidth: true
-                text: qsTr("Do not upscale smaller projects (faster)")
-                Accessible.name: qsTr("Avoid upscaling smaller projects")
+                spacing: Theme.spacingS
+                FtCheckBox {
+                    id: noUpscaleCheck
+                    objectName: "exportAvoidUpscaling"
+                    Layout.fillWidth: true
+                    text: qsTr("Do not upscale smaller projects (faster)")
+                    Accessible.name: qsTr("Avoid upscaling smaller projects")
+                }
+                RowLayout {
+                    Layout.fillWidth: true
+                    FtCheckBox {
+                        id: customWidthCheck
+                        objectName: "exportCustomWidthEnabled"
+                        text: qsTr("Custom width")
+                        Accessible.name: qsTr("Use custom output width")
+                    }
+                    TextField {
+                        id: customWidthField
+                        objectName: "exportCustomWidth"
+                        Layout.preferredWidth: 105
+                        enabled: customWidthCheck.checked
+                        text: "1280"
+                        validator: IntValidator { bottom: 16; top: 8192 }
+                        Accessible.name: qsTr("Custom output width in even pixels")
+                    }
+                    Label { text: qsTr("px · height automatic"); color: Theme.textFaint }
+                }
             }
 
             Label { text: qsTr("Audio"); color: Theme.textMuted }
@@ -157,12 +319,81 @@ FtDialog {
                 Text { text: qsTr("kbit/s"); color: Theme.textFaint; font.pixelSize: Theme.fontSizeSmall }
             }
 
+            Label { text: qsTr("Batch delivery"); color: Theme.textMuted }
+            ColumnLayout {
+                Layout.fillWidth: true
+                spacing: Theme.spacingS
+                RowLayout {
+                    Layout.fillWidth: true
+                    FtCheckBox {
+                        id: batchCreator
+                        objectName: "exportBatchCreator"
+                        text: qsTr("Creator 1080p")
+                        checked: true
+                    }
+                    FtCheckBox {
+                        id: batchReview
+                        objectName: "exportBatchReview"
+                        text: qsTr("Draft 720p")
+                        checked: true
+                    }
+                    FtCheckBox {
+                        id: batchMobile
+                        objectName: "exportBatchMobile"
+                        text: qsTr("Small 480p")
+                    }
+                }
+                RowLayout {
+                    Layout.fillWidth: true
+                    FtCheckBox {
+                        id: batchCreator1440
+                        objectName: "exportBatchCreator1440"
+                        text: qsTr("Creator 1440p")
+                    }
+                    FtCheckBox {
+                        id: batchCreator4k
+                        objectName: "exportBatchCreator4k"
+                        text: qsTr("Creator 4K")
+                    }
+                    Item { Layout.fillWidth: true }
+                }
+                RowLayout {
+                    Layout.fillWidth: true
+                    FtButton {
+                        objectName: "exportBatchPresets"
+                        text: qsTr("Export %1 variants").arg(dialog.batchSelectionCount)
+                        enabled: dialog.batchSelectionCount >= 2 &&
+                                 dialog.exporter.validateBatch(dialog.settings(),
+                                                              dialog.selectedBatchIds()).length === 0
+                        onClicked: dialog.startBatchExport()
+                    }
+                    Text {
+                        Layout.fillWidth: true
+                        color: Theme.textFaint
+                        font.pixelSize: Theme.fontSizeSmall
+                        text: qsTr("Choose 2–5 variants. Each gets its own -preset.mp4 file. " +
+                                   "Existing outputs are never replaced; all variants use one project snapshot. " +
+                                    "Custom width applies only to single export.")
+                        wrapMode: Text.WordWrap
+                    }
+                }
+                Text {
+                    Layout.fillWidth: true
+                    color: Theme.danger
+                    visible: dialog.batchWarning.length > 0
+                    text: dialog.batchWarning
+                    wrapMode: Text.WordWrap
+                }
+            }
+
             Item { width: 1; height: 1 }
             Text {
+                objectName: "exportOutputSummary"
                 Layout.fillWidth: true
                 text: dialog.exporter.describeOutput(dialog.settings())
                 color: Theme.textMuted
                 font.pixelSize: Theme.fontSizeSmall
+                wrapMode: Text.WordWrap
             }
 
             Item { width: 1; height: 1 }
@@ -185,20 +416,23 @@ FtDialog {
             RowLayout {
                 spacing: Theme.spacingS
                 IconImage {
-                    source: "qrc:/qt/qml/FrameTrellis/icons/" + (dialog.exporter.state === "succeeded" ? "check"
-                            : dialog.exporter.state === "failed" ? "warning" : "export") + ".svg"
+                    source: "qrc:/qt/qml/FrameTrellis/icons/" + (dialog.exportState === "succeeded" ? "check"
+                            : dialog.exportState === "failed" ? "warning" : "export") + ".svg"
                     sourceSize.width: 22
                     sourceSize.height: 22
-                    color: dialog.exporter.state === "succeeded" ? Theme.success
-                         : dialog.exporter.state === "failed" ? Theme.danger : Theme.accent
+                    color: dialog.exportState === "succeeded" ? Theme.success
+                         : dialog.exportState === "failed" ? Theme.danger : Theme.accent
                 }
                 Text {
                     Layout.fillWidth: true
                     text: {
-                        switch (dialog.exporter.state) {
-                        case "succeeded": return qsTr("Export finished")
-                        case "failed": return qsTr("Export failed")
-                        case "cancelled": return qsTr("Export cancelled")
+                        switch (dialog.exportState) {
+                        case "succeeded": return dialog.exporter.batchTotal > 0
+                            ? qsTr("Batch finished") : qsTr("Export finished")
+                        case "failed": return dialog.exporter.batchTotal > 0
+                            ? qsTr("Batch stopped") : qsTr("Export failed")
+                        case "cancelled": return dialog.exporter.batchTotal > 0
+                            ? qsTr("Batch cancelled") : qsTr("Export cancelled")
                         case "cancelling": return qsTr("Cancelling…")
                         default: return qsTr("Exporting…")
                         }
@@ -218,19 +452,26 @@ FtDialog {
             FtProgressBar {
                 Layout.fillWidth: true
                 from: 0; to: 1
-                value: dialog.exporter.progress
+                value: dialog.exporter.batchTotal > 0 ? dialog.exporter.batchProgress
+                                                     : dialog.exporter.progress
                 indeterminate: dialog.exporter.state === "starting"
                 Accessible.name: qsTr("Export progress")
             }
             Text {
-                text: dialog.exporter.progressText + (dialog.exporter.encoder.length > 0 ? "  ·  " + dialog.exporter.encoder : "")
+                text: (dialog.exporter.batchTotal > 0 ? dialog.exporter.batchText
+                                                 : dialog.exporter.progressText) +
+                      (dialog.exporter.encoder.length > 0 ? "  ·  " + dialog.exporter.encoder : "")
                 color: Theme.textMuted
                 font.pixelSize: Theme.fontSizeSmall
             }
             Text {
                 Layout.fillWidth: true
-                visible: dialog.exporter.state === "failed"
-                text: dialog.exporter.errorMessage + (dialog.exporter.errorDetail.length > 0 ? "\n" + dialog.exporter.errorDetail : "")
+                visible: dialog.exporter.batchTotal > 0
+                         ? dialog.exporter.batchState === "failed"
+                         : dialog.exporter.state === "failed"
+                text: (dialog.exporter.batchTotal > 0 ? dialog.exporter.batchText
+                                                     : dialog.exporter.errorMessage +
+                                                       (dialog.exporter.errorDetail.length > 0 ? "\n" + dialog.exporter.errorDetail : ""))
                 color: Theme.danger
                 font.pixelSize: Theme.fontSizeSmall
                 wrapMode: Text.WordWrap
@@ -238,7 +479,7 @@ FtDialog {
             Text {
                 Layout.fillWidth: true
                 visible: dialog.exporter.busy
-                text: qsTr("You can keep editing while the export runs; it uses a snapshot of the project.")
+                text: qsTr("You can keep editing while the export runs using a project snapshot. Preview playback pauses to conserve resources.")
                 color: Theme.textFaint
                 font.pixelSize: Theme.fontSizeSmall
                 wrapMode: Text.WordWrap
@@ -248,6 +489,11 @@ FtDialog {
 
     footer: DialogButtons {
         Item { Layout.fillWidth: true }
+        FtButton {
+            text: qsTr("Copy error details")
+            visible: dialog.exportState === "failed"
+            onClicked: dialog.exporter.copyFailureDetails()
+        }
         FtButton {
             text: qsTr("Show in folder")
             visible: dialog.exporter.state === "succeeded"

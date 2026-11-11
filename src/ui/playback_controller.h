@@ -30,6 +30,7 @@ class PlaybackController : public QObject
     Q_PROPERTY(bool hasFrame READ hasFrame NOTIFY frameReady)
     Q_PROPERTY(QStringList warnings READ warnings NOTIFY warningsChanged)
     Q_PROPERTY(bool muted READ muted WRITE setMuted NOTIFY mutedChanged)
+    Q_PROPERTY(bool loopPreview READ loopPreview WRITE setLoopPreview NOTIFY loopPreviewChanged)
 
 public:
     PlaybackController(ProjectController* project, QObject* parent = nullptr);
@@ -45,6 +46,8 @@ public:
     [[nodiscard]] QStringList warnings() const { return m_warnings; }
     [[nodiscard]] bool muted() const { return m_muted; }
     void setMuted(bool muted);
+    [[nodiscard]] bool loopPreview() const { return m_loopPreview; }
+    void setLoopPreview(bool enabled);
     [[nodiscard]] FrameCount positionFrames() const { return m_position; }
     [[nodiscard]] const QImage& currentFrame() const { return m_frame; }
 
@@ -52,9 +55,20 @@ public:
     Q_INVOKABLE void pause();
     Q_INVOKABLE void togglePlay();
     Q_INVOKABLE void seek(double frame);
+    /// Move to an exact SMPTE timecode within the current sequence; rejects invalid/out-of-range
+    /// input.
+    Q_INVOKABLE bool seekToTimecode(const QString& label);
     Q_INVOKABLE void step(int frames);
+    /// Seek a bounded whole-second interval measured at the exact project frame rate.
+    /// Clamps to visible sequence frames; does not modify project or Undo history.
+    Q_INVOKABLE bool skipSeconds(int seconds);
+    /// Seek to the earlier central visible frame; refuse empty timelines.
+    Q_INVOKABLE bool goToSequenceMidpoint();
     Q_INVOKABLE void goToStart();
     Q_INVOKABLE void goToEnd();
+    /// Saves the decoded preview image, which may be lower resolution than final export.
+    /// Refuses to overwrite the project or any referenced source media.
+    Q_INVOKABLE bool savePreviewFrame(const QString& targetPath);
     Q_INVOKABLE void setPreviewSize(int width, int height);
     /// Pushes the latest project snapshot to the engine immediately.
     Q_INVOKABLE void syncNow();
@@ -67,6 +81,7 @@ signals:
     void frameReady();
     void warningsChanged();
     void mutedChanged();
+    void loopPreviewChanged();
     void errorOccurred(const QString& message);
 
 private:
@@ -77,6 +92,7 @@ private:
     FrameCount m_position = 0;
     QStringList m_warnings;
     bool m_muted = false;
+    bool m_loopPreview = false;
 };
 
 } // namespace ft::ui

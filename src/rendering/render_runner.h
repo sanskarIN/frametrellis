@@ -32,7 +32,8 @@ public:
     using ProgressCallback = std::function<void(const Progress&)>;
     using StartedCallback = std::function<void(const QString& encoder, FrameCount total)>;
 
-    RenderRunner(Project project, ExportSettings settings, QString projectFilePath = {});
+    RenderRunner(Project project, ExportSettings settings, QString projectFilePath = {},
+                 QString temporaryToken = {});
 
     /// Blocks until the render finishes, fails or is cancelled through the flag.
     Status run(const std::atomic<bool>& cancelRequested, const StartedCallback& started = {},
@@ -44,6 +45,7 @@ private:
     Project m_project;
     ExportSettings m_settings;
     QString m_projectFilePath;
+    QString m_temporaryToken;
     QString m_encoder;
 };
 

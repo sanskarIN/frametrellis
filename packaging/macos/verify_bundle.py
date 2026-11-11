@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 # SPDX-License-Identifier: GPL-3.0-or-later
 """Conservative native macOS development-bundle runtime-closure audit.
 
@@ -8,7 +7,6 @@ is never promoted to a stable release merely because this script succeeds.
 from __future__ import annotations
 
 import argparse
-import os
 import subprocess
 import sys
 from pathlib import Path

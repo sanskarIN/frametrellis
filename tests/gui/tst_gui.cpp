@@ -4235,11 +4235,10 @@ private slots:
         const int projectWidth = before.settings().width;
         const int projectHeight = before.settings().height;
         const int derivedHeight =
-            std::max(2, static_cast<int>(std::lround(
-                            static_cast<double>(projectHeight) * 1280 / projectWidth / 2.0)) *
-                            2);
-        const QString expected =
-            QStringLiteral("%1×%2").arg(1280).arg(derivedHeight);
+            std::max(2, static_cast<int>(std::lround(static_cast<double>(projectHeight) * 1280 /
+                                                     projectWidth / 2.0)) *
+                             2);
+        const QString expected = QStringLiteral("%1×%2").arg(1280).arg(derivedHeight);
         QTRY_VERIFY2(summary->property("text").toString().contains(expected),
                      qPrintable(summary->property("text").toString()));
 

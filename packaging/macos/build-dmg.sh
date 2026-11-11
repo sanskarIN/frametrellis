@@ -79,6 +79,13 @@ qtdeploy="$qt_prefix/bin/macdeployqt"
 "$qtdeploy" "$app" "-executable=$contents/MacOS/frametrellis-render" \
     "-qmldir=$root/src/ui/qml" -always-overwrite -no-codesign
 
+# macdeployqt copies optional Qt 3D/PDF/VirtualKeyboard/Timeline plugins even
+# though the editor only imports QtQuick, Basic Controls, Dialogs and Layouts.
+# Prune ONLY the known-unused modules after checking all project QML imports.
+# This prevents unresolvable optional plugin dependencies from entering the
+# app. The remaining dependency verifier still rejects missing linked code.
+python3 "$root/packaging/macos/prune_unused_qt.py" "$app" "$root/src/ui/qml"
+
 # MLT loads service plug-ins dynamically. Include the plug-ins explicitly as
 # dylibbundler inputs so its dependency closure covers FFmpeg and other codecs.
 # Qt frameworks are deployed by macdeployqt (and must not be copied twice).
@@ -106,6 +113,20 @@ for framework in "$contents"/Frameworks/*.framework; do
             install_name_tool -id \
                 "@rpath/$framework_name.framework/Versions/A/$framework_name" \
                 "$framework_binary"
+            ;;
+    esac
+done
+
+# Some Homebrew dylibbundler copies keep their original install-name
+# identity, particularly Intel brotli runtime libraries. Normalize copied
+# dylib identities as well as the Qt framework identities above. This does
+# not mask missing dependencies: verify_bundle.py audits their actual links.
+for library in "$contents"/Frameworks/*.dylib; do
+    [[ -f "$library" && ! -L "$library" ]] || continue
+    install_id="$(otool -D "$library" | sed -n '2p' | xargs)"
+    case "$install_id" in
+        /opt/homebrew/*|/usr/local/*)
+            install_name_tool -id "@rpath/${library##*/}" "$library"
             ;;
     esac
 done

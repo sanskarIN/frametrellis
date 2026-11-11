@@ -43,6 +43,11 @@ class LinuxAppDirVerifierTests(unittest.TestCase):
             )
             self.assertIsNone(verify.check_link("libc.so.6", "/usr/lib/libc.so.6", appdir))
 
+    def test_staged_appdir_under_runner_home_is_not_a_false_positive(self):
+        appdir = Path("/home/runner/work/_temp/linux-packages/AppDir")
+        bundled = str(appdir / "usr/lib/libQt6Gui.so.6")
+        self.assertIsNone(verify.check_link("libQt6Gui.so.6", bundled, appdir))
+
     def test_missing_and_build_machine_libraries_fail(self):
         with tempfile.TemporaryDirectory() as tmp:
             appdir = Path(tmp) / "AppDir"

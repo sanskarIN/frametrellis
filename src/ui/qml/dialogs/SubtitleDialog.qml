@@ -21,7 +21,7 @@ FtDialog {
 
     title: qsTr("Subtitles")
     implicitWidth: 1000
-    height: Math.min(700, parent ? parent.height - 48 : 700)
+    height: Math.min(740, parent ? parent.height - 24 : 740)
     closePolicy: Popup.NoAutoClose
 
     function loadDraft() {
@@ -74,7 +74,7 @@ FtDialog {
     Shortcut { sequence: "Ctrl+Return"; enabled: dialog.visible && !draftGuard.visible; onActivated: dialog.applyIfDirty() }
 
     contentItem: ColumnLayout {
-        spacing: Theme.spacingS
+        spacing: dialog.height < 740 ? 4 : Theme.spacingS
         RowLayout {
             Layout.fillWidth: true
             FtButton { text: qsTr("Import SRT/WebVTT…"); objectName: "subtitleImport"; onClicked: dialog.guarded(() => dialog.importRequested()) }
@@ -133,6 +133,34 @@ FtDialog {
             Label {
                 Layout.fillWidth: true
                 text: qsTr("Negative moves earlier; positive moves later.")
+                color: Theme.textFaint
+                wrapMode: Text.WordWrap
+            }
+        }
+        RowLayout {
+            Layout.fillWidth: true
+            spacing: Theme.spacingS
+            Label { text: qsTr("Stretch cue times (%)"); color: Theme.textMuted }
+            SpinBox {
+                id: subtitleStretchPercent
+                objectName: "subtitleStretchPercent"
+                editable: true
+                from: 25
+                to: 400
+                value: 100
+                stepSize: 5
+                Accessible.name: qsTr("Subtitle timing scale from sequence start")
+            }
+            FtButton {
+                objectName: "subtitleApplyTimingStretch"
+                text: qsTr("Apply stretch")
+                enabled: dialog.subtitles.count > 0 && subtitleStretchPercent.value !== 100
+                onClicked: dialog.guarded(() =>
+                    dialog.subtitles.stretchAllTiming(subtitleStretchPercent.value))
+            }
+            Label {
+                Layout.fillWidth: true
+                text: qsTr("Scales all cue start/end times from 00:00 in one undo. Clips, audio and FPS do not change.")
                 color: Theme.textFaint
                 wrapMode: Text.WordWrap
             }
@@ -302,7 +330,10 @@ FtDialog {
                 FrameView {
                     objectName: "subtitlePreview"
                     Layout.fillWidth: true
-                    Layout.preferredHeight: 170
+                    // Keep cue editor buttons and the dialog footer accessible at
+                    // 1200x800 and other compact window sizes. A fixed 170px
+                    // monitor used to over-constrain the layout after the timing tools.
+                    Layout.preferredHeight: Math.max(80, Math.min(150, dialog.height - 575))
                     visible: dialog.height >= 600
                     source: dialog.visible ? dialog.app.playback : null
                     backgroundColor: Theme.monitorBackground
@@ -374,6 +405,7 @@ FtDialog {
                     }
                 }
                 RowLayout {
+                    objectName: "subtitleCueActions"
                     Layout.fillWidth: true
                     FtButton { text: qsTr("Preview cue"); enabled: dialog.subtitles.canSeek; onClicked: dialog.subtitles.seekSelected() }
                     FtButton {
@@ -404,6 +436,7 @@ FtDialog {
             font.pixelSize: Theme.fontSizeSmall
         }
         Text {
+            objectName: "subtitleWorkflowHint"
             Layout.fillWidth: true
             text: qsTr("Cues do not extend the video. SRT export keeps every cue. Install fonts for the languages you use; long text shrinks to fit the picture.")
             color: Theme.textMuted
@@ -412,6 +445,7 @@ FtDialog {
         }
     }
     footer: DialogButtons {
+        objectName: "subtitleActionsFooter"
         FtButton { text: qsTr("Clear track"); enabled: dialog.subtitles.count > 0; onClicked: dialog.guarded(() => dialog.subtitles.clearAll()) }
         Label { text: dialog.dirty ? qsTr("Unapplied changes") : qsTr("All cue changes applied"); color: dialog.dirty ? Theme.warning : Theme.textMuted; font.pixelSize: Theme.fontSizeSmall }
         Item { Layout.fillWidth: true }

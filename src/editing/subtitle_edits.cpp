@@ -254,6 +254,30 @@ std::unique_ptr<EditCommand> shiftSubtitles(std::int64_t deltaMilliseconds)
         });
 }
 
+std::unique_ptr<EditCommand> stretchSubtitleTiming(int percentage)
+{
+    return std::make_unique<SubtitleCommand>(
+        QStringLiteral("Stretch Subtitle Timing"), [percentage](SubtitleTrack& track) -> Status {
+            if (track.cues.empty() || percentage < 25 || percentage > 400 || percentage == 100) {
+                return makeError(
+                    ErrorCode::InvalidArgument,
+                    QStringLiteral("Add subtitles and choose a timing scale from 25–400%, "
+                                   "other than 100%."));
+            }
+            // Times have a validated upper bound of 3.6e9 ms, so scaling by
+            // at most 400 is safe in int64. Round halves up in milliseconds.
+            const auto scale = [percentage](std::int64_t ms) {
+                return (ms * percentage + 50) / 100;
+            };
+            for (SubtitleCue& cue : track.cues) {
+                cue.startMs = scale(cue.startMs);
+                cue.endMs = scale(cue.endMs);
+            }
+            // setSubtitles validates the entire staged track before commit.
+            return {};
+        });
+}
+
 std::unique_ptr<EditCommand> setSubtitleAppearance(bool burnIn, int fontPercent, bool background)
 {
     return std::make_unique<SubtitleCommand>(

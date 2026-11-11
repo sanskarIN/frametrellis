@@ -3301,6 +3301,18 @@ private slots:
                      std::int64_t{373});
         QVERIFY(click(QStringLiteral("subtitleUndo")));
         QTRY_COMPARE(m_app->project()->project().subtitles(), applied);
+        // Exercise the actual QML SpinBox and Apply button, including 123ms
+        // * 150% = 184.5ms rounding to 185ms. One Undo restores both boundaries.
+        QQuickItem* stretch =
+            findItem(m_window->contentItem(), QStringLiteral("subtitleStretchPercent"));
+        QVERIFY(stretch && stretch->isVisible());
+        QVERIFY(stretch->setProperty("value", 150));
+        QVERIFY(click(QStringLiteral("subtitleApplyTimingStretch")));
+        QTRY_COMPARE(m_app->project()->project().subtitles().cues.front().startMs,
+                     std::int64_t{185});
+        QCOMPARE(m_app->project()->project().subtitles().cues.front().endMs, std::int64_t{3000});
+        QVERIFY(click(QStringLiteral("subtitleUndo")));
+        QTRY_COMPARE(m_app->project()->project().subtitles(), applied);
         QVERIFY(click(QStringLiteral("subtitleUndo")));
         QTRY_COMPARE(m_app->project()->project().subtitles().cues.front().startMs, 0);
         m_app->project()->redo();
@@ -3334,6 +3346,23 @@ private slots:
         QVERIFY(click(QStringLiteral("subtitlesButton")));
         QTRY_VERIFY(dialog->property("visible").toBool());
         screenshot(QStringLiteral("13-subtitles"));
+        // The additional caption timing controls must not push the cue editor
+        // action row underneath the dialog footer at the 1200x800 baseline.
+        QQuickItem* cueActions =
+            findItem(m_window->contentItem(), QStringLiteral("subtitleCueActions"));
+        QQuickItem* closeButton =
+            findItem(m_window->contentItem(), QStringLiteral("subtitleClose"));
+        QQuickItem* workflowHint =
+            findItem(m_window->contentItem(), QStringLiteral("subtitleWorkflowHint"));
+        QVERIFY(cueActions && closeButton && workflowHint);
+        QVERIFY(cueActions->isVisible() && closeButton->isVisible() && workflowHint->isVisible());
+        // Compare real visible controls and note text with the button row:
+        // the footer item's own padded bounding box can extend above its buttons.
+        const auto closeTop = [&] { return closeButton->mapToScene(QPointF(0.0, 0.0)).y(); };
+        QTRY_VERIFY(cueActions->mapToScene(QPointF(0.0, cueActions->height())).y() + 4.0 <
+                    closeTop());
+        QTRY_VERIFY(workflowHint->mapToScene(QPointF(0.0, workflowHint->height())).y() + 2.0 <
+                    closeTop());
         m_app->setTheme(QStringLiteral("light"));
         screenshot(QStringLiteral("14-subtitles-light"));
         QVERIFY2(m_qmlWarnings.isEmpty(), "Subtitle editor produced QML warnings");

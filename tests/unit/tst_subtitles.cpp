@@ -561,6 +561,60 @@ private slots:
         QVERIFY(!empty.canUndo());
     }
 
+    void stretchWholeSubtitleTrackPreservesTextsAndSupportsOneUndo()
+    {
+        Project p = project();
+        SubtitleTrack captions;
+        captions.cues = {cue(QStringLiteral("first"), 100, 1100, QStringLiteral("नमस्ते")),
+                         cue(QStringLiteral("second"), 1500, 2000, QStringLiteral("Hello"))};
+        captions.fontPercent = 7;
+        captions.background = false;
+        QVERIFY(p.setSubtitles(captions));
+        ProjectDocument doc(p);
+        const Project before = doc.project();
+        QVERIFY(doc.execute(edits::stretchSubtitleTiming(125)));
+        const SubtitleTrack result = doc.project().subtitles();
+        QCOMPARE(result.cues[0].startMs, std::int64_t{125});
+        QCOMPARE(result.cues[0].endMs, std::int64_t{1375});
+        QCOMPARE(result.cues[1].startMs, std::int64_t{1875});
+        QCOMPARE(result.cues[1].endMs, std::int64_t{2500});
+        QCOMPARE(result.cues[0].text, captions.cues[0].text);
+        QCOMPARE(result.cues[1].id, captions.cues[1].id);
+        QCOMPARE(result.fontPercent, 7);
+        QCOMPARE(result.background, false);
+        QCOMPARE(doc.project().timeline(), before.timeline());
+        const Project scaled = doc.project();
+        for (int invalid : {0, 24, 100, 401}) {
+            QVERIFY(!doc.execute(edits::stretchSubtitleTiming(invalid)));
+            QCOMPARE(doc.project(), scaled);
+        }
+        QVERIFY(doc.undo());
+        QCOMPARE(doc.project(), before);
+        QVERIFY(doc.redo());
+        QCOMPARE(doc.project(), scaled);
+
+        Project nearLimit = project();
+        SubtitleTrack late;
+        late.cues = {cue(QStringLiteral("late"), kMaxSubtitleTimeMs - 1000, kMaxSubtitleTimeMs)};
+        QVERIFY(nearLimit.setSubtitles(late));
+        ProjectDocument overflow(nearLimit);
+        QVERIFY(!overflow.execute(edits::stretchSubtitleTiming(400)));
+        QCOMPARE(overflow.project().subtitles(), late);
+        QVERIFY(!overflow.canUndo());
+
+        Project tiny = project();
+        SubtitleTrack shortCue;
+        shortCue.cues = {cue(QStringLiteral("tiny"), 0, 1)};
+        QVERIFY(tiny.setSubtitles(shortCue));
+        ProjectDocument collapse(tiny);
+        QVERIFY(!collapse.execute(edits::stretchSubtitleTiming(25)));
+        QCOMPARE(collapse.project().subtitles(), shortCue);
+        QVERIFY(!collapse.canUndo());
+        ProjectDocument empty(project());
+        QVERIFY(!empty.execute(edits::stretchSubtitleTiming(125)));
+        QVERIFY(!empty.canUndo());
+    }
+
     void formatSixPreservesCuesOptionsAndLegacyLoads()
     {
         Project p = project();

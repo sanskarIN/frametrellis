@@ -283,8 +283,8 @@ private slots:
         clip.id = createId();
         clip.assetId = asset->id;
         clip.duration = 25;
-        QVERIFY(base.timeline().insertClip(base.timeline().tracks()[0].id, clip,
-                                           base.sourceLookup()));
+        QVERIFY(
+            base.timeline().insertClip(base.timeline().tracks()[0].id, clip, base.sourceLookup()));
         const QString projectPath = m_dir.filePath(QStringLiteral("batch-cancel-fault.ftproj"));
         QVERIFY(project_format::saveToFile(base, projectPath));
         ui::ProjectController project;
@@ -293,8 +293,7 @@ private slots:
         ui::ExportController exporter(&project, QStringLiteral(FT_CANCEL_RENDER_HELPER));
         const QVariantMap settings{
             {QStringLiteral("presetId"), QStringLiteral("match")},
-            {QStringLiteral("outputPath"),
-             m_dir.filePath(QStringLiteral("fail-after-cancel.mp4"))},
+            {QStringLiteral("outputPath"), m_dir.filePath(QStringLiteral("fail-after-cancel.mp4"))},
             {QStringLiteral("includeAudio"), false}};
         const QStringList presets{QStringLiteral("draft"), QStringLiteral("review480p")};
         QSignalSpy finished(&exporter, &ui::ExportController::finished);
@@ -309,8 +308,8 @@ private slots:
         const QString report = QGuiApplication::clipboard()->text();
         QVERIFY2(report.contains(QStringLiteral("0x0000002a")), qPrintable(report));
         QVERIFY(report.contains(QStringLiteral("Batch stopped")));
-        QVERIFY(!QFileInfo::exists(
-            m_dir.filePath(QStringLiteral("fail-after-cancel-review480p.mp4"))));
+        QVERIFY(
+            !QFileInfo::exists(m_dir.filePath(QStringLiteral("fail-after-cancel-review480p.mp4"))));
         QVERIFY(!exporter.busy());
     }
 

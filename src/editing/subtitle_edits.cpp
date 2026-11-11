@@ -281,8 +281,7 @@ std::unique_ptr<EditCommand> stretchSubtitleTiming(int percentage)
 std::unique_ptr<EditCommand> snapSubtitleTimingToFrames(FrameRate projectRate)
 {
     return std::make_unique<SubtitleCommand>(
-        QStringLiteral("Align Subtitles to Frames"),
-        [projectRate](SubtitleTrack& track) -> Status {
+        QStringLiteral("Align Subtitles to Frames"), [projectRate](SubtitleTrack& track) -> Status {
             if (track.cues.empty() || !projectRate.isValid()) {
                 return makeError(ErrorCode::InvalidArgument,
                                  QStringLiteral("Add subtitles and choose a valid project FPS."));
@@ -307,8 +306,9 @@ std::unique_ptr<EditCommand> snapSubtitleTimingToFrames(FrameRate projectRate)
                 cue.endMs = *last;
             }
             if (!changed) {
-                return makeError(ErrorCode::InvalidArgument,
-                                 QStringLiteral("Subtitles are already aligned to project frames."));
+                return makeError(
+                    ErrorCode::InvalidArgument,
+                    QStringLiteral("Subtitles are already aligned to project frames."));
             }
             // setSubtitles rechecks the complete staged track for ordering and
             // overlap before the project or Undo/Redo history is touched.

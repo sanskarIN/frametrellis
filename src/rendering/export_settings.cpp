@@ -149,6 +149,21 @@ Result<ExportFrameBounds> resolveExportFrameBounds(const ExportSettings& setting
 
 QSize outputSize(const ExportSettings& settings, const ProjectSettings& project)
 {
+    // A nonzero width overrides the preset's short-side sizing for this export
+    // only. Keep the original aspect ratio and round the derived height to even
+    // pixels, as required by H.264's yuv420p encoder. Validation checks bounds.
+    if (settings.customWidth != 0) {
+        if (settings.customWidth < 0) {
+            return {};
+        }
+        if (settings.avoidUpscaling && settings.customWidth >= project.width) {
+            return {project.width, project.height};
+        }
+        const double height = static_cast<double>(project.height) * settings.customWidth /
+                              project.width;
+        const int evenHeight = std::max(2, static_cast<int>(std::lround(height / 2.0)) * 2);
+        return {settings.customWidth, evenHeight};
+    }
     if (settings.shortSide <= 0) {
         return {project.width, project.height};
     }
@@ -250,6 +265,15 @@ Status validateExport(const ExportSettings& settings, const Project& project,
         return makeError(ErrorCode::OutOfRange,
                          QStringLiteral("The requested export size must be between 0 and %1.")
                              .arg(kMaxFrameDimension));
+    }
+    if (settings.customWidth < 0 || settings.customWidth > kMaxFrameDimension ||
+        (settings.customWidth != 0 &&
+         (settings.customWidth < kMinFrameDimension || settings.customWidth % 2 != 0))) {
+        return makeError(
+            ErrorCode::OutOfRange,
+            QStringLiteral("Custom output width must be an even number between %1 and %2.")
+                .arg(kMinFrameDimension)
+                .arg(kMaxFrameDimension));
     }
     const QSize size = outputSize(settings, project.settings());
     if (size.width() < kMinFrameDimension || size.height() < kMinFrameDimension ||

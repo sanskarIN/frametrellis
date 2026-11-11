@@ -47,8 +47,8 @@ public class RendererFixture
     $project = Join-Path $root "disposable.ftproj"
     Set-Content -LiteralPath $project -Value "{}" -Encoding UTF8
     foreach ($case in @(
-        @{ mode = "missing"; expected = "missing-output"; code = 1; bytes = 0; exists = $false },
-        @{ mode = "empty"; expected = "empty-output"; code = 1; bytes = 0; exists = $true },
+        @{ mode = "missing"; expected = "missing-output"; code = 1; bytes = 0; exists = $false; sample = $false },
+        @{ mode = "empty"; expected = "empty-output"; code = 1; bytes = 0; exists = $true; sample = $false },
         @{ mode = "nonempty"; expected = "success"; code = 0; bytes = 3; exists = $true; sample = $false },
         @{ mode = "sample"; expected = "success"; code = 0; bytes = 3; exists = $true; sample = $true }
     )) {

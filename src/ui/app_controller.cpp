@@ -98,6 +98,11 @@ QString AppController::version() const
     return QLatin1String(ft::version::string);
 }
 
+QString AppController::buildRevision() const
+{
+    return QLatin1String(ft::version::sourceRevision);
+}
+
 void AppController::showStatus(const QString& message)
 {
     m_status = message;
@@ -177,6 +182,7 @@ QString AppController::diagnostics() const
     const auto& caps = engine::MltRuntime::capabilities();
     QStringList lines;
     lines << QStringLiteral("FrameTrellis %1").arg(version())
+          << QStringLiteral("Source revision: %1").arg(buildRevision())
           << QStringLiteral("Qt %1, %2")
                  .arg(QString::fromLatin1(qVersion()), QSysInfo::prettyProductName())
           << QStringLiteral("CPU: %1, %2 threads")

@@ -39,6 +39,7 @@ class AppController : public QObject
     Q_PROPERTY(bool engineReady READ engineReady CONSTANT)
     Q_PROPERTY(QString engineMessage READ engineMessage CONSTANT)
     Q_PROPERTY(QString version READ version CONSTANT)
+    Q_PROPERTY(QString buildRevision READ buildRevision CONSTANT)
     Q_PROPERTY(QString statusMessage READ statusMessage NOTIFY statusMessageChanged)
     Q_PROPERTY(QVariantList links READ links CONSTANT)
     Q_PROPERTY(QVariantMap about READ about CONSTANT)
@@ -59,6 +60,7 @@ public:
     [[nodiscard]] bool engineReady() const { return m_engineReady; }
     [[nodiscard]] QString engineMessage() const { return m_engineMessage; }
     [[nodiscard]] QString version() const;
+    [[nodiscard]] QString buildRevision() const;
     [[nodiscard]] QString statusMessage() const { return m_status; }
     [[nodiscard]] QVariantList links() const;
     [[nodiscard]] QVariantMap about() const;

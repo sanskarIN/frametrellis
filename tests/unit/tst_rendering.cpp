@@ -116,7 +116,11 @@ private slots:
             QVERIFY2(!validateExport(settings, original),
                      qPrintable(QStringLiteral("Unexpected valid width: %1").arg(invalid)));
         }
+        // Width 16 is legal by itself, but the preserved 16:9 height
+        // would be below the encoder's 16-pixel minimum.
         settings.customWidth = 16;
+        QVERIFY(!validateExport(settings, original));
+        settings.customWidth = 32;
         QVERIFY(validateExport(settings, original));
         settings.customWidth = 8192;
         QVERIFY(validateExport(settings, original));

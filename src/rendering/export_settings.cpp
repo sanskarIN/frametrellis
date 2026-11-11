@@ -159,8 +159,8 @@ QSize outputSize(const ExportSettings& settings, const ProjectSettings& project)
         if (settings.avoidUpscaling && settings.customWidth >= project.width) {
             return {project.width, project.height};
         }
-        const double height = static_cast<double>(project.height) * settings.customWidth /
-                              project.width;
+        const double height =
+            static_cast<double>(project.height) * settings.customWidth / project.width;
         const int evenHeight = std::max(2, static_cast<int>(std::lround(height / 2.0)) * 2);
         return {settings.customWidth, evenHeight};
     }

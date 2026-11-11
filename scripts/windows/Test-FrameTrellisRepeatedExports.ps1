@@ -81,7 +81,12 @@ for ($i = 1; $i -le $Runs; ++$i) {
     try {
         $process = Start-Process -FilePath $rendererPath -ArgumentList $quoted `
             -PassThru -NoNewWindow -RedirectStandardOutput $stdoutFile `
-            -RedirectStandardError $stderrFile
+            -RedirectStandardError $stderrFile -ErrorAction Stop
+        # PowerShell can discard a process's handle after Start-Process
+        # -NoNewWindow / redirected streams, then silently return $null for
+        # ExitCode even after WaitForExit. Capture the handle before waiting:
+        # https://github.com/PowerShell/PowerShell/issues/20400
+        $processHandle = $process.Handle
         if (-not $process.WaitForExit($TimeoutSeconds * 1000)) {
             $timedOut = $true
             # Kill only our own launched test renderer, never the editor.

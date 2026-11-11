@@ -47,6 +47,9 @@ RenderJob::RenderJob(QString helperProgram, QObject* parent)
     connect(&m_killTimer, &QTimer::timeout, this, [this] {
         if (m_process && m_process->state() != QProcess::NotRunning) {
             qCWarning(lcRender) << "Render helper did not stop in time; killing it";
+            // Remember that this CrashExit was deliberately caused by our
+            // cancellation watchdog, not by a native decoder/encoder failure.
+            m_cancelKillIssued = true;
             m_process->kill();
         }
     });
@@ -154,6 +157,7 @@ Status RenderJob::start(const Project& project, const ExportSettings& settings,
     m_discardingOversizedLine = false;
     m_sawFinished = false;
     m_cancelSent = false;
+    m_cancelKillIssued = false;
     m_finalElapsed = -1;
     m_elapsed.start();
 
@@ -391,8 +395,13 @@ void RenderJob::onProcessFinished(int exitCode, QProcess::ExitStatus status)
     }
     if (status == QProcess::NormalExit && exitCode == protocol::Success && m_sawFinished) {
         setState(State::Succeeded);
-    } else if (m_state == State::Cancelling ||
-               (status == QProcess::NormalExit && exitCode == protocol::Cancelled)) {
+    } else if ((status == QProcess::NormalExit && exitCode == protocol::Cancelled) ||
+               (m_state == State::Cancelling && m_cancelKillIssued &&
+                status == QProcess::CrashExit)) {
+        // A cancellation request alone does not make an unexpected nonzero
+        // exit successful. Preserve the failure and its exit code for triage.
+        // Only a cooperative cancellation exit or our own watchdog kill
+        // counts as Cancelled.
         if (m_state != State::Cancelling) {
             setState(State::Cancelling);
         }

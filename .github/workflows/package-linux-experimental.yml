@@ -83,6 +83,24 @@ jobs:
             "$pkg" --screenshot "$RUNNER_TEMP/linux-appimage-gui.png" \
             --screenshot-delay 1500 "$RUNNER_TEMP/synthetic/self-test.ftproj"
           test -s "$RUNNER_TEMP/linux-appimage-gui.png"
+          # The build-tree renderer self-test above cannot prove that the
+          # AppImage ships a working *bundled* render helper. Extract the exact
+          # AppImage bytes we are about to upload and exercise that helper.
+          mkdir -p "$RUNNER_TEMP/appimage-extracted"
+          (cd "$RUNNER_TEMP/appimage-extracted" && "$pkg" --appimage-extract >/dev/null)
+          bundled="$RUNNER_TEMP/appimage-extracted/squashfs-root"
+          test -x "$bundled/usr/bin/frametrellis"
+          test -x "$bundled/usr/bin/frametrellis-render"
+          test -d "$bundled/usr/lib/mlt-7"
+          test -d "$bundled/usr/share/mlt-7"
+          env -u QT_PLUGIN_PATH -u QML2_IMPORT_PATH \
+            LD_LIBRARY_PATH="$bundled/usr/lib:$bundled/usr/lib/x86_64-linux-gnu" \
+            FRAMETRELLIS_MLT_REPOSITORY="$bundled/usr/lib/mlt-7" \
+            MLT_DATA="$bundled/usr/share/mlt-7" \
+            QT_QPA_PLATFORM=offscreen QT_QUICK_BACKEND=software SDL_AUDIODRIVER=dummy \
+            "$bundled/usr/bin/frametrellis-render" \
+            --self-test "$RUNNER_TEMP/linux-bundled-helper"
+          test -s "$RUNNER_TEMP/linux-bundled-helper/self-test-export.mp4"
       - name: Upload explicitly experimental AppImage + checksums
         uses: actions/upload-artifact@v6
         with:

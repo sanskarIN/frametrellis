@@ -58,7 +58,7 @@ QString renderHelperPath()
     // CMake packs the helper inside Contents/MacOS, but support older
     // unbundled developer builds where it was emitted to bin/ instead.
     if (!QFileInfo::exists(adjacent)) {
-        const QString developerHelper = QDir::cleanPath(appDir.filePath("../../../" + name));
+        const QString developerHelper = QDir::cleanPath(appDir.filePath(QStringLiteral("../../../") + name));
         if (QFileInfo(developerHelper).isFile()) {
             return developerHelper;
         }

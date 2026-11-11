@@ -6,6 +6,7 @@ import importlib.util
 import tempfile
 import unittest
 from pathlib import Path
+from unittest import mock
 
 MODULE = Path(__file__).resolve().parents[1] / "macos" / "verify_bundle.py"
 SPEC = importlib.util.spec_from_file_location("macos_bundle_verifier", MODULE)
@@ -95,6 +96,52 @@ class MacBundleVerifierTests(unittest.TestCase):
                 verify.assert_dependency(
                     "@loader_path/../../../libssl.4.dylib", framework_entry, app
                 )
+            )
+
+
+    def test_missing_required_mlt_module_rejected(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            app = Path(tmp) / "FrameTrellis.app"
+            contents = app / "Contents"
+            for name in ("frametrellis", "frametrellis-render"):
+                binary = contents / "MacOS" / name
+                binary.parent.mkdir(parents=True, exist_ok=True)
+                binary.write_bytes(b"fixture")
+            (contents / "Resources/mlt-7").mkdir(parents=True)
+            (contents / "PlugIns/mlt-7").mkdir(parents=True)
+            cocoa = contents / "PlugIns/platforms/libqcocoa.dylib"
+            cocoa.parent.mkdir(parents=True)
+            cocoa.write_bytes(b"fixture")
+            for name in ("core", "avformat", "plus"):
+                (contents / "PlugIns/mlt-7" / f"libmlt{name}.so").write_bytes(b"fixture")
+            problems = verify.check_bundle(app)
+            self.assertTrue(any("libmltnormalize" in item for item in problems))
+            self.assertFalse(any("libmltcore" in item for item in problems))
+
+    def test_broken_bundle_symlink_rejected(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            app = Path(tmp) / "FrameTrellis.app"
+            contents = app / "Contents"
+            for name in ("frametrellis", "frametrellis-render"):
+                path = contents / "MacOS" / name
+                path.parent.mkdir(parents=True, exist_ok=True)
+                path.write_bytes(b"fixture")
+            (contents / "Resources/mlt-7").mkdir(parents=True)
+            modules = contents / "PlugIns/mlt-7"
+            modules.mkdir(parents=True)
+            for name in ("core", "avformat", "plus", "normalize"):
+                (modules / f"libmlt{name}.so").write_bytes(b"fixture")
+            cocoa = contents / "PlugIns/platforms/libqcocoa.dylib"
+            cocoa.parent.mkdir(parents=True)
+            cocoa.write_bytes(b"fixture")
+            (contents / "Resources/broken").symlink_to("missing")
+            with mock.patch.object(
+                verify.subprocess, "run",
+                return_value=mock.Mock(returncode=0, stdout="", stderr=""),
+            ):
+                problems = verify.check_bundle(app)
+            self.assertTrue(
+                any("broken bundle symlink" in item.lower() for item in problems), problems
             )
 
 

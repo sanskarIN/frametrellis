@@ -32,6 +32,7 @@ set_tests_properties(tst_recovery PROPERTIES TIMEOUT 60)
 ft_add_test(tst_export_autosave SOURCES tst_export_autosave.cpp
     LIBS ft_ui ft_test_fixtures LABELS gui)
 target_compile_definitions(tst_export_autosave PRIVATE
-    FT_RENDER_HELPER="$<TARGET_FILE:frametrellis-render>")
-add_dependencies(tst_export_autosave frametrellis-render)
+    FT_RENDER_HELPER="$<TARGET_FILE:frametrellis-render>"
+    FT_CANCEL_RENDER_HELPER="$<TARGET_FILE:ft_render_cancel_fixture>")
+add_dependencies(tst_export_autosave frametrellis-render ft_render_cancel_fixture)
 set_tests_properties(tst_export_autosave PROPERTIES TIMEOUT 120)

@@ -191,7 +191,8 @@ bool ProjectController::renameProject(const QString& newName)
     if (name == project().name()) {
         return true; // No change or Undo entry for renaming to the current name.
     }
-    if (!execute(std::make_unique<ProjectSettingsCommand>(project().settings(), name))) {
+    if (!execute(std::make_unique<ProjectSettingsCommand>(
+            project().settings(), name, QStringLiteral("Rename Project")))) {
         return false;
     }
     emit statusMessage(QStringLiteral("Renamed project to %1.").arg(name));

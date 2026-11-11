@@ -48,7 +48,9 @@ class MacBundleVerifierTests(unittest.TestCase):
                 )
             )
             self.assertIsNone(
-                verify.assert_dependency("/System/Library/Frameworks/AppKit.framework/AppKit", binary, app)
+                verify.assert_dependency(
+                    "/System/Library/Frameworks/AppKit.framework/AppKit", binary, app
+                )
             )
             self.assertIn(
                 "external non-system",

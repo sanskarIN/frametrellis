@@ -432,6 +432,7 @@ private slots:
         QTRY_VERIFY(!dialog->property("visible").toBool());
 
         QCOMPARE(projectController->name(), QStringLiteral("नया प्रोजेक्ट 2026"));
+        QCOMPARE(projectController->undoText(), QStringLiteral("Rename Project"));
         QCOMPARE(projectController->filePath(), originalFile);
         QCOMPARE(projectController->project().settings(), before.settings());
         QCOMPARE(projectController->project().timeline(), before.timeline());

@@ -3355,13 +3355,10 @@ private slots:
         QQuickItem* workflowHint =
             findItem(m_window->contentItem(), QStringLiteral("subtitleWorkflowHint"));
         QVERIFY(cueActions && closeButton && workflowHint);
-        QVERIFY(cueActions->isVisible() && closeButton->isVisible() &&
-                workflowHint->isVisible());
+        QVERIFY(cueActions->isVisible() && closeButton->isVisible() && workflowHint->isVisible());
         // Compare real visible controls and note text with the button row:
         // the footer item's own padded bounding box can extend above its buttons.
-        const auto closeTop = [&] {
-            return closeButton->mapToScene(QPointF(0.0, 0.0)).y();
-        };
+        const auto closeTop = [&] { return closeButton->mapToScene(QPointF(0.0, 0.0)).y(); };
         QTRY_VERIFY(cueActions->mapToScene(QPointF(0.0, cueActions->height())).y() + 4.0 <
                     closeTop());
         QTRY_VERIFY(workflowHint->mapToScene(QPointF(0.0, workflowHint->height())).y() + 2.0 <

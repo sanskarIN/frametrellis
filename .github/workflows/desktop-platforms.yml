@@ -83,6 +83,10 @@ jobs:
           test -x "$stage/bin/frametrellis"
           test -x "$stage/bin/frametrellis-render"
           test -s "$stage/share/applications/frametrellis.desktop"
+          test -s "$stage/share/mime/packages/frametrellis.xml"
+          test -s "$stage/share/icons/hicolor/scalable/apps/frametrellis.svg"
+          grep -Fq 'application/x-frametrellis-project' "$stage/share/mime/packages/frametrellis.xml"
+          grep -Fq '*.ftproj' "$stage/share/mime/packages/frametrellis.xml"
           {
             echo "GUI ELF dependency links:"
             ldd "$stage/bin/frametrellis"

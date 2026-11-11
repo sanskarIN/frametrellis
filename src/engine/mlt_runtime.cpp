@@ -149,8 +149,7 @@ void configureDataPath(const QString& repository)
     // A repository at <prefix>/lib/mlt-7 has its data at <prefix>/share/mlt-7.
     const QDir repoDir(repository);
     QStringList dataCandidates{QStringLiteral("../../share/mlt-7"),
-                               QStringLiteral("../../share/mlt"),
-                               QStringLiteral("../share/mlt-7"),
+                               QStringLiteral("../../share/mlt"), QStringLiteral("../share/mlt-7"),
                                QStringLiteral("../share/mlt")};
 #ifdef Q_OS_MACOS
     dataCandidates << QStringLiteral("../../Resources/mlt-7")

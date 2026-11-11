@@ -404,6 +404,31 @@ private slots:
         QCOMPARE(m_project->project(), after);
     }
 
+    void frameSnapPreservesProjectAndSelectedCue()
+    {
+        QVERIFY(m_subtitles->addAtPlayhead());
+        QVERIFY(m_subtitles->updateSelected(QStringLiteral("00:00:00,101"),
+                                            QStringLiteral("00:00:01,199"),
+                                            QStringLiteral("Frame aligned")));
+        const Project before = m_project->project();
+        const FrameRate& rate = before.settings().frameRate;
+        const auto firstFrame = subtitleFrameAtMilliseconds(101, rate);
+        const auto endFrame = subtitleFrameAtMilliseconds(1199, rate);
+        QVERIFY(firstFrame && endFrame);
+        QVERIFY(m_subtitles->alignAllTimingToFrames());
+        const SubtitleCue& aligned = m_project->project().subtitles().cues.front();
+        QCOMPARE(aligned.startMs, *subtitleMillisecondsAtFrame(*firstFrame, rate));
+        QCOMPARE(aligned.endMs, *subtitleMillisecondsAtFrame(*endFrame, rate));
+        QCOMPARE(aligned.text, QStringLiteral("Frame aligned"));
+        QCOMPARE(m_project->project().timeline(), before.timeline());
+        QCOMPARE(m_project->project().settings().frameRate, rate);
+        QVERIFY(!m_subtitles->alignAllTimingToFrames());
+        m_project->undo();
+        QCOMPARE(m_project->project(), before);
+        m_project->redo();
+        QCOMPARE(m_project->project().subtitles().cues.front(), aligned);
+    }
+
     void badFilesAndProtectedPathsLeaveExistingContentIntact()
     {
         const QString invalid = m_dir.filePath(QStringLiteral("invalid.srt"));

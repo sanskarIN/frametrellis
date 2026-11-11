@@ -73,6 +73,11 @@ Succeeded, Failed, Cancelled ─► Starting (retry)
 Cancellation: the job writes `cancel` to the helper's stdin (the helper also stops when stdin is
 closed, for example because the editor crashed, and on SIGINT/SIGTERM). The helper stops the
 consumer and deletes the partial file. If it does not exit within the grace period it is killed.
+A cooperating helper exits with the dedicated cancellation code (3); the editor also records
+its **own** watchdog-initiated kill as cancellation. A helper that instead reports a nonzero
+failure or crashes during cancellation is **Failed**, not silently marked Cancelled: its exit
+code and bounded stderr remain available for debugging. Tests exercise both paths without
+using real media or intentionally generating a native crash dump.
 
 The render helper supports `--fps match` (default), whole-number rates, decimals
 such as `29.97` (normalised to 30000/1001) and exact fractions such as

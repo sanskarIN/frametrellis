@@ -25,6 +25,7 @@ FtDialog {
                 spacing: 2
                 Text { text: "FrameTrellis"; color: Theme.text; font.pixelSize: Theme.fontSizeTitle; font.weight: Font.Bold }
                 Text { text: qsTr("Version %1").arg(dialog.app.version); color: Theme.textMuted; font.pixelSize: Theme.fontSize }
+                Text { objectName: "aboutBuildRevision"; text: qsTr("Build revision: %1").arg(dialog.app.buildRevision); color: Theme.textFaint; font.pixelSize: Theme.fontSizeSmall }
                 Text {
                     text: qsTr("A local-first, open-source desktop video editor for precise, multi-track editing.")
                     color: Theme.textMuted

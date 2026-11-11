@@ -52,7 +52,19 @@ QString renderHelperPath()
 #else
     const QString name = QStringLiteral("frametrellis-render");
 #endif
-    return QDir(QCoreApplication::applicationDirPath()).filePath(name);
+    const QDir appDir(QCoreApplication::applicationDirPath());
+    const QString adjacent = appDir.filePath(name);
+#ifdef Q_OS_MACOS
+    // CMake packs the helper inside Contents/MacOS, but support older
+    // unbundled developer builds where it was emitted to bin/ instead.
+    if (!QFileInfo::exists(adjacent)) {
+        const QString developerHelper = QDir::cleanPath(appDir.filePath("../../../" + name));
+        if (QFileInfo(developerHelper).isFile()) {
+            return developerHelper;
+        }
+    }
+#endif
+    return adjacent;
 }
 
 } // namespace

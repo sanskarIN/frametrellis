@@ -63,8 +63,8 @@ public:
     [[nodiscard]] QString batchText() const;
 
     /// settings: presetId, outputPath (path or file URL), crf, speedPreset, audioBitrateKbps,
-    /// includeAudio, frameRate (match, integer, decimal or rational), customWidth (0 or even pixels).
-    /// Returns an empty string when valid, otherwise a user-facing reason.
+    /// includeAudio, frameRate (match, integer, decimal or rational), customWidth (0 or even
+    /// pixels). Returns an empty string when valid, otherwise a user-facing reason.
     Q_INVOKABLE QString validate(const QVariantMap& settings) const;
     Q_INVOKABLE QString describeOutput(const QVariantMap& settings) const;
     Q_INVOKABLE bool start(const QVariantMap& settings);

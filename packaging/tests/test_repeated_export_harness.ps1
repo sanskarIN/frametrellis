@@ -59,7 +59,13 @@ public class RendererFixture
         if ($run.status -ne $case.expected -or
             [int64] $run.outputBytes -ne $case.bytes -or
             [bool] $run.outputExists -ne $case.exists) {
-            throw "$($case.mode): unexpected run result $($run | ConvertTo-Json -Compress)"
+            $stdout = if (Test-Path -LiteralPath $run.stdout) {
+                Get-Content -LiteralPath $run.stdout -Raw
+            } else { "<missing>" }
+            $stderr = if (Test-Path -LiteralPath $run.stderr) {
+                Get-Content -LiteralPath $run.stderr -Raw
+            } else { "<missing>" }
+            throw "$($case.mode): unexpected run result $($run | ConvertTo-Json -Compress); stdout=$stdout; stderr=$stderr"
         }
     }
     Write-Host "Repeated-export output integrity harness tests passed."

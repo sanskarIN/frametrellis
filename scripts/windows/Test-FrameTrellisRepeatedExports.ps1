@@ -81,7 +81,12 @@ for ($i = 1; $i -le $Runs; ++$i) {
     try {
         $process = Start-Process -FilePath $rendererPath -ArgumentList $quoted `
             -PassThru -NoNewWindow -RedirectStandardOutput $stdoutFile `
-            -RedirectStandardError $stderrFile
+            -RedirectStandardError $stderrFile -ErrorAction Stop
+        # PowerShell can discard a process's handle after Start-Process
+        # -NoNewWindow / redirected streams, then silently return $null for
+        # ExitCode even after WaitForExit. Capture the handle before waiting:
+        # https://github.com/PowerShell/PowerShell/issues/20400
+        $processHandle = $process.Handle
         if (-not $process.WaitForExit($TimeoutSeconds * 1000)) {
             $timedOut = $true
             # Kill only our own launched test renderer, never the editor.
@@ -95,6 +100,16 @@ for ($i = 1; $i -le $Runs; ++$i) {
     }
 
     $seconds = [math]::Round(((Get-Date) - $startedAt).TotalSeconds, 2)
+    # A zero renderer exit code alone is not proof that the requested MP4 was
+    # published. Check only this run's dedicated output; leave it untouched
+    # for independent media probing and privacy-conscious crash analysis.
+    $outputInfo = if (Test-Path -LiteralPath $outputFile -PathType Leaf) {
+        Get-Item -LiteralPath $outputFile
+    } else {
+        $null
+    }
+    $outputExists = $null -ne $outputInfo
+    $outputBytes = if ($outputExists) { [int64] $outputInfo.Length } else { [int64] 0 }
     $status = "success"
     if ($launchError) {
         $status = "launch-failed"
@@ -102,6 +117,10 @@ for ($i = 1; $i -le $Runs; ++$i) {
         $status = "timeout"
     } elseif ($exitCode -ne 0) {
         $status = "renderer-failed"
+    } elseif ($projectPath -and -not $outputExists) {
+        $status = "missing-output"
+    } elseif ($projectPath -and $outputBytes -eq 0) {
+        $status = "empty-output"
     }
     $exitHex = if ($null -eq $exitCode) {
         ""
@@ -116,7 +135,8 @@ for ($i = 1; $i -le $Runs; ++$i) {
         elapsedSeconds = $seconds
         timedOut = $timedOut
         launchError = $launchError
-        outputExists = (Test-Path -LiteralPath $outputFile -PathType Leaf)
+        outputExists = $outputExists
+        outputBytes = $outputBytes
         stdout = $stdoutFile
         stderr = $stderrFile
         output = $outputFile

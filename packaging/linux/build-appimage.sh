@@ -99,8 +99,15 @@ fi
     --desktop-file "$appdir/usr/share/applications/frametrellis.desktop" \
     --icon-file "$appdir/usr/share/icons/hicolor/scalable/apps/frametrellis.svg" \
     "${mlt_modules[@]}" \
-    --plugin qt \
-    --output appimage
+    --plugin qt
+# MLT's upstream MODULE binaries retain an absolute build-prefix RPATH
+# (/home/runner/mlt/lib) and must instead search only the packaged usr/lib.
+# Do this before AppImage compression, then let the dependency audit fail if
+# anything still points at the CI machine.
+for module in "$appdir"/usr/lib/mlt-7/libmlt*.so; do
+    patchelf --set-rpath '$ORIGIN/..:$ORIGIN' "$module"
+done
+"$linuxdeploy" --appdir "$appdir" --output appimage
 # Verify we have actually copied Qt/MLT/codec closure into AppDir. The
 # production release must also pass clean-distro tests and license audit.
 python3 "$root/packaging/linux/verify_appdir.py" "$appdir" \

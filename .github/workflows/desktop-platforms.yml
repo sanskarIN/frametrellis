@@ -83,6 +83,12 @@ jobs:
           test -x "$stage/bin/frametrellis"
           test -x "$stage/bin/frametrellis-render"
           test -s "$stage/share/applications/frametrellis.desktop"
+          {
+            echo "GUI ELF dependency links:"
+            ldd "$stage/bin/frametrellis"
+            echo "Renderer ELF dependency links:"
+            ldd "$stage/bin/frametrellis-render"
+          } > "$stage/NATIVE-DEPENDENCIES.txt"
           cat > "$stage/DEVELOPMENT-BUILD.txt" <<'EOF'
           This Linux development build requires compatible Qt 6.8+, MLT 7,
           FFmpeg, SDL2 and desktop system libraries. It is NOT a self-contained
@@ -165,6 +171,12 @@ jobs:
           cmake --install build/macos --prefix "$stage"
           test -x "$stage/frametrellis.app/Contents/MacOS/frametrellis"
           test -x "$stage/frametrellis.app/Contents/MacOS/frametrellis-render"
+          {
+            echo "GUI Mach-O dependencies:"
+            otool -L "$stage/frametrellis.app/Contents/MacOS/frametrellis"
+            echo "Renderer Mach-O dependencies:"
+            otool -L "$stage/frametrellis.app/Contents/MacOS/frametrellis-render"
+          } > "$stage/NATIVE-DEPENDENCIES.txt"
           cat > "$stage/DEVELOPMENT-BUILD.txt" <<'EOF'
           This macOS development .app requires Homebrew Qt 6, MLT 7,
           FFmpeg, and SDL2. The native dependencies are NOT bundled.

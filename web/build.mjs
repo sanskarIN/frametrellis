@@ -22,6 +22,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { escapeHtml, renderMarkdown } from './markdown.mjs';
+import { checkDownloadLink } from './tools/download-links.mjs';
 
 const webDir = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(webDir, '..');
@@ -72,8 +73,13 @@ const DOC_GROUPS = [
             { src: 'docs/development/distribution.md', slug: 'distribution',
               label: 'Distribution channels',
               summary: 'Release assets, and the plans for WinGet, Flathub and Homebrew.' },
+            { src: 'docs/development/website.md', slug: 'website-maintenance',
+              label: 'Website maintenance',
+              summary: 'Build the docs site, test guide navigation and preserve accessibility.' },
             { src: 'docs/testing.md', slug: 'testing', label: 'Testing',
               summary: 'Unit, integration and GUI tests, sanitizers and static analysis.' },
+            { src: 'docs/testing/subtitle-workflow.md', slug: 'subtitle-acceptance',
+              label: 'Subtitle acceptance', summary: 'SRT, cue editing, exact timing and encoded subtitle checks.' },
             { src: 'CONTRIBUTING.md', slug: 'contributing', label: 'Contributing',
               summary: 'How to report bugs, propose changes and send pull requests.' },
             { src: 'CODE_OF_CONDUCT.md', slug: 'code-of-conduct', label: 'Code of conduct',
@@ -220,6 +226,7 @@ function layout({ relPath, title, description, body, nav, absolute = false, wide
 <meta name="twitter:card" content="summary_large_image">
 <link rel="stylesheet" href="${root}assets/site.css">
 <script src="${root}assets/site.js"></script>
+${nav === 'docs' ? `<script type="module" src="${root}assets/docs.mjs"></script>` : ''}
 </head>
 <body>
 <a class="skip" href="#main">Skip to content</a>
@@ -359,12 +366,8 @@ async function verifyReleaseLinks(release) {
     if (!release) return;
     const assets = [release.installer, release.zip, release.sbom, release.sources, release.checksums].filter(Boolean);
     for (const asset of assets) {
-        try {
-            const response = await fetch(asset.browser_download_url, { method: 'HEAD', redirect: 'follow' });
-            if (!response.ok) errors.push(`download link ${asset.browser_download_url} answered ${response.status}`);
-        } catch (error) {
-            errors.push(`download link ${asset.browser_download_url} failed: ${error.message}`);
-        }
+        const failure = await checkDownloadLink(asset.browser_download_url);
+        if (failure) errors.push(`download link ${asset.browser_download_url} ${failure}`);
     }
 }
 
@@ -452,11 +455,17 @@ function buildDocs() {
                 const base = fs.statSync(full).isDirectory() ? REPO_TREE : REPO_BLOB;
                 return base + repoPath + hash;
             };
-            const { html, title } = renderMarkdown(markdown, resolveLink);
+            const { html, title, headings } = renderMarkdown(markdown, resolveLink);
             const pageTitle = title ?? item.label;
+            const sections = headings.filter((heading) => heading.level === 2 || heading.level === 3);
+            const toc = sections.length > 0
+                ? `<nav class="doc-toc" aria-label="On this page"><details><summary>On this page</summary><ul>${sections.map((heading) =>
+                    `<li class="toc-level-${heading.level}"><a href="#${escapeHtml(heading.id)}">${escapeHtml(heading.text)}</a></li>`).join('')}</ul></details></nav>`
+                : '';
             const body = `<div class="wrap doc">
 ${docNav(item.slug, item.out)}
 <article class="prose">
+${toc}
 ${html}
 <p class="edit-link">This page is generated from <a href="${REPO_BLOB}${item.src}" rel="noopener">${escapeHtml(item.src)}</a> in the repository. Found a mistake? <a href="${REPO_URL}/issues" rel="noopener">Open an issue</a>.</p>
 </article>

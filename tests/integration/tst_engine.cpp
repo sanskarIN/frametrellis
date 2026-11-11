@@ -1,5 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // SPDX-FileCopyrightText: 2026 Sanskar and FrameTrellis contributors
+#include "editing/project_document.h"
+#include "editing/timeline_edits.h"
 #include "engine/frame_utils.h"
 #include "engine/mlt_profile.h"
 #include "engine/mlt_runtime.h"
@@ -15,6 +17,7 @@
 #include <mlt++/Mlt.h>
 
 #include <cmath>
+#include <utility>
 
 using namespace ft;
 using namespace ft::testing;
@@ -136,6 +139,64 @@ private slots:
         QVERIFY(!m_media.blue.isEmpty());
     }
 
+    void rippleInsertSourceRangeChangesRenderedCutAndUndoRestoresPicture()
+    {
+        QList<Id> ids;
+        Project project = projectWith({m_media.red, m_media.blue}, &ids);
+        QCOMPARE(ids.size(), qsizetype{2});
+        const Id trackId = project.timeline().tracks()[0].id;
+        const Clip later = clipOf(ids[1], 40, 5, 30);
+        QVERIFY(project.timeline().insertClip(trackId, later, project.sourceLookup()));
+        const Project original = project;
+        QVERIFY(isCloseTo(averageColor(renderAt(original, 45)), Qt::blue));
+
+        Clip inserted = clipOf(ids[0], 40, 10, 20);
+        ProjectDocument doc(project);
+        QVERIFY(doc.execute(edits::rippleInsertSourceClip(trackId, inserted)));
+        const Project changed = doc.project();
+        QCOMPARE(changed.timeline().clip(later.id)->start, FrameCount{60});
+        QCOMPARE(changed.timeline().clip(inserted.id)->start, FrameCount{40});
+        QVERIFY(isCloseTo(averageColor(renderAt(changed, 45)), Qt::red));
+        QVERIFY(isCloseTo(averageColor(renderAt(changed, 65)), Qt::blue));
+        QVERIFY(doc.undo());
+        QCOMPARE(doc.project(), original);
+        QVERIFY(isCloseTo(averageColor(renderAt(doc.project(), 45)), Qt::blue));
+        QVERIFY(doc.redo());
+        QCOMPARE(doc.project(), changed);
+        QVERIFY(isCloseTo(averageColor(renderAt(doc.project(), 45)), Qt::red));
+    }
+
+    void replacingClipSourceChangesRenderedPictureWithoutMovingTheCut()
+    {
+        QList<Id> ids;
+        Project project = projectWith({m_media.red, m_media.blue}, &ids);
+        QCOMPARE(ids.size(), qsizetype{2});
+        const Id pictureTrack = project.timeline().tracks()[0].id;
+        Clip clip = clipOf(ids[0], 15, 10, 45);
+        QVERIFY(project.timeline().insertClip(pictureTrack, clip, project.sourceLookup()));
+        const Project original = project;
+        QVERIFY(isCloseTo(averageColor(renderAt(original, 25)), Qt::red));
+
+        ProjectDocument editor(project);
+        QVERIFY(editor.execute(edits::replaceClipSource(clip.id, ids[1], 20)));
+        const Project changed = editor.project();
+        const Clip* swapped = changed.timeline().clip(clip.id);
+        QVERIFY(swapped);
+        QCOMPARE(swapped->id, clip.id);
+        QCOMPARE(swapped->start, clip.start);
+        QCOMPARE(swapped->duration, clip.duration);
+        QCOMPARE(swapped->sourceIn, FrameCount{20});
+        QCOMPARE(swapped->assetId, ids[1]);
+        QVERIFY(isCloseTo(averageColor(renderAt(changed, 25)), Qt::blue));
+
+        QVERIFY(editor.undo());
+        QCOMPARE(editor.project(), original);
+        QVERIFY(isCloseTo(averageColor(renderAt(editor.project(), 25)), Qt::red));
+        QVERIFY(editor.redo());
+        QCOMPARE(editor.project(), changed);
+        QVERIFY(isCloseTo(averageColor(renderAt(editor.project(), 25)), Qt::blue));
+    }
+
     void probeVideo()
     {
         Result<MediaInfo> info = media::probeMedia(m_media.video);
@@ -214,6 +275,42 @@ private slots:
         QVERIFY(!media::renderThumbnail(m_media.tone, *toneInfo, QSize(32, 32)));
     }
 
+    void sourceFramePreviewMatchesProjectRateAndRejectsOutOfRange()
+    {
+        Result<MediaInfo> info = media::probeMedia(m_media.video);
+        QVERIFY(info);
+        const FrameRate rate = FrameRate::integer(25);
+        const QSize previewSize(80, 80);
+        for (const auto& [frame, expected] : {std::pair{FrameCount{5}, QColor(Qt::red)},
+                                              std::pair{FrameCount{35}, QColor(Qt::green)},
+                                              std::pair{FrameCount{65}, QColor(Qt::blue)}}) {
+            Result<QImage> image =
+                media::renderSourceFrame(m_media.video, *info, previewSize, frame, rate);
+            QVERIFY2(image, qPrintable(image ? QString() : image.error().toString()));
+            QCOMPARE(image->size(), QSize(80, 46));
+            QVERIFY2(isCloseTo(averageColor(*image), expected),
+                     qPrintable(averageColor(*image).name()));
+        }
+
+        QVERIFY(!media::renderSourceFrame(m_media.video, *info, previewSize, -1, rate));
+        QVERIFY(!media::renderSourceFrame(m_media.video, *info, previewSize, 75, rate));
+        QVERIFY(!media::renderSourceFrame(m_media.video, *info, {}, 10, rate));
+        Result<MediaInfo> audio = media::probeMedia(m_media.tone);
+        QVERIFY(audio);
+        QVERIFY(!media::renderSourceFrame(m_media.tone, *audio, previewSize, 10, rate));
+        Result<MediaInfo> still = media::probeMedia(m_media.still);
+        QVERIFY(still);
+        QVERIFY(!media::renderSourceFrame(m_media.still, *still, previewSize, 0, rate));
+
+        // Frame positions are measured against the exact project rate, not the
+        // native source rate; 30000/1001 at frame 60 is just past 2 seconds.
+        const FrameRate ntsc = *FrameRate::create(30000, 1001);
+        Result<QImage> ntscFrame =
+            media::renderSourceFrame(m_media.video, *info, previewSize, 60, ntsc);
+        QVERIFY(ntscFrame);
+        QVERIFY(isCloseTo(averageColor(*ntscFrame), Qt::blue));
+    }
+
     void graphShowsTheRightSourceFrames()
     {
         QList<Id> ids;
@@ -290,6 +387,307 @@ private slots:
         QVERIFY(isCloseTo(averageColor(picture, QRect(60, 40, 20, 10)), Qt::yellow));
     }
 
+    void opacityKeyframesUseSourceTimeAndCombineWithScalarOpacityAndFades()
+    {
+        QList<Id> ids;
+        Project p = projectWith({m_media.blue, m_media.red}, &ids);
+        QVERIFY(p.timeline().insertClip(p.timeline().tracks()[0].id, clipOf(ids[0], 0, 0, 50),
+                                        p.sourceLookup()));
+        const Clip top = clipOf(ids[1], 5, 5, 40);
+        QVERIFY(p.timeline().insertClip(p.timeline().tracks()[1].id, top, p.sourceLookup()));
+        QVERIFY(p.timeline().setOpacityKeyframe(top.id, 5, 0, p.sourceLookup()));
+        QVERIFY(p.timeline().setOpacityKeyframe(top.id, 25, 1, p.sourceLookup()));
+        QVERIFY(p.timeline().setOpacityKeyframe(top.id, 44, 0, p.sourceLookup()));
+        QVERIFY(isCloseTo(averageColor(renderAt(p, 5)), Qt::blue));
+        QVERIFY(isCloseTo(averageColor(renderAt(p, 15)), QColor(128, 0, 128), 25));
+        QVERIFY(isCloseTo(averageColor(renderAt(p, 25)), Qt::red));
+        QVERIFY(isCloseTo(averageColor(renderAt(p, 44)), Qt::blue));
+        QVERIFY(audioPeakAt(p, 5) > 1000); // transparent picture does not mute source sound
+        ClipProperties properties;
+        properties.video.opacity = 0.5;
+        QVERIFY(p.timeline().setClipProperties(top.id, properties));
+        QVERIFY(isCloseTo(averageColor(renderAt(p, 25)), QColor(128, 0, 128), 25));
+        properties.fadeIn = 20;
+        QVERIFY(p.timeline().setClipProperties(top.id, properties));
+        const QColor faded = averageColor(renderAt(p, 15));
+        QVERIFY2(faded.red() > 10 && faded.red() < 75 && faded.blue() > 170,
+                 qPrintable(faded.name()));
+        QVERIFY(p.timeline().setClipProperties(top.id, ClipProperties{}));
+        const QColor before = averageColor(renderAt(p, 20));
+        QVERIFY(p.timeline().trimClipStart(top.id, 12, p.sourceLookup()));
+        QVERIFY(isCloseTo(averageColor(renderAt(p, 20)), before, 5));
+        QVERIFY(p.timeline().splitClip(top.id, 22, QStringLiteral("opacity-right")));
+        QVERIFY(isCloseTo(averageColor(renderAt(p, 25)), Qt::red));
+    }
+
+    void opacityKeyframesPreservePngAlphaAndOneFrameClips()
+    {
+        const QString path = m_dir.filePath(QStringLiteral("half-alpha-red.png"));
+        QImage image(QSize(160, 90), QImage::Format_RGBA8888);
+        image.fill(QColor(255, 0, 0, 128));
+        for (int y = 0; y < 20; ++y) {
+            for (int x = 0; x < 20; ++x) {
+                image.setPixelColor(x, y, Qt::transparent);
+            }
+        }
+        QVERIFY(image.save(path));
+        QList<Id> ids;
+        Project p = projectWith({m_media.blue, path}, &ids);
+        QVERIFY(p.timeline().insertClip(p.timeline().tracks()[0].id, clipOf(ids[0], 0, 0, 30),
+                                        p.sourceLookup()));
+        Clip top = clipOf(ids[1], 0, 10, 25);
+        top.properties.video.opacity = 0.5;
+        QVERIFY(p.timeline().insertClip(p.timeline().tracks()[1].id, top, p.sourceLookup()));
+        QVERIFY(p.timeline().setOpacityKeyframe(top.id, 10, 0.5, p.sourceLookup()));
+        const QImage frame = renderAt(p, 10);
+        QVERIFY(isCloseTo(averageColor(frame, QRect(0, 0, 5, 5)), Qt::blue));
+        const QColor blended = averageColor(frame, QRect(60, 40, 20, 10));
+        QVERIFY2(blended.red() > 10 && blended.red() < 65 && blended.blue() > 185,
+                 qPrintable(blended.name())); // 1/2 PNG alpha * 1/2 scalar * 1/2 curve
+        QVERIFY(p.timeline().trimClipEnd(top.id, 1, p.sourceLookup()));
+        QVERIFY(isCloseTo(averageColor(renderAt(p, 0), QRect(60, 40, 20, 10)), blended, 5));
+    }
+
+    void opacityKeyframesSurviveDissolveHandles()
+    {
+        QList<Id> ids;
+        Project p = projectWith({m_media.blue, m_media.red}, &ids);
+        QVERIFY(p.timeline().insertClip(p.timeline().tracks()[0].id, clipOf(ids[0], 0, 0, 60),
+                                        p.sourceLookup()));
+        const Id trackId = p.timeline().tracks()[1].id;
+        const Clip left = clipOf(ids[1], 0, 10, 25);
+        const Clip right = clipOf(ids[1], 25, 15, 25);
+        QVERIFY(p.timeline().insertClip(trackId, left, p.sourceLookup()));
+        QVERIFY(p.timeline().insertClip(trackId, right, p.sourceLookup()));
+        QVERIFY(p.timeline().addTransition(left.id, 10, p.sourceLookup()));
+        QVERIFY(isCloseTo(averageColor(renderAt(p, 25)), Qt::red));
+        QVERIFY(p.timeline().setOpacityKeyframe(left.id, 10, 0.5, p.sourceLookup()));
+        QVERIFY(p.timeline().setOpacityKeyframe(right.id, 15, 0.5, p.sourceLookup()));
+        const QColor blended = averageColor(renderAt(p, 25));
+        QVERIFY2(blended.red() > 50 && blended.red() < 220 && blended.blue() > 40,
+                 qPrintable(blended.name()));
+    }
+
+    void transformKeyframesUseSourceTimeAndPreserveAudio()
+    {
+        QVERIFY(engine::MltRuntime::capabilities().transformFilter);
+        QList<Id> ids;
+        Project p = projectWith({m_media.blue, m_media.red}, &ids);
+        QVERIFY(p.timeline().insertClip(p.timeline().tracks()[0].id, clipOf(ids[0], 0, 0, 60),
+                                        p.sourceLookup()));
+        const Clip top = clipOf(ids[1], 5, 10, 41);
+        QVERIFY(p.timeline().insertClip(p.timeline().tracks()[1].id, top, p.sourceLookup()));
+        QVERIFY(
+            p.timeline().setTransformKeyframe(top.id, 10, {-0.25, 0, 0.5, 0}, p.sourceLookup()));
+        QVERIFY(p.timeline().setTransformKeyframe(top.id, 50, {0.25, 0, 0.5, 0}, p.sourceLookup()));
+        const auto sample = [&](FrameCount frame, int x, int y) {
+            return averageColor(renderAt(p, frame), QRect(x - 2, y - 2, 4, 4));
+        };
+        QVERIFY(isCloseTo(sample(5, 40, 45), Qt::red));
+        QVERIFY(isCloseTo(sample(5, 120, 45), Qt::blue));
+        QVERIFY(isCloseTo(sample(25, 80, 45), Qt::red));
+        QVERIFY(isCloseTo(sample(25, 15, 45), Qt::blue));
+        QVERIFY(isCloseTo(sample(45, 120, 45), Qt::red));
+        QVERIFY(isCloseTo(sample(45, 40, 45), Qt::blue));
+        QVERIFY(audioPeakAt(p, 25) > 1000);
+        const QImage before = renderAt(p, 25);
+        QVERIFY(p.timeline().trimClipStart(top.id, 12, p.sourceLookup()));
+        QVERIFY(isCloseTo(averageColor(renderAt(p, 25), QRect(75, 40, 10, 10)),
+                          averageColor(before, QRect(75, 40, 10, 10)), 5));
+        QVERIFY(p.timeline().splitClip(top.id, 22, QStringLiteral("transform-right")));
+        QVERIFY(isCloseTo(sample(45, 120, 45), Qt::red));
+        QVERIFY(p.timeline().slipClip(QStringLiteral("transform-right"), 30, p.sourceLookup()));
+        QVERIFY(isCloseTo(sample(22, 80, 45), Qt::red));
+    }
+
+    void transformRotationAlphaAndPreviewResolution()
+    {
+        const QString path = m_dir.filePath(QStringLiteral("transform-quadrants.png"));
+        QImage image(QSize(160, 90), QImage::Format_RGBA8888);
+        for (int y = 0; y < image.height(); ++y) {
+            for (int x = 0; x < image.width(); ++x) {
+                image.setPixelColor(x, y,
+                                    y < 45 ? (x < 80 ? QColor(Qt::red) : QColor(Qt::green))
+                                           : (x < 80 ? QColor(Qt::yellow) : QColor(Qt::cyan)));
+            }
+        }
+        // A transparent hole must reveal the underlying track after rotation.
+        for (int y = 50; y < 70; ++y) {
+            for (int x = 20; x < 40; ++x) {
+                image.setPixelColor(x, y, Qt::transparent);
+            }
+        }
+        QVERIFY(image.save(path));
+        QList<Id> ids;
+        Project p = projectWith({m_media.blue, path}, &ids);
+        QVERIFY(p.timeline().insertClip(p.timeline().tracks()[0].id, clipOf(ids[0], 0, 0, 60),
+                                        p.sourceLookup()));
+        const Clip top = clipOf(ids[1], 0, 10, 50);
+        QVERIFY(p.timeline().insertClip(p.timeline().tracks()[1].id, top, p.sourceLookup()));
+        QVERIFY(p.timeline().setTransformKeyframe(top.id, 10, {0, 0, 0.5, 90}, p.sourceLookup()));
+        const QImage frame = renderAt(p, 20);
+        QVERIFY2(!frame.isNull(), "Transformed frame unavailable");
+        QVERIFY2(isCloseTo(averageColor(frame, QRect(85, 15, 5, 5)), Qt::red),
+                 qPrintable(averageColor(frame, QRect(85, 15, 5, 5)).name()));
+        QVERIFY(isCloseTo(averageColor(frame, QRect(65, 60, 5, 5)), Qt::cyan));
+        QVERIFY(isCloseTo(averageColor(frame, QRect(5, 5, 5, 5)), Qt::blue));
+        QVERIFY(isCloseTo(averageColor(frame, QRect(70, 18, 3, 3)), Qt::blue));
+        auto profile = engine::createProfile(160, 90, p.settings().frameRate);
+        engine::TimelineGraphBuilder builder(*profile);
+        const auto graph = builder.build(p);
+        QVERIFY(graph);
+        graph->tractor->seek(20);
+        std::unique_ptr<Mlt::Frame> smallFrame(graph->tractor->get_frame());
+        const QImage small = engine::frameToImage(*smallFrame, QSize(80, 45));
+        QVERIFY(isCloseTo(averageColor(small, QRect(43, 8, 2, 2)), Qt::red));
+        ClipProperties props;
+        props.video.opacity = 0.5;
+        QVERIFY(p.timeline().setClipProperties(top.id, props));
+        QVERIFY(p.timeline().setOpacityKeyframe(top.id, 10, 0.5, p.sourceLookup()));
+        QVERIFY(
+            isCloseTo(averageColor(renderAt(p, 20), QRect(85, 15, 5, 5)), QColor(64, 0, 191), 25));
+        QVERIFY(p.timeline().trimClipEnd(top.id, 1, p.sourceLookup()));
+        QVERIFY(
+            isCloseTo(averageColor(renderAt(p, 0), QRect(85, 15, 5, 5)), QColor(64, 0, 191), 25));
+    }
+
+    void transformPreservesAspectFitAndTransitionHandles()
+    {
+        QList<Id> ids;
+        Project p = projectWith({m_media.blue, m_media.narrowStill}, &ids);
+        QVERIFY(p.timeline().insertClip(p.timeline().tracks()[0].id, clipOf(ids[0], 0, 0, 60),
+                                        p.sourceLookup()));
+        const Id trackId = p.timeline().tracks()[1].id;
+        const Clip left = clipOf(ids[1], 0, 10, 25);
+        const Clip right = clipOf(ids[1], 25, 15, 25);
+        QVERIFY(p.timeline().insertClip(trackId, left, p.sourceLookup()));
+        QVERIFY(p.timeline().insertClip(trackId, right, p.sourceLookup()));
+        QVERIFY(p.timeline().setTransformKeyframe(left.id, 10, {0, 0, 0.5, 0}, p.sourceLookup()));
+        QVERIFY(p.timeline().setTransformKeyframe(right.id, 15, {0, 0, 0.5, 0}, p.sourceLookup()));
+        QVERIFY(p.timeline().addTransition(left.id, 10, p.sourceLookup()));
+        for (FrameCount frame : {FrameCount{10}, FrameCount{25}, FrameCount{40}}) {
+            const QImage image = renderAt(p, frame);
+            QVERIFY(isCloseTo(averageColor(image, QRect(75, 40, 10, 10)), Qt::yellow));
+            // Square source occupies a 45x45 rectangle, rather than stretching to 80x45.
+            QVERIFY(isCloseTo(averageColor(image, QRect(45, 40, 5, 5)), Qt::blue));
+        }
+    }
+
+    void subtitlesHaveExactBoundariesAndDoNotChangeSoundOrDuration()
+    {
+        QList<Id> ids;
+        Project p = projectWith({m_media.red}, &ids);
+        QVERIFY(p.timeline().insertClip(p.timeline().tracks()[0].id, clipOf(ids[0], 0, 0, 75),
+                                        p.sourceLookup()));
+        const QImage plain = renderAt(p, 25);
+        const int baselineAudio = audioPeakAt(p, 25);
+        SubtitleTrack captions;
+        captions.fontPercent = 10;
+        captions.cues = {
+            {QStringLiteral("caption"), 1000, 2000, QStringLiteral("FrameTrellis\nSubtitles")}};
+        QVERIFY(p.setSubtitles(captions));
+        const auto whites = [](const QImage& image) {
+            int count = 0;
+            for (int y = 0; y < image.height(); ++y)
+                for (int x = 0; x < image.width(); ++x) {
+                    const QColor pixel = image.pixelColor(x, y);
+                    if (pixel.red() > 120 && pixel.green() > 120 && pixel.blue() > 120)
+                        ++count;
+                }
+            return count;
+        };
+        QCOMPARE(whites(renderAt(p, 24)), 0);
+        QVERIFY(whites(renderAt(p, 25)) > 10);
+        QVERIFY(whites(renderAt(p, 49)) > 10);
+        QCOMPARE(whites(renderAt(p, 50)), 0);
+        QVERIFY(isCloseTo(averageColor(renderAt(p, 25), QRect(0, 0, 160, 35)),
+                          averageColor(plain, QRect(0, 0, 160, 35)), 2));
+        QVERIFY(std::abs(audioPeakAt(p, 25) - baselineAudio) < 20);
+        captions.burnIn = false;
+        QVERIFY(p.setSubtitles(captions));
+        QCOMPARE(whites(renderAt(p, 25)), 0);
+        captions.burnIn = true;
+        captions.cues[0].startMs = 0;
+        captions.cues[0].endMs = 1;
+        QVERIFY(p.setSubtitles(captions));
+        QVERIFY(
+            p.timeline().trimClipEnd(p.timeline().tracks()[0].clips[0].id, 1, p.sourceLookup()));
+        QVERIFY(whites(renderAt(p, 0)) > 10);
+        auto profile = engine::createProfile(160, 90, p.settings().frameRate);
+        engine::TimelineGraphBuilder builder(*profile);
+        const auto graph = builder.build(p);
+        QVERIFY(graph);
+        QCOMPARE(graph->duration, FrameCount{1});
+    }
+
+    void subtitleSamplingAtFractionalRatesAndPreviewLayout()
+    {
+        QList<Id> ids;
+        Project p = projectWith({m_media.blue}, &ids);
+        ProjectSettings settings = p.settings();
+        settings.width = 1280;
+        settings.height = 720;
+        settings.frameRate = *FrameRate::create(30000, 1001);
+        QVERIFY(p.setSettings(settings));
+        QVERIFY(p.timeline().insertClip(p.timeline().tracks()[0].id, clipOf(ids[0], 0, 0, 80),
+                                        p.sourceLookup()));
+        SubtitleTrack captions;
+        captions.fontPercent = 8;
+        captions.cues = {{QStringLiteral("caption"), 1000, 2000,
+                          QStringLiteral("A wrapping subtitle with precise timing")}};
+        QVERIFY(p.setSubtitles(captions));
+        const auto ink = [](const QImage& image) {
+            int count = 0;
+            for (int y = 0; y < image.height(); ++y)
+                for (int x = 0; x < image.width(); ++x)
+                    if (image.pixelColor(x, y).red() > 100)
+                        ++count;
+            return count;
+        };
+        QCOMPARE(ink(renderAt(p, 29)), 0);
+        const QImage full = renderAt(p, 30);
+        QVERIFY(ink(full) > 20);
+        QCOMPARE(ink(renderAt(p, 60)), 0);
+        auto profile = engine::createProfile(80, 46, p.settings().frameRate);
+        engine::TimelineGraphBuilder builder(*profile);
+        const auto graph = builder.build(p);
+        QVERIFY(graph);
+        graph->tractor->seek(30);
+        std::unique_ptr<Mlt::Frame> frame(graph->tractor->get_frame());
+        const QImage small = engine::frameToImage(*frame, QSize(80, 46));
+        QVERIFY(ink(small) > 5);
+        const QImage expected =
+            full.scaled(small.size(), Qt::IgnoreAspectRatio, Qt::SmoothTransformation);
+        qint64 difference = 0;
+        for (int y = 0; y < small.height(); ++y)
+            for (int x = 0; x < small.width(); ++x) {
+                const QColor a = small.pixelColor(x, y);
+                const QColor b = expected.pixelColor(x, y);
+                difference += std::abs(a.red() - b.red()) + std::abs(a.green() - b.green()) +
+                              std::abs(a.blue() - b.blue());
+            }
+        // Different resamplers and the odd preview height can shift padding by one pixel.
+        // Check both mean colour error and ink placement, rather than exact raster bytes.
+        QVERIFY2(difference < small.width() * small.height() * 30,
+                 qPrintable(QString::number(difference)));
+        const auto bounds = [](const QImage& image) {
+            QRect rectangle;
+            for (int y = 0; y < image.height(); ++y) {
+                for (int x = 0; x < image.width(); ++x) {
+                    if (image.pixelColor(x, y).red() > 100)
+                        rectangle = rectangle.united(QRect(x, y, 1, 1));
+                }
+            }
+            return rectangle;
+        };
+        const QRect actualInk = bounds(small);
+        const QRect expectedInk = bounds(expected);
+        QVERIFY(std::abs(actualInk.left() - expectedInk.left()) <= 2);
+        QVERIFY(std::abs(actualInk.top() - expectedInk.top()) <= 2);
+        QVERIFY(std::abs(actualInk.right() - expectedInk.right()) <= 2);
+        QVERIFY(std::abs(actualInk.bottom() - expectedInk.bottom()) <= 2);
+    }
+
     void videoFadeIn()
     {
         QList<Id> ids;
@@ -321,6 +719,50 @@ private slots:
                  qPrintable(grey.name()));
     }
 
+    void batchPictureSaturationChangesTwoRenderedVideoClipsAndSurvivesUndo()
+    {
+        if (!engine::MltRuntime::capabilities().eqFilter) {
+            QSKIP("avfilter.eq is not available in this MLT build");
+        }
+        QList<Id> ids;
+        Project p = projectWith({m_media.red, m_media.blue}, &ids);
+        QCOMPARE(ids.size(), 2);
+        const Clip red = clipOf(ids[0], 0, 0, 25);
+        const Clip blue = clipOf(ids[1], 30, 0, 25);
+        QVERIFY(p.timeline().insertClip(p.timeline().tracks()[0].id, red, p.sourceLookup()));
+        QVERIFY(p.timeline().insertClip(p.timeline().tracks()[1].id, blue, p.sourceLookup()));
+        ProjectDocument doc{p};
+        const Project before = doc.project();
+        const QColor redBefore = averageColor(renderAt(doc.project(), 5));
+        const QColor blueBefore = averageColor(renderAt(doc.project(), 35));
+        QVERIFY2(isCloseTo(redBefore, Qt::red), qPrintable(redBefore.name()));
+        QVERIFY2(isCloseTo(blueBefore, Qt::blue), qPrintable(blueBefore.name()));
+
+        QVERIFY(doc.execute(
+            edits::setClipVideoAdjustment({red.id, blue.id}, QStringLiteral("saturation"), 0.0)));
+        const QColor redAfter = averageColor(renderAt(doc.project(), 5));
+        const QColor blueAfter = averageColor(renderAt(doc.project(), 35));
+        const auto grey = [](const QColor& color) {
+            return qAbs(color.red() - color.green()) < 25 &&
+                   qAbs(color.green() - color.blue()) < 25;
+        };
+        QVERIFY2(grey(redAfter), qPrintable(redAfter.name()));
+        QVERIFY2(grey(blueAfter), qPrintable(blueAfter.name()));
+        QVERIFY(!isCloseTo(redAfter, redBefore, 25));
+        QVERIFY(!isCloseTo(blueAfter, blueBefore, 25));
+        const Project changed = doc.project();
+        QCOMPARE(doc.undoText(), QStringLiteral("Set Selected Video Adjustment"));
+
+        QVERIFY(doc.undo());
+        QCOMPARE(doc.project(), before);
+        QVERIFY(isCloseTo(averageColor(renderAt(doc.project(), 5)), redBefore, 5));
+        QVERIFY(isCloseTo(averageColor(renderAt(doc.project(), 35)), blueBefore, 5));
+        QVERIFY(doc.redo());
+        QCOMPARE(doc.project(), changed);
+        QVERIFY(isCloseTo(averageColor(renderAt(doc.project(), 5)), redAfter, 5));
+        QVERIFY(isCloseTo(averageColor(renderAt(doc.project(), 35)), blueAfter, 5));
+    }
+
     void audioMixMuteAndGain()
     {
         QList<Id> ids;
@@ -347,6 +789,99 @@ private slots:
         QVERIFY(audioPeakAt(p, 10) < 50);
         // Audio-only tracks never contribute picture.
         QVERIFY(isCloseTo(averageColor(renderAt(p, 10)), Qt::white));
+    }
+
+    void synchronizedVideoAndAudioKeepsOneAudibleSourceInTheEngine()
+    {
+        if (!engine::MltRuntime::capabilities().volumeFilter) {
+            QSKIP("Synchronized source audio requires the MLT volume filter.");
+        }
+        QList<Id> ids;
+        Project base = projectWith({m_media.video}, &ids);
+        QCOMPARE(ids.size(), qsizetype{1});
+        const Id videoTrack = base.timeline().tracks()[0].id;
+        const Id audioTrack = base.timeline().tracks()[2].id;
+
+        Clip picture = clipOf(ids[0], 0, 5, 45);
+        Clip sound = picture;
+        sound.id = createId();
+        Project reference = base;
+        QVERIFY(reference.timeline().insertClip(audioTrack, sound, reference.sourceLookup()));
+        const int referencePeak = audioPeakAt(reference, 10);
+        QVERIFY2(referencePeak > 1000, qPrintable(QString::number(referencePeak)));
+
+        // The video track must not play the same source audio a second time.
+        picture.properties.muted = true;
+        ProjectDocument editor(base);
+        QVERIFY(editor.execute(
+            edits::addSynchronizedSourceClips(videoTrack, picture, audioTrack, sound)));
+        const Project paired = editor.project();
+        QCOMPARE(paired.timeline().clipCount(), 2);
+        const int pairedPeak = audioPeakAt(paired, 10);
+        QVERIFY2(pairedPeak > 0 && qAbs(pairedPeak - referencePeak) <= referencePeak / 10 + 50,
+                 qPrintable(QStringLiteral("paired audio peak %1 vs single audio peak %2")
+                                .arg(pairedPeak)
+                                .arg(referencePeak)));
+        QVERIFY(isCloseTo(averageColor(renderAt(paired, 10)), Qt::red));
+
+        QCOMPARE(editor.undoText(), QStringLiteral("Place Synchronized Video and Audio"));
+        QVERIFY(editor.undo());
+        QCOMPARE(editor.project(), base);
+        QVERIFY(editor.redo());
+        QCOMPARE(editor.project(), paired);
+    }
+
+    void volumeKeyframesFollowSourceTimeAndCombineWithGainAndMute()
+    {
+        QList<Id> ids;
+        Project p = projectWith({m_media.tone}, &ids);
+        const Id trackId = p.timeline().tracks()[2].id;
+        const Clip clip = clipOf(ids[0], 5, 5, 40);
+        QVERIFY(p.timeline().insertClip(trackId, clip, p.sourceLookup()));
+        const int full = audioPeakAt(p, 15); // source frame 15
+        QVERIFY(full > 8000);
+        QVERIFY(p.timeline().setAudioKeyframe(clip.id, 5, 0, p.sourceLookup()));
+        QVERIFY(p.timeline().setAudioKeyframe(clip.id, 25, -20, p.sourceLookup()));
+        QVERIFY(p.timeline().setAudioKeyframe(clip.id, 44, 0, p.sourceLookup()));
+        const int midpoint = audioPeakAt(p, 15); // -10 dB
+        QVERIFY2(midpoint > full * 0.28 && midpoint < full * 0.36,
+                 qPrintable(QStringLiteral("interpolated %1 / %2").arg(midpoint).arg(full)));
+        const int low = audioPeakAt(p, 25); // -20 dB
+        QVERIFY(low > full * 0.08 && low < full * 0.13);
+        ClipProperties properties;
+        properties.gain = 0.5;
+        QVERIFY(p.timeline().setClipProperties(clip.id, properties));
+        const int combined = audioPeakAt(p, 15);
+        QVERIFY(combined > midpoint * 0.45 && combined < midpoint * 0.55);
+        properties.muted = true;
+        QVERIFY(p.timeline().setClipProperties(clip.id, properties));
+        QVERIFY(audioPeakAt(p, 15) < 50);
+        properties.muted = false;
+        properties.gain = 1.0;
+        QVERIFY(p.timeline().setClipProperties(clip.id, properties));
+        const int beforeTrim = audioPeakAt(p, 20);
+        QVERIFY(p.timeline().trimClipStart(clip.id, 12, p.sourceLookup()));
+        QCOMPARE(audioPeakAt(p, 20), beforeTrim);
+        QVERIFY(p.timeline().splitClip(clip.id, 22, QStringLiteral("automation-right")));
+        QVERIFY(qAbs(audioPeakAt(p, 25) - low) < full * 0.025);
+    }
+
+    void volumeKeyframesRemainActiveAcrossTransitionHandles()
+    {
+        QList<Id> ids;
+        Project p = projectWith({m_media.red, m_media.blue}, &ids);
+        const Id trackId = p.timeline().tracks()[0].id;
+        const Clip outgoing = clipOf(ids[0], 0, 10, 35);
+        const Clip incoming = clipOf(ids[1], 35, 15, 35);
+        QVERIFY(p.timeline().insertClip(trackId, outgoing, p.sourceLookup()));
+        QVERIFY(p.timeline().insertClip(trackId, incoming, p.sourceLookup()));
+        QVERIFY(p.timeline().addTransition(outgoing.id, 10, p.sourceLookup()));
+        const int baseline = audioPeakAt(p, 35);
+        QVERIFY(baseline > 1000);
+        QVERIFY(p.timeline().setAudioKeyframe(outgoing.id, 10, -12, p.sourceLookup()));
+        const int automated = audioPeakAt(p, 35);
+        QVERIFY2(automated > baseline * 0.20 && automated < baseline * 0.30,
+                 qPrintable(QStringLiteral("transition %1 / %2").arg(automated).arg(baseline)));
     }
 
     void transitionsDissolveAndCrossfade()
@@ -569,5 +1104,5 @@ private slots:
     void cleanupTestCase() { engine::MltRuntime::shutdown(); }
 };
 
-QTEST_GUILESS_MAIN(EngineTest)
+QTEST_MAIN(EngineTest)
 #include "tst_engine.moc"

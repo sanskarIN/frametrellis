@@ -5,6 +5,8 @@
 #include <QStringList>
 
 #include <cmath>
+#include <cstdint>
+#include <limits>
 
 namespace ft::timecode {
 
@@ -54,31 +56,37 @@ QString format(FrameCount frames, const FrameRate& rate, Style style)
         return QStringLiteral("--:--:--:--");
     }
     const bool negative = frames < 0;
-    FrameCount value = negative ? -frames : frames;
+    // Unsigned magnitude also represents INT64_MIN, whose positive counterpart does not
+    // fit in FrameCount. Drop-frame label insertion may exceed signed range as well.
+    std::uint64_t value = negative ? std::uint64_t{0} - static_cast<std::uint64_t>(frames)
+                                   : static_cast<std::uint64_t>(frames);
     const bool drop = useDropFrame(rate, style);
     const int nominal = rate.nominalFramesPerSecond();
 
     if (drop) {
         // Convert the real frame count into the frame label by re-inserting dropped numbers.
         const DropFrameParams p = dropFrameParams(rate);
-        const FrameCount tens = value / p.framesPerTenMinutes;
-        const FrameCount rem = value % p.framesPerTenMinutes;
-        value += static_cast<FrameCount>(p.dropPerMinute) * 9 * tens;
-        if (rem > p.dropPerMinute) {
-            value += p.dropPerMinute * ((rem - p.dropPerMinute) / p.framesPerMinute);
+        const auto tens = value / static_cast<std::uint64_t>(p.framesPerTenMinutes);
+        const auto rem = value % static_cast<std::uint64_t>(p.framesPerTenMinutes);
+        const auto skippedPerMinute = static_cast<std::uint64_t>(p.dropPerMinute);
+        value += skippedPerMinute * 9u * tens;
+        if (rem > skippedPerMinute) {
+            value += skippedPerMinute *
+                     ((rem - skippedPerMinute) / static_cast<std::uint64_t>(p.framesPerMinute));
         }
     }
 
-    const FrameCount ff = value % nominal;
-    const FrameCount totalSeconds = value / nominal;
-    const FrameCount ss = totalSeconds % 60;
-    const FrameCount mm = (totalSeconds / 60) % 60;
-    const FrameCount hh = totalSeconds / 3600;
+    const auto ff = value % static_cast<std::uint64_t>(nominal);
+    const auto totalSeconds = value / static_cast<std::uint64_t>(nominal);
+    const auto ss = totalSeconds % 60;
+    const auto mm = (totalSeconds / 60) % 60;
+    const auto hh = totalSeconds / 3600;
     const QChar last = drop ? QLatin1Char(';') : QLatin1Char(':');
     return QStringLiteral("%1%2:%3:%4%5%6")
-        .arg(negative ? QStringLiteral("-") : QString(), pad(hh), pad(mm), pad(ss))
+        .arg(negative ? QStringLiteral("-") : QString(), pad(static_cast<qint64>(hh)),
+             pad(static_cast<qint64>(mm)), pad(static_cast<qint64>(ss)))
         .arg(last)
-        .arg(pad(ff, nominal > 99 ? 3 : 2));
+        .arg(pad(static_cast<qint64>(ff), nominal > 99 ? 3 : 2));
 }
 
 std::optional<FrameCount> parse(const QString& text, const FrameRate& rate)
@@ -147,6 +155,10 @@ std::optional<FrameCount> parse(const QString& text, const FrameRate& rate)
 QString formatClock(FrameCount frames, const FrameRate& rate)
 {
     if (!rate.isValid()) {
+        return QStringLiteral("--");
+    }
+    // The magnitude of INT64_MIN is not representable as signed FrameCount.
+    if (frames == std::numeric_limits<FrameCount>::min()) {
         return QStringLiteral("--");
     }
     const bool negative = frames < 0;

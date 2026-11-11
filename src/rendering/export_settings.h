@@ -17,12 +17,18 @@ namespace ft::rendering {
 struct ExportSettings
 {
     QString outputPath;
-    int shortSide = 0; ///< 0 keeps the project size; otherwise scales so the shorter side matches
+    int shortSide = 0;   ///< 0 keeps the project size; otherwise scales so the shorter side matches
+    int customWidth = 0; ///< 0 uses the preset; positive even width scales aspect ratio
     bool avoidUpscaling = false; ///< fast exports never magnify smaller source resolutions
     int crf = 20;                ///< constant rate factor, 0 (lossless) .. 51 (worst)
     QString speedPreset = QStringLiteral("medium");
     int audioBitrateKbps = 192;
     bool includeAudio = true;
+    bool protectExistingOutput = false; ///< batch delivery must not replace any existing file
+    QString frameRate =
+        QStringLiteral("match");    ///< match project or exact fps: 30, 29.97, 30000/1001
+    FrameCount rangeStartFrame = 0; ///< project frames, inclusive
+    FrameCount rangeEndFrame = -1;  ///< project frames, exclusive; -1 means timeline end
 
     friend bool operator==(const ExportSettings&, const ExportSettings&) = default;
 };
@@ -45,13 +51,45 @@ ExportSettings applyPreset(const ExportPreset& preset, const QString& outputPath
 QStringList speedPresets();
 
 /// Output frame size for the settings and project, keeping the aspect ratio and even dimensions.
+/// Custom width overrides the preset's short side. No-upscale may retain native size.
 QSize outputSize(const ExportSettings& settings, const ProjectSettings& project);
+
+/// Resolves an optional export-only FPS override without editing the project's frame rate.
+/// Accepts an integer, decimal or exact rational, and preserves NTSC rates such as 30000/1001.
+Result<FrameRate> outputFrameRate(const ExportSettings& settings, const ProjectSettings& project);
+
+/// Calculates output frame count from real timeline duration, rounding up the last partial frame.
+Result<FrameCount> outputFrameCount(FrameCount projectFrames, const FrameRate& projectRate,
+                                    const FrameRate& exportRate);
+
+/// Validated inclusive/exclusive bounds in both the source-project and export-FPS timebases.
+/// Output bounds use exact rational arithmetic, rounding up to avoid including
+/// video/audio before the requested start, even for NTSC FPS conversion.
+struct ExportFrameBounds
+{
+    FrameCount projectStart = 0;
+    FrameCount projectEnd = 0;
+    FrameCount outputStart = 0;
+    FrameCount outputEnd = 0;
+    [[nodiscard]] FrameCount outputLength() const { return outputEnd - outputStart; }
+    [[nodiscard]] FrameCount projectLength() const { return projectEnd - projectStart; }
+};
+
+Result<ExportFrameBounds> resolveExportFrameBounds(const ExportSettings& settings,
+                                                   FrameCount timelineFrames,
+                                                   const FrameRate& projectRate,
+                                                   const FrameRate& exportRate);
 
 /// Checks everything that can be known before rendering starts: an empty timeline, offline
 /// media, an unsafe or unwritable output path, and out-of-range encoder settings.
 /// projectFilePath, when known, is protected from being overwritten as well.
 Status validateExport(const ExportSettings& settings, const Project& project,
                       const QString& projectFilePath = {});
+
+/// Verify the *encoded* media streams before publishing the finished output. A
+/// valid picture-only file must never be reported as a successful audio export,
+/// and a video-only export must not accidentally contain a soundtrack.
+Status verifyExportStreams(const MediaInfo& encoded, bool includeAudio);
 
 /// Video encoders in order of preference; the first one MLT/FFmpeg provides is used.
 QStringList preferredVideoEncoders();

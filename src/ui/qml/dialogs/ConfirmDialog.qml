@@ -32,16 +32,19 @@ FtDialog {
     footer: DialogButtons {
         Item { Layout.fillWidth: true }
         FtButton {
+            objectName: confirm.objectName.length ? confirm.objectName + "Discard" : ""
             text: confirm.discardText
             destructive: true
             visible: confirm.showDiscard
             onClicked: { confirm.close(); confirm.discardRequested() }
         }
         FtButton {
+            objectName: confirm.objectName.length ? confirm.objectName + "Cancel" : ""
             text: qsTr("Cancel")
             onClicked: confirm.close()
         }
         FtButton {
+            objectName: confirm.objectName.length ? confirm.objectName + "Accept" : ""
             text: confirm.acceptText
             primary: true
             onClicked: { confirm.close(); confirm.saveRequested() }

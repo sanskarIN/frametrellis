@@ -2,9 +2,12 @@
 // SPDX-FileCopyrightText: 2026 Sanskar and FrameTrellis contributors
 #include "ui/thumbnail_provider.h"
 
+#include "media/media_probe.h"
+
 #include <QQuickTextureFactory>
 #include <QRunnable>
 #include <QThreadPool>
+#include <QUrlQuery>
 
 namespace ft::ui {
 
@@ -34,17 +37,26 @@ class ThumbnailResponse : public QQuickImageResponse, public QRunnable
 {
 public:
     ThumbnailResponse(std::optional<ThumbnailRegistry::Entry> entry,
-                      std::shared_ptr<media::ThumbnailCache> cache, QSize size)
+                      std::shared_ptr<media::ThumbnailCache> cache, QSize size,
+                      std::optional<FrameCount> sourceFrame, std::optional<FrameRate> projectRate)
         : m_entry(std::move(entry))
         , m_cache(std::move(cache))
         , m_size(size)
+        , m_sourceFrame(sourceFrame)
+        , m_projectRate(projectRate)
     {
         setAutoDelete(false);
     }
 
     void run() override
     {
-        if (m_entry) {
+        if (m_entry && m_sourceFrame && m_projectRate) {
+            const auto result = media::renderSourceFrame(m_entry->filePath, m_entry->info, m_size,
+                                                         *m_sourceFrame, *m_projectRate);
+            if (result) {
+                m_image = *result;
+            }
+        } else if (m_entry) {
             m_image = m_cache->thumbnail(m_entry->filePath, m_entry->info, m_size);
         }
         emit finished();
@@ -64,6 +76,8 @@ private:
     std::optional<ThumbnailRegistry::Entry> m_entry;
     std::shared_ptr<media::ThumbnailCache> m_cache;
     QSize m_size;
+    std::optional<FrameCount> m_sourceFrame;
+    std::optional<FrameRate> m_projectRate;
     QImage m_image;
 };
 
@@ -75,13 +89,51 @@ ThumbnailProvider::ThumbnailProvider(std::shared_ptr<ThumbnailRegistry> registry
     , m_cache(std::move(cache))
 {}
 
+QSize ThumbnailProvider::boundedRequestSize(QSize requestedSize)
+{
+    constexpr int kMaximumWidth = 1920;
+    constexpr int kMaximumHeight = 1080;
+    if (requestedSize.width() <= 0 || requestedSize.height() <= 0) {
+        return QSize(192, 108);
+    }
+    if (requestedSize.width() <= kMaximumWidth && requestedSize.height() <= kMaximumHeight) {
+        return requestedSize;
+    }
+    // Qt Quick's requestedSize may originate from dynamic layouts or extreme
+    // zoom values. An unbounded size would allocate large MLT decoder frames
+    // before the application can reject them.
+    return requestedSize.scaled(QSize(kMaximumWidth, kMaximumHeight), Qt::KeepAspectRatio)
+        .expandedTo(QSize(1, 1));
+}
+
 QQuickImageResponse* ThumbnailProvider::requestImageResponse(const QString& id,
                                                              const QSize& requestedSize)
 {
     const QString assetId = id.section(QLatin1Char('?'), 0, 0);
-    const QSize size =
-        requestedSize.isValid() && !requestedSize.isEmpty() ? requestedSize : QSize(192, 108);
-    auto* response = new ThumbnailResponse(m_registry->find(assetId), m_cache, size);
+    const QSize size = boundedRequestSize(requestedSize);
+
+    // Ordinary media tiles remain cached thumbnails. The source excerpt editor
+    // optionally asks this asynchronous provider for a specific project-rate
+    // source frame. Never interpret the QML query as a file path.
+    QUrlQuery query;
+    query.setQuery(id.section(QLatin1Char('?'), 1));
+    bool frameOk = false;
+    bool numeratorOk = false;
+    bool denominatorOk = false;
+    const FrameCount frame = query.queryItemValue(QStringLiteral("frame")).toLongLong(&frameOk);
+    const auto numerator = query.queryItemValue(QStringLiteral("fpsNum")).toLongLong(&numeratorOk);
+    const auto denominator =
+        query.queryItemValue(QStringLiteral("fpsDen")).toLongLong(&denominatorOk);
+    std::optional<FrameCount> sourceFrame;
+    std::optional<FrameRate> projectRate;
+    if (frameOk && numeratorOk && denominatorOk && frame >= 0) {
+        projectRate = FrameRate::create(numerator, denominator);
+        if (projectRate) {
+            sourceFrame = frame;
+        }
+    }
+    auto* response =
+        new ThumbnailResponse(m_registry->find(assetId), m_cache, size, sourceFrame, projectRate);
     QThreadPool::globalInstance()->start(response);
     return response;
 }

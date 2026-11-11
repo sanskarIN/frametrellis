@@ -30,6 +30,19 @@ jobs:
         shell: pwsh
         run: git config --global core.autocrlf false
       - uses: actions/checkout@v6
+      - name: Check Windows verification PowerShell syntax
+        shell: pwsh
+        run: |
+          foreach ($path in @('packaging/windows/verify.ps1', 'packaging/windows/module-paths.ps1')) {
+            $errors = $null
+            $tokens = $null
+            [System.Management.Automation.Language.Parser]::ParseFile(
+              (Resolve-Path $path).Path, [ref]$tokens, [ref]$errors) | Out-Null
+            if ($errors.Count -gt 0) {
+              $errors | ForEach-Object { Write-Error "$path : $($_.Message)" }
+              exit 1
+            }
+          }
       - name: Test Windows module path security boundaries
         shell: pwsh
         run: ./packaging/tests/test_verify_module_paths.ps1
@@ -117,12 +130,16 @@ jobs:
         run: |
           $zip = Get-ChildItem dist\*.zip | Select-Object -First 1
           $setup = Get-ChildItem dist\*-setup.exe | Select-Object -First 1
-          # The ARM64 host exercises the x64 portable GUI twice independently.
-          # We do not retry an individual failure as a passing smoke test.
-          $portableRuns = if ("${{ matrix.os }}" -eq "windows-11-arm") { 2 } else { 1 }
+          # The ARM64 host exercises the x64 portable GUI five times independently.
+          # Repeated startups increase intermittent-crash detection, not retries:
+          # every failed attempt remains a failed package verification.
+          $isArm = "${{ matrix.os }}" -eq "windows-11-arm"
+          $portableRuns = if ($isArm) { 5 } else { 1 }
+          # On ARM compare software graphics and dummy SDL audio separately.
           ./packaging/windows/verify.ps1 -Zip $zip.FullName -Installer $setup.FullName `
             -WorkDir "$env:RUNNER_TEMP\ft" -Artifacts "$env:RUNNER_TEMP\ft-artifacts" `
-            -Label "${{ matrix.os }}" -PortableGuiRuns $portableRuns
+            -Label "${{ matrix.os }}" -PortableGuiRuns $portableRuns `
+            -SoftwareBackendDiagnostics:$isArm -DummyAudioDiagnostics:$isArm
       - name: Upload screenshots and logs
         if: always()
         uses: actions/upload-artifact@v6

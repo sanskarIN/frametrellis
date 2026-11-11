@@ -8,6 +8,7 @@
 #include <QObject>
 #include <QQmlEngine>
 #include <QSet>
+#include <QVariantList>
 #include <QVariantMap>
 
 #include <optional>
@@ -30,9 +31,16 @@ class TimelineController : public QObject
     Q_PROPERTY(double maxPixelsPerFrame READ maxPixelsPerFrame CONSTANT)
     Q_PROPERTY(bool snapping READ snapping WRITE setSnapping NOTIFY snappingChanged)
     Q_PROPERTY(QStringList selection READ selection NOTIFY selectionChanged)
+    Q_PROPERTY(QVariantList markers READ markers NOTIFY markersChanged)
     Q_PROPERTY(bool hasCopiedClipAttributes READ hasCopiedClipAttributes NOTIFY
                    copiedClipAttributesChanged)
     Q_PROPERTY(QVariantMap selectedClip READ selectedClip NOTIFY selectedClipChanged)
+    Q_PROPERTY(QVariantMap audioAutomation READ audioAutomation NOTIFY audioAutomationChanged)
+    Q_PROPERTY(QVariantMap opacityAutomation READ opacityAutomation NOTIFY opacityAutomationChanged)
+    Q_PROPERTY(
+        QVariantMap transformAutomation READ transformAutomation NOTIFY transformAutomationChanged)
+    Q_PROPERTY(bool transformHandlesVisible READ transformHandlesVisible WRITE
+                   setTransformHandlesVisible NOTIFY transformHandlesVisibleChanged)
     Q_PROPERTY(
         QVariantMap selectedTransition READ selectedTransition NOTIFY selectedTransitionChanged)
     Q_PROPERTY(double duration READ duration NOTIFY durationChanged)
@@ -52,11 +60,17 @@ public:
     [[nodiscard]] bool snapping() const { return m_snapping; }
     void setSnapping(bool snapping);
     [[nodiscard]] QStringList selection() const;
+    [[nodiscard]] QVariantList markers() const;
     [[nodiscard]] bool hasCopiedClipAttributes() const
     {
         return m_copiedClipAttributes.has_value();
     }
     [[nodiscard]] QVariantMap selectedClip() const;
+    [[nodiscard]] QVariantMap audioAutomation() const;
+    [[nodiscard]] QVariantMap opacityAutomation() const;
+    [[nodiscard]] QVariantMap transformAutomation() const;
+    [[nodiscard]] bool transformHandlesVisible() const { return m_transformHandlesVisible; }
+    void setTransformHandlesVisible(bool visible);
     [[nodiscard]] double duration() const;
     [[nodiscard]] double frameRate() const;
     [[nodiscard]] bool empty() const;
@@ -68,6 +82,53 @@ public:
 
     // Placing media
     Q_INVOKABLE bool appendAsset(const QString& assetId);
+    /// Append a bounded source excerpt in project frames without changing the source.
+    /// The out-frame is exclusive; still images and invalid excerpts are refused.
+    Q_INVOKABLE bool appendAssetRange(const QString& assetId, int sourceInFrame,
+                                      int sourceOutFrame);
+    /// Append on a specific compatible track, or choose first fitting track when
+    /// trackId is empty. Never redirects an explicitly selected destination.
+    Q_INVOKABLE bool appendAssetRangeOnTrack(const QString& assetId, const QString& trackId,
+                                             int sourceInFrame, int sourceOutFrame);
+    /// Three-point placement: source [In, Out) begins at the program playhead.
+    /// Picks the first compatible, unlocked track with a free destination range.
+    /// Never ripples, trims, overwrites or changes other clips; one undoable add.
+    Q_INVOKABLE bool placeAssetRangeAtPlayhead(const QString& assetId, int sourceInFrame,
+                                               int sourceOutFrame);
+    /// Source-compatible video/audio destinations, including locked tracks for UI feedback.
+    /// Each entry contains id, label and locked; the list does not edit the document.
+    Q_INVOKABLE QVariantList sourceDestinationTracks(const QString& assetId) const;
+    /// Explicit destination variant of the non-overwriting source placement.
+    /// Unlike automatic placement, never silently falls back to another track.
+    Q_INVOKABLE bool placeAssetRangeOnTrackAtPlayhead(const QString& assetId,
+                                                      const QString& trackId, int sourceInFrame,
+                                                      int sourceOutFrame);
+    /// Ripple insert a marked source range at the Program playhead, shifting later
+    /// clips, markers and non-spanning subtitles as one undoable operation. Does not split
+    /// clips crossing the cut or move markers/subtitles. An explicit destination
+    /// is honored without fallback; empty trackId selects the first compatible lane.
+    Q_INVOKABLE bool rippleInsertAssetRangeAtPlayhead(const QString& assetId,
+                                                      const QString& trackId, int sourceInFrame,
+                                                      int sourceOutFrame);
+    /// Ripple place a single marked picture+audio source on separate tracks.
+    /// Shifts later clips, markers and eligible captions in one validated undo.
+    /// An explicit destination pins one lane; the other is the first available
+    /// unlocked complementary lane. Does not persist linked clip groups.
+    Q_INVOKABLE bool rippleInsertSynchronizedAssetRangeAtPlayhead(const QString& assetId,
+                                                                  const QString& targetTrackId,
+                                                                  int sourceInFrame,
+                                                                  int sourceOutFrame);
+    /// Place matching picture and sound excerpts on distinct compatible tracks in one
+    /// atomic undoable step. The optional target fixes one lane; the other is first-free.
+    /// Clips remain independently editable, not persistently linked.
+    Q_INVOKABLE bool placeSynchronizedAssetRangeAtPlayhead(const QString& assetId,
+                                                           const QString& targetTrackId,
+                                                           int sourceInFrame, int sourceOutFrame);
+    /// Replace the selected clip's media with an exactly matching source excerpt,
+    /// preserving the selected clip's timeline edges, ID and scalar properties.
+    /// Source-anchored automation is cleared; unsafe transitions are refused.
+    Q_INVOKABLE bool replaceSelectionWithAssetRange(const QString& assetId, int sourceInFrame,
+                                                    int sourceOutFrame);
     /// Whether at least one unlocked video track can receive a new title.
     [[nodiscard]] bool canAppendTitle() const;
     /// Append a title still to the uppermost unlocked video track.
@@ -85,29 +146,119 @@ public:
     Q_INVOKABLE double snapClipStart(double start, double duration, const QString& excludeClipId,
                                      double toleranceFrames) const;
     Q_INVOKABLE bool moveClip(const QString& clipId, const QString& trackId, double start);
+    /// Move one selected clip so its start or exclusive end meets the current playhead.
+    /// Reject overlaps, locked tracks and negative starts using the undoable edit engine.
+    Q_INVOKABLE bool alignSelectionToPlayhead(bool alignEnd);
+    /// Move a whole selection so its earliest start meets the playhead.
+    /// Source trims, relative spacing, track ownership and undo are preserved.
+    Q_INVOKABLE bool alignSelectionStartToPlayhead();
+    /// Shift the whole selection so its latest exclusive end meets the playhead.
+    /// Retains inter-clip offsets and delegates safety validation to the undoable nudge engine.
+    Q_INVOKABLE bool alignSelectionEndToPlayhead();
+    /// Move the integer midpoint of the selected [start, end) range to the playhead.
+    /// Uses the same atomic, collision-checked multi-track nudge as start/end alignment.
+    Q_INVOKABLE bool alignSelectionCenterToPlayhead();
+    /// Trim the selected clip's start or exclusive end to the playhead.
+    /// Rejects unsafe transition edits rather than silently removing a transition.
+    Q_INVOKABLE bool trimSelectionToPlayhead(bool trimEnd);
     Q_INVOKABLE bool trimStart(const QString& clipId, double newStart);
     Q_INVOKABLE bool trimEnd(const QString& clipId, double newEnd);
     Q_INVOKABLE bool splitAtPlayhead();
+    /// Insert a sequence-wide gap, shifting clips, markers and eligible subtitles as one undo.
+    Q_INVOKABLE bool insertGapAtPlayhead(int durationFrames);
+    /// Close clip-free time and shift following markers/subtitles in the same undo step.
+    Q_INVOKABLE bool removeEmptyTimeAtPlayhead(int durationFrames);
+    /// Close the entire empty interval until the nearest later clip on any track.
+    /// Does not trim media; rejects markers/captions inside the removed interval.
+    Q_INVOKABLE bool closeEmptyGapToNextClip();
     /// Duplicates a single selected clip, or a time-aligned block of several selected clips.
     Q_INVOKABLE bool duplicateSelection();
+    /// Copy the entire selected group so its earliest clip starts at the playhead.
+    /// Re-select the copies on success; reject collisions without changing selection.
+    Q_INVOKABLE bool duplicateSelectionAtPlayhead();
     /// Shift all selected clips by signed project frames without changing their source trims.
     Q_INVOKABLE bool nudgeSelection(int frames);
+    /// Slip source time on every selected clip, keeping track placement and clip duration.
+    Q_INVOKABLE bool slipSelection(int frames);
+    /// Adjust the cut following one selected outgoing clip, without moving outer edit edges.
+    Q_INVOKABLE bool rollSelection(int frames);
     /// Stores the attributes of one selected clip and applies them to later selections.
     Q_INVOKABLE bool copySelectionAttributes();
     Q_INVOKABLE bool pasteSelectionAttributes();
     /// Audio muting and picture-reset batch commands; each operation is a single undo step.
     Q_INVOKABLE bool muteSelection(bool muted);
+    /// Apply or clear a fade at the selected clips' start or end in one undo step.
+    Q_INVOKABLE bool setSelectionFade(bool fadeOut, int durationFrames);
+    /// Change linear audio gain on selected clips together in one undo step.
+    Q_INVOKABLE bool setSelectionGain(double gain);
+    /// Set stereo balance for a selection in one reversible edit, rejecting non-stereo media.
+    Q_INVOKABLE bool setSelectionBalance(double balance);
+    /// Change base video opacity on an all-video selection as one undoable edit.
+    Q_INVOKABLE bool setSelectionOpacity(double opacity);
+    /// Change a base picture adjustment across selected video clips as one undo step.
+    Q_INVOKABLE bool setSelectionVideoAdjustment(const QString& property, double value);
     Q_INVOKABLE bool resetSelectionPictures();
     Q_INVOKABLE bool deleteSelection(bool ripple);
     Q_INVOKABLE void select(const QString& clipId, bool toggle);
     Q_INVOKABLE void clearSelection();
     Q_INVOKABLE void selectAll();
+    /// Select all timeline clips covering the playhead, across video and audio tracks.
+    /// An empty match leaves the current selection unchanged.
+    Q_INVOKABLE bool selectClipsAtPlayhead();
+    /// Replace selection with clips overlapping or fully contained in the current span.
+    /// Read-only: locked tracks are eligible, and no clip-edit history is created.
+    Q_INVOKABLE bool selectClipsInSelectionRange(bool overlapping);
+    /// Select only whole clips ending at or before / starting at or after the playhead.
+    /// Clips intersecting the playhead are excluded; empty results keep the old selection.
+    Q_INVOKABLE bool selectClipsBeforePlayhead();
+    Q_INVOKABLE bool selectClipsAfterPlayhead();
+    /// Select every clip using a media-bin asset ID, including on locked tracks.
+    /// No matches leave existing selection and project history untouched.
+    Q_INVOKABLE bool selectMediaOccurrences(const QString& assetId);
+    /// Select every clip using the same media asset as the single selected clip.
+    Q_INVOKABLE bool selectAllMediaOccurrences();
+    /// Select all clips on the given track, including locked tracks (inspection only).
+    Q_INVOKABLE bool selectTrackClips(const QString& trackId);
+    /// Bounds of all currently selected clips, [start, end) in timeline frames.
+    /// Returns an empty map when no valid clip is selected; this is read-only.
+    Q_INVOKABLE QVariantMap selectedFrameRange() const;
+    /// Copy the outer selection's frame-exact inclusive/exclusive time boundaries
+    /// and duration to the system clipboard without modifying the project.
+    Q_INVOKABLE bool copySelectionTimecodes();
+    /// Seek to the earliest selected start or the last visible selected frame.
+    /// Does not alter selection, project contents, or undo history.
+    Q_INVOKABLE bool seekToSelectionBoundary(bool lastFrame);
+    /// Seek to the earlier middle visible frame of the selected clips' outer span.
+    /// Read-only; gaps within the selected span are included in midpoint arithmetic.
+    Q_INVOKABLE bool seekToSelectionMidpoint();
+    /// Navigate next/previous first or final visible frame of any selected clip.
+    /// Skips duplicate edges; leaves the project and selection unchanged.
+    Q_INVOKABLE bool seekToSelectedClipEdge(bool forward);
     /// Sets one clip property ("gain", "muted", "fadeIn", "fadeOut", "brightness", "contrast",
     /// "saturation" or "opacity"). Repeated changes merge into one undo step until endEdit().
     Q_INVOKABLE bool setClipProperty(const QString& clipId, const QString& name,
                                      const QVariant& value);
     Q_INVOKABLE bool resetPictureAdjustments(const QString& clipId);
     Q_INVOKABLE void endEdit();
+
+    // Volume automation for the single selected clip; point edits require a paused playhead.
+    Q_INVOKABLE bool setAudioKeyframeAtPlayhead(double decibels);
+    Q_INVOKABLE bool removeAudioKeyframeAtPlayhead();
+    Q_INVOKABLE bool clearSelectedAudioKeyframes();
+    Q_INVOKABLE void previousAudioKeyframe();
+    Q_INVOKABLE void nextAudioKeyframe();
+    Q_INVOKABLE bool setOpacityKeyframeAtPlayhead(double opacity);
+    Q_INVOKABLE bool removeOpacityKeyframeAtPlayhead();
+    Q_INVOKABLE bool clearSelectedOpacityKeyframes();
+    Q_INVOKABLE void previousOpacityKeyframe();
+    Q_INVOKABLE void nextOpacityKeyframe();
+    Q_INVOKABLE bool setTransformAtPlayhead(double x, double y, double scale, double rotation);
+    Q_INVOKABLE bool setTransformComponent(const QString& component, double value);
+    Q_INVOKABLE bool addTransformKeyframeAtPlayhead();
+    Q_INVOKABLE bool removeTransformKeyframeAtPlayhead();
+    Q_INVOKABLE bool clearSelectedTransformKeyframes();
+    Q_INVOKABLE void previousTransformKeyframe();
+    Q_INVOKABLE void nextTransformKeyframe();
 
     // Transitions
     [[nodiscard]] QVariantMap selectedTransition() const;
@@ -120,9 +271,33 @@ public:
 
     // Tracks
     Q_INVOKABLE bool addTrack(const QString& kind);
+    /// Copy a track immediately after its source, retaining edits and transitions.
+    Q_INVOKABLE bool duplicateTrack(const QString& trackId);
     Q_INVOKABLE bool removeTrack(const QString& trackId);
+    /// Reorder adjacent same-kind tracks (one step up/down), preserving edit data.
+    Q_INVOKABLE bool canMoveTrack(const QString& trackId, int direction) const;
+    Q_INVOKABLE bool moveTrack(const QString& trackId, int direction);
     Q_INVOKABLE bool setTrackFlag(const QString& trackId, const QString& flag, bool value);
+    /// Lock/unlock all tracks as one undoable edit; unaffected flags remain unchanged.
+    Q_INVOKABLE bool setAllTracksLocked(bool locked);
     Q_INVOKABLE bool renameTrack(const QString& trackId, const QString& name);
+
+    // Persistent timeline review markers, independent of clip and media edits.
+    Q_INVOKABLE bool addMarker(double frame, const QString& label);
+    Q_INVOKABLE bool updateMarker(const QString& id, double frame, const QString& label);
+    Q_INVOKABLE bool removeMarker(const QString& id);
+    Q_INVOKABLE void seekToMarker(const QString& id);
+    Q_INVOKABLE void previousMarker();
+    Q_INVOKABLE void nextMarker();
+    /// Copies validated sequence markers as HH:MM:SS chapter lines for video publishing.
+    Q_INVOKABLE bool copyMarkersAsChapters();
+    /// Place an HTML5/WebVTT chapter-track document on the clipboard.
+    Q_INVOKABLE bool copyMarkersAsWebVtt();
+    /// Paste timestamped video chapters in one atomic, undoable operation.
+    Q_INVOKABLE bool pasteChaptersAsMarkers();
+    Q_INVOKABLE bool clearAllMarkers();
+    /// Copies a cuts-only CMX3600 picture edit decision list (non-destructive).
+    Q_INVOKABLE bool copyPictureAsEdl();
 
     // Navigation and zoom
     Q_INVOKABLE void previousEditPoint();
@@ -134,9 +309,14 @@ public:
 signals:
     void zoomChanged();
     void snappingChanged();
+    void markersChanged();
     void selectionChanged();
     void copiedClipAttributesChanged();
     void selectedClipChanged();
+    void audioAutomationChanged();
+    void opacityAutomationChanged();
+    void transformAutomationChanged();
+    void transformHandlesVisibleChanged();
     void selectedTransitionChanged();
     void durationChanged();
     void canAppendTitleChanged();
@@ -149,6 +329,11 @@ private:
     [[nodiscard]] FrameCount stillDuration() const;
     [[nodiscard]] const Project& project() const;
     [[nodiscard]] std::optional<FrameCount> placementLength(const MediaAsset& asset) const;
+    [[nodiscard]] const Clip* singleSelectedClip() const;
+    void seekAudioKeyframe(bool forward);
+    void seekOpacityKeyframe(bool forward);
+    void seekTransformKeyframe(bool forward);
+    bool m_transformHandlesVisible = false;
 
     ProjectController* m_project;
     PlaybackController* m_playback;

@@ -7,8 +7,10 @@
 #include "rendering/render_protocol.h"
 
 #include <QDir>
+#include <QFile>
 #include <QFileInfo>
 #include <QJsonObject>
+#include <QUuid>
 
 namespace ft::rendering {
 
@@ -45,6 +47,9 @@ RenderJob::RenderJob(QString helperProgram, QObject* parent)
     connect(&m_killTimer, &QTimer::timeout, this, [this] {
         if (m_process && m_process->state() != QProcess::NotRunning) {
             qCWarning(lcRender) << "Render helper did not stop in time; killing it";
+            // Remember that this CrashExit was deliberately caused by our
+            // cancellation watchdog, not by a native decoder/encoder failure.
+            m_cancelKillIssued = true;
             m_process->kill();
         }
     });
@@ -56,6 +61,20 @@ RenderJob::~RenderJob()
         m_process->disconnect(this);
         m_process->kill();
         m_process->waitForFinished(3000);
+    }
+    // Never delete an in-use file: if the child did not actually stop, leave the
+    // partial file untouched. Otherwise clean up only this job's random token.
+    if ((!m_process || m_process->state() == QProcess::NotRunning) && m_state != State::Succeeded) {
+        removeOwnedPartialOutput();
+    }
+}
+
+void RenderJob::removeOwnedPartialOutput()
+{
+    if (!m_partialOutputPath.isEmpty() && QFileInfo::exists(m_partialOutputPath) &&
+        !QFile::remove(m_partialOutputPath)) {
+        qCWarning(lcRender) << "Could not remove this export's partial output:"
+                            << m_partialOutputPath;
     }
 }
 
@@ -116,24 +135,58 @@ Status RenderJob::start(const Project& project, const ExportSettings& settings,
 
     m_snapshotDir = std::move(snapshotDir);
     m_settings = settings;
+    const QString token = QUuid::createUuid().toString(QUuid::Id128);
+    const QFileInfo outputInfo(settings.outputPath);
+    m_partialOutputPath =
+        QDir(outputInfo.absolutePath())
+            .filePath(QStringLiteral(".%1.%2.part.mp4").arg(outputInfo.completeBaseName(), token));
     m_framesDone = 0;
-    m_totalFrames = project.timeline().duration();
+    const auto outputRate = outputFrameRate(settings, project.settings());
+    const auto bounds =
+        outputRate ? resolveExportFrameBounds(settings, project.timeline().duration(),
+                                              project.settings().frameRate, *outputRate)
+                   : Result<ExportFrameBounds>(makeError(
+                         ErrorCode::OutOfRange, QStringLiteral("Invalid export frame rate.")));
+    m_totalFrames = bounds ? bounds->outputLength() : 0;
+    m_lastLoggedProgressBucket = -1;
     m_encoder.clear();
     m_errorMessage.clear();
     m_errorDetail.clear();
     m_buffer.clear();
+    m_stderrTail.clear();
+    m_discardingOversizedLine = false;
     m_sawFinished = false;
+    m_cancelSent = false;
+    m_cancelKillIssued = false;
     m_finalElapsed = -1;
     m_elapsed.start();
 
-    QStringList arguments{
-        QStringLiteral("--project"),       snapshot,
-        QStringLiteral("--output"),        settings.outputPath,
-        QStringLiteral("--short-side"),    QString::number(settings.shortSide),
-        QStringLiteral("--crf"),           QString::number(settings.crf),
-        QStringLiteral("--preset"),        settings.speedPreset,
-        QStringLiteral("--audio-bitrate"), QString::number(settings.audioBitrateKbps),
-        QStringLiteral("--watch-stdin")};
+    QStringList arguments{QStringLiteral("--project"),
+                          snapshot,
+                          QStringLiteral("--output"),
+                          settings.outputPath,
+                          QStringLiteral("--short-side"),
+                          QString::number(settings.shortSide),
+                          QStringLiteral("--crf"),
+                          QString::number(settings.crf),
+                          QStringLiteral("--preset"),
+                          settings.speedPreset,
+                          QStringLiteral("--audio-bitrate"),
+                          QString::number(settings.audioBitrateKbps),
+                          QStringLiteral("--fps"),
+                          settings.frameRate,
+                          QStringLiteral("--start-frame"),
+                          QString::number(settings.rangeStartFrame),
+                          QStringLiteral("--end-frame=%1").arg(settings.rangeEndFrame),
+                          QStringLiteral("--render-token"),
+                          token,
+                          QStringLiteral("--watch-stdin")};
+    if (settings.customWidth != 0) {
+        arguments << QStringLiteral("--width") << QString::number(settings.customWidth);
+    }
+    if (settings.protectExistingOutput) {
+        arguments << QStringLiteral("--refuse-existing-output");
+    }
     if (!settings.includeAudio) {
         arguments << QStringLiteral("--no-audio");
     }
@@ -146,16 +199,15 @@ Status RenderJob::start(const Project& project, const ExportSettings& settings,
     m_process->setArguments(arguments); // passed as a list: no shell, no quoting issues
     m_process->setProcessChannelMode(QProcess::SeparateChannels);
     connect(m_process.get(), &QProcess::readyReadStandardOutput, this, &RenderJob::onReadyRead);
-    connect(m_process.get(), &QProcess::readyReadStandardError, this, [this] {
-        const QByteArray text = m_process->readAllStandardError().trimmed();
-        if (!text.isEmpty()) {
-            qCDebug(lcRender).noquote() << "helper:" << QString::fromUtf8(text);
-        }
-    });
+    connect(m_process.get(), &QProcess::readyReadStandardError, this,
+            &RenderJob::drainStandardError);
     connect(m_process.get(), &QProcess::started, this, [this] {
         if (m_state == State::Starting) {
             setState(State::Running);
         }
+        // Cancel may have been requested synchronously from the Starting
+        // stateChanged signal, before QProcess had a writable stdin pipe.
+        sendPendingCancel();
     });
     connect(m_process.get(), &QProcess::finished, this, &RenderJob::onProcessFinished);
     connect(m_process.get(), &QProcess::errorOccurred, this, &RenderJob::onProcessError);
@@ -167,17 +219,27 @@ Status RenderJob::start(const Project& project, const ExportSettings& settings,
     return {};
 }
 
+void RenderJob::sendPendingCancel()
+{
+    if (m_state != State::Cancelling || m_cancelSent || !m_process ||
+        m_process->state() != QProcess::Running) {
+        return;
+    }
+    m_cancelSent = true;
+    m_process->write("cancel\n");
+    m_process->closeWriteChannel();
+    m_killTimer.start();
+}
+
 void RenderJob::cancel()
 {
     if (m_state != State::Starting && m_state != State::Running) {
         return;
     }
     setState(State::Cancelling);
-    if (m_process && m_process->state() != QProcess::NotRunning) {
-        m_process->write("cancel\n");
-        m_process->closeWriteChannel();
-        m_killTimer.start();
-    }
+    // When requested during startup, defer writing until QProcess::started.
+    // Never lose an early cancel merely because the child was NotRunning.
+    sendPendingCancel();
 }
 
 double RenderJob::progress() const
@@ -221,17 +283,33 @@ qint64 RenderJob::remainingMilliseconds() const
 
 void RenderJob::onReadyRead()
 {
-    m_buffer += m_process->readAllStandardOutput();
-    qsizetype newline = -1;
-    while ((newline = m_buffer.indexOf('\n')) >= 0) {
-        const QByteArray line = m_buffer.left(newline);
-        m_buffer.remove(0, newline + 1);
-        if (const auto event = protocol::decode(line)) {
-            handleEvent(*event);
+    // Avoid readAllStandardOutput(): a native library may flood stdout with a very
+    // long, unframed diagnostic line, allocating the whole burst in the editor.
+    // Read fixed-size chunks and drop oversized lines before reading more data.
+    constexpr qint64 kReadChunkBytes = 16'384;
+    while (m_process->bytesAvailable() > 0) {
+        const QByteArray chunk = m_process->read(kReadChunkBytes);
+        if (chunk.isEmpty()) {
+            break;
         }
-    }
-    if (m_buffer.size() > qsizetype{1024} * 1024) {
-        m_buffer.clear(); // never let unexpected output grow without bound
+        m_buffer += chunk;
+        qsizetype newline = -1;
+        while ((newline = m_buffer.indexOf('\n')) >= 0) {
+            // Skip the rest of a line whose earlier fragments exceeded the limit.
+            if (!m_discardingOversizedLine && newline <= protocol::kMaxEventBytes) {
+                if (const auto event = protocol::decode(m_buffer.left(newline))) {
+                    handleEvent(*event);
+                }
+            }
+            m_buffer.remove(0, newline + 1);
+            m_discardingOversizedLine = false;
+        }
+        if (m_buffer.size() > protocol::kMaxEventBytes) {
+            // Drop the unframed line in bounded space and discard any fragments
+            // until the following newline, without poisoning later protocol events.
+            m_buffer.clear();
+            m_discardingOversizedLine = true;
+        }
     }
 }
 
@@ -239,15 +317,35 @@ void RenderJob::handleEvent(const QJsonObject& event)
 {
     const QString type = event.value(QLatin1String("event")).toString();
     if (type == QLatin1String("started")) {
+        const auto total = protocol::frameCount(event.value(QLatin1String("total")));
+        if (!total || *total == 0) {
+            qCWarning(lcRender) << "Ignored invalid renderer started frame count";
+            return;
+        }
         m_encoder = event.value(QLatin1String("encoder")).toString();
-        m_totalFrames = static_cast<FrameCount>(
-            event.value(QLatin1String("total")).toDouble(double(m_totalFrames)));
+        m_totalFrames = *total;
+        qCInfo(lcRender) << "Render helper started with encoder" << m_encoder << "and"
+                         << m_totalFrames << "output frames";
         emit progressChanged();
     } else if (type == QLatin1String("progress")) {
-        m_framesDone = static_cast<FrameCount>(event.value(QLatin1String("frame")).toDouble());
-        const auto total = static_cast<FrameCount>(event.value(QLatin1String("total")).toDouble());
-        if (total > 0) {
-            m_totalFrames = total;
+        const auto frame = protocol::frameCount(event.value(QLatin1String("frame")));
+        const auto total = protocol::frameCount(event.value(QLatin1String("total")));
+        if (!frame || !total || *total == 0 || *frame > *total) {
+            qCWarning(lcRender) << "Ignored invalid renderer progress counts";
+            return;
+        }
+        m_framesDone = *frame;
+        m_totalFrames = *total;
+        // Keep the last known export position in the editor's persistent log.
+        // A sudden Windows process termination cannot run Qt shutdown handlers,
+        // but the next startup can still correlate its timestamp with this marker.
+        if (m_totalFrames > 0 && (m_state == State::Running || m_state == State::Starting)) {
+            const int bucket = static_cast<int>(progress() * 10.0);
+            if (bucket > m_lastLoggedProgressBucket) {
+                m_lastLoggedProgressBucket = bucket;
+                qCInfo(lcRender) << "Export progress" << bucket * 10 << "%" << m_framesDone << "/"
+                                 << m_totalFrames << "frames";
+            }
         }
         emit progressChanged();
     } else if (type == QLatin1String("finished")) {
@@ -260,30 +358,81 @@ void RenderJob::handleEvent(const QJsonObject& event)
     }
 }
 
+void RenderJob::drainStandardError()
+{
+    if (!m_process) {
+        return;
+    }
+    // QProcess::readAllStandardError() copies the entire buffered burst, which can
+    // be many MiB if the helper or FFmpeg becomes noisy. Read fixed-size chunks and
+    // retain only the last 16 KiB, including on process shutdown.
+    constexpr qint64 kReadChunkBytes = 16'384;
+    constexpr qsizetype kMaxStderrBytes = 16'384;
+    const QProcess::ProcessChannel previous = m_process->readChannel();
+    m_process->setReadChannel(QProcess::StandardError);
+    QByteArray lastForLog;
+    while (m_process->bytesAvailable() > 0) {
+        const QByteArray chunk = m_process->read(kReadChunkBytes);
+        if (chunk.isEmpty()) {
+            break;
+        }
+        m_stderrTail += chunk;
+        if (m_stderrTail.size() > kMaxStderrBytes) {
+            m_stderrTail.remove(0, m_stderrTail.size() - kMaxStderrBytes);
+        }
+        // Emit only one bounded debug excerpt per signal, not a log line per chunk.
+        lastForLog = chunk.right(1024);
+    }
+    m_process->setReadChannel(previous);
+    if (!lastForLog.isEmpty()) {
+        qCDebug(lcRender).noquote() << "helper:" << QString::fromUtf8(lastForLog).trimmed();
+    }
+}
+
 void RenderJob::onProcessFinished(int exitCode, QProcess::ExitStatus status)
 {
-    onReadyRead(); // drain remaining events
+    onReadyRead();        // drain remaining protocol events
+    drainStandardError(); // final stderr may arrive without another readyRead signal
     if (isFinished(m_state)) {
         return;
     }
     if (status == QProcess::NormalExit && exitCode == protocol::Success && m_sawFinished) {
         setState(State::Succeeded);
-    } else if (m_state == State::Cancelling ||
-               (status == QProcess::NormalExit && exitCode == protocol::Cancelled)) {
+    } else if ((status == QProcess::NormalExit && exitCode == protocol::Cancelled) ||
+               (m_state == State::Cancelling && m_cancelKillIssued &&
+                status == QProcess::CrashExit)) {
+        // A cancellation request alone does not make an unexpected nonzero
+        // exit successful. Preserve the failure and its exit code for triage.
+        // Only a cooperative cancellation exit or our own watchdog kill
+        // counts as Cancelled.
         if (m_state != State::Cancelling) {
             setState(State::Cancelling);
         }
-        // A killed helper may leave its temporary file behind; it never touches the destination.
+        // The process has exited. Clean up this job's partial MP4 even when the helper
+        // could not execute its own cancellation cleanup.
+        removeOwnedPartialOutput();
         setState(State::Cancelled);
-    } else if (status == QProcess::CrashExit) {
-        fail(QStringLiteral(
-                 "The renderer stopped unexpectedly. Your project is safe; please try again."),
-             m_errorDetail);
     } else {
-        fail(m_errorMessage.isEmpty()
+        removeOwnedPartialOutput();
+        QString detail = QStringLiteral("Renderer exit code: %1 (0x%2)")
+                             .arg(exitCode)
+                             .arg(QString::number(static_cast<quint32>(exitCode), 16)
+                                      .rightJustified(8, QLatin1Char('0')));
+        if (!m_errorDetail.isEmpty()) {
+            detail += QLatin1Char('\n') + m_errorDetail;
+        }
+        const QString stderrText = QString::fromUtf8(m_stderrTail).trimmed();
+        if (!stderrText.isEmpty()) {
+            detail += QStringLiteral("\nRenderer stderr (last 16 KiB):\n") + stderrText;
+        }
+        qCWarning(lcRender).noquote() << "Render helper failed:" << detail;
+        fail(status == QProcess::CrashExit
+                 ? QStringLiteral(
+                       "The renderer stopped unexpectedly. Your project is safe; please try again.")
+             : m_errorMessage.isEmpty()
                  ? QStringLiteral("Rendering failed (exit code %1).").arg(exitCode)
                  : m_errorMessage,
-             m_errorDetail);
+             detail);
     }
     qCInfo(lcRender) << "Render job finished with state" << int(m_state);
 }
@@ -291,6 +440,7 @@ void RenderJob::onProcessFinished(int exitCode, QProcess::ExitStatus status)
 void RenderJob::onProcessError(QProcess::ProcessError error)
 {
     if (error == QProcess::FailedToStart) {
+        removeOwnedPartialOutput();
         fail(QStringLiteral("The render helper could not be started."),
              m_helperProgram + QStringLiteral(": ") + m_process->errorString());
     }

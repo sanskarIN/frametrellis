@@ -5,6 +5,7 @@
 #include "core/result.h"
 #include "project/media_asset.h"
 #include "project/project_settings.h"
+#include "project/subtitles.h"
 #include "timeline/timeline.h"
 
 #include <QDateTime>
@@ -13,6 +14,19 @@
 #include <vector>
 
 namespace ft {
+
+/// Named, frame-accurate review cue independent of media and track edits.
+struct TimelineMarker
+{
+    Id id;
+    FrameCount frame = 0;
+    QString label;
+
+    friend bool operator==(const TimelineMarker&, const TimelineMarker&) = default;
+};
+
+inline constexpr int kMaxTimelineMarkers = 1000;
+inline constexpr int kMaxMarkerLabelLength = 120;
 
 /// The complete editable state of a project: settings, media references and the timeline.
 /// Project is a value type; ProjectDocument wraps it with undo history and change signals.
@@ -45,6 +59,14 @@ public:
     Status replaceAsset(const MediaAsset& asset);
     void setAssetStatus(const Id& assetId, MediaStatus status);
 
+    /// Sequence markers are ordered by frame then identifier. They survive source edits.
+    [[nodiscard]] const std::vector<TimelineMarker>& markers() const { return m_markers; }
+    /// Atomically replaces the marker collection after validating bounds, names and unique ids.
+    Status setMarkers(std::vector<TimelineMarker> markers);
+    [[nodiscard]] const SubtitleTrack& subtitles() const { return m_subtitles; }
+    /// Canonicalises order and atomically validates the entire sequence subtitle track.
+    Status setSubtitles(SubtitleTrack subtitles);
+
     [[nodiscard]] const Timeline& timeline() const { return m_timeline; }
     Timeline& timeline() { return m_timeline; }
 
@@ -66,6 +88,8 @@ private:
     QDateTime m_created;
     ProjectSettings m_settings;
     std::vector<MediaAsset> m_media;
+    std::vector<TimelineMarker> m_markers;
+    SubtitleTrack m_subtitles;
     Timeline m_timeline;
 };
 

@@ -76,9 +76,18 @@ void FrameView::updatePictureRect()
 
 QSGNode* FrameView::updatePaintNode(QSGNode* old, UpdatePaintNodeData*)
 {
+    QQuickWindow* currentWindow = window();
+    if (!currentWindow) {
+        // A detached item can outlive its scene graph during window teardown.
+        return old;
+    }
     auto* background = static_cast<QSGRectangleNode*>(old);
     if (!background) {
-        background = window()->createRectangleNode();
+        background = currentWindow->createRectangleNode();
+        if (!background) {
+            // Qt documents a null result when the scene graph is not initialized.
+            return nullptr;
+        }
     }
     background->setRect(boundingRect());
     background->setColor(m_background);
@@ -94,18 +103,29 @@ QSGNode* FrameView::updatePaintNode(QSGNode* old, UpdatePaintNodeData*)
     if (!picture) {
         // Configure the node completely before it joins the scene graph: the software renderer
         // inspects nodes as soon as they are added and cannot handle one without a texture.
-        picture = window()->createImageNode();
+        picture = currentWindow->createImageNode();
+        if (!picture) {
+            return background;
+        }
+        QSGTexture* texture = currentWindow->createTextureFromImage(m_image);
+        if (!texture) {
+            delete picture; // never append an image node with a null texture
+            return background;
+        }
         picture->setOwnsTexture(true);
         picture->setFiltering(QSGTexture::Linear);
-        picture->setTexture(window()->createTextureFromImage(m_image));
+        picture->setTexture(texture);
         picture->setRect(m_pictureRect);
         m_imageDirty = false;
         background->appendChildNode(picture);
         return background;
     }
     if (m_imageDirty) {
-        picture->setTexture(window()->createTextureFromImage(m_image));
-        m_imageDirty = false;
+        if (QSGTexture* texture = currentWindow->createTextureFromImage(m_image)) {
+            picture->setTexture(texture);
+            m_imageDirty = false;
+        }
+        // Keep the previous valid texture if a transient graphics failure occurs.
     }
     picture->setRect(m_pictureRect);
     return background;

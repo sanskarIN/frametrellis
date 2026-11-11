@@ -2,9 +2,11 @@
 // SPDX-FileCopyrightText: 2026 Sanskar and FrameTrellis contributors
 #include "editing/timeline_edits.h"
 
+#include <QHash>
 #include <QSet>
 
 #include <algorithm>
+#include <cmath>
 
 namespace ft::edits {
 
@@ -15,6 +17,247 @@ std::unique_ptr<EditCommand> command(const QString& text, TimelineCommand::Opera
 {
     return std::make_unique<TimelineCommand>(text, std::move(op), mergeKey);
 }
+
+// Shared by the explicit gap edit and source ripple insert. A cut through any
+// clip is deliberately rejected rather than silently truncating picture or sound.
+// TimelineCommand provides the transactional boundary for both callers.
+Status shiftTracksForInsertion(Timeline& timeline, FrameCount frame, FrameCount duration,
+                               const SourceLookup& sources, bool requireFollowingClips)
+{
+    if (frame < 0 || frame >= kMaxTimelineFrames || duration <= 0 ||
+        duration > kMaxTimelineFrames - frame) {
+        return makeError(ErrorCode::OutOfRange,
+                         QStringLiteral("The insertion is outside the timeline limits."));
+    }
+
+    std::vector<Track> tracks = timeline.tracks();
+    bool moved = false;
+    for (Track& track : tracks) {
+        bool affectsTrack = false;
+        for (const Clip& clip : track.clips) {
+            if (clip.start < frame && clip.end() > frame) {
+                return makeError(ErrorCode::Conflict,
+                                 QStringLiteral("Split clips crossing the playhead first."));
+            }
+            affectsTrack |= clip.start >= frame;
+        }
+        if (!affectsTrack) {
+            continue;
+        }
+        if (track.locked) {
+            return makeError(ErrorCode::Conflict,
+                             QStringLiteral("Unlock affected tracks before ripple inserting."));
+        }
+        for (Clip& clip : track.clips) {
+            if (clip.start >= frame) {
+                if (clip.end() > kMaxTimelineFrames - duration) {
+                    return makeError(
+                        ErrorCode::OutOfRange,
+                        QStringLiteral("The insertion would exceed the timeline limit."));
+                }
+                clip.start += duration;
+                moved = true;
+            }
+        }
+    }
+    if (!moved) {
+        if (requireFollowingClips) {
+            return makeError(ErrorCode::InvalidArgument,
+                             QStringLiteral("No clips follow the playhead."));
+        }
+        return {};
+    }
+
+    // Preserve original clip IDs, trims, automation and transition objects.
+    // Full validation rejects a transition that would span this new cut.
+    timeline.restoreTracks(std::move(tracks));
+    return timeline.validate(sources);
+}
+
+// Both adding and removing sequence time are project-level edits: moving media
+// without its review markers and captions would silently desynchronise an edit.
+// Apply the track operation on a copy first, then stage cues and markers on that
+// copy, and commit only after validating the complete project.
+class SequenceRippleCommand final : public EditCommand
+{
+public:
+    SequenceRippleCommand(QString name, FrameCount frame, FrameCount duration,
+                          TimelineCommand::Operation trackOperation, bool closing = false)
+        : m_frame(frame)
+        , m_duration(duration)
+        , m_closing(closing)
+        , m_text(std::move(name))
+        , m_clipEdit(command(m_text, std::move(trackOperation)))
+    {}
+
+    [[nodiscard]] QString text() const override { return m_text; }
+
+    Result<ChangeSet> redo(Project& project) override
+    {
+        if (m_applied) {
+            Result<ChangeSet> changes = m_clipEdit->redo(project);
+            if (!changes) {
+                return changes.error();
+            }
+            (void)project.setMarkers(m_afterMarkers);
+            (void)project.setSubtitles(m_afterSubtitles);
+            changes->markers = m_markersChanged;
+            changes->subtitles = m_subtitlesChanged;
+            return changes;
+        }
+
+        Project working = project;
+        Result<ChangeSet> changes = m_clipEdit->redo(working);
+        if (!changes) {
+            return changes.error();
+        }
+        // The track command already validated [frame, frame + duration). Keep
+        // all arithmetic below in the same bounded project-frame domain.
+        const FrameCount boundary = m_closing ? m_frame + m_duration : m_frame;
+
+        auto markers = working.markers();
+        for (TimelineMarker& marker : markers) {
+            if (m_closing && marker.frame >= m_frame && marker.frame < boundary) {
+                return makeError(
+                    ErrorCode::Conflict,
+                    QStringLiteral(
+                        "Move or delete markers inside the empty time before closing it."));
+            }
+            if (marker.frame < boundary) {
+                continue;
+            }
+            if (m_closing) {
+                marker.frame -= m_duration;
+            } else {
+                if (marker.frame > kMaxTimelineFrames - m_duration) {
+                    return makeError(ErrorCode::OutOfRange,
+                                     QStringLiteral("Ripple insertion would move a marker past "
+                                                    "the timeline limit."));
+                }
+                marker.frame += m_duration;
+            }
+        }
+
+        SubtitleTrack subtitles = working.subtitles();
+        const FrameRate& rate = working.settings().frameRate;
+        const auto cutMs = subtitleMillisecondsAtFrame(m_frame, rate);
+        const auto boundaryMs = subtitleMillisecondsAtFrame(boundary, rate);
+        const std::int64_t cutTime = cutMs.value_or(-1);
+        const std::int64_t boundaryTime = boundaryMs.value_or(-1);
+        if (cutTime < 0 || boundaryTime < 0) {
+            return makeError(ErrorCode::OutOfRange,
+                             QStringLiteral("The sequence edit time cannot be represented."));
+        }
+
+        // Subtitles retain their original sub-frame millisecond offset, including
+        // at fractional project rates. The integer frame conversion never uses
+        // an approximate floating-point FPS.
+        const auto shiftedTime = [this,
+                                  &rate](std::int64_t original) -> std::optional<std::int64_t> {
+            const auto frame = subtitleFrameAtMilliseconds(original, rate);
+            if (!frame) {
+                return std::nullopt;
+            }
+            if ((m_closing && *frame < m_duration) ||
+                (!m_closing && *frame > kMaxTimelineFrames - m_duration)) {
+                return std::nullopt;
+            }
+            const FrameCount movedFrame = m_closing ? *frame - m_duration : *frame + m_duration;
+            const auto before = subtitleMillisecondsAtFrame(*frame, rate);
+            const auto after = subtitleMillisecondsAtFrame(movedFrame, rate);
+            if (!before || !after) {
+                return std::nullopt;
+            }
+            if (m_closing) {
+                const std::int64_t delta = *before - *after;
+                return delta >= 0 && original >= delta
+                           ? std::optional<std::int64_t>(original - delta)
+                           : std::nullopt;
+            }
+            const std::int64_t delta = *after - *before;
+            return delta >= 0 && original <= kMaxSubtitleTimeMs - delta
+                       ? std::optional<std::int64_t>(original + delta)
+                       : std::nullopt;
+        };
+        for (SubtitleCue& cue : subtitles.cues) {
+            if (m_closing) {
+                if (cue.startMs < boundaryTime && cue.endMs > cutTime) {
+                    return makeError(
+                        ErrorCode::Conflict,
+                        QStringLiteral("Move or split subtitles intersecting the empty time "
+                                       "before closing it."));
+                }
+                if (cue.startMs < boundaryTime) {
+                    continue;
+                }
+            } else {
+                if (cue.startMs < cutTime && cue.endMs > cutTime) {
+                    return makeError(ErrorCode::Conflict,
+                                     QStringLiteral("Split or adjust the subtitle crossing "
+                                                    "the insertion point first."));
+                }
+                if (cue.startMs < cutTime) {
+                    continue;
+                }
+            }
+            const auto start = shiftedTime(cue.startMs);
+            const auto end = shiftedTime(cue.endMs);
+            if (!start || !end) {
+                return makeError(ErrorCode::OutOfRange,
+                                 QStringLiteral("Sequence edit would move subtitles beyond "
+                                                "the supported time range."));
+            }
+            cue.startMs = *start;
+            cue.endMs = *end;
+        }
+
+        if (const Status checked = working.setMarkers(std::move(markers)); !checked) {
+            return checked.error();
+        }
+        if (const Status checked = working.setSubtitles(std::move(subtitles)); !checked) {
+            return checked.error();
+        }
+        if (const Status checked = working.validate(); !checked) {
+            return checked.error();
+        }
+
+        m_beforeMarkers = project.markers();
+        m_beforeSubtitles = project.subtitles();
+        m_afterMarkers = working.markers();
+        m_afterSubtitles = working.subtitles();
+        m_markersChanged = m_beforeMarkers != m_afterMarkers;
+        m_subtitlesChanged = m_beforeSubtitles != m_afterSubtitles;
+        project = std::move(working);
+        m_applied = true;
+        changes->markers = m_markersChanged;
+        changes->subtitles = m_subtitlesChanged;
+        return changes;
+    }
+
+    ChangeSet undo(Project& project) override
+    {
+        ChangeSet changes = m_clipEdit->undo(project);
+        (void)project.setMarkers(m_beforeMarkers);
+        (void)project.setSubtitles(m_beforeSubtitles);
+        changes.markers = m_markersChanged;
+        changes.subtitles = m_subtitlesChanged;
+        return changes;
+    }
+
+private:
+    FrameCount m_frame;
+    FrameCount m_duration;
+    bool m_closing = false;
+    QString m_text;
+    std::unique_ptr<EditCommand> m_clipEdit;
+    std::vector<TimelineMarker> m_beforeMarkers;
+    std::vector<TimelineMarker> m_afterMarkers;
+    SubtitleTrack m_beforeSubtitles;
+    SubtitleTrack m_afterSubtitles;
+    bool m_applied = false;
+    bool m_markersChanged = false;
+    bool m_subtitlesChanged = false;
+};
 
 } // namespace
 
@@ -53,6 +296,40 @@ std::unique_ptr<EditCommand> moveTrack(const Id& trackId, int newIndex)
                    });
 }
 
+std::unique_ptr<EditCommand> duplicateTrack(const Id& sourceTrackId, const QString& newName,
+                                            const Id& newTrackId)
+{
+    const Id targetId = newTrackId.isEmpty() ? createId() : newTrackId;
+    return command(
+        QStringLiteral("Duplicate Track"),
+        [sourceTrackId, newName, targetId](Timeline& t, const SourceLookup& sources) -> Status {
+            const Track* source = t.track(sourceTrackId);
+            if (!source) {
+                return makeError(ErrorCode::NotFound,
+                                 QStringLiteral("The source track was not found."));
+            }
+            const int insertionIndex = t.trackIndex(sourceTrackId) + 1;
+            Track copy = *source;
+            copy.id = targetId;
+            copy.name = newName;
+            QHash<Id, Id> ids;
+            for (Clip& clip : copy.clips) {
+                const Id newId = createId();
+                ids.insert(clip.id, newId);
+                clip.id = newId;
+            }
+            for (Transition& transition : copy.transitions) {
+                transition.id = createId();
+                transition.fromClip = ids.value(transition.fromClip);
+                transition.toClip = ids.value(transition.toClip);
+            }
+            if (const Status inserted = t.insertTrack(std::move(copy), insertionIndex); !inserted) {
+                return inserted;
+            }
+            return t.validate(sources);
+        });
+}
+
 std::unique_ptr<EditCommand> renameTrack(const Id& trackId, const QString& name)
 {
     return command(
@@ -84,12 +361,62 @@ std::unique_ptr<EditCommand> setTrackLocked(const Id& trackId, bool locked)
                    });
 }
 
+std::unique_ptr<EditCommand> setAllTracksLocked(bool locked)
+{
+    return command(locked ? QStringLiteral("Lock All Tracks") : QStringLiteral("Unlock All Tracks"),
+                   [locked](Timeline& timeline, const SourceLookup&) -> Status {
+                       for (const Track& track : timeline.tracks()) {
+                           if (const Status changed = timeline.setTrackLocked(track.id, locked);
+                               !changed) {
+                               return changed;
+                           }
+                       }
+                       return {};
+                   });
+}
+
 std::unique_ptr<EditCommand> addClip(const Id& trackId, const Clip& clip)
 {
     return command(QStringLiteral("Add Clip"),
                    [trackId, clip](Timeline& t, const SourceLookup& sources) {
                        return t.insertClip(trackId, clip, sources);
                    });
+}
+
+std::unique_ptr<EditCommand> addSynchronizedSourceClips(const Id& videoTrackId,
+                                                        const Clip& videoClip,
+                                                        const Id& audioTrackId,
+                                                        const Clip& audioClip)
+{
+    return command(
+        QStringLiteral("Place Synchronized Video and Audio"),
+        [videoTrackId, videoClip, audioTrackId, audioClip](Timeline& timeline,
+                                                           const SourceLookup& sources) -> Status {
+            if (videoTrackId.isEmpty() || audioTrackId.isEmpty() || videoTrackId == audioTrackId ||
+                videoClip.id.isEmpty() || audioClip.id.isEmpty() || videoClip.id == audioClip.id ||
+                videoClip.assetId.isEmpty() || videoClip.assetId != audioClip.assetId ||
+                videoClip.start != audioClip.start || videoClip.sourceIn != audioClip.sourceIn ||
+                videoClip.duration != audioClip.duration) {
+                return makeError(ErrorCode::InvalidArgument,
+                                 QStringLiteral("Video and audio must share the same source, "
+                                                "time range and start on different tracks."));
+            }
+            const Track* pictureTrack = timeline.track(videoTrackId);
+            const Track* soundTrack = timeline.track(audioTrackId);
+            if (!pictureTrack || !soundTrack || pictureTrack->kind != TrackKind::Video ||
+                soundTrack->kind != TrackKind::Audio) {
+                return makeError(ErrorCode::InvalidArgument,
+                                 QStringLiteral("Choose a video track and an audio track."));
+            }
+
+            // A TimelineCommand operates on a copy; if either insertion fails, neither
+            // clip becomes visible and the undo history remains unchanged.
+            if (const Status picture = timeline.insertClip(videoTrackId, videoClip, sources);
+                !picture) {
+                return picture;
+            }
+            return timeline.insertClip(audioTrackId, audioClip, sources);
+        });
 }
 
 std::unique_ptr<EditCommand> duplicateClip(const Id& clipId, const Id& newClipId)
@@ -169,6 +496,194 @@ std::unique_ptr<EditCommand> duplicateClips(const QList<Id>& clipIds, const QLis
             }
             return {};
         });
+}
+
+std::unique_ptr<EditCommand> duplicateClipsAt(const QList<Id>& clipIds, const QList<Id>& newClipIds,
+                                              FrameCount start)
+{
+    return command(
+        QStringLiteral("Duplicate Selected Clips at Playhead"),
+        [clipIds, newClipIds, start](Timeline& timeline, const SourceLookup& sources) -> Status {
+            if (clipIds.isEmpty() || clipIds.size() != newClipIds.size() || start < 0 ||
+                start >= kMaxTimelineFrames) {
+                return makeError(ErrorCode::InvalidArgument,
+                                 QStringLiteral("Select clips and a valid destination frame."));
+            }
+            QSet<Id> sourceIds;
+            QSet<Id> destinationIds;
+            struct Original
+            {
+                Id trackId;
+                Clip clip;
+            };
+            std::vector<Original> originals;
+            originals.reserve(static_cast<size_t>(clipIds.size()));
+            FrameCount earliest = kMaxTimelineFrames;
+            for (qsizetype i = 0; i < clipIds.size(); ++i) {
+                const Id& oldId = clipIds.at(i);
+                const Id& newId = newClipIds.at(i);
+                const Clip* clip = timeline.clip(oldId);
+                const Track* track = timeline.trackOfClip(oldId);
+                if (!clip || !track) {
+                    return makeError(ErrorCode::NotFound,
+                                     QStringLiteral("A selected clip was not found."));
+                }
+                if (sourceIds.contains(oldId) || newId.isEmpty() ||
+                    destinationIds.contains(newId) || timeline.clip(newId)) {
+                    return makeError(ErrorCode::Conflict,
+                                     QStringLiteral("Duplicate or existing clip identifiers."));
+                }
+                if (track->locked) {
+                    return makeError(ErrorCode::Conflict,
+                                     QStringLiteral("Unlock all destination tracks first."));
+                }
+                sourceIds.insert(oldId);
+                destinationIds.insert(newId);
+                earliest = std::min(earliest, clip->start);
+                originals.push_back({track->id, *clip});
+            }
+            for (qsizetype i = 0; i < clipIds.size(); ++i) {
+                Clip copy = originals.at(static_cast<size_t>(i)).clip;
+                const FrameCount relative = copy.start - earliest;
+                if (relative > kMaxTimelineFrames - start ||
+                    copy.duration > kMaxTimelineFrames - start - relative) {
+                    return makeError(
+                        ErrorCode::OutOfRange,
+                        QStringLiteral("The copied group exceeds the timeline limit."));
+                }
+                copy.start = start + relative;
+                copy.id = newClipIds.at(i);
+                if (const Status added = timeline.insertClip(
+                        originals.at(static_cast<size_t>(i)).trackId, copy, sources);
+                    !added) {
+                    return added;
+                }
+            }
+            // TimelineCommand applies the whole operation on a copy of the document:
+            // even a collision on the final destination clip cannot partially commit.
+            return {};
+        });
+}
+
+std::unique_ptr<EditCommand> insertGap(FrameCount frame, FrameCount duration)
+{
+    return std::make_unique<SequenceRippleCommand>(
+        QStringLiteral("Insert Timeline Gap"), frame, duration,
+        [frame, duration](Timeline& timeline, const SourceLookup& sources) {
+            return shiftTracksForInsertion(timeline, frame, duration, sources, true);
+        });
+}
+
+std::unique_ptr<EditCommand> rippleInsertSourceClip(const Id& trackId, const Clip& clip)
+{
+    return std::make_unique<SequenceRippleCommand>(
+        QStringLiteral("Ripple Insert Source Range"), clip.start, clip.duration,
+        [trackId, clip](Timeline& timeline, const SourceLookup& sources) -> Status {
+            if (const Status gap =
+                    shiftTracksForInsertion(timeline, clip.start, clip.duration, sources, false);
+                !gap) {
+                return gap;
+            }
+            return timeline.insertClip(trackId, clip, sources);
+        });
+}
+
+std::unique_ptr<EditCommand> rippleInsertSynchronizedSourceClips(const Id& videoTrackId,
+                                                                 const Clip& videoClip,
+                                                                 const Id& audioTrackId,
+                                                                 const Clip& audioClip)
+{
+    return std::make_unique<SequenceRippleCommand>(
+        QStringLiteral("Ripple Insert Picture and Sound"), videoClip.start, videoClip.duration,
+        [videoTrackId, videoClip, audioTrackId, audioClip](Timeline& timeline,
+                                                           const SourceLookup& sources) -> Status {
+            if (videoTrackId.isEmpty() || audioTrackId.isEmpty() || videoTrackId == audioTrackId ||
+                videoClip.id.isEmpty() || audioClip.id.isEmpty() || videoClip.id == audioClip.id ||
+                videoClip.assetId.isEmpty() || videoClip.assetId != audioClip.assetId ||
+                videoClip.start != audioClip.start || videoClip.sourceIn != audioClip.sourceIn ||
+                videoClip.duration <= 0 || videoClip.duration != audioClip.duration ||
+                !videoClip.properties.muted || audioClip.properties.muted) {
+                return makeError(
+                    ErrorCode::InvalidArgument,
+                    QStringLiteral("Picture and sound must be distinct clips from the same "
+                                   "range, with picture muted and sound enabled."));
+            }
+            const Track* pictureTrack = timeline.track(videoTrackId);
+            const Track* soundTrack = timeline.track(audioTrackId);
+            if (!pictureTrack || !soundTrack || pictureTrack->kind != TrackKind::Video ||
+                soundTrack->kind != TrackKind::Audio || pictureTrack->locked ||
+                soundTrack->locked) {
+                return makeError(
+                    ErrorCode::Conflict,
+                    QStringLiteral("Choose distinct unlocked video and audio tracks."));
+            }
+            const auto source = sources(videoClip.assetId);
+            if (!source || !source->hasVideo || !source->hasAudio) {
+                return makeError(
+                    ErrorCode::InvalidArgument,
+                    QStringLiteral("Synchronized insertion needs an online video with audio."));
+            }
+            // The SequenceRippleCommand stages both clips, all later tracks,
+            // sequence markers and captions on a temporary project. If either
+            // insertion fails, the entire edit and undo history remain unchanged.
+            if (const Status shifted = shiftTracksForInsertion(timeline, videoClip.start,
+                                                               videoClip.duration, sources, false);
+                !shifted) {
+                return shifted;
+            }
+            if (const Status picture = timeline.insertClip(videoTrackId, videoClip, sources);
+                !picture) {
+                return picture;
+            }
+            return timeline.insertClip(audioTrackId, audioClip, sources);
+        });
+}
+
+std::unique_ptr<EditCommand> removeEmptyTime(FrameCount frame, FrameCount duration)
+{
+    return std::make_unique<SequenceRippleCommand>(
+        QStringLiteral("Remove Empty Timeline Time"), frame, duration,
+        [frame, duration](Timeline& timeline, const SourceLookup& sources) -> Status {
+            if (frame < 0 || frame >= kMaxTimelineFrames || duration <= 0 ||
+                duration > kMaxTimelineFrames - frame) {
+                return makeError(ErrorCode::OutOfRange,
+                                 QStringLiteral("The selected time range is invalid."));
+            }
+
+            const FrameCount end = frame + duration;
+            std::vector<Track> tracks = timeline.tracks();
+            bool moved = false;
+            for (Track& track : tracks) {
+                bool affectsTrack = false;
+                for (const Clip& clip : track.clips) {
+                    if (clip.start < end && clip.end() > frame) {
+                        return makeError(ErrorCode::Conflict,
+                                         QStringLiteral("Remove clips from the time range first."));
+                    }
+                    affectsTrack |= clip.start >= end;
+                }
+                if (!affectsTrack) {
+                    continue;
+                }
+                if (track.locked) {
+                    return makeError(ErrorCode::Conflict,
+                                     QStringLiteral("Unlock affected tracks first."));
+                }
+                for (Clip& clip : track.clips) {
+                    if (clip.start >= end) {
+                        clip.start -= duration;
+                        moved = true;
+                    }
+                }
+            }
+            if (!moved) {
+                return makeError(ErrorCode::InvalidArgument,
+                                 QStringLiteral("No clips follow the selected empty time."));
+            }
+            timeline.restoreTracks(std::move(tracks));
+            return timeline.validate(sources);
+        },
+        true);
 }
 
 std::unique_ptr<EditCommand> removeClips(const QList<Id>& clipIds)
@@ -301,6 +816,62 @@ std::unique_ptr<EditCommand> trimClipEnd(const Id& clipId, FrameCount newEnd)
                    });
 }
 
+std::unique_ptr<EditCommand> replaceClipSource(const Id& clipId, const Id& newAssetId,
+                                               FrameCount newSourceIn)
+{
+    return command(
+        QStringLiteral("Replace Clip Source"),
+        [clipId, newAssetId, newSourceIn](Timeline& timeline, const SourceLookup& sources) {
+            return timeline.replaceClipSource(clipId, newAssetId, newSourceIn, sources);
+        });
+}
+
+std::unique_ptr<EditCommand> slipClips(const QList<Id>& clipIds, FrameCount delta)
+{
+    return command(
+        QStringLiteral("Slip %1 Clip(s)").arg(clipIds.size()),
+        [clipIds, delta](Timeline& timeline, const SourceLookup& sources) -> Status {
+            if (clipIds.isEmpty() || delta == 0 || delta < -kMaxTimelineFrames ||
+                delta > kMaxTimelineFrames) {
+                return makeError(ErrorCode::InvalidArgument,
+                                 QStringLiteral("Select clips and a valid nonzero slip amount."));
+            }
+            QSet<Id> seen;
+            for (const Id& id : clipIds) {
+                if (seen.contains(id)) {
+                    return makeError(ErrorCode::InvalidArgument,
+                                     QStringLiteral("The same clip was selected twice."));
+                }
+                seen.insert(id);
+                const Clip* clip = timeline.clip(id);
+                if (!clip) {
+                    return makeError(ErrorCode::NotFound,
+                                     QStringLiteral("A selected clip was not found."));
+                }
+                // Check signed bounds before addition, including source-out after the shift.
+                if ((delta < 0 && clip->sourceIn < -delta) ||
+                    (delta > 0 && clip->sourceOut() > kMaxTimelineFrames - delta)) {
+                    return makeError(ErrorCode::OutOfRange,
+                                     QStringLiteral("The slip exceeds the source frame limits."));
+                }
+                const FrameCount target = clip->sourceIn + delta;
+                if (const Status moved = timeline.slipClip(id, target, sources); !moved) {
+                    return moved;
+                }
+            }
+            // TimelineCommand operates on a clone and commits only if all clips succeed.
+            return {};
+        });
+}
+
+std::unique_ptr<EditCommand> rollCut(const Id& fromClipId, FrameCount delta)
+{
+    return command(delta < 0 ? QStringLiteral("Roll Cut Left") : QStringLiteral("Roll Cut Right"),
+                   [fromClipId, delta](Timeline& timeline, const SourceLookup& sources) {
+                       return timeline.rollCut(fromClipId, delta, sources);
+                   });
+}
+
 std::unique_ptr<EditCommand> splitClips(const QList<Id>& clipIds, FrameCount frame)
 {
     return command(
@@ -330,7 +901,16 @@ std::unique_ptr<EditCommand> setClipProperties(const Id& clipId, const ClipPrope
 {
     return command(
         text,
-        [clipId, properties](Timeline& t, const SourceLookup&) {
+        [clipId, properties](Timeline& t, const SourceLookup& sources) -> Status {
+            if (properties.balance != 0.0) {
+                const Clip* clip = t.clip(clipId);
+                const auto limits = clip && sources ? sources(clip->assetId) : std::nullopt;
+                if (!limits || !limits->hasAudio || limits->audioChannels != 2) {
+                    return makeError(
+                        ErrorCode::InvalidArgument,
+                        QStringLiteral("Stereo balance requires a two-channel audio source."));
+                }
+            }
             return t.setClipProperties(clipId, properties);
         },
         QStringLiteral("clip-properties:") + clipId + QLatin1Char(':') + text);
@@ -339,34 +919,42 @@ std::unique_ptr<EditCommand> setClipProperties(const Id& clipId, const ClipPrope
 std::unique_ptr<EditCommand> pasteClipProperties(const QList<Id>& clipIds,
                                                  const ClipProperties& properties)
 {
-    return command(QStringLiteral("Paste Clip Attributes"),
-                   [clipIds, properties](Timeline& timeline, const SourceLookup&) -> Status {
-                       if (clipIds.isEmpty()) {
-                           return makeError(ErrorCode::InvalidArgument,
-                                            QStringLiteral("Select clips to update."));
-                       }
-                       QSet<Id> unique;
-                       for (const Id& id : clipIds) {
-                           if (unique.contains(id)) {
-                               return makeError(ErrorCode::InvalidArgument,
-                                                QStringLiteral("A clip was selected twice."));
-                           }
-                           unique.insert(id);
-                           const Clip* clip = timeline.clip(id);
-                           if (!clip) {
-                               return makeError(ErrorCode::NotFound,
-                                                QStringLiteral("A selected clip was not found."));
-                           }
-                           ClipProperties copy = properties;
-                           copy.fadeIn = std::min(copy.fadeIn, clip->duration);
-                           copy.fadeOut = std::min(copy.fadeOut, clip->duration - copy.fadeIn);
-                           if (const Status updated = timeline.setClipProperties(id, copy);
-                               !updated) {
-                               return updated;
-                           }
-                       }
-                       return {};
-                   });
+    return command(
+        QStringLiteral("Paste Clip Attributes"),
+        [clipIds, properties](Timeline& timeline, const SourceLookup& sources) -> Status {
+            if (clipIds.isEmpty()) {
+                return makeError(ErrorCode::InvalidArgument,
+                                 QStringLiteral("Select clips to update."));
+            }
+            QSet<Id> unique;
+            for (const Id& id : clipIds) {
+                if (unique.contains(id)) {
+                    return makeError(ErrorCode::InvalidArgument,
+                                     QStringLiteral("A clip was selected twice."));
+                }
+                unique.insert(id);
+                const Clip* clip = timeline.clip(id);
+                if (!clip) {
+                    return makeError(ErrorCode::NotFound,
+                                     QStringLiteral("A selected clip was not found."));
+                }
+                if (properties.balance != 0.0) {
+                    const auto limits = sources ? sources(clip->assetId) : std::nullopt;
+                    if (!limits || !limits->hasAudio || limits->audioChannels != 2) {
+                        return makeError(
+                            ErrorCode::InvalidArgument,
+                            QStringLiteral("Stereo balance requires two-channel audio."));
+                    }
+                }
+                ClipProperties copy = properties;
+                copy.fadeIn = std::min(copy.fadeIn, clip->duration);
+                copy.fadeOut = std::min(copy.fadeOut, clip->duration - copy.fadeIn);
+                if (const Status updated = timeline.setClipProperties(id, copy); !updated) {
+                    return updated;
+                }
+            }
+            return {};
+        });
 }
 
 std::unique_ptr<EditCommand> muteClips(const QList<Id>& clipIds, bool muted)
@@ -400,6 +988,287 @@ std::unique_ptr<EditCommand> muteClips(const QList<Id>& clipIds, bool muted)
         });
 }
 
+std::unique_ptr<EditCommand> setClipFades(const QList<Id>& clipIds, FrameCount frames, bool fadeOut)
+{
+    return command(
+        frames == 0 ? (fadeOut ? QStringLiteral("Clear Selected Fade Outs")
+                               : QStringLiteral("Clear Selected Fade Ins"))
+                    : (fadeOut ? QStringLiteral("Set Selected Fade Outs")
+                               : QStringLiteral("Set Selected Fade Ins")),
+        [clipIds, frames, fadeOut](Timeline& timeline, const SourceLookup&) -> Status {
+            if (clipIds.isEmpty() || frames < 0 || frames > kMaxTimelineFrames) {
+                return makeError(ErrorCode::InvalidArgument,
+                                 QStringLiteral("Select clips and a nonnegative fade duration."));
+            }
+
+            QSet<Id> visited;
+            bool changed = false;
+            for (const Id& id : clipIds) {
+                if (visited.contains(id)) {
+                    return makeError(ErrorCode::InvalidArgument,
+                                     QStringLiteral("A clip was selected twice."));
+                }
+                visited.insert(id);
+                const Clip* clip = timeline.clip(id);
+                const Track* track = timeline.trackOfClip(id);
+                if (!clip || !track) {
+                    return makeError(ErrorCode::NotFound,
+                                     QStringLiteral("A selected clip was not found."));
+                }
+                if (track->locked) {
+                    return makeError(
+                        ErrorCode::Conflict,
+                        QStringLiteral("Unlock affected tracks before editing fades."));
+                }
+                const FrameCount opposite =
+                    fadeOut ? clip->properties.fadeIn : clip->properties.fadeOut;
+                const FrameCount next = std::min(frames, clip->duration - opposite);
+                const FrameCount current =
+                    fadeOut ? clip->properties.fadeOut : clip->properties.fadeIn;
+                changed |= current != next;
+            }
+            if (!changed) {
+                return makeError(ErrorCode::InvalidArgument,
+                                 QStringLiteral("The selected fades are already set."));
+            }
+
+            for (const Id& id : clipIds) {
+                const Clip* clip = timeline.clip(id);
+                ClipProperties properties = clip->properties;
+                const FrameCount opposite = fadeOut ? properties.fadeIn : properties.fadeOut;
+                const FrameCount next = std::min(frames, clip->duration - opposite);
+                if (fadeOut) {
+                    properties.fadeOut = next;
+                } else {
+                    properties.fadeIn = next;
+                }
+                if (const Status updated = timeline.setClipProperties(id, properties); !updated) {
+                    return updated;
+                }
+            }
+            return {};
+        });
+}
+
+std::unique_ptr<EditCommand> setClipGains(const QList<Id>& clipIds, double gain)
+{
+    return command(
+        QStringLiteral("Set Selected Audio Gain"),
+        [clipIds, gain](Timeline& timeline, const SourceLookup&) -> Status {
+            if (clipIds.isEmpty() || !std::isfinite(gain) || gain < 0.0 || gain > kMaxClipGain) {
+                return makeError(ErrorCode::InvalidArgument,
+                                 QStringLiteral("Select clips and a valid audio gain."));
+            }
+
+            QSet<Id> visited;
+            bool changed = false;
+            for (const Id& id : clipIds) {
+                if (visited.contains(id)) {
+                    return makeError(ErrorCode::InvalidArgument,
+                                     QStringLiteral("A clip was selected twice."));
+                }
+                visited.insert(id);
+                const Clip* clip = timeline.clip(id);
+                const Track* track = timeline.trackOfClip(id);
+                if (!clip || !track) {
+                    return makeError(ErrorCode::NotFound,
+                                     QStringLiteral("A selected clip was not found."));
+                }
+                if (track->locked) {
+                    return makeError(
+                        ErrorCode::Conflict,
+                        QStringLiteral("Unlock affected tracks before editing audio gain."));
+                }
+                changed |= clip->properties.gain != gain;
+            }
+            if (!changed) {
+                return makeError(ErrorCode::InvalidArgument,
+                                 QStringLiteral("The selected clips already have this gain."));
+            }
+
+            for (const Id& id : clipIds) {
+                ClipProperties properties = timeline.clip(id)->properties;
+                properties.gain = gain;
+                if (const Status updated = timeline.setClipProperties(id, properties); !updated) {
+                    return updated;
+                }
+            }
+            return {};
+        });
+}
+
+std::unique_ptr<EditCommand> setClipBalances(const QList<Id>& clipIds, double balance)
+{
+    return command(
+        QStringLiteral("Set Selected Stereo Balance"),
+        [clipIds, balance](Timeline& timeline, const SourceLookup& sources) -> Status {
+            if (clipIds.isEmpty() || !std::isfinite(balance) || balance < -1.0 || balance > 1.0) {
+                return makeError(ErrorCode::InvalidArgument,
+                                 QStringLiteral("Select clips and a valid stereo balance."));
+            }
+
+            QSet<Id> visited;
+            bool changed = false;
+            for (const Id& id : clipIds) {
+                if (visited.contains(id)) {
+                    return makeError(ErrorCode::InvalidArgument,
+                                     QStringLiteral("A clip was selected twice."));
+                }
+                visited.insert(id);
+                const Clip* clip = timeline.clip(id);
+                const Track* track = timeline.trackOfClip(id);
+                if (!clip || !track) {
+                    return makeError(ErrorCode::NotFound,
+                                     QStringLiteral("A selected clip was not found."));
+                }
+                if (track->locked) {
+                    return makeError(
+                        ErrorCode::Conflict,
+                        QStringLiteral("Unlock affected tracks before changing balance."));
+                }
+                const auto source = sources ? sources(clip->assetId) : std::nullopt;
+                if (!source || !source->hasAudio || source->audioChannels != 2) {
+                    return makeError(
+                        ErrorCode::InvalidArgument,
+                        QStringLiteral("Stereo balance requires a two-channel source."));
+                }
+                changed |= clip->properties.balance != balance;
+            }
+            if (!changed) {
+                return makeError(ErrorCode::InvalidArgument,
+                                 QStringLiteral("The selected clips already have this balance."));
+            }
+
+            for (const Id& id : clipIds) {
+                ClipProperties properties = timeline.clip(id)->properties;
+                properties.balance = balance;
+                if (const Status updated = timeline.setClipProperties(id, properties); !updated) {
+                    return updated;
+                }
+            }
+            return {};
+        });
+}
+
+std::unique_ptr<EditCommand> setClipOpacities(const QList<Id>& clipIds, double opacity)
+{
+    return command(
+        QStringLiteral("Set Selected Video Opacity"),
+        [clipIds, opacity](Timeline& timeline, const SourceLookup&) -> Status {
+            if (clipIds.isEmpty() || !std::isfinite(opacity) || opacity < 0.0 || opacity > 1.0) {
+                return makeError(ErrorCode::InvalidArgument,
+                                 QStringLiteral("Select video clips and a valid opacity."));
+            }
+
+            QSet<Id> visited;
+            bool changed = false;
+            for (const Id& id : clipIds) {
+                if (visited.contains(id)) {
+                    return makeError(ErrorCode::InvalidArgument,
+                                     QStringLiteral("A clip was selected twice."));
+                }
+                visited.insert(id);
+                const Clip* clip = timeline.clip(id);
+                const Track* track = timeline.trackOfClip(id);
+                if (!clip || !track) {
+                    return makeError(ErrorCode::NotFound,
+                                     QStringLiteral("A selected clip was not found."));
+                }
+                if (track->kind != TrackKind::Video) {
+                    return makeError(ErrorCode::InvalidArgument,
+                                     QStringLiteral("Only video-track clips support opacity."));
+                }
+                if (track->locked) {
+                    return makeError(
+                        ErrorCode::Conflict,
+                        QStringLiteral("Unlock selected tracks before changing video opacity."));
+                }
+                changed |= clip->properties.video.opacity != opacity;
+            }
+            if (!changed) {
+                return makeError(ErrorCode::InvalidArgument,
+                                 QStringLiteral("The selected clips already have this opacity."));
+            }
+
+            for (const Id& id : clipIds) {
+                ClipProperties properties = timeline.clip(id)->properties;
+                properties.video.opacity = opacity;
+                if (const Status updated = timeline.setClipProperties(id, properties); !updated) {
+                    return updated;
+                }
+            }
+            return {};
+        });
+}
+
+std::unique_ptr<EditCommand> setClipVideoAdjustment(const QList<Id>& clipIds,
+                                                    const QString& property, double value)
+{
+    return command(
+        QStringLiteral("Set Selected Video Adjustment"),
+        [clipIds, property, value](Timeline& timeline, const SourceLookup&) -> Status {
+            const bool brightness = property == QLatin1String("brightness");
+            const bool contrast = property == QLatin1String("contrast");
+            const bool saturation = property == QLatin1String("saturation");
+            const double lower = brightness ? -1.0 : 0.0;
+            const double upper = brightness ? 1.0 : (contrast ? 2.0 : 3.0);
+            if (clipIds.isEmpty() || (!brightness && !contrast && !saturation) ||
+                !std::isfinite(value) || value < lower || value > upper) {
+                return makeError(
+                    ErrorCode::InvalidArgument,
+                    QStringLiteral("Select video clips and a valid picture adjustment."));
+            }
+
+            QSet<Id> visited;
+            bool changed = false;
+            for (const Id& id : clipIds) {
+                if (visited.contains(id)) {
+                    return makeError(ErrorCode::InvalidArgument,
+                                     QStringLiteral("A clip was selected twice."));
+                }
+                visited.insert(id);
+                const Clip* clip = timeline.clip(id);
+                const Track* track = timeline.trackOfClip(id);
+                if (!clip || !track) {
+                    return makeError(ErrorCode::NotFound,
+                                     QStringLiteral("A selected clip was not found."));
+                }
+                if (track->kind != TrackKind::Video) {
+                    return makeError(
+                        ErrorCode::InvalidArgument,
+                        QStringLiteral("Picture adjustments require video-track clips."));
+                }
+                if (track->locked) {
+                    return makeError(ErrorCode::Conflict,
+                                     QStringLiteral("Unlock affected video tracks first."));
+                }
+                const VideoAdjustments& video = clip->properties.video;
+                const double current =
+                    brightness ? video.brightness : (contrast ? video.contrast : video.saturation);
+                changed |= current != value;
+            }
+            if (!changed) {
+                return makeError(ErrorCode::InvalidArgument,
+                                 QStringLiteral("The selected clips already have this value."));
+            }
+
+            for (const Id& id : clipIds) {
+                ClipProperties properties = timeline.clip(id)->properties;
+                if (brightness) {
+                    properties.video.brightness = value;
+                } else if (contrast) {
+                    properties.video.contrast = value;
+                } else {
+                    properties.video.saturation = value;
+                }
+                if (const Status updated = timeline.setClipProperties(id, properties); !updated) {
+                    return updated;
+                }
+            }
+            return {};
+        });
+}
+
 std::unique_ptr<EditCommand> resetClipPictures(const QList<Id>& clipIds)
 {
     return command(QStringLiteral("Reset Selected Pictures"),
@@ -415,19 +1284,100 @@ std::unique_ptr<EditCommand> resetClipPictures(const QList<Id>& clipIds)
                                                 QStringLiteral("A clip was selected twice."));
                            }
                            visited.insert(id);
-                           const Clip* clip = timeline.clip(id);
-                           if (!clip) {
-                               return makeError(ErrorCode::NotFound,
-                                                QStringLiteral("A selected clip was not found."));
-                           }
-                           ClipProperties properties = clip->properties;
-                           properties.video = VideoAdjustments{};
-                           if (const Status updated = timeline.setClipProperties(id, properties);
-                               !updated) {
+                           if (const Status updated = timeline.resetClipPicture(id); !updated) {
                                return updated;
                            }
                        }
                        return {};
+                   });
+}
+
+std::unique_ptr<EditCommand> resetClipPicture(const Id& clipId)
+{
+    return command(QStringLiteral("Reset Picture"),
+                   [clipId](Timeline& timeline, const SourceLookup&) {
+                       return timeline.resetClipPicture(clipId);
+                   });
+}
+
+std::unique_ptr<EditCommand> setOpacityKeyframe(const Id& clipId, FrameCount sourceFrame,
+                                                double opacity)
+{
+    return command(
+        QStringLiteral("Set Opacity Keyframe"),
+        [clipId, sourceFrame, opacity](Timeline& timeline, const SourceLookup& sources) {
+            return timeline.setOpacityKeyframe(clipId, sourceFrame, opacity, sources);
+        },
+        QStringLiteral("opacity-keyframe:%1:%2").arg(clipId).arg(sourceFrame));
+}
+
+std::unique_ptr<EditCommand> removeOpacityKeyframe(const Id& clipId, FrameCount sourceFrame)
+{
+    return command(QStringLiteral("Remove Opacity Keyframe"),
+                   [clipId, sourceFrame](Timeline& timeline, const SourceLookup&) {
+                       return timeline.removeOpacityKeyframe(clipId, sourceFrame);
+                   });
+}
+
+std::unique_ptr<EditCommand> clearOpacityKeyframes(const Id& clipId)
+{
+    return command(QStringLiteral("Clear Opacity Keyframes"),
+                   [clipId](Timeline& timeline, const SourceLookup&) {
+                       return timeline.clearOpacityKeyframes(clipId);
+                   });
+}
+
+std::unique_ptr<EditCommand> setTransformKeyframe(const Id& clipId, FrameCount sourceFrame,
+                                                  const VideoTransform& value)
+{
+    return command(
+        QStringLiteral("Set Transform Keyframe"),
+        [clipId, sourceFrame, value](Timeline& timeline, const SourceLookup& sources) {
+            return timeline.setTransformKeyframe(clipId, sourceFrame, value, sources);
+        },
+        QStringLiteral("transform-keyframe:%1:%2").arg(clipId).arg(sourceFrame));
+}
+
+std::unique_ptr<EditCommand> removeTransformKeyframe(const Id& clipId, FrameCount sourceFrame)
+{
+    return command(QStringLiteral("Remove Transform Keyframe"),
+                   [clipId, sourceFrame](Timeline& timeline, const SourceLookup&) {
+                       return timeline.removeTransformKeyframe(clipId, sourceFrame);
+                   });
+}
+
+std::unique_ptr<EditCommand> clearTransformKeyframes(const Id& clipId)
+{
+    return command(QStringLiteral("Clear Transform Keyframes"),
+                   [clipId](Timeline& timeline, const SourceLookup&) {
+                       return timeline.clearTransformKeyframes(clipId);
+                   });
+}
+
+std::unique_ptr<EditCommand> setAudioKeyframe(const Id& clipId, FrameCount sourceFrame,
+                                              double decibels)
+{
+    return command(
+        QStringLiteral("Set Volume Keyframe"),
+        [clipId, sourceFrame, decibels](Timeline& timeline, const SourceLookup& sources) {
+            return timeline.setAudioKeyframe(clipId, sourceFrame, decibels, sources);
+        },
+        QStringLiteral("audio-keyframe:%1:%2").arg(clipId).arg(sourceFrame));
+}
+
+std::unique_ptr<EditCommand> removeAudioKeyframe(const Id& clipId, FrameCount sourceFrame)
+{
+    return command(QStringLiteral("Remove Volume Keyframe"),
+                   [clipId, sourceFrame](Timeline& timeline, const SourceLookup&) {
+                       return timeline.removeAudioKeyframe(clipId, sourceFrame);
+                   });
+}
+
+std::unique_ptr<EditCommand> clearAudioKeyframes(const Id& clipId)
+{
+    return command(QStringLiteral("Clear Volume Keyframes"),
+                   [clipId](Timeline& timeline, const SourceLookup&) {
+                       return timeline.clearAudioKeyframes(clipId);
                    });
 }
 

@@ -7,6 +7,7 @@
 #include "ui/media_controller.h"
 #include "ui/playback_controller.h"
 #include "ui/project_controller.h"
+#include "ui/subtitle_controller.h"
 #include "ui/thumbnail_provider.h"
 #include "ui/timeline_controller.h"
 #include "ui/waveform_provider.h"
@@ -32,6 +33,7 @@ class AppController : public QObject
     Q_PROPERTY(ft::ui::ProjectController* project READ project CONSTANT)
     Q_PROPERTY(ft::ui::MediaController* media READ media CONSTANT)
     Q_PROPERTY(ft::ui::TimelineController* timeline READ timeline CONSTANT)
+    Q_PROPERTY(ft::ui::SubtitleController* subtitles READ subtitles CONSTANT)
     Q_PROPERTY(ft::ui::PlaybackController* playback READ playback CONSTANT)
     Q_PROPERTY(ft::ui::ExportController* exporter READ exporter CONSTANT)
     Q_PROPERTY(bool engineReady READ engineReady CONSTANT)
@@ -51,6 +53,7 @@ public:
     [[nodiscard]] ProjectController* project() const { return m_project.get(); }
     [[nodiscard]] MediaController* media() const { return m_media.get(); }
     [[nodiscard]] TimelineController* timeline() const { return m_timeline.get(); }
+    [[nodiscard]] SubtitleController* subtitles() const { return m_subtitles.get(); }
     [[nodiscard]] PlaybackController* playback() const { return m_playback.get(); }
     [[nodiscard]] ExportController* exporter() const { return m_exporter.get(); }
     [[nodiscard]] bool engineReady() const { return m_engineReady; }
@@ -96,12 +99,13 @@ private:
     std::shared_ptr<ThumbnailRegistry> m_thumbnails;
     std::shared_ptr<media::ThumbnailCache> m_thumbnailCache;
     std::shared_ptr<WaveformService> m_waveforms;
-    // Declaration order is destruction order in reverse: export, then timeline, playback, media,
-    // and the project last.
+    // Declaration order is destruction order in reverse: export, subtitles, timeline, playback,
+    // media, and the project last.
     std::unique_ptr<ProjectController> m_project;
     std::unique_ptr<MediaController> m_media;
     std::unique_ptr<PlaybackController> m_playback;
     std::unique_ptr<TimelineController> m_timeline;
+    std::unique_ptr<SubtitleController> m_subtitles;
     std::unique_ptr<ExportController> m_exporter;
 };
 

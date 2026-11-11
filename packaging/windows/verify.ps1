@@ -96,6 +96,47 @@ function Test-SelfTest([string] $Folder, [string] $What) {
     return (Join-Path $work 'self-test.ftproj')
 }
 
+# Run actual renderer entrypoints, not only --self-test. Distinct outputs at
+# integer and rational FPS catch repeat-init, CLI and codec packaging failures.
+# The input is exclusively the disposable two-second project from --self-test.
+function Test-StandaloneExports([string] $Folder, [string] $Project, [string] $What) {
+    $render = Join-Path $Folder 'frametrellis-render.exe'
+    $outDir = Join-Path $WorkDir "standalone $What"
+    New-Item -ItemType Directory -Force -Path $outDir | Out-Null
+    foreach ($case in @(
+        @{ Label = '24fps'; Rate = '24' },
+        @{ Label = 'ntsc'; Rate = '30000/1001' }
+    )) {
+        $output = Join-Path $outDir ("repeat-$($case.Label).mp4")
+        if (Test-Path -LiteralPath $output) {
+            throw "Refusing to overwrite an earlier packaged-renderer test output: $output"
+        }
+        $arguments = @('--project', $Project, '--output', $output,
+                       '--fps', $case.Rate, '--width', '320', '--refuse-existing-output')
+        $result = Invoke-Console $render $arguments
+        $prefix = Join-Path $Artifacts "renderer-$Label-$What-$($case.Label)"
+        Set-Content -LiteralPath "$prefix.stdout.log" -Value $result.Output -Encoding UTF8
+        Set-Content -LiteralPath "$prefix.stderr.log" -Value $result.Errors -Encoding UTF8
+
+        $exists = Test-Path -LiteralPath $output -PathType Leaf
+        $bytes = if ($exists) { [int64](Get-Item -LiteralPath $output).Length } else { [int64]0 }
+        Check ($result.ExitCode -eq 0 -and $bytes -gt 1024) `
+            "$What packaged renderer standalone $($case.Label) creates nonempty MP4"
+        if ($result.ExitCode -ne 0) {
+            Write-Host "Renderer exit $($result.ExitCode): $($result.Errors)"
+        }
+        if ($exists -and $bytes -gt 1024 -and $case.Label -eq '24fps') {
+            # A collision must fail without replacing a previously finished
+            # output, even when the caller retries with another process.
+            $before = (Get-FileHash -LiteralPath $output -Algorithm SHA256).Hash
+            $collision = Invoke-Console $render $arguments
+            $after = (Get-FileHash -LiteralPath $output -Algorithm SHA256).Hash
+            Check ($collision.ExitCode -ne 0 -and $before -eq $after) `
+                "$What standalone renderer refuses existing output without changing its bytes"
+        }
+    }
+}
+
 function Test-Editor([string] $Folder, [string] $Project, [string] $What) {
     $exe = Join-Path $Folder 'frametrellis.exe'
     $shot = Join-Path $Artifacts "screenshot-$Label-$What.png"
@@ -223,6 +264,7 @@ $help = Invoke-Console (Join-Path $portable 'frametrellis-render.exe') @('--vers
 Check ($help.ExitCode -eq 0 -and $help.Output -match [regex]::Escape($version)) 'render helper reports its version'
 $project = Test-SelfTest $portable 'portable'
 if (Test-Path $project) {
+    Test-StandaloneExports $portable $project 'portable'
     for ($run = 1; $run -le $PortableGuiRuns; ++$run) {
         $name = if ($PortableGuiRuns -eq 1) { 'portable' } else { "portable-$run" }
         # Every launch has its own screenshot and results. A later success never

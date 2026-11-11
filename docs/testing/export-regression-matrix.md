@@ -17,6 +17,20 @@ This document defines repeatable acceptance checks for FrameTrellis MP4 export. 
 | Destination collision | Existing output file | Replace only after a fully verified render |
 | Missing media | Project with offline source | Clear failure or documented placeholder behavior; no silent success |
 | Non-ASCII paths | Unicode project and output paths | Output is created and playable |
+| Clean Windows packaged repeated CLI export | On each clean Windows 2022/2025/11 ARM host, use only its portable renderer and generated 2-second self-test .ftproj | Two independently encoded nonempty MP4s at 24 and 30000/1001 FPS, custom width 320 and no external development DLLs |
+| Packaged CLI no-overwrite | Retry the first finished MP4 with --refuse-existing-output | Nonzero renderer exit and exactly unchanged SHA256 checksum |
+| Clean-host GUI repeated startup | Launch the packaged GUI using the default backend independently 3 times on native x64 hosts and 5 on ARM x64 emulation | Every startup stays alive until screenshot, loads only packaged/Windows DLLs and exits cleanly; a subsequent success never hides a failure |
+
+**Packaged Windows evidence:** `.github/workflows/package-windows.yml` invokes
+`packaging/windows/verify.ps1` against the ZIP and installer without developer
+tools on `PATH`. The portable renderer uses disposable synthetic footage and
+exports **two separate MP4s** at 24 and 30000/1001 fps and an even custom width,
+then checks that `--refuse-existing-output` preserves the first file byte-for-byte.
+The GUI is also launched independently three times on Windows 2022 and 2025
+and five times on Windows 11 ARM, retaining individual screenshots, logs and
+exit statuses. A nonempty file alone is **not proof of full stream integrity
+or audible output**; real media-player and probe validation remains mandatory
+before stable v1.5.0.
 
 ## Execution protocol
 

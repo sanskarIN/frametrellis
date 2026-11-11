@@ -199,10 +199,9 @@ int main(int argc, char** argv)
                        "export it, and report each step. Exits with 0 when everything works."),
         QStringLiteral("directory"));
     parser.addOptions({projectOption, outputOption, shortSideOption, widthOption, fpsOption,
-                       startFrameOption,
-                       endFrameOption, crfOption, presetOption, audioOption, renderTokenOption,
-                       noAudioOption, refuseOutputOption, noUpscaleOption, watchStdinOption,
-                       selfTestOption, inspectProjectOption, listPresetsOption});
+                       startFrameOption, endFrameOption, crfOption, presetOption, audioOption,
+                       renderTokenOption, noAudioOption, refuseOutputOption, noUpscaleOption,
+                       watchStdinOption, selfTestOption, inspectProjectOption, listPresetsOption});
     parser.process(app);
 
     if (parser.isSet(listPresetsOption)) {

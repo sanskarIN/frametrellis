@@ -3313,6 +3313,18 @@ private slots:
         QCOMPARE(m_app->project()->project().subtitles().cues.front().endMs, std::int64_t{3000});
         QVERIFY(click(QStringLiteral("subtitleUndo")));
         QTRY_COMPARE(m_app->project()->project().subtitles(), applied);
+        // The real frame-snap button aligns 123ms to the next frame at
+        // the project's own FPS while retaining the caption and one-step Undo.
+        QVERIFY(click(QStringLiteral("subtitleAlignFrames")));
+        const FrameRate& projectRate = m_app->project()->project().settings().frameRate;
+        const auto firstFrame = subtitleFrameAtMilliseconds(123, projectRate);
+        QVERIFY(firstFrame);
+        const auto sampled = subtitleMillisecondsAtFrame(*firstFrame, projectRate);
+        QVERIFY(sampled);
+        QTRY_COMPARE(m_app->project()->project().subtitles().cues.front().startMs, *sampled);
+        QCOMPARE(m_app->project()->project().timeline(), initial);
+        QVERIFY(click(QStringLiteral("subtitleUndo")));
+        QTRY_COMPARE(m_app->project()->project().subtitles(), applied);
         QVERIFY(click(QStringLiteral("subtitleUndo")));
         QTRY_COMPARE(m_app->project()->project().subtitles().cues.front().startMs, 0);
         m_app->project()->redo();

@@ -182,6 +182,29 @@ private slots:
         screenshot(QStringLiteral("02-empty-workspace"));
     }
 
+    void aboutDialogIncludesBuildRevisionInLocalDiagnostics()
+    {
+        const QString revision = m_app->buildRevision();
+        QVERIFY(!revision.isEmpty());
+        if (revision != QLatin1String("unknown")) {
+            QVERIFY(revision.size() >= 12 && revision.size() <= 40);
+            for (const QChar ch : revision) {
+                const char c = ch.toLatin1();
+                QVERIFY((c >= '0' && c <= '9') || (c >= 'a' && c <= 'f') || (c >= 'A' && c <= 'F'));
+            }
+        }
+        QVERIFY(m_app->diagnostics().contains(QStringLiteral("Source revision: %1").arg(revision)));
+        QObject* about = m_window->findChild<QObject*>(QStringLiteral("aboutDialog"));
+        QVERIFY(about);
+        QVERIFY(QMetaObject::invokeMethod(about, "open"));
+        QTRY_VERIFY(about->property("visible").toBool());
+        QQuickItem* label = findItem(m_window->contentItem(), QStringLiteral("aboutBuildRevision"));
+        QVERIFY(label);
+        QTRY_VERIFY(label->property("text").toString().contains(revision));
+        QVERIFY(QMetaObject::invokeMethod(about, "close"));
+        QTRY_VERIFY(!about->property("visible").toBool());
+    }
+
     void importShowsMediaInTheBin()
     {
         QSignalSpy imported(m_app->media(), &ui::MediaController::imported);
@@ -456,6 +479,20 @@ private slots:
         projectController->undo();
         QCOMPARE(projectController->project(), before);
         QCOMPARE(projectController->undoText(), undoBefore);
+    }
+
+    void escapeClearsSelectionWithoutDeletingOrUndo()
+    {
+        const Id clipId = track(0).clips.front().id;
+        const Project unchanged = m_app->project()->project();
+        const QString history = m_app->project()->undoText();
+        m_app->timeline()->select(clipId, false);
+        QCOMPARE(m_app->timeline()->selection().size(), 1);
+        QTest::keyClick(m_window, Qt::Key_Escape);
+        QTRY_VERIFY(m_app->timeline()->selection().isEmpty());
+        QVERIFY(m_app->project()->project().timeline().clip(clipId));
+        QCOMPARE(m_app->project()->project(), unchanged);
+        QCOMPARE(m_app->project()->undoText(), history);
     }
 
     void mediaBinCanFindTimelineUsesWithoutEditing()

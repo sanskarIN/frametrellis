@@ -21,7 +21,8 @@ the **editor process**, not just the output MP4.
    `frametrellis-render.exe`), and record the faulting module and exception code.
    Alternatively, use **Reliability Monitor** (`perfmon /rel`) to find the matching
    application failure.
-3. Record the FrameTrellis version, Windows version, source video/audio codecs, resolution,
+3. Record the FrameTrellis version **and the build revision displayed in Help → About**
+   (also in **Copy diagnostics**), Windows version, source video/audio codecs, resolution,
    duration, chosen export preset, export FPS, and whether the crash occurs at a consistent
    frame or elapsed time. Do not upload private media or full crash dumps by default.
 4. If the editor stays open but the helper fails, expand the Export dialog's error details.

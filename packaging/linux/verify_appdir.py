@@ -24,6 +24,7 @@ MEDIA_PREFIXES = (
     "libswscale",
     "libswresample",
     "libSDL2",
+    "libSDL3",
     "libx264",
     "libx265",
 )
@@ -62,6 +63,43 @@ def check_link(soname: str, resolved: str | None, appdir: Path) -> str | None:
     return None
 
 
+
+def collect_bundled_elfs(appdir: Path) -> tuple[list[Path], list[str]]:
+    """Inspect all ELF files, including Qt/QML plugins, and reject escaping links.
+
+    The main app and MLT modules alone cannot prove the AppImage's dependency
+    closure: Qt plugins are loaded dynamically and may need additional media
+    or Qt libraries. Resolve symlinks before de-duplicating each ELF.
+    """
+    files: list[Path] = []
+    problems: list[str] = []
+    seen: set[Path] = set()
+    for path in sorted(appdir.rglob("*")):
+        if path.is_symlink():
+            resolved = path.resolve(strict=False)
+            if not resolved.is_relative_to(appdir) or not resolved.exists():
+                problems.append(f"Escaping or broken AppDir symlink: {path} -> {resolved}")
+                continue
+        if not path.is_file():
+            continue
+        resolved = path.resolve()
+        if not resolved.is_relative_to(appdir):
+            problems.append(f"File escapes AppDir: {path} -> {resolved}")
+            continue
+        if resolved in seen:
+            continue
+        seen.add(resolved)
+        try:
+            with path.open("rb") as stream:
+                if stream.read(4) != b"\x7fELF":
+                    continue
+        except OSError as exc:
+            problems.append(f"Cannot read bundled file {path}: {exc}")
+            continue
+        files.append(path)
+    return files, problems
+
+
 def check_appdir(appdir: Path) -> list[str]:
     appdir = appdir.resolve()
     root = appdir / "usr"
@@ -83,25 +121,25 @@ def check_appdir(appdir: Path) -> list[str]:
 
     libs = [root / "lib", root / "lib/x86_64-linux-gnu"]
     library_path = ":".join(str(path) for path in libs if path.is_dir())
-    env = {key: value for key, value in os.environ.items() if key not in {
-        "QT_PLUGIN_PATH", "QML2_IMPORT_PATH", "FRAMETRELLIS_MLT_REPOSITORY",
-        "MLT_REPOSITORY", "LD_LIBRARY_PATH",
-    }}
+    env = {
+        key: value
+        for key, value in os.environ.items()
+        if key not in {
+            "QT_PLUGIN_PATH",
+            "QML2_IMPORT_PATH",
+            "FRAMETRELLIS_MLT_REPOSITORY",
+            "MLT_REPOSITORY",
+            "LD_LIBRARY_PATH",
+        }
+    }
     env["LD_LIBRARY_PATH"] = library_path
-    files = required[:2] + modules
+    files, link_problems = collect_bundled_elfs(appdir)
+    problems.extend(link_problems)
+    if not files:
+        problems.append("No ELF binaries found in AppDir")
     scanned = 0
     for file in files:
-        result = subprocess.run(
-            ["ldd", str(file)], capture_output=True, text=True, env=env, check=False
-        )
-        if result.returncode:
-            problems.append(f"ldd failed for {file}: {result.stderr.strip()}")
-            continue
-        scanned += 1
-        for soname, resolved in parse_ldd_output(result.stdout):
-            problem = check_link(soname, resolved, appdir)
-            if problem:
-                problems.append(f"{file}: {problem}")
+        # Static ELF assets do not need runtime library resolution.
         elf = subprocess.run(
             ["readelf", "-d", str(file)],
             capture_output=True,
@@ -109,14 +147,27 @@ def check_appdir(appdir: Path) -> list[str]:
             check=False,
         )
         if elf.returncode:
-            problems.append(f"readelf failed for {file}")
+            problems.append(f"readelf failed for {file}: {elf.stderr.strip()}")
             continue
+        if "There is no dynamic section" in elf.stdout:
+            continue
+        scanned += 1
+        result = subprocess.run(
+            ["ldd", str(file)], capture_output=True, text=True, env=env, check=False
+        )
+        if result.returncode:
+            problems.append(f"ldd failed for {file}: {result.stderr.strip()}")
+            continue
+        for soname, resolved in parse_ldd_output(result.stdout):
+            problem = check_link(soname, resolved, appdir)
+            if problem:
+                problems.append(f"{file}: {problem}")
         for line in elf.stdout.splitlines():
             if "(RUNPATH)" in line or "(RPATH)" in line:
                 match = re.search(r"\[(.+?)\]", line)
                 if match and any(bad in match.group(1) for bad in DANGEROUS_BUILDER_PATHS):
                     problems.append(f"{file}: external build-tree ELF RPATH {match.group(1)}")
-    print(f"Scanned {scanned} ELF programs and MLT service modules")
+    print(f"Scanned {scanned} dynamically linked ELF files (including Qt/QML plugins)")
     return problems
 
 

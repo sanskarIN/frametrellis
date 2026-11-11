@@ -327,6 +327,45 @@ private slots:
         }
     }
 
+    void cancellationRequestMustNotHideRendererError()
+    {
+        ExportSettings settings;
+        settings.outputPath = m_dir.filePath(QStringLiteral("fail-after-cancel.mp4"));
+        RenderJob job(QStringLiteral(FT_CANCEL_RENDER_HELPER));
+        QSignalSpy finished(&job, &RenderJob::finished);
+        QObject::connect(&job, &RenderJob::stateChanged, &job, [&job](RenderJob::State state) {
+            if (state == RenderJob::State::Running) {
+                job.cancel();
+            }
+        });
+        QVERIFY(job.start(project(25), settings));
+        QVERIFY(finished.count() > 0 || finished.wait(15'000));
+        QCOMPARE(job.state(), RenderJob::State::Failed);
+        QVERIFY2(job.errorDetail().contains(QStringLiteral("0x0000002a")),
+                 qPrintable(job.errorDetail()));
+        QVERIFY(!QFile::exists(settings.outputPath));
+        QVERIFY(partFiles().isEmpty());
+    }
+
+    void cancellationWatchdogKillIsReportedAsCancelled()
+    {
+        ExportSettings settings;
+        settings.outputPath = m_dir.filePath(QStringLiteral("hang-after-cancel.mp4"));
+        RenderJob job(QStringLiteral(FT_CANCEL_RENDER_HELPER));
+        job.setKillGracePeriod(350);
+        QSignalSpy finished(&job, &RenderJob::finished);
+        QObject::connect(&job, &RenderJob::stateChanged, &job, [&job](RenderJob::State state) {
+            if (state == RenderJob::State::Running) {
+                job.cancel();
+            }
+        });
+        QVERIFY(job.start(project(25), settings));
+        QVERIFY(finished.count() > 0 || finished.wait(15'000));
+        QCOMPARE(job.state(), RenderJob::State::Cancelled);
+        QVERIFY(!QFile::exists(settings.outputPath));
+        QVERIFY(partFiles().isEmpty());
+    }
+
     void helperDiscardsLargeUnframedStdoutAndRecoversProtocol()
     {
         const Project original = project(25);

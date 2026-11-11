@@ -181,6 +181,24 @@ bool ProjectController::openProject(const QString& pathOrUrl)
     return true;
 }
 
+bool ProjectController::renameProject(const QString& newName)
+{
+    const QString name = newName.trimmed();
+    if (name.isEmpty() || name.size() > 120) {
+        emit statusMessage(QStringLiteral("Choose a project name between 1 and 120 characters."));
+        return false;
+    }
+    if (name == project().name()) {
+        return true; // No change or Undo entry for renaming to the current name.
+    }
+    if (!execute(std::make_unique<ProjectSettingsCommand>(project().settings(), name,
+                                                          QStringLiteral("Rename Project")))) {
+        return false;
+    }
+    emit statusMessage(QStringLiteral("Renamed project to %1.").arg(name));
+    return true;
+}
+
 bool ProjectController::save()
 {
     if (!m_document->hasFilePath()) {

@@ -34,6 +34,7 @@ qt_add_qml_module(ft_ui
         qml/dialogs/MarkerDialog.qml
         qml/dialogs/MessageBox.qml
         qml/dialogs/NewProjectDialog.qml
+        qml/dialogs/RenameProjectDialog.qml
         qml/dialogs/ShortcutsDialog.qml
         qml/dialogs/SubtitleDialog.qml
         qml/dialogs/TitleDialog.qml

@@ -332,9 +332,11 @@ ChangeSet RelinkMediaBatchCommand::undo(Project& project)
     return changes;
 }
 
-ProjectSettingsCommand::ProjectSettingsCommand(const ProjectSettings& settings, QString name)
+ProjectSettingsCommand::ProjectSettingsCommand(const ProjectSettings& settings, QString name,
+                                               QString description)
     : m_settings(settings)
     , m_name(std::move(name))
+    , m_description(std::move(description))
 {}
 
 Result<ChangeSet> ProjectSettingsCommand::redo(Project& project)

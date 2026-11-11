@@ -166,6 +166,12 @@ for ($i = 1; $i -le $Runs; ++$i) {
     } else {
         "0x" + [Convert]::ToString([int]$exitCode, 16).PadLeft(8, '0')
     }
+    $reportedPeakWorkingSet = $null
+    $reportedPeakPrivateBytes = $null
+    if ($resourceSamples -gt 0) {
+        $reportedPeakWorkingSet = [int64] $peakWorkingSetBytes
+        $reportedPeakPrivateBytes = [int64] $peakPrivateBytes
+    }
     $result = [pscustomobject]@{
         run = $i
         status = $status
@@ -178,8 +184,8 @@ for ($i = 1; $i -le $Runs; ++$i) {
         outputBytes = $outputBytes
         resourceSamplingEnabled = [bool] $SampleResources
         resourceSamples = $resourceSamples
-        peakWorkingSetBytes = if ($resourceSamples -gt 0) { [int64] $peakWorkingSetBytes } else { $null }
-        peakPrivateBytes = if ($resourceSamples -gt 0) { [int64] $peakPrivateBytes } else { $null }
+        peakWorkingSetBytes = $reportedPeakWorkingSet
+        peakPrivateBytes = $reportedPeakPrivateBytes
         stdout = $stdoutFile
         stderr = $stderrFile
         output = $outputFile
@@ -190,6 +196,10 @@ for ($i = 1; $i -le $Runs; ++$i) {
 }
 
 $summaryPath = Join-Path $outputRoot "frametrellis-render-repro-summary.json"
+$reportedSampleInterval = $null
+if ($SampleResources) {
+    $reportedSampleInterval = $SampleIntervalMs
+}
 $summary = [pscustomobject]@{
     schemaVersion = 1
     generatedAt = (Get-Date).ToString("o")
@@ -199,7 +209,7 @@ $summary = [pscustomobject]@{
     fps = $Fps
     timeoutSeconds = $TimeoutSeconds
     resourceSamplingEnabled = [bool] $SampleResources
-    resourceSampleIntervalMs = if ($SampleResources) { $SampleIntervalMs } else { $null }
+    resourceSampleIntervalMs = $reportedSampleInterval
     runs = @($results.ToArray())
 }
 $summary | ConvertTo-Json -Depth 5 |

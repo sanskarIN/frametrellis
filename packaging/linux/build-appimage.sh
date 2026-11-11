@@ -101,6 +101,10 @@ fi
     "${mlt_modules[@]}" \
     --plugin qt \
     --output appimage
+# Verify we have actually copied Qt/MLT/codec closure into AppDir. The
+# production release must also pass clean-distro tests and license audit.
+python3 "$root/packaging/linux/verify_appdir.py" "$appdir" \
+    | tee "$output/AppDir-dependency-audit.txt"
 # linuxdeploy writes AppImage to the current directory, not necessarily $out.
 shopt -s nullglob
 results=(./FrameTrellis-*.AppImage ./frametrellis-*.AppImage)

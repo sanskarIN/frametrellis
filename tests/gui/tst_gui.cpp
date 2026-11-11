@@ -4207,6 +4207,62 @@ private slots:
         QMetaObject::invokeMethod(dialog, "close");
     }
 
+    void exportDialogShowsCustomWidthAndPreservesProjectSettings()
+    {
+        QObject* dialog = m_window->findChild<QObject*>(QStringLiteral("exportDialog"));
+        QVERIFY(dialog);
+        const Project before = m_app->project()->project();
+        const QString undoBefore = m_app->project()->undoText();
+        QMetaObject::invokeMethod(dialog, "open");
+        QTRY_VERIFY(dialog->property("opened").toBool());
+        dialog->setProperty("outputPath", m_dir.filePath(QStringLiteral("custom-width-gui.mp4")));
+
+        QQuickItem* enabled =
+            findItem(m_window->contentItem(), QStringLiteral("exportCustomWidthEnabled"));
+        QQuickItem* width = findItem(m_window->contentItem(), QStringLiteral("exportCustomWidth"));
+        QQuickItem* summary =
+            findItem(m_window->contentItem(), QStringLiteral("exportOutputSummary"));
+        QVERIFY(enabled && width && summary);
+        QVERIFY(enabled->isVisible());
+        QVERIFY(!width->property("enabled").toBool());
+        QVERIFY(enabled->setProperty("checked", true));
+        QVERIFY(width->setProperty("text", QStringLiteral("1280")));
+        QTRY_VERIFY(width->property("enabled").toBool());
+
+        const int projectWidth = before.settings().width;
+        const int projectHeight = before.settings().height;
+        const int derivedHeight =
+            std::max(2, static_cast<int>(std::lround(
+                            static_cast<double>(projectHeight) * 1280 / projectWidth / 2.0)) *
+                            2);
+        const QString expected =
+            QStringLiteral("%1×%2").arg(1280).arg(derivedHeight);
+        QTRY_VERIFY2(summary->property("text").toString().contains(expected),
+                     qPrintable(summary->property("text").toString()));
+
+        QVariantMap options{
+            {QStringLiteral("presetId"), QStringLiteral("match")},
+            {QStringLiteral("outputPath"), m_dir.filePath(QStringLiteral("custom-width-gui.mp4"))},
+            {QStringLiteral("customWidth"), QStringLiteral("1280")}};
+        QCOMPARE(m_app->exporter()->validate(options), QString());
+        options[QStringLiteral("customWidth")] = QStringLiteral("127");
+        QVERIFY(!m_app->exporter()->validate(options).isEmpty());
+        options[QStringLiteral("customWidth")] = QStringLiteral("not-a-number");
+        QVERIFY(!m_app->exporter()->validate(options).isEmpty());
+
+        QMetaObject::invokeMethod(dialog, "close");
+        QTRY_VERIFY(!dialog->property("opened").toBool());
+        QMetaObject::invokeMethod(dialog, "open");
+        QTRY_VERIFY(dialog->property("opened").toBool());
+        QCOMPARE(enabled->property("checked").toBool(), true);
+        QCOMPARE(width->property("text").toString(), QStringLiteral("1280"));
+        QVERIFY(enabled->setProperty("checked", false));
+        QVERIFY(!width->property("enabled").toBool());
+        QMetaObject::invokeMethod(dialog, "close");
+        QCOMPARE(m_app->project()->project(), before);
+        QCOMPARE(m_app->project()->undoText(), undoBefore);
+    }
+
     void exportDialogBatchControlsValidateSelectionWithoutChangingProject()
     {
         QObject* dialog = m_window->findChild<QObject*>(QStringLiteral("exportDialog"));

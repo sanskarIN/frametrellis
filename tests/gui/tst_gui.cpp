@@ -420,13 +420,11 @@ private slots:
         QCOMPARE(projectController->undoText(), undoBefore);
         QCOMPARE(projectController->isModified(), modifiedBefore);
 
-        QObject* dialog =
-            m_window->findChild<QObject*>(QStringLiteral("renameProjectDialog"));
+        QObject* dialog = m_window->findChild<QObject*>(QStringLiteral("renameProjectDialog"));
         QVERIFY(dialog);
         QVERIFY(QMetaObject::invokeMethod(dialog, "open"));
         QTRY_VERIFY(dialog->property("visible").toBool());
-        QQuickItem* field =
-            findItem(m_window->contentItem(), QStringLiteral("renameProjectField"));
+        QQuickItem* field = findItem(m_window->contentItem(), QStringLiteral("renameProjectField"));
         QVERIFY(field);
         QVERIFY(field->setProperty("text", QStringLiteral("  नया प्रोजेक्ट 2026  ")));
         QVERIFY(QMetaObject::invokeMethod(dialog, "applyRename"));

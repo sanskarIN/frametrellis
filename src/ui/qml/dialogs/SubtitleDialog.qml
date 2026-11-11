@@ -158,9 +158,15 @@ FtDialog {
                 onClicked: dialog.guarded(() =>
                     dialog.subtitles.stretchAllTiming(subtitleStretchPercent.value))
             }
+            FtButton {
+                objectName: "subtitleAlignFrames"
+                text: qsTr("Align to frames")
+                enabled: dialog.subtitles.count > 0
+                onClicked: dialog.guarded(() => dialog.subtitles.alignAllTimingToFrames())
+            }
             Label {
                 Layout.fillWidth: true
-                text: qsTr("Scales all cue start/end times from 00:00 in one undo. Clips, audio and FPS do not change.")
+                text: qsTr("Stretch from 00:00 or snap cue edges forward to project frames. One undo; clips and FPS stay unchanged.")
                 color: Theme.textFaint
                 wrapMode: Text.WordWrap
             }

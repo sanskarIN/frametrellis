@@ -87,11 +87,17 @@ jobs:
           test -s "$stage/share/icons/hicolor/scalable/apps/frametrellis.svg"
           grep -Fq 'application/x-frametrellis-project' "$stage/share/mime/packages/frametrellis.xml"
           grep -Fq '*.ftproj' "$stage/share/mime/packages/frametrellis.xml"
-          # The staged executable must also start outside the build tree.
-          QT_QPA_PLATFORM=offscreen QT_QUICK_BACKEND=software SDL_AUDIODRIVER=dummy \
-            "$stage/bin/frametrellis" \
+          # This is an UNBUNDLED development installation: the system must
+          # provide ABI-compatible MLT/FFmpeg + Qt libraries. CI's MLT lives
+          # under $HOME/mlt (not in the distribution's linker cache).
+          export LD_LIBRARY_PATH="$HOME/mlt/lib:${LD_LIBRARY_PATH:-}"
+          export FRAMETRELLIS_MLT_REPOSITORY="$HOME/mlt/lib/mlt-7"
+          export QT_QPA_PLATFORM=offscreen QT_QUICK_BACKEND=software SDL_AUDIODRIVER=dummy
+          "$stage/bin/frametrellis-render" --self-test "$RUNNER_TEMP/linux-installed-render"
+          test -s "$RUNNER_TEMP/linux-installed-render/self-test-export.mp4"
+          "$stage/bin/frametrellis" \
             --screenshot "$RUNNER_TEMP/linux-installed-gui.png" \
-            --screenshot-delay 1000 "$RUNNER_TEMP/linux-smoke/self-test.ftproj"
+            --screenshot-delay 1000 "$RUNNER_TEMP/linux-installed-render/self-test.ftproj"
           test -s "$RUNNER_TEMP/linux-installed-gui.png"
           {
             echo "GUI ELF dependency links:"
@@ -101,8 +107,10 @@ jobs:
           } > "$stage/NATIVE-DEPENDENCIES.txt"
           cat > "$stage/DEVELOPMENT-BUILD.txt" <<'EOF'
           This Linux development build requires compatible Qt 6.8+, MLT 7,
-          FFmpeg, SDL2 and desktop system libraries. It is NOT a self-contained
-          AppImage/Flatpak or a stable v1.5.0 release.
+          FFmpeg, SDL2 and desktop system libraries. Libraries installed in a
+          nonstandard prefix may require LD_LIBRARY_PATH or ldconfig and the
+          corresponding MLT service modules to be configured. It is NOT a
+          self-contained AppImage/Flatpak or a stable v1.5.0 release.
           EOF
           tar -czf "$RUNNER_TEMP/FrameTrellis-linux-x64-development.tar.gz" \
             -C "$RUNNER_TEMP" FrameTrellis-linux-x64-development

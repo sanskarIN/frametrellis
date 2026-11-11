@@ -91,6 +91,44 @@ dylibbundler -b -cd -ns -d "$contents/Frameworks" \
     -s "$mlt_prefix/lib" -s "$(brew --prefix ffmpeg)/lib" \
     -s "$(brew --prefix sdl2)/lib" "${inputs[@]}"
 
+
+# Homebrew Qt's copied framework binaries can retain absolute LC_ID_DYLIB
+# install names. Relocate their identities to the bundle for future links.
+for framework in "$contents"/Frameworks/*.framework; do
+    [[ -d "$framework" ]] || continue
+    framework_name="${framework##*/}"
+    framework_name="${framework_name%.framework}"
+    framework_binary="$framework/Versions/A/$framework_name"
+    [[ -f "$framework_binary" ]] || continue
+    install_id="$(otool -D "$framework_binary" | sed -n '2p' | xargs)"
+    case "$install_id" in
+        /opt/homebrew/*|/usr/local/*)
+            install_name_tool -id \
+                "@rpath/$framework_name.framework/Versions/A/$framework_name" \
+                "$framework_binary"
+            ;;
+    esac
+done
+
+# Remove build-machine LC_RPATH entries only after deploying dependencies.
+# The bundle verifier remains responsible for rejecting unresolved libraries.
+# Both steps precede the final ad-hoc code signature.
+while IFS= read -r -d '' native_file; do
+    if ! /usr/bin/file -b "$native_file" | grep -Fq 'Mach-O'; then
+        continue
+    fi
+    while IFS= read -r runpath; do
+        case "$runpath" in
+            /opt/homebrew/*|/usr/local/*)
+                install_name_tool -delete_rpath "$runpath" "$native_file"
+                ;;
+        esac
+    done < <(otool -l "$native_file" | awk '
+        $1 == "cmd" && $2 == "LC_RPATH" { found = 1; next }
+        found && $1 == "path" { print $2; found = 0 }
+    ')
+done < <(find "$contents" -type f -print0)
+
 # Rebuilding/copying native libraries invalidates their previous signatures.
 # Ad-hoc signing makes it possible to check code integrity in CI but does not
 # provide Developer ID identity or Apple notarization.

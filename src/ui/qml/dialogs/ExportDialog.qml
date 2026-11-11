@@ -56,6 +56,7 @@ FtDialog {
             crf: Math.round(quality.value),
             speedPreset: speedBox.currentText,
             avoidUpscaling: noUpscaleCheck.checked,
+            customWidth: customWidthCheck.checked ? customWidthField.text.trim() : "0",
             audioBitrateKbps: parseInt(audioBox.currentText),
             includeAudio: audioCheck.checked,
             frameRate: fpsBox.currentIndex < 0 ? "match"
@@ -68,6 +69,7 @@ FtDialog {
         quality.value = p.crf
         speedBox.currentIndex = Math.max(0, exporter.speedPresets.indexOf(p.speedPreset))
         noUpscaleCheck.checked = p.avoidUpscaling === true
+        customWidthCheck.checked = false
         audioBox.currentIndex = Math.max(0, audioBox.model.indexOf(String(p.audioBitrateKbps)))
     }
     function selectedBatchIds() {
@@ -273,11 +275,34 @@ FtDialog {
             }
 
             Label { text: qsTr("Scaling"); color: Theme.textMuted }
-            FtCheckBox {
-                id: noUpscaleCheck
+            ColumnLayout {
                 Layout.fillWidth: true
-                text: qsTr("Do not upscale smaller projects (faster)")
-                Accessible.name: qsTr("Avoid upscaling smaller projects")
+                spacing: Theme.spacingS
+                FtCheckBox {
+                    id: noUpscaleCheck
+                    Layout.fillWidth: true
+                    text: qsTr("Do not upscale smaller projects (faster)")
+                    Accessible.name: qsTr("Avoid upscaling smaller projects")
+                }
+                RowLayout {
+                    Layout.fillWidth: true
+                    FtCheckBox {
+                        id: customWidthCheck
+                        objectName: "exportCustomWidthEnabled"
+                        text: qsTr("Custom width")
+                        Accessible.name: qsTr("Use custom output width")
+                    }
+                    TextField {
+                        id: customWidthField
+                        objectName: "exportCustomWidth"
+                        Layout.preferredWidth: 105
+                        enabled: customWidthCheck.checked
+                        text: "1280"
+                        validator: IntValidator { bottom: 16; top: 8192 }
+                        Accessible.name: qsTr("Custom output width in even pixels")
+                    }
+                    Label { text: qsTr("px · height automatic"); color: Theme.textFaint }
+                }
             }
 
             Label { text: qsTr("Audio"); color: Theme.textMuted }
@@ -344,7 +369,8 @@ FtDialog {
                         color: Theme.textFaint
                         font.pixelSize: Theme.fontSizeSmall
                         text: qsTr("Choose 2–5 variants. Each gets its own -preset.mp4 file. " +
-                                   "Existing outputs are never replaced; all variants use one project snapshot.")
+                                   "Existing outputs are never replaced; all variants use one project snapshot. " +
+                                    "Custom width applies only to single export.")
                         wrapMode: Text.WordWrap
                     }
                 }

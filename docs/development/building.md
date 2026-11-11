@@ -215,8 +215,11 @@ check is what catches it.
 
 ### Linux
 
-`cmake --install build/linux --prefix <dir>` installs the binaries, the desktop entry and the
-icon. The new [Linux/macOS desktop workflow](../../.github/workflows/desktop-platforms.yml)
+`cmake --install build/linux --prefix <dir>` installs the binaries, the desktop
+entry, the icon, and the shared MIME registration for `.ftproj`. When installing
+to a system prefix using a distro package, refresh its MIME cache using the
+distribution's normal package hooks. No changes to the host MIME database are
+made by the CI staging step. The new [Linux/macOS desktop workflow](../../.github/workflows/desktop-platforms.yml)
 also runs Linux GUI smoke tests and stages a development `.tar.gz` using
 this install layout. Its executables still require compatible Linux Qt
 6.8+, MLT 7 and FFmpeg system libraries. **It is not** a self-contained

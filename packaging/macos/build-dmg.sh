@@ -46,7 +46,18 @@ if [[ ! -d "$modules" || ! -d "$data" ]]; then
     echo "MLT modules and data missing: $modules ; $data" >&2
     exit 1
 fi
-ditto "$modules" "$contents/PlugIns/mlt-7"
+# Only bundle services actually required by FrameTrellis. Homebrew MLT
+# contains optional plugins linked against unrelated toolkits, hardware and
+# codec stacks. Copying all of them makes reliable dependency closure and
+# licensing needlessly harder and can load incompatible Qt plugins.
+for name in core avformat plus normalize; do
+    file="$modules/libmlt${name}.dylib"
+    if [[ ! -f "$file" ]]; then
+        echo "Missing essential MLT module $file" >&2
+        exit 1
+    fi
+    ditto "$file" "$contents/PlugIns/mlt-7/${file##*/}"
+done
 ditto "$data" "$contents/Resources/mlt-7"
 mkdir -p "$contents/Resources/licenses"
 cp "$root/LICENSE" "$root/THIRD_PARTY_NOTICES.md" "$contents/Resources/licenses/"

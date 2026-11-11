@@ -1,0 +1,104 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
+# DEVELOPMENT / packaging research only: artifacts are ad-hoc signed and
+# NOT Apple-notarized. Never use this workflow for stable release attachment.
+name: Experimental macOS desktop packages
+
+on:
+  pull_request:
+    paths:
+      - 'src/**'
+      - 'cmake/**'
+      - 'CMakeLists.txt'
+      - 'CMakePresets.json'
+      - 'packaging/macos/**'
+      - '.github/workflows/package-macos-experimental.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: macos-experimental-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  package:
+    name: macOS ${{ matrix.arch }} (bundle, audit, DMG and mounted smoke)
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - host: macos-15
+            arch: arm64
+          - host: macos-15-intel
+            arch: x86_64
+    runs-on: ${{ matrix.host }}
+    timeout-minutes: 110
+    steps:
+      - uses: actions/checkout@v6
+      - name: Install native toolchain and codec/bundle dependencies
+        run: |
+          brew install cmake ninja pkg-config qt mlt ffmpeg sdl2 dylibbundler
+          brew list --versions qt mlt ffmpeg sdl2 dylibbundler
+      - name: Configure full editor and helper
+        run: |
+          cmake --preset macos \
+            -DCMAKE_PREFIX_PATH="$(brew --prefix qt);$(brew --prefix mlt)"
+      - name: Build
+        run: cmake --build --preset macos --parallel 3
+      - name: Native application tests
+        env:
+          QT_QPA_PLATFORM: offscreen
+          QT_QUICK_BACKEND: software
+          SDL_AUDIODRIVER: dummy
+        run: ctest --preset macos --output-on-failure
+      - name: Make ad-hoc signed DMG with closed dependencies
+        run: bash packaging/macos/build-dmg.sh build/macos "$RUNNER_TEMP/ft-packages"
+      - name: Check installed DMG and run bundled renderer and QML GUI
+        env:
+          QT_QPA_PLATFORM: offscreen
+          QT_QUICK_BACKEND: software
+          SDL_AUDIODRIVER: dummy
+        run: |
+          set -euo pipefail
+          test "$(uname -m)" = "${{ matrix.arch }}"
+          out="$RUNNER_TEMP/ft-packages"
+          app="$out/FrameTrellis-macos-${{ matrix.arch }}-development.app"
+          dmg="$out/FrameTrellis-macos-${{ matrix.arch }}-UNNOTARIZED-development.dmg"
+          shasum -a 256 -c "$dmg.sha256"
+          codesign --verify --deep --strict "$app"
+          export FRAMETRELLIS_MLT_REPOSITORY="$app/Contents/PlugIns/mlt-7"
+          unset DYLD_LIBRARY_PATH DYLD_FALLBACK_LIBRARY_PATH || true
+          "$app/Contents/MacOS/frametrellis-render" --self-test "$RUNNER_TEMP/mac-bundled"
+          test -s "$RUNNER_TEMP/mac-bundled/self-test-export.mp4"
+          "$app/Contents/MacOS/frametrellis" \
+            --screenshot "$RUNNER_TEMP/mac-bundled-gui.png" \
+            --screenshot-delay 1200 "$RUNNER_TEMP/mac-bundled/self-test.ftproj"
+          test -s "$RUNNER_TEMP/mac-bundled-gui.png"
+          mkdir -p "$RUNNER_TEMP/ft-mount"
+          hdiutil attach -quiet -readonly -nobrowse \
+            -mountpoint "$RUNNER_TEMP/ft-mount" "$dmg"
+          trap 'hdiutil detach -quiet "$RUNNER_TEMP/ft-mount" || true' EXIT
+          test -x "$RUNNER_TEMP/ft-mount/FrameTrellis-macos-${{ matrix.arch }}-development.app/Contents/MacOS/frametrellis"
+          python3 packaging/macos/verify_bundle.py \
+            "$RUNNER_TEMP/ft-mount/FrameTrellis-macos-${{ matrix.arch }}-development.app"
+      - name: Upload UNNOTARIZED developmental DMG and audit
+        uses: actions/upload-artifact@v6
+        with:
+          name: macos-${{ matrix.arch }}-experimental-dmg-UNNOTARIZED
+          path: |
+            ${{ runner.temp }}/ft-packages/*.dmg
+            ${{ runner.temp }}/ft-packages/*.sha256
+            ${{ runner.temp }}/ft-packages/*-DEVELOPMENT-NOTICES.txt
+          if-no-files-found: error
+          retention-days: 14
+      - name: Upload optional screenshots and test logs
+        if: always()
+        uses: actions/upload-artifact@v6
+        with:
+          name: macos-${{ matrix.arch }}-experimental-test-evidence
+          path: |
+            ${{ runner.temp }}/mac-bundled-gui.png
+            build/macos/Testing/Temporary
+          if-no-files-found: ignore
+          retention-days: 14

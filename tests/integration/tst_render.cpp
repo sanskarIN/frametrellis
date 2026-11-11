@@ -528,6 +528,52 @@ private slots:
         QVERIFY(!info->hasAudio);
     }
 
+    void helperExportsCustomWidthAtSelectedFpsWithoutRetimingProject()
+    {
+        const Project source = project(50);
+        const Project before = source;
+        ExportSettings settings;
+        settings.outputPath = m_dir.filePath(QStringLiteral("custom-width-ntsc.mp4"));
+        settings.shortSide = 720; // override preset size, not source time
+        settings.customWidth = 128;
+        settings.frameRate = QStringLiteral("30000/1001");
+        settings.speedPreset = QStringLiteral("ultrafast");
+        settings.includeAudio = true;
+
+        RenderJob job(QStringLiteral(FT_RENDER_HELPER));
+        QSignalSpy finished(&job, &RenderJob::finished);
+        QVERIFY(job.start(source, settings));
+        QVERIFY(finished.count() > 0 || finished.wait(60'000));
+        QVERIFY2(job.state() == RenderJob::State::Succeeded,
+                 qPrintable(job.errorMessage() + job.errorDetail()));
+
+        const Result<MediaInfo> encoded = media::probeMedia(settings.outputPath);
+        QVERIFY(encoded);
+        QCOMPARE(encoded->width, 128);
+        QCOMPARE(encoded->height, 72);
+        QCOMPARE(encoded->frameRate, Rational(30000, 1001));
+        QVERIFY(encoded->hasAudio);
+        QCOMPARE(encoded->audioCodec, QStringLiteral("aac"));
+        QVERIFY2(qAbs(encoded->durationUs - 2'000'000) <= 100'000,
+                 qPrintable(QString::number(encoded->durationUs)));
+        QCOMPARE(source, before);
+        QVERIFY(partFiles().isEmpty());
+
+        // The renderer CLI must reject an invalid odd width before it
+        // creates or replaces any destination.
+        QProcess invalid;
+        const QString denied = m_dir.filePath(QStringLiteral("invalid-odd-width.mp4"));
+        const QString projectPath = m_dir.filePath(QStringLiteral("custom-width-cli.ftproj"));
+        QVERIFY(project_format::saveToFile(source, projectPath));
+        invalid.start(QStringLiteral(FT_RENDER_HELPER),
+                      {QStringLiteral("--project"), projectPath, QStringLiteral("--output"),
+                       denied, QStringLiteral("--width"), QStringLiteral("127")});
+        QVERIFY(invalid.waitForFinished(15'000));
+        QCOMPARE(invalid.exitStatus(), QProcess::NormalExit);
+        QVERIFY(invalid.exitCode() != 0);
+        QVERIFY(!QFileInfo::exists(denied));
+    }
+
     void quickExportAvoidsUnnecessaryUpscale()
     {
         // 160x90 fixture stays native size with a quick 1080p request. The audio

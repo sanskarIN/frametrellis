@@ -14,6 +14,10 @@ release workflow, and never make a channel the only way to get a release.
 | Channel | Platform | Decision | Precondition |
 |---|---|---|---|
 | GitHub Releases | Windows | Used from 1.0.0 | None |
+| GitHub Actions native development build | Linux x64 | v1.5 candidate | Full GUI/renderer CTest, native smoke and staged Qt/MLT-dependent tarball; **not** a portable public installer |
+| GitHub Actions native development build | macOS arm64 + Intel | v1.5 candidate | Full GUI/renderer CTest and .app helper co-location; Homebrew remains a runtime dependency |
+| GitHub Releases | Linux desktop | Proposed for v1.5 after validation | Self-contained, clean-host-tested AppImage/Flatpak or equivalent with licenses, real MP4 playback, hashes and source provenance |
+| GitHub Releases | macOS desktop | Proposed for v1.5 after validation | Fully bundled and signed/notarized architecture-specific DMGs, clean Mac runtime and Gatekeeper tests |
 | [GitHub Packages](https://github.com/sanskarIN/frametrellis/pkgs/container/frametrellis-render) (container registry) | Linux x86-64 | Used from 1.0.0 for the headless renderer | An image built and checked in CI |
 | [WinGet](https://learn.microsoft.com/windows/package-manager/) | Windows | Submit after 1.0.0 is published | A published, verified release |
 | [Flathub](https://flathub.org/) | Linux | Planned | A Flatpak that is built and verified in CI |
@@ -50,6 +54,21 @@ What it needs:
 The packages are not code-signed. WinGet accepts unsigned installers; code signing (planned for
 1.1) is still worth doing, because SmartScreen warns about unsigned installers that people
 download directly.
+
+## Cross-platform v1.5 development gate
+
+[Linux and macOS desktops CI](../../.github/workflows/desktop-platforms.yml)
+builds the **real Qt Quick desktop editor**, render helper and full tests on
+Linux x64, macOS Apple Silicon and macOS Intel, and stages development artifacts.
+Those artifacts deliberately retain OS-installed/Homebrew dependencies;
+they are **not distributable standalone installers**. The final release
+workflow currently signs off **Windows assets only** and must not be
+silently extended to attach unverified Linux/macOS files. For stable v1.5
+across all three operating systems, first add independent clean-host packages,
+runtime closure, license/SBOM and source-provenance records, artifact hashes,
+and real-media GUI/export/playback checks to the guarded release workflow.
+macOS code signing and notarization additionally require an authorized
+developer identity, valid credentials and Gatekeeper acceptance.
 
 ## Flathub
 

@@ -280,6 +280,7 @@ FtDialog {
                 spacing: Theme.spacingS
                 FtCheckBox {
                     id: noUpscaleCheck
+                    objectName: "exportAvoidUpscaling"
                     Layout.fillWidth: true
                     text: qsTr("Do not upscale smaller projects (faster)")
                     Accessible.name: qsTr("Avoid upscaling smaller projects")

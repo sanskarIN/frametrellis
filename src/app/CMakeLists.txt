@@ -31,4 +31,6 @@ if(UNIX AND NOT APPLE)
         DESTINATION "${CMAKE_INSTALL_DATADIR}/applications")
     install(FILES "${PROJECT_SOURCE_DIR}/resources/linux/frametrellis.svg"
         DESTINATION "${CMAKE_INSTALL_DATADIR}/icons/hicolor/scalable/apps")
+    install(FILES "${PROJECT_SOURCE_DIR}/resources/linux/frametrellis.xml"
+        DESTINATION "${CMAKE_INSTALL_DATADIR}/mime/packages")
 endif()

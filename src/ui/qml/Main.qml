@@ -342,7 +342,7 @@ ApplicationWindow {
             Action { text: qsTr("Select Entire Clips Before Playhead"); enabled: window.editKeys && !window.app.timeline.empty; onTriggered: window.app.timeline.selectClipsBeforePlayhead() }
             Action { text: qsTr("Select Entire Clips After Playhead"); enabled: window.editKeys && !window.app.timeline.empty; onTriggered: window.app.timeline.selectClipsAfterPlayhead() }
             Action { text: qsTr("Select All Occurrences of &Media"); shortcut: "Ctrl+Alt+R"; enabled: window.editKeys && window.app.timeline.selection.length === 1; onTriggered: window.app.timeline.selectAllMediaOccurrences() }
-            Action { text: qsTr("Clear Selection"); onTriggered: window.app.timeline.clearSelection() }
+            Action { text: qsTr("Clear Selection"); shortcut: "Escape"; enabled: window.editKeys && window.app.timeline.selection.length > 0; onTriggered: window.app.timeline.clearSelection() }
             MenuSeparator {}
             Action { text: qsTr("Lock All Tracks"); enabled: window.editKeys; onTriggered: window.app.timeline.setAllTracksLocked(true) }
             Action { text: qsTr("Unlock All Tracks"); enabled: window.editKeys; onTriggered: window.app.timeline.setAllTracksLocked(false) }

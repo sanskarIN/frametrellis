@@ -130,11 +130,12 @@ jobs:
         run: |
           $zip = Get-ChildItem dist\*.zip | Select-Object -First 1
           $setup = Get-ChildItem dist\*-setup.exe | Select-Object -First 1
-          # The ARM64 host exercises the x64 portable GUI five times independently.
-          # Repeated startups increase intermittent-crash detection, not retries:
-          # every failed attempt remains a failed package verification.
+          # Probe intermittent native startup faults across all clean hosts:
+          # five independent default-backend launches under x64-on-ARM and
+          # three on each native x64 host. This is NOT a retry-until-success;
+          # every failed launch still fails the whole verification.
           $isArm = "${{ matrix.os }}" -eq "windows-11-arm"
-          $portableRuns = if ($isArm) { 5 } else { 1 }
+          $portableRuns = if ($isArm) { 5 } else { 3 }
           # On ARM compare software graphics and dummy SDL audio separately.
           ./packaging/windows/verify.ps1 -Zip $zip.FullName -Installer $setup.FullName `
             -WorkDir "$env:RUNNER_TEMP\ft" -Artifacts "$env:RUNNER_TEMP\ft-artifacts" `

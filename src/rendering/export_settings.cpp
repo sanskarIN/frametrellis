@@ -153,7 +153,7 @@ QSize outputSize(const ExportSettings& settings, const ProjectSettings& project)
     // only. Keep the original aspect ratio and round the derived height to even
     // pixels, as required by H.264's yuv420p encoder. Validation checks bounds.
     if (settings.customWidth != 0) {
-        if (settings.customWidth < 0) {
+        if (settings.customWidth < 0 || settings.customWidth > kMaxFrameDimension) {
             return {};
         }
         if (settings.avoidUpscaling && settings.customWidth >= project.width) {

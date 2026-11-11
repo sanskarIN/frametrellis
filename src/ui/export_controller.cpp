@@ -397,13 +397,10 @@ bool ExportController::startBatchJob()
                     return;
                 }
                 if (state == RenderJob::State::Failed) {
-                    // A renderer failure must not be masked just because the
-                    // user also requested cancellation. Preserve the real error.
+                    // A renderer failure must not be masked by a cancel request.
                     finishBatch(state);
-                } else if (m_batchCancelRequested) {
+                } else if (m_batchCancelRequested || state == RenderJob::State::Cancelled) {
                     finishBatch(RenderJob::State::Cancelled);
-                } else if (state != RenderJob::State::Succeeded) {
-                    finishBatch(state);
                 } else if (m_batchCompleted >= m_batchJobs.size()) {
                     finishBatch(RenderJob::State::Succeeded);
                 } else {

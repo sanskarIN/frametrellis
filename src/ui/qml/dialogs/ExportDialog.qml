@@ -361,7 +361,9 @@ FtDialog {
                     FtButton {
                         objectName: "exportBatchPresets"
                         text: qsTr("Export %1 variants").arg(dialog.batchSelectionCount)
-                        enabled: dialog.batchSelectionCount >= 2 && validation.text.length === 0
+                        enabled: dialog.batchSelectionCount >= 2 &&
+                                 dialog.exporter.validateBatch(dialog.settings(),
+                                                              dialog.selectedBatchIds()).length === 0
                         onClicked: dialog.startBatchExport()
                     }
                     Text {

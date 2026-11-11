@@ -27,6 +27,28 @@ The converter adds/drops picture frames and preserves the timeline/audio duratio
 within the rounding of the final output frame. Frame-rate conversion can take longer
 to encode. Invalid or out-of-range values are refused before output begins.
 
+## Custom export width (v1.5.0 development candidate)
+
+Open **File → Export**, enable **Scaling → Custom width** and enter an even
+number of pixels between 16 and 8192. A 1920×1080 project exported at 1280
+pixels wide becomes 1280×720. A portrait 1080×1920 project exported at width
+720 becomes 720×1280. Height is calculated from the project's own aspect
+ratio, then rounded to an even pixel count for H.264 `yuv420p`.
+
+This setting overrides the selected preset's short-side size for a **single
+MP4 export**, without changing project dimensions or source media. **Do not
+upscale** still keeps native dimensions when the requested width would enlarge
+the project. Selecting a new preset or choosing **Reset preset** turns off
+custom width. The entered value is retained across dialog reopenings in the
+current session. Batch delivery always uses each variant's own preset sizing;
+it intentionally ignores the single-export custom width.
+
+The standalone render helper accepts `--width 1280` with `--project` and
+`--output`. `--width 0` (default) uses the short-side preset. Odd, negative,
+out-of-range or derived oversized dimensions are rejected *before* encoding.
+This is a development feature, not in stable v1.4.0, and needs physical Windows
+MP4 playback/audio QA before v1.5.0 can ship.
+
 ## Fine-tuning and reviewing export failures (v1.5.0 development)
 
 In post-v1.4.0 development builds, reopening the Export dialog preserves

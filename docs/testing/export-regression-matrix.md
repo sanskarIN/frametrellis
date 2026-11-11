@@ -10,6 +10,8 @@ This document defines repeatable acceptance checks for FrameTrellis MP4 export. 
 | Quick profile | Supported source and Quick preset | Valid H.264/AAC output |
 | Turbo preview | Supported source and Turbo preset | Valid preview-size output |
 | No-upscale | Small source and no-upscale enabled | Output does not exceed permitted source dimensions |
+| Custom output width (v1.5 candidate) | Choose even custom width at nondefault rational output FPS | Exact requested width, even aspect-ratio-derived height, correct AAC/FPS/duration and unchanged project; invalid width rejects before publication |
+| Custom width with no-upscale | Request a width larger than project with no-upscale enabled | Keep the source canvas dimensions; batch variants retain their own preset resolutions |
 | Cancellation | Cancel a long render | Previous destination remains intact |
 | Failed encoder | Simulate a render-helper failure | Failure is reported and destination is not replaced |
 | Destination collision | Existing output file | Replace only after a fully verified render |

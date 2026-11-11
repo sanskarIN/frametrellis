@@ -181,6 +181,9 @@ Status RenderJob::start(const Project& project, const ExportSettings& settings,
                           QStringLiteral("--render-token"),
                           token,
                           QStringLiteral("--watch-stdin")};
+    if (settings.customWidth != 0) {
+        arguments << QStringLiteral("--width") << QString::number(settings.customWidth);
+    }
     if (settings.protectExistingOutput) {
         arguments << QStringLiteral("--refuse-existing-output");
     }

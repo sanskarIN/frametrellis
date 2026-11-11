@@ -54,6 +54,23 @@ if(FT_BUILD_ENGINE)
     message(STATUS "FrameTrellis: audio playback via SDL2: ${FT_HAVE_SDL2}")
 endif()
 
+# Identify the exact configured source used by development and stable builds.
+# Source archives lacking Git still build with 'unknown' diagnostics metadata.
+# This does not change the application version or authorize a stable release.
+set(FT_SOURCE_REVISION "unknown")
+find_package(Git QUIET)
+if(GIT_FOUND)
+    execute_process(
+        COMMAND "${GIT_EXECUTABLE}" -C "${CMAKE_CURRENT_SOURCE_DIR}" rev-parse --short=12 HEAD
+        RESULT_VARIABLE FT_GIT_EXIT
+        OUTPUT_VARIABLE FT_GIT_REVISION
+        OUTPUT_STRIP_TRAILING_WHITESPACE
+        ERROR_QUIET)
+    if(FT_GIT_EXIT EQUAL 0 AND FT_GIT_REVISION MATCHES "^[0-9a-fA-F]+$")
+        set(FT_SOURCE_REVISION "${FT_GIT_REVISION}")
+    endif()
+endif()
+message(STATUS "FrameTrellis configured source revision: ${FT_SOURCE_REVISION}")
 configure_file(src/core/version.h.in "${CMAKE_CURRENT_BINARY_DIR}/generated/core/version.h" @ONLY)
 
 add_subdirectory(src)

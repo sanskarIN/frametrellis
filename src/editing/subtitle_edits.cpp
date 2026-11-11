@@ -278,6 +278,44 @@ std::unique_ptr<EditCommand> stretchSubtitleTiming(int percentage)
         });
 }
 
+std::unique_ptr<EditCommand> snapSubtitleTimingToFrames(FrameRate projectRate)
+{
+    return std::make_unique<SubtitleCommand>(
+        QStringLiteral("Align Subtitles to Frames"), [projectRate](SubtitleTrack& track) -> Status {
+            if (track.cues.empty() || !projectRate.isValid()) {
+                return makeError(ErrorCode::InvalidArgument,
+                                 QStringLiteral("Add subtitles and choose a valid project FPS."));
+            }
+            bool changed = false;
+            for (SubtitleCue& cue : track.cues) {
+                const auto firstFrame = subtitleFrameAtMilliseconds(cue.startMs, projectRate);
+                const auto endFrame = subtitleFrameAtMilliseconds(cue.endMs, projectRate);
+                if (!firstFrame || !endFrame) {
+                    return makeError(ErrorCode::OutOfRange,
+                                     QStringLiteral("A subtitle has an invalid time boundary."));
+                }
+                const auto first = subtitleMillisecondsAtFrame(*firstFrame, projectRate);
+                const auto last = subtitleMillisecondsAtFrame(*endFrame, projectRate);
+                if (!first || !last || *first >= *last || *last > kMaxSubtitleTimeMs) {
+                    return makeError(
+                        ErrorCode::OutOfRange,
+                        QStringLiteral("Aligning to frames would collapse or overflow a cue."));
+                }
+                changed |= cue.startMs != *first || cue.endMs != *last;
+                cue.startMs = *first;
+                cue.endMs = *last;
+            }
+            if (!changed) {
+                return makeError(
+                    ErrorCode::InvalidArgument,
+                    QStringLiteral("Subtitles are already aligned to project frames."));
+            }
+            // setSubtitles rechecks the complete staged track for ordering and
+            // overlap before the project or Undo/Redo history is touched.
+            return {};
+        });
+}
+
 std::unique_ptr<EditCommand> setSubtitleAppearance(bool burnIn, int fontPercent, bool background)
 {
     return std::make_unique<SubtitleCommand>(

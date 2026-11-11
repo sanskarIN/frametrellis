@@ -78,6 +78,8 @@ public:
     Q_INVOKABLE bool clearAll();
     Q_INVOKABLE bool shiftAll(int deltaMilliseconds);
     Q_INVOKABLE bool stretchAllTiming(int percentage);
+    /// Snap every cue boundary forward to the next project-frame sample atomically.
+    Q_INVOKABLE bool alignAllTimingToFrames();
     Q_INVOKABLE bool setAppearance(bool burnIn, int fontPercent, bool background);
     Q_INVOKABLE bool resetAppearance();
     Q_INVOKABLE void clearError() { setError({}); }

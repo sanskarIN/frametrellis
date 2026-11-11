@@ -393,6 +393,10 @@ bool SubtitleController::stretchAllTiming(int percentage)
 {
     return execute(edits::stretchSubtitleTiming(percentage));
 }
+bool SubtitleController::alignAllTimingToFrames()
+{
+    return execute(edits::snapSubtitleTimingToFrames(m_project->project().settings().frameRate));
+}
 bool SubtitleController::setAppearance(bool burn, int percent, bool plate)
 {
     return execute(edits::setSubtitleAppearance(burn, percent, plate));

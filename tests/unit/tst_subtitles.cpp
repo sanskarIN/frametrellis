@@ -669,8 +669,7 @@ private slots:
 
         Project limitProject = project();
         SubtitleTrack late;
-        late.cues = {cue(QStringLiteral("late"), kMaxSubtitleTimeMs - 1000,
-                         kMaxSubtitleTimeMs)};
+        late.cues = {cue(QStringLiteral("late"), kMaxSubtitleTimeMs - 1000, kMaxSubtitleTimeMs)};
         QVERIFY(limitProject.setSubtitles(late));
         ProjectDocument overflow(limitProject);
         QVERIFY(!overflow.execute(edits::snapSubtitleTimingToFrames(ntsc)));

@@ -51,9 +51,19 @@ fi
 # codec stacks. Copying all of them makes reliable dependency closure and
 # licensing needlessly harder and can load incompatible Qt plugins.
 for name in core avformat plus normalize; do
-    file="$modules/libmlt${name}.dylib"
-    if [[ ! -f "$file" ]]; then
-        echo "Missing essential MLT module $file" >&2
+    # MLT's CMake MODULE libraries usually carry .so even on macOS, unlike
+    # ordinary SHARED .dylib outputs. Probe both documented native suffixes.
+    file=""
+    for suffix in so dylib; do
+        candidate="$modules/libmlt${name}.$suffix"
+        if [[ -f "$candidate" ]]; then
+            file="$candidate"
+            break
+        fi
+    done
+    if [[ -z "$file" ]]; then
+        echo "Missing essential MLT module $name in $modules" >&2
+        find "$modules" -maxdepth 1 -name 'libmlt*' -print >&2
         exit 1
     fi
     ditto "$file" "$contents/PlugIns/mlt-7/${file##*/}"

@@ -12,6 +12,7 @@
 #include "engine/mlt_runtime.h"
 #include "media/media_probe.h"
 #include "media_fixtures.h"
+#include "project/project_serializer.h"
 #include "ui/app_controller.h"
 #include "ui/media_bin_model.h"
 #include "ui/title_image.h"
@@ -434,6 +435,17 @@ private slots:
         QCOMPARE(projectController->filePath(), originalFile);
         QCOMPARE(projectController->project().settings(), before.settings());
         QCOMPARE(projectController->project().timeline(), before.timeline());
+
+        // Saving this renamed snapshot to a disposable *different* file must
+        // preserve the metadata without changing the editor's original path.
+        const QString copyPath = m_dir.filePath(QStringLiteral("renamed-copy.ftproj"));
+        QVERIFY(project_format::saveToFile(projectController->project(), copyPath));
+        const Result<Project> reopened = project_format::loadFromFile(copyPath);
+        QVERIFY(reopened);
+        QCOMPARE(reopened->name(), QStringLiteral("नया प्रोजेक्ट 2026"));
+        QCOMPARE(reopened->timeline(), before.timeline());
+        QCOMPARE(projectController->filePath(), originalFile);
+
         QVERIFY(projectController->canUndo());
         projectController->undo();
         QCOMPARE(projectController->project(), before);

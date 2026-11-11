@@ -110,9 +110,15 @@ QString findRepository()
     if (QCoreApplication::instance()) {
         // Relocatable packages ship the MLT modules next to the executable.
         const QDir appDir(QCoreApplication::applicationDirPath());
-        for (const QString& candidate : {QStringLiteral("lib/mlt-7"), QStringLiteral("lib/mlt"),
-                                         QStringLiteral("../lib/mlt-7"),
-                                         QStringLiteral("../lib/mlt"), QStringLiteral("mlt-7")}) {
+        QStringList candidates{QStringLiteral("lib/mlt-7"), QStringLiteral("lib/mlt"),
+                               QStringLiteral("../lib/mlt-7"), QStringLiteral("../lib/mlt"),
+                               QStringLiteral("mlt-7")};
+#ifdef Q_OS_MACOS
+        // Native app bundles keep plugins under Contents/PlugIns and media
+        // service data under Contents/Resources rather than next to MacOS/.
+        candidates << QStringLiteral("../PlugIns/mlt-7") << QStringLiteral("../PlugIns/mlt");
+#endif
+        for (const QString& candidate : candidates) {
             const QString path = QDir::cleanPath(appDir.filePath(candidate));
             if (QFileInfo(path).isDir()) {
                 return path;
@@ -142,9 +148,15 @@ void configureDataPath(const QString& repository)
 #endif
     // A repository at <prefix>/lib/mlt-7 has its data at <prefix>/share/mlt-7.
     const QDir repoDir(repository);
-    for (const QString& candidate :
-         {QStringLiteral("../../share/mlt-7"), QStringLiteral("../../share/mlt"),
-          QStringLiteral("../share/mlt-7"), QStringLiteral("../share/mlt")}) {
+    QStringList dataCandidates{QStringLiteral("../../share/mlt-7"),
+                               QStringLiteral("../../share/mlt"),
+                               QStringLiteral("../share/mlt-7"),
+                               QStringLiteral("../share/mlt")};
+#ifdef Q_OS_MACOS
+    dataCandidates << QStringLiteral("../../Resources/mlt-7")
+                   << QStringLiteral("../../Resources/mlt");
+#endif
+    for (const QString& candidate : dataCandidates) {
         const QString path = QDir::cleanPath(repoDir.filePath(candidate));
         if (QFileInfo(path).isDir()) {
             qputenv("MLT_DATA", QFile::encodeName(path));

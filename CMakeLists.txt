@@ -59,7 +59,7 @@ endif()
 # This does not change the application version or authorize a stable release.
 set(FT_SOURCE_REVISION "unknown")
 find_package(Git QUIET)
-if(GIT_FOUND)
+if(GIT_FOUND AND EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/.git")
     execute_process(
         COMMAND "${GIT_EXECUTABLE}" -C "${CMAKE_CURRENT_SOURCE_DIR}" rev-parse --short=12 HEAD
         RESULT_VARIABLE FT_GIT_EXIT

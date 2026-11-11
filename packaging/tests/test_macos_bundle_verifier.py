@@ -77,5 +77,26 @@ class MacBundleVerifierTests(unittest.TestCase):
             )
 
 
+    def test_framework_loader_path_uses_resolved_versions_directory(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            app = Path(tmp) / "FrameTrellis.app"
+            framework = app / "Contents/Frameworks/QtCore.framework"
+            real_binary = framework / "Versions/A/QtCore"
+            real_binary.parent.mkdir(parents=True)
+            real_binary.write_bytes(b"fake Mach-O")
+            framework_entry = framework / "QtCore"
+            framework_entry.symlink_to("Versions/A/QtCore")
+            dependent = app / "Contents/Frameworks/libssl.4.dylib"
+            dependent.write_bytes(b"fake dylib")
+
+            # At runtime @loader_path points to Versions/A (the actual image),
+            # not the symlink's containing .framework directory.
+            self.assertIsNone(
+                verify.assert_dependency(
+                    "@loader_path/../../../libssl.4.dylib", framework_entry, app
+                )
+            )
+
+
 if __name__ == "__main__":
     unittest.main()

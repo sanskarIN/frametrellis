@@ -615,6 +615,73 @@ private slots:
         QVERIFY(!empty.canUndo());
     }
 
+    void alignSubtitlesToProjectFramesIsAtomicAndUndoable()
+    {
+        Project p = project();
+        SubtitleTrack track;
+        track.cues = {cue(QStringLiteral("a"), 105, 145, QStringLiteral("नमस्ते")),
+                      cue(QStringLiteral("b"), 250, 320, QStringLiteral("Second"))};
+        track.fontPercent = 8;
+        QVERIFY(p.setSubtitles(track));
+        ProjectDocument doc(p);
+        const Project original = doc.project();
+        QVERIFY(doc.execute(edits::snapSubtitleTimingToFrames(FrameRate::integer(25))));
+        const SubtitleTrack aligned = doc.project().subtitles();
+        QCOMPARE(aligned.cues[0].startMs, std::int64_t{120});
+        QCOMPARE(aligned.cues[0].endMs, std::int64_t{160});
+        QCOMPARE(aligned.cues[1].startMs, std::int64_t{280});
+        QCOMPARE(aligned.cues[1].endMs, std::int64_t{320});
+        QCOMPARE(aligned.cues[0].text, track.cues[0].text);
+        QCOMPARE(aligned.cues[1].id, track.cues[1].id);
+        QCOMPARE(aligned.fontPercent, track.fontPercent);
+        QCOMPARE(doc.project().timeline(), original.timeline());
+        QVERIFY(!doc.execute(edits::snapSubtitleTimingToFrames(FrameRate::integer(25))));
+        QCOMPARE(doc.project().subtitles(), aligned);
+        QVERIFY(doc.undo());
+        QCOMPARE(doc.project(), original);
+        QVERIFY(doc.redo());
+        QCOMPARE(doc.project().subtitles(), aligned);
+    }
+
+    void alignToFractionalFrameRateRejectsUnsafeCues()
+    {
+        const FrameRate ntsc = *FrameRate::create(30000, 1001);
+        Project p = project();
+        SubtitleTrack track;
+        track.cues = {cue(QStringLiteral("a"), 1000, 1400)};
+        QVERIFY(p.setSubtitles(track));
+        ProjectDocument doc(p);
+        const Project original = doc.project();
+        QVERIFY(doc.execute(edits::snapSubtitleTimingToFrames(ntsc)));
+        QCOMPARE(doc.project().subtitles().cues[0].startMs, std::int64_t{1001});
+        QCOMPARE(doc.project().subtitles().cues[0].endMs, std::int64_t{1401});
+        QVERIFY(doc.undo());
+        QCOMPARE(doc.project(), original);
+
+        Project shortProject = project();
+        SubtitleTrack shortTrack;
+        shortTrack.cues = {cue(QStringLiteral("tiny"), 101, 102)};
+        QVERIFY(shortProject.setSubtitles(shortTrack));
+        ProjectDocument collapsed(shortProject);
+        QVERIFY(!collapsed.execute(edits::snapSubtitleTimingToFrames(FrameRate::integer(25))));
+        QCOMPARE(collapsed.project(), shortProject);
+        QVERIFY(!collapsed.canUndo());
+
+        Project limitProject = project();
+        SubtitleTrack late;
+        late.cues = {cue(QStringLiteral("late"), kMaxSubtitleTimeMs - 1000,
+                         kMaxSubtitleTimeMs)};
+        QVERIFY(limitProject.setSubtitles(late));
+        ProjectDocument overflow(limitProject);
+        QVERIFY(!overflow.execute(edits::snapSubtitleTimingToFrames(ntsc)));
+        QCOMPARE(overflow.project(), limitProject);
+        QVERIFY(!overflow.canUndo());
+
+        ProjectDocument empty(project());
+        QVERIFY(!empty.execute(edits::snapSubtitleTimingToFrames(ntsc)));
+        QVERIFY(!empty.canUndo());
+    }
+
     void formatSixPreservesCuesOptionsAndLegacyLoads()
     {
         Project p = project();

@@ -72,6 +72,12 @@ def check_bundle(app: Path) -> list[str]:
         contents / "PlugIns/platforms/libqcocoa.dylib",
     ]
     problems = [f"Missing required bundle component: {p}" for p in required if not p.exists()]
+    module_dir = contents / "PlugIns/mlt-7"
+    if module_dir.is_dir():
+        for name in ("core", "avformat", "plus", "normalize"):
+            if not any((module_dir / f"libmlt{name}.{suffix}").is_file()
+                       for suffix in ("so", "dylib")):
+                problems.append(f"Missing essential MLT service module: libmlt{name} (so/dylib)")
     if problems:
         return problems
 
@@ -79,8 +85,9 @@ def check_bundle(app: Path) -> list[str]:
     for path in contents.rglob("*"):
         if path.is_symlink():
             resolved = path.resolve(strict=False)
-            if not resolved.is_relative_to(app):
-                problems.append(f"Symlink escapes application bundle: {path} -> {resolved}")
+            if not resolved.is_relative_to(app) or not resolved.exists():
+                problems.append(f"Escaping or broken bundle symlink: {path} -> {resolved}")
+                continue
         if not path.is_file():
             continue
         # Only inspect loadable machine code; do not parse QML, fonts, images.
@@ -90,6 +97,9 @@ def check_bundle(app: Path) -> list[str]:
             capture_output=True,
             check=False,
         )
+        if file_result.returncode:
+            problems.append(f"Cannot inspect bundle file {path}: {file_result.stderr.strip()}")
+            continue
         if "Mach-O" in file_result.stdout:
             macho_files.append(path)
 

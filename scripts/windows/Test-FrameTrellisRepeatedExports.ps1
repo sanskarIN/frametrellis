@@ -13,7 +13,10 @@ param(
     [ValidateRange(1, 25)]
     [int] $Runs = 3,
     [ValidateRange(30, 7200)]
-    [int] $TimeoutSeconds = 1800
+    [int] $TimeoutSeconds = 1800,
+    [switch] $SampleResources,
+    [ValidateRange(100, 5000)]
+    [int] $SampleIntervalMs = 500
 )
 
 Set-StrictMode -Version Latest
@@ -78,6 +81,9 @@ for ($i = 1; $i -le $Runs; ++$i) {
     $timedOut = $false
     $launchError = ""
     $exitCode = $null
+    $resourceSamples = 0
+    $peakWorkingSetBytes = [int64] 0
+    $peakPrivateBytes = [int64] 0
     try {
         $process = Start-Process -FilePath $rendererPath -ArgumentList $quoted `
             -PassThru -NoNewWindow -RedirectStandardOutput $stdoutFile `
@@ -87,7 +93,40 @@ for ($i = 1; $i -le $Runs; ++$i) {
         # ExitCode even after WaitForExit. Capture the handle before waiting:
         # https://github.com/PowerShell/PowerShell/issues/20400
         $processHandle = $process.Handle
-        if (-not $process.WaitForExit($TimeoutSeconds * 1000)) {
+        if ($SampleResources) {
+            # Poll only our own child process. No per-process paths, environment,
+            # media names or system-wide process data are recorded.
+            $timer = [Diagnostics.Stopwatch]::StartNew()
+            $finished = $false
+            while (-not $finished) {
+                try {
+                    $process.Refresh()
+                    if (-not $process.HasExited) {
+                        $peakWorkingSetBytes = [math]::Max(
+                            $peakWorkingSetBytes, [int64] $process.WorkingSet64)
+                        $peakPrivateBytes = [math]::Max(
+                            $peakPrivateBytes, [int64] $process.PrivateMemorySize64)
+                        ++$resourceSamples
+                    }
+                }
+                catch {
+                    # A process can exit between the refresh and the sample.
+                    # Missing samples are reported, not fabricated as zero.
+                }
+                $remaining = [int64] $TimeoutSeconds * 1000 - $timer.ElapsedMilliseconds
+                if ($remaining -le 0) {
+                    break
+                }
+                $wait = [int] [math]::Min([int64] $SampleIntervalMs, $remaining)
+                $finished = $process.WaitForExit($wait)
+            }
+            if (-not $finished -and -not $process.HasExited) {
+                $timedOut = $true
+                $process.Kill()
+                $process.WaitForExit()
+            }
+        }
+        elseif (-not $process.WaitForExit($TimeoutSeconds * 1000)) {
             $timedOut = $true
             # Kill only our own launched test renderer, never the editor.
             $process.Kill()
@@ -137,6 +176,10 @@ for ($i = 1; $i -le $Runs; ++$i) {
         launchError = $launchError
         outputExists = $outputExists
         outputBytes = $outputBytes
+        resourceSamplingEnabled = [bool] $SampleResources
+        resourceSamples = $resourceSamples
+        peakWorkingSetBytes = if ($resourceSamples -gt 0) { [int64] $peakWorkingSetBytes } else { $null }
+        peakPrivateBytes = if ($resourceSamples -gt 0) { [int64] $peakPrivateBytes } else { $null }
         stdout = $stdoutFile
         stderr = $stderrFile
         output = $outputFile
@@ -155,6 +198,8 @@ $summary = [pscustomobject]@{
     project = $projectPath
     fps = $Fps
     timeoutSeconds = $TimeoutSeconds
+    resourceSamplingEnabled = [bool] $SampleResources
+    resourceSampleIntervalMs = if ($SampleResources) { $SampleIntervalMs } else { $null }
     runs = @($results.ToArray())
 }
 $summary | ConvertTo-Json -Depth 5 |

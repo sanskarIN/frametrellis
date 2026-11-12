@@ -70,14 +70,14 @@ Use a **saved copy** of a test project, an already installed/portable
 
 The script runs each export in an independent process with a timeout and
 retains local stdout/stderr, output files, exit-code hex values and a JSON
-summary for fault correlation. For real-project runs, a zero exit code is
-**not enough**: a missing or zero-byte MP4 now fails with
-`missing-output` or `empty-output`. Its `outputBytes` field records the
-file size. The synthetic self-test mode (omit `-Project`) is evaluated by
-the helper's own self-test result, not by an `export.mp4` expectation.
+summary for fault correlation. In **both** real-project and synthetic
+`--self-test` modes, a zero exit code is **not enough**: a missing or
+zero-byte MP4 now fails with `missing-output` or `empty-output`.
+The synthetic mode requires its actual `self-test-export.mp4` while project
+mode requires `export.mp4`; `outputBytes` records that run's file size.
 
 A harness `success` means only that the renderer exited cleanly and a
-nonempty file was present in project mode. It **does not verify** that the
+nonempty file was present in the expected path. It **does not verify** that the
 MP4 plays, contains AAC, or has the expected duration, FPS or picture; probe
 it independently and listen to the audio. This harness does not run or
 diagnose the GUI, so it cannot rule out the separate editor crash. Do not

@@ -10,6 +10,18 @@ set_target_properties(frametrellis PROPERTIES
     MACOSX_BUNDLE_SHORT_VERSION_STRING "${PROJECT_VERSION}")
 add_dependencies(frametrellis frametrellis-render)
 
+if(APPLE)
+    # The GUI runs inside frametrellis.app/Contents/MacOS, not the build's bin
+    # directory. Put its render-helper beside it so Finder-launched exports
+    # work in both build-tree and installed .app bundles.
+    add_custom_command(TARGET frametrellis POST_BUILD
+        COMMAND "${CMAKE_COMMAND}" -E copy_if_different
+            "$<TARGET_FILE:frametrellis-render>"
+            "$<TARGET_FILE_DIR:frametrellis>/frametrellis-render"
+        COMMENT "Copy render helper into macOS application bundle"
+        VERBATIM)
+endif()
+
 install(TARGETS frametrellis
     RUNTIME DESTINATION "${CMAKE_INSTALL_BINDIR}"
     BUNDLE DESTINATION .)
@@ -19,4 +31,6 @@ if(UNIX AND NOT APPLE)
         DESTINATION "${CMAKE_INSTALL_DATADIR}/applications")
     install(FILES "${PROJECT_SOURCE_DIR}/resources/linux/frametrellis.svg"
         DESTINATION "${CMAKE_INSTALL_DATADIR}/icons/hicolor/scalable/apps")
+    install(FILES "${PROJECT_SOURCE_DIR}/resources/linux/frametrellis.xml"
+        DESTINATION "${CMAKE_INSTALL_DATADIR}/mime/packages")
 endif()

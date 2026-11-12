@@ -4,9 +4,12 @@ from __future__ import annotations
 
 import hashlib
 import importlib.util
+import io
 import json
+import tarfile
 import tempfile
 import unittest
+import zipfile
 from pathlib import Path
 
 SCRIPT = Path(__file__).resolve().parents[1] / "verify_candidate_matrix.py"
@@ -29,8 +32,20 @@ def fixture_payload(name: str) -> bytes:
     if name.endswith("-setup.exe"):
         return b"MZinstaller"
     if name.endswith(".zip"):
-        return b"PKfake"
-    return b"third-party-source-archive-placeholder"
+        data = io.BytesIO()
+        with zipfile.ZipFile(data, "w") as archive:
+            archive.writestr("FrameTrellis/frametrellis.exe", b"gui executable")
+            archive.writestr("FrameTrellis/frametrellis-render.exe", b"render executable")
+        return data.getvalue()
+    if name.endswith("-third-party-sources.tar"):
+        data = io.BytesIO()
+        with tarfile.open(fileobj=data, mode="w") as archive:
+            content = b"synthetic test source"
+            info = tarfile.TarInfo("source/README.txt")
+            info.size = len(content)
+            archive.addfile(info, io.BytesIO(content))
+        return data.getvalue()
+    return b"unexpected-fixture"
 
 
 def make_candidate(root: Path) -> None:
@@ -42,6 +57,42 @@ def make_candidate(root: Path) -> None:
     (root / "SHA256SUMS.txt").write_text(
         "\n".join(checksums) + "\n", encoding="utf-8"
     )
+
+
+def replace_payload(root: Path, name: str, value: bytes) -> None:
+    """Replace a checked payload and recompute its manifest to test structure gates."""
+    path = root / name
+    path.write_bytes(value)
+    manifest = root / "SHA256SUMS.txt"
+    manifest.write_text(
+        "\n".join(
+            f"{hashlib.sha256(value).hexdigest()}  {name}"
+            if line.endswith(f"  {name}") else line
+            for line in manifest.read_text(encoding="utf-8").splitlines()
+        ) + "\n",
+        encoding="utf-8",
+    )
+
+
+def fixture_zip(entries: list[tuple[str, bytes]]) -> bytes:
+    out = io.BytesIO()
+    with zipfile.ZipFile(out, "w") as archive:
+        for name, content in entries:
+            archive.writestr(name, content)
+    return out.getvalue()
+
+
+def fixture_tar(name: str, content: bytes, *, symlink: bool = False) -> bytes:
+    out = io.BytesIO()
+    with tarfile.open(fileobj=out, mode="w") as archive:
+        info = tarfile.TarInfo(name)
+        if symlink:
+            info.type = tarfile.SYMTYPE
+            info.linkname = "../../escape"
+        else:
+            info.size = len(content)
+        archive.addfile(info, None if symlink else io.BytesIO(content))
+    return out.getvalue()
 
 
 class CandidateMatrixTests(unittest.TestCase):
@@ -122,6 +173,74 @@ class CandidateMatrixTests(unittest.TestCase):
             manifest.write_text("\n".join(lines) + "\n", encoding="utf-8")
             with self.assertRaisesRegex(ValueError, "UDIF trailer"):
                 matrix.verify(root, "1.5.0")
+
+    def test_windows_portable_requires_adjacent_renderer(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            make_candidate(root)
+            name = "FrameTrellis-1.5.0-windows-x64.zip"
+            replace_payload(root, name, fixture_zip([
+                ("FrameTrellis/frametrellis.exe", b"gui"),
+            ]))
+            with self.assertRaisesRegex(ValueError, "frametrellis-render.exe"):
+                matrix.verify(root, "1.5.0")
+
+            replace_payload(root, name, fixture_zip([
+                ("FrameTrellis/frametrellis.exe", b"gui"),
+                ("other/frametrellis-render.exe", b"renderer"),
+            ]))
+            with self.assertRaisesRegex(ValueError, "adjacent"):
+                matrix.verify(root, "1.5.0")
+
+    def test_windows_portable_rejects_case_collisions_and_traversal(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            make_candidate(root)
+            name = "FrameTrellis-1.5.0-windows-x64.zip"
+            replace_payload(root, name, fixture_zip([
+                ("FrameTrellis/frametrellis.exe", b"gui"),
+                ("FrameTrellis/frametrellis-render.exe", b"render"),
+                ("frametrellis/FRAMETRELLIS.EXE", b"collision"),
+            ]))
+            with self.assertRaisesRegex(ValueError, "duplicate"):
+                matrix.verify(root, "1.5.0")
+
+            replace_payload(root, name, fixture_zip([
+                ("../escape.exe", b"unsafe"),
+                ("FrameTrellis/frametrellis.exe", b"gui"),
+                ("FrameTrellis/frametrellis-render.exe", b"render"),
+            ]))
+            with self.assertRaisesRegex(ValueError, "Unsafe portable ZIP"):
+                matrix.verify(root, "1.5.0")
+
+    def test_windows_portable_rejects_invalid_zip_even_with_matching_checksum(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            make_candidate(root)
+            name = "FrameTrellis-1.5.0-windows-x64.zip"
+            replace_payload(root, name, b"PKnot-really-a-ZIP")
+            with self.assertRaises(zipfile.BadZipFile):
+                matrix.verify(root, "1.5.0")
+
+    def test_all_platform_source_tars_reject_unsafe_entries(self):
+        for suffix in (
+            "windows-x64", "linux-x86_64", "macos-arm64", "macos-x86_64"
+        ):
+            with self.subTest(platform=suffix), tempfile.TemporaryDirectory() as tmp:
+                root = Path(tmp)
+                make_candidate(root)
+                name = f"FrameTrellis-1.5.0-{suffix}-third-party-sources.tar"
+                replace_payload(root, name, fixture_tar("../escape", b"unsafe"))
+                with self.assertRaisesRegex(ValueError, "Unsafe corresponding-source TAR"):
+                    matrix.verify(root, "1.5.0")
+
+                replace_payload(root, name, fixture_tar("source/link", b"", symlink=True))
+                with self.assertRaisesRegex(ValueError, "link/special"):
+                    matrix.verify(root, "1.5.0")
+
+                replace_payload(root, name, fixture_tar("source/empty.txt", b""))
+                with self.assertRaisesRegex(ValueError, "no nonempty files"):
+                    matrix.verify(root, "1.5.0")
 
     def test_bad_version_and_path_records_rejected(self):
         with self.assertRaises(ValueError):

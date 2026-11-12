@@ -25,13 +25,12 @@ private slots:
 
         // Invalid duration metadata must be rejected before opening MLT,
         // and must never be converted to an out-of-range size_t or int.
-        for (const std::int64_t duration : {
-                 std::int64_t{0}, std::int64_t{-1},
-                 std::numeric_limits<std::int64_t>::min(),
-                 std::numeric_limits<std::int64_t>::max()}) {
+        for (const std::int64_t duration :
+             {std::int64_t{0}, std::int64_t{-1}, std::numeric_limits<std::int64_t>::min(),
+              std::numeric_limits<std::int64_t>::max()}) {
             info.durationUs = duration;
-            const auto result = media::computeWaveform(
-                QStringLiteral("nonexistent-media-file.wav"), info);
+            const auto result =
+                media::computeWaveform(QStringLiteral("nonexistent-media-file.wav"), info);
             QVERIFY(!result);
             QCOMPARE(result.error().code, ErrorCode::Media);
         }
@@ -47,8 +46,8 @@ private slots:
         // Greater than kMaxBins even at just one bin per second.
         info.durationUs = 60'000'000'000'000;
         for (const int resolution : {1, 10, 100, 1000}) {
-            const auto result = media::computeWaveform(
-                QStringLiteral("nonexistent-media-file.wav"), info, resolution);
+            const auto result = media::computeWaveform(QStringLiteral("nonexistent-media-file.wav"),
+                                                       info, resolution);
             QVERIFY(!result);
             QCOMPARE(result.error().code, ErrorCode::Media);
         }
@@ -61,8 +60,8 @@ private slots:
         info.hasAudio = true;
         info.durationUs = 2'000'000;
         for (const int resolution : {-1, 0, 1001, std::numeric_limits<int>::max()}) {
-            const auto result = media::computeWaveform(
-                QStringLiteral("nonexistent-media-file.wav"), info, resolution);
+            const auto result = media::computeWaveform(QStringLiteral("nonexistent-media-file.wav"),
+                                                       info, resolution);
             QVERIFY(!result);
             QCOMPARE(result.error().code, ErrorCode::InvalidArgument);
         }

@@ -124,7 +124,8 @@ dest="$output/FrameTrellis-linux-x86_64-EXPERIMENTAL.AppImage"
 mv "${results[0]}" "$dest"
 chmod +x "$dest"
 test -s "$dest"
-sha256sum "$dest" > "$dest.sha256"
+# Emit a filename-only checksum so it still verifies outside GitHub Actions.
+(cd "$output" && sha256sum "$(basename "$dest")" > "$(basename "$dest").sha256")
 
 {
     echo "Experimental AppImage (not the stable v1.5.0 release)"

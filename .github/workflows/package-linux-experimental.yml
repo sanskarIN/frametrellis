@@ -116,7 +116,7 @@ jobs:
           RUN apt-get update && apt-get install -y --no-install-recommends \
               libgl1 libegl1 libopengl0 libxkbcommon0 libxkbcommon-x11-0 \
               libxcb-cursor0 libfontconfig1 libdbus-1-3 libasound2t64 \
-              fonts-dejavu-core ca-certificates && rm -rf /var/lib/apt/lists/*
+              libharfbuzz0b fonts-dejavu-core ca-certificates && rm -rf /var/lib/apt/lists/*
           DOCKERFILE
           docker run --rm --network none \
             --volume "$pkg:/opt/FrameTrellis.AppImage:ro" \

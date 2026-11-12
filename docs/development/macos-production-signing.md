@@ -43,6 +43,13 @@ app with hardened runtime, creates a DMG, waits for an explicit **Accepted**
 notarization result, staples the ticket, validates the ticket and DMG and
 only **then** exposes the production-style candidate filename with SHA256.
 
+The final candidate and its checksum are published using exclusive hard
+links from a temporary directory on the same filesystem, not a potentially
+overwriting `mv`. If another process creates that version/architecture
+filename during the notarization wait, the script fails rather than
+replacing its bytes. If checksum publication fails, only this run's owned
+candidate is cleaned up.
+
 Failure before all gates pass leaves no production-style output file.
 Temporary signed packages are deleted; original app/project/media are
 untouched.

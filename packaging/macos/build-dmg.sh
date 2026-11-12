@@ -172,5 +172,7 @@ python3 "$root/packaging/macos/verify_bundle.py" "$app"
 hdiutil create -quiet -volname 'FrameTrellis Development' \
     -srcfolder "$app" -format UDZO -ov "$dmg"
 test -s "$dmg"
-shasum -a 256 "$dmg" > "$dmg.sha256"
+# Record only the DMG filename, never the temporary CI staging path.
+# Release-artifact checksums must remain valid after users move the files.
+(cd "$output" && shasum -a 256 "$(basename "$dmg")" > "$(basename "$dmg").sha256")
 echo "Prepared development-only macOS disk image: $dmg"

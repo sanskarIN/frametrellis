@@ -125,7 +125,14 @@ if [[ ! -f "$sdl3_library" ]]; then
     echo "Missing SDL3 runtime library: $sdl3_library" >&2
     exit 1
 fi
-ditto "$sdl3_library" "$contents/Frameworks/libSDL3.dylib"
+# Homebrew libSDL3.dylib can be a symlink to a versioned install name.
+# Dereference it so the portable .app never contains a dangling symlink.
+cp -L "$sdl3_library" "$contents/Frameworks/libSDL3.dylib"
+if [[ ! -f "$contents/Frameworks/libSDL3.dylib" ||
+      -L "$contents/Frameworks/libSDL3.dylib" ]]; then
+    echo "Failed to stage regular SDL3 runtime library" >&2
+    exit 1
+fi
 
 # MLT loads service plug-ins dynamically. Include the plug-ins explicitly as
 # dylibbundler inputs so its dependency closure covers FFmpeg and other codecs.

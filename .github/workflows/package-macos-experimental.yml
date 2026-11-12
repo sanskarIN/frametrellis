@@ -11,6 +11,8 @@ on:
       - 'CMakeLists.txt'
       - 'CMakePresets.json'
       - 'packaging/macos/**'
+      - 'packaging/runtime_inventory.py'
+      - 'packaging/tests/test_runtime_inventory.py'
       - '.github/workflows/package-macos-experimental.yml'
   workflow_dispatch:
 
@@ -54,6 +56,18 @@ jobs:
         run: ctest --preset macos --output-on-failure
       - name: Make ad-hoc signed DMG with closed dependencies
         run: bash packaging/macos/build-dmg.sh build/macos "$RUNNER_TEMP/ft-packages"
+      - name: Inventory signed staged .app (outside the DMG)
+        run: |
+          set -euo pipefail
+          out="$RUNNER_TEMP/ft-packages"
+          app="$out/FrameTrellis-macos-${{ matrix.arch }}-development.app"
+          manifest="$out/FrameTrellis-macos-${{ matrix.arch }}-development-inventory.json"
+          # Package signing changes native library bytes; inventory ONLY after
+          # the complete application has been ad-hoc signed and the DMG made.
+          python3 packaging/runtime_inventory.py generate \
+            --kind macos-app --root "$app" --manifest "$manifest"
+          (cd "$out" && shasum -a 256 "$(basename "$manifest")" > "$(basename "$manifest").sha256")
+          (cd "$out" && shasum -a 256 -c "$(basename "$manifest").sha256")
       - name: Check installed DMG and run bundled renderer and QML GUI
         env:
           QT_QPA_PLATFORM: offscreen
@@ -94,6 +108,14 @@ jobs:
           test -x "$mounted/Contents/MacOS/frametrellis"
           test -x "$mounted/Contents/MacOS/frametrellis-render"
           python3 packaging/macos/verify_bundle.py "$mounted"
+          codesign --verify --deep --strict "$mounted"
+          # The exact mounted, read-only DMG is the distribution candidate.
+          # Compare EVERY mounted file, executable bit, directory and symlink
+          # with the post-signing staged .app. A matching DMG checksum alone
+          # cannot detect changes introduced when making the image.
+          python3 packaging/runtime_inventory.py verify \
+            --root "$mounted" \
+            --manifest "$out/FrameTrellis-macos-${{ matrix.arch }}-development-inventory.json"
           # Running a renderer *from the read-only mounted DMG* catches hidden
           # dependencies on the staging directory and Homebrew runtime.
           python3 packaging/macos/timeout_exec.py --seconds 240 -- \
@@ -115,6 +137,7 @@ jobs:
           path: |
             ${{ runner.temp }}/ft-packages/*.dmg
             ${{ runner.temp }}/ft-packages/*.sha256
+            ${{ runner.temp }}/ft-packages/*-inventory.json
             ${{ runner.temp }}/ft-packages/*-DEVELOPMENT-NOTICES.txt
           if-no-files-found: error
           retention-days: 14

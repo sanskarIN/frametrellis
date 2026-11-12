@@ -21,6 +21,13 @@ be attached to a stable GitHub release until the checks below pass.
 - CI checks the final AppImage hash and starts the AppImage with only its own
   Qt/MLT dependencies, generating a synthetic project with the real renderer.
   No externally supplied footage is used or uploaded.
+- An additional **experimental isolation gate** launches the exact packaged
+  AppImage inside a fresh Ubuntu 24.04 container with common desktop system
+  libraries but **without Qt/MLT/FFmpeg installed by the image**. The runtime
+  test uses `--network none` and exercises both an offscreen GUI screenshot and
+  the packaged render helper's self-test. It must pass on the PR's latest
+  commit before counting it as verified. Container isolation on one distribution
+  does **not** replace physical GUI/sound testing or older-glibc verification.
 
 Development command after native dependencies are installed and built:
 

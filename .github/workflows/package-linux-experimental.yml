@@ -117,7 +117,7 @@ jobs:
               libgl1 libegl1 libopengl0 libxkbcommon0 libxkbcommon-x11-0 \
               libxcb-cursor0 libfontconfig1 libdbus-1-3 libasound2t64 \
               libharfbuzz0b libfribidi0 libpango-1.0-0 libcairo2 \
-              libjack-jackd2-0 fonts-dejavu-core ca-certificates && rm -rf /var/lib/apt/lists/*
+              libjack-jackd2-0 libusb-1.0-0 fonts-dejavu-core ca-certificates && rm -rf /var/lib/apt/lists/*
           DOCKERFILE
           docker run --rm --network none \
             --volume "$pkg:/opt/FrameTrellis.AppImage:ro" \
@@ -131,9 +131,6 @@ jobs:
               test ! -d /usr/lib/x86_64-linux-gnu/qt6
               test ! -e /usr/lib/x86_64-linux-gnu/libmlt-7.so.7
               mkdir -p /results/render
-              /opt/FrameTrellis.AppImage --screenshot /results/gui.png \
-                --screenshot-delay 1200
-              test -s /results/gui.png
               mkdir -p /tmp/extracted
               cd /tmp/extracted
               /opt/FrameTrellis.AppImage --appimage-extract >/dev/null
@@ -149,6 +146,9 @@ jobs:
                 echo "Missing MLT/FFmpeg runtime dependency on clean Ubuntu" >&2
                 exit 1
               fi
+              /opt/FrameTrellis.AppImage --screenshot /results/gui.png \
+                --screenshot-delay 1200
+              test -s /results/gui.png
               platform_plugin="$(find "$bundled/usr" -type f -name libqoffscreen.so -print -quit)"
               test -n "$platform_plugin"
               export QT_QPA_PLATFORM_PLUGIN_PATH="$(dirname "$platform_plugin")"

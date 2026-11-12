@@ -68,19 +68,19 @@ class MacTimeoutTests(unittest.TestCase):
     def test_sampling_uses_native_mac_tool_with_bounded_timeout(self):
         import tempfile
 
-        with tempfile.TemporaryDirectory() as directory:
-            with (
-                mock.patch.object(timeout.sys, "platform", "darwin"),
-                mock.patch.object(timeout.subprocess, "run") as invoke,
-            ):
-                invoke.return_value.returncode = 0
-                timeout.capture_stalled_process(8192, directory)
-                args, kwargs = invoke.call_args
-                self.assertEqual(args[0][:3], ["/usr/bin/sample", "8192", "3"])
-                self.assertEqual(args[0][-2], "-file")
-                self.assertTrue(args[0][-1].endswith("timeout-sample-8192.txt"))
-                self.assertEqual(kwargs["timeout"], 15)
-                self.assertFalse(kwargs["check"])
+        with (
+            tempfile.TemporaryDirectory() as directory,
+            mock.patch.object(timeout.sys, "platform", "darwin"),
+            mock.patch.object(timeout.subprocess, "run") as invoke,
+        ):
+            invoke.return_value.returncode = 0
+            timeout.capture_stalled_process(8192, directory)
+            args, kwargs = invoke.call_args
+            self.assertEqual(args[0][:3], ["/usr/bin/sample", "8192", "3"])
+            self.assertEqual(args[0][-2], "-file")
+            self.assertTrue(args[0][-1].endswith("timeout-sample-8192.txt"))
+            self.assertEqual(kwargs["timeout"], 15)
+            self.assertFalse(kwargs["check"])
 
     def test_sampling_disabled_without_opt_in(self):
         with mock.patch.object(timeout.subprocess, "run") as invoke:

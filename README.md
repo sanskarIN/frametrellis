@@ -220,5 +220,6 @@ FrameTrellis is maintained by **Sanskar**.
 [Bluesky](https://bsky.app/profile/SanskarCodes.bsky.social)
 
 FrameTrellis is free and always will be. If you would like to support its development, you can
+[sponsor on GitHub](https://github.com/sponsors/sanskarIN),
 [buy the maintainer a coffee](https://buymeacoffee.com/SanskarCodes) or contribute via
 [Razorpay](https://razorpay.me/@SanskarCodes) — entirely optional.

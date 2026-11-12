@@ -26,7 +26,11 @@ download without Apple Developer ID signing and notarization.
    escaping the application bundle. Perform ad-hoc signing for integrity tests.
 7. Produce a development DMG, checksum, separate version inventory and logs.
    Run real synthetic MP4 rendering and Qt Quick GUI screenshot tests from
-   the bundled app, then mount and check the DMG.
+   the bundled app, then mount and check the DMG. All four staged/mounted
+   process checks have independent hard deadlines (renderer 240 seconds;
+   GUI screenshot 90 seconds) enforced by `packaging/macos/timeout_exec.py`.
+   Timeout exit 124 terminates the entire test process group and fails
+   the workflow rather than reporting a GUI screenshot as a success.
 
 From a fresh checkout with Homebrew dependencies available:
 

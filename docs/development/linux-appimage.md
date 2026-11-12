@@ -16,8 +16,11 @@ be attached to a stable GitHub release until the checks below pass.
 - The `linuxdeploy` build is pinned to a known release and SHA256. Its Qt 6
   plug-in, Qt Quick QML scanner and media dependencies copy the required
   runtime libraries and QML modules. The plug-in's upstream release does
-  **not** publish an API checksum; its downloaded SHA256 is recorded for
-  auditing and must be fixed/pinned before final production approval.
+  **not** publish an API checksum; the exact downloaded SHA256 is now
+  printed in the experimental build log and retained in the basename-only
+  `linuxdeploy-plugin-qt-downloaded.sha256` artifact for review. That value is
+  **observed evidence, not independent provenance**: verify it against a
+  trusted upstream copy/source and pin it before final production approval.
 - CI checks the final AppImage hash and starts the AppImage with only its own
   Qt/MLT dependencies, generating a synthetic project with the real renderer.
   No externally supplied footage is used or uploaded.

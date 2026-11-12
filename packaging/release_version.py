@@ -48,13 +48,36 @@ def resolve_release_version(tag: str, project_version: str) -> ReleaseVersion:
     )
 
 
+def require_windows_only_assets(release: ReleaseVersion) -> None:
+    """Block new stable multi-platform versions from the legacy Windows uploader.
+
+    The existing owner-operated workflow prepares and attaches only Windows
+    files. v1.5.0+ requires the planned three-platform verified artifact set;
+    success from this helper must never be mistaken for acceptance of a partial
+    stable release. Prerelease preparations are development-only.
+    """
+    version = tuple(int(part) for part in release.package_version.split("."))
+    if not release.prerelease and version >= (1, 5, 0):
+        raise ValueError(
+            f"Stable {release.tag} requires the full three-platform release "
+            "matrix. The Windows-only preparation/uploader is not authorized; "
+            "complete the 14-file publishing migration before release."
+        )
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--tag", required=True)
     parser.add_argument("--project-version", required=True)
+    parser.add_argument(
+        "--windows-only-assets", action="store_true",
+        help="Refuse stable v1.5.0+ until three-platform release assets are supported.",
+    )
     args = parser.parse_args()
     try:
         release = resolve_release_version(args.tag, args.project_version)
+        if args.windows_only_assets:
+            require_windows_only_assets(release)
     except ValueError as exc:
         parser.error(str(exc))
     print(f"tag={release.tag}")

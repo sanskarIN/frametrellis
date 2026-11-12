@@ -77,6 +77,14 @@ jobs:
           ./build/linux/bin/frametrellis-render --self-test "$RUNNER_TEMP/linux-smoke"
           # Independent FFprobe metadata and FFmpeg decode, including audible AAC.
           python3 packaging/verify_export_media.py "$RUNNER_TEMP/linux-smoke/self-test-export.mp4"
+          # Test the user-selectable 30000/1001 FPS and an aspect-preserving
+          # custom width through the real command-line export path.
+          ./build/linux/bin/frametrellis-render \
+            --project "$RUNNER_TEMP/linux-smoke/self-test.ftproj" \
+            --output "$RUNNER_TEMP/linux-smoke/custom-ntsc.mp4" \
+            --fps 30000/1001 --width 320 --refuse-existing-output
+          python3 packaging/verify_export_media.py "$RUNNER_TEMP/linux-smoke/custom-ntsc.mp4" \
+            --fps 30000/1001 --width 320 --height 180
           ./build/linux/bin/frametrellis --screenshot "$RUNNER_TEMP/linux-gui.png" \
             --screenshot-delay 1000 "$RUNNER_TEMP/linux-smoke/self-test.ftproj"
           test -s "$RUNNER_TEMP/linux-gui.png"
@@ -189,6 +197,11 @@ jobs:
           test -s "$RUNNER_TEMP/macos-smoke/self-test-export.mp4"
           # Independent codec and non-silent AAC validation on each native Mac.
           python3 packaging/verify_export_media.py "$RUNNER_TEMP/macos-smoke/self-test-export.mp4"
+          "$renderer" --project "$RUNNER_TEMP/macos-smoke/self-test.ftproj" \
+            --output "$RUNNER_TEMP/macos-smoke/custom-ntsc.mp4" \
+            --fps 30000/1001 --width 320 --refuse-existing-output
+          python3 packaging/verify_export_media.py "$RUNNER_TEMP/macos-smoke/custom-ntsc.mp4" \
+            --fps 30000/1001 --width 320 --height 180
       - name: Stage development .app and documented Homebrew requirements
         run: |
           set -euo pipefail

@@ -66,7 +66,9 @@ $crashes = @(
                 $exception.Groups[1].Value.ToLowerInvariant()
             } else { $null }
             faultModule = if ($module.Success) {
-                $module.Groups[1].Value
+                # Never persist a full drive/user path if WER emits one
+                # instead of the usual faulting DLL basename.
+                [IO.Path]::GetFileName($module.Groups[1].Value)
             } else { $null }
         }
     }

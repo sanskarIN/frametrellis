@@ -61,7 +61,11 @@ frozen commit**; SHA256SUMS alone cannot establish source-build identity.
    MP4/audio decode, clean-target tests, and complete codec/license provenance.
 4. macOS: pass clean Intel/Apple Silicon Macs without Homebrew, Developer ID
    signing, hardened runtime as needed, successful Apple notarization and
-   stapling, quarantined Gatekeeper launch and media-render verification.
+   stapling, and execute
+   `packaging/macos/verify-notarized-candidate.sh` separately on **each native
+   architecture**. The script validates checksum, ticket, Developer ID and
+   quarantined Gatekeeper acceptance; real Finder launch, physical audio and
+   long media-render verification still require independent manual evidence.
 5. Generate complete source archives and SPDX per platform; verify all checksums.
 6. Only then extend the guarded owner-operated stable release preparation and
    five-file uploader to the **approved** full 14-file candidate matrix. New

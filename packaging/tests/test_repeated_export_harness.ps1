@@ -23,9 +23,12 @@ public class RendererFixture
     public static int Main(string[] args)
     {
         string output = null;
-        for (int i = 0; i < args.Length - 1; ++i)
+        for (int i = 0; i < args.Length - 1; ++i) {
             if (args[i] == "--output")
                 output = args[i + 1];
+            else if (args[i] == "--self-test")
+                output = Path.Combine(args[i + 1], "self-test-export.mp4");
+        }
         if (output == null) return 2;
         string mode = Environment.GetEnvironmentVariable("FT_REPRO_FIXTURE_MODE");
         if (mode == "empty") File.WriteAllBytes(output, new byte[0]);
@@ -93,7 +96,37 @@ public class RendererFixture
             throw "Resource monitoring must stay disabled by default."
         }
     }
-    Write-Host "Repeated-export output integrity and opt-in resource sampling tests passed."
+    # Synthetic --self-test also needs an actual nonempty MP4 output. A
+    # successful fixture exit without that file previously produced false green.
+    foreach ($case in @(
+        @{ mode = "missing"; expected = "missing-output"; code = 1; bytes = 0; exists = $false; runs = 1 },
+        @{ mode = "empty"; expected = "empty-output"; code = 1; bytes = 0; exists = $true; runs = 1 },
+        @{ mode = "nonempty"; expected = "success"; code = 0; bytes = 3; exists = $true; runs = 2 }
+    )) {
+        $env:FT_REPRO_FIXTURE_MODE = $case.mode
+        $output = Join-Path $root ("synthetic-" + $case.mode)
+        & powershell.exe -NoProfile -NonInteractive -ExecutionPolicy Bypass -File $harness `
+            -Renderer $renderer -OutputDirectory $output -Runs $case.runs
+        $actualCode = $LASTEXITCODE
+        if ($actualCode -ne $case.code) {
+            throw "synthetic $($case.mode): expected harness exit $($case.code), got $actualCode"
+        }
+        $summaryFile = Join-Path $output "frametrellis-render-repro-summary.json"
+        $summary = Get-Content -LiteralPath $summaryFile -Raw | ConvertFrom-Json
+        if ($summary.mode -ne "synthetic-self-test" -or
+            @($summary.runs).Count -ne $case.runs) {
+            throw "Incorrect synthetic mode or run count: $($summary | ConvertTo-Json -Compress)"
+        }
+        foreach ($run in @($summary.runs)) {
+            if ($run.status -ne $case.expected -or
+                [int64] $run.outputBytes -ne $case.bytes -or
+                [bool] $run.outputExists -ne $case.exists -or
+                -not $run.output.EndsWith("self-test-export.mp4", [StringComparison]::OrdinalIgnoreCase)) {
+                throw "synthetic $($case.mode): invalid run status/file $($run | ConvertTo-Json -Compress)"
+            }
+        }
+    }
+    Write-Host "Repeated-export project and synthetic MP4 output integrity tests passed."
 }
 finally {
     Remove-Item Env:FT_REPRO_FIXTURE_MODE -ErrorAction SilentlyContinue

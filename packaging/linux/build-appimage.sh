@@ -71,7 +71,13 @@ qtdeploy_url="https://github.com/linuxdeploy/linuxdeploy-plugin-qt/releases/down
 curl -fLsS --retry 3 "$linuxdeploy_url" -o "$linuxdeploy"
 echo "$linuxdeploy_sha  $linuxdeploy" | sha256sum -c -
 curl -fLsS --retry 3 "$qtdeploy_url" -o "$qtdeploy"
-sha256sum "$qtdeploy" > "$output/linuxdeploy-plugin-qt-downloaded.sha256"
+# GitHub does not publish a digest for this older plugin release. Record the
+# observed hash in CI logs AND an artifact with a portable (basename-only)
+# checksum, so a maintainer can review/pin it before any stable promotion.
+# This is evidence only; self-observation is NOT a trusted upstream checksum.
+(cd "$toolsdir" && sha256sum "$(basename "$qtdeploy")") \
+    | tee "$output/linuxdeploy-plugin-qt-downloaded.sha256"
+(cd "$toolsdir" && sha256sum -c "$output/linuxdeploy-plugin-qt-downloaded.sha256")
 chmod +x "$linuxdeploy" "$qtdeploy"
 
 export ARCH=x86_64 APPIMAGE_EXTRACT_AND_RUN=1

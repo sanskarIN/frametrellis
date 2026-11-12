@@ -115,17 +115,31 @@ ditto "$plugin_directory/platforms/libqoffscreen.dylib" \
     "$contents/PlugIns/platforms/libqoffscreen.dylib"
 echo "Bundled Qt QPA platforms: cocoa, offscreen"
 
+# Homebrew's SDL2 may be sdl2-compat, which dlopen()s SDL3 during native
+# library initialization before main(). Neither otool -L nor dylibbundler
+# can discover the dlopen() dependency, so deploy SDL3 explicitly next to
+# SDL2 in Frameworks for the compat layer's @loader_path lookup.
+sdl3_prefix="$(brew --prefix sdl3)"
+sdl3_library="$sdl3_prefix/lib/libSDL3.dylib"
+if [[ ! -f "$sdl3_library" ]]; then
+    echo "Missing SDL3 runtime library: $sdl3_library" >&2
+    exit 1
+fi
+ditto "$sdl3_library" "$contents/Frameworks/libSDL3.dylib"
+
 # MLT loads service plug-ins dynamically. Include the plug-ins explicitly as
 # dylibbundler inputs so its dependency closure covers FFmpeg and other codecs.
 # Qt frameworks are deployed by macdeployqt (and must not be copied twice).
-inputs=(-x "$contents/MacOS/frametrellis" -x "$contents/MacOS/frametrellis-render")
+# The copied SDL3 is also an input: close its transitive linked dependencies.
+inputs=(-x "$contents/MacOS/frametrellis" -x "$contents/MacOS/frametrellis-render"
+        -x "$contents/Frameworks/libSDL3.dylib")
 while IFS= read -r -d '' module; do
     inputs+=(-x "$module")
 done < <(find "$contents/PlugIns/mlt-7" -type f \( -name '*.dylib' -o -name '*.so' \) -print0)
 dylibbundler -b -cd -ns -d "$contents/Frameworks" \
     -p '@executable_path/../Frameworks/' -i "$qt_prefix/lib" \
     -s "$mlt_prefix/lib" -s "$(brew --prefix ffmpeg)/lib" \
-    -s "$(brew --prefix sdl2)/lib" "${inputs[@]}"
+    -s "$(brew --prefix sdl2)/lib" -s "$sdl3_prefix/lib" "${inputs[@]}"
 
 
 # Homebrew Qt's copied framework binaries can retain absolute LC_ID_DYLIB
@@ -190,7 +204,7 @@ python3 "$root/packaging/macos/verify_bundle.py" "$app"
 {
     echo "FrameTrellis development packaging dependencies"
     echo "Build architecture: $arch"
-    brew list --versions qt mlt ffmpeg sdl2 dylibbundler || true
+    brew list --versions qt mlt ffmpeg sdl2 sdl3 dylibbundler || true
     echo "This unsigned Developer ID / unnotarized test artifact is NOT"
     echo "approved as a v1.5.0 stable release and may be rejected by Gatekeeper."
     echo "Third-party license closure and clean-Mac QA remain release blockers."

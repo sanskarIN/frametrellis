@@ -119,6 +119,31 @@ class MacBundleVerifierTests(unittest.TestCase):
             self.assertTrue(any("libqoffscreen.dylib" in item for item in problems))
             self.assertFalse(any("libmltcore" in item for item in problems))
 
+    def test_missing_dlopen_sdl3_is_rejected(self):
+        # Missing SDL3 may show an undismissable macOS alert before main().
+        with tempfile.TemporaryDirectory() as tmp:
+            app = Path(tmp) / "FrameTrellis.app"
+            contents = app / "Contents"
+            for name in ("frametrellis", "frametrellis-render"):
+                binary = contents / "MacOS" / name
+                binary.parent.mkdir(parents=True, exist_ok=True)
+                binary.write_bytes(b"fixture")
+            (contents / "Resources/mlt-7").mkdir(parents=True)
+            modules = contents / "PlugIns/mlt-7"
+            modules.mkdir(parents=True)
+            for name in ("core", "avformat", "plus", "normalize"):
+                (modules / f"libmlt{name}.so").write_bytes(b"fixture")
+            platforms = contents / "PlugIns/platforms"
+            platforms.mkdir(parents=True)
+            for name in ("libqcocoa.dylib", "libqoffscreen.dylib"):
+                (platforms / name).write_bytes(b"fixture")
+            with mock.patch.object(
+                verify.subprocess, "run",
+                return_value=mock.Mock(returncode=0, stdout="", stderr=""),
+            ):
+                problems = verify.check_bundle(app)
+            self.assertTrue(any("libSDL3.dylib" in item for item in problems), problems)
+
     def test_broken_bundle_symlink_rejected(self):
         with tempfile.TemporaryDirectory() as tmp:
             app = Path(tmp) / "FrameTrellis.app"
@@ -138,6 +163,9 @@ class MacBundleVerifierTests(unittest.TestCase):
             # Include both required QPA plugins so this test isolates the
             # broken-symlink failure rather than aborting at the preflight.
             (cocoa.parent / "libqoffscreen.dylib").write_bytes(b"fixture")
+            runtime = contents / "Frameworks/libSDL3.dylib"
+            runtime.parent.mkdir(parents=True)
+            runtime.write_bytes(b"fixture")
             (contents / "Resources/broken").symlink_to("missing")
             with mock.patch.object(
                 verify.subprocess, "run",

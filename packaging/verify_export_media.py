@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 # SPDX-License-Identifier: GPL-3.0-or-later
 """Independently inspect a rendered MP4 with FFprobe and decode it with FFmpeg.
 
@@ -56,7 +55,8 @@ def probe_problems(
             problems.append(f"unexpected video codec: {video.get('codec_name')}")
         if video.get("width") != width or video.get("height") != height:
             problems.append(
-                f"video dimensions {video.get('width')}x{video.get('height')}; expected {width}x{height}"
+                f"video dimensions {video.get('width')}x{video.get('height')}; "
+                f"expected {width}x{height}"
             )
         rate = parse_rate(video.get("avg_frame_rate")) or parse_rate(video.get("r_frame_rate"))
         if rate != expected_fps:

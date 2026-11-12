@@ -67,6 +67,20 @@ jobs:
         run: cmake --build --preset windows-msys2-release
       - name: Test
         run: ctest --preset windows-msys2-release
+      - name: Independently validate real MP4 video and non-silent AAC
+        run: |
+          set -euo pipefail
+          mkdir -p dist/av-verification
+          ./build/windows-msys2-release/bin/frametrellis-render.exe --self-test dist/av-verification
+          python packaging/verify_export_media.py dist/av-verification/self-test-export.mp4
+          # Independently verify exact user-requested rational FPS and width,
+          # not merely that the helper exited successfully.
+          ./build/windows-msys2-release/bin/frametrellis-render.exe \
+            --project dist/av-verification/self-test.ftproj \
+            --output dist/av-verification/custom-ntsc.mp4 \
+            --fps 30000/1001 --width 320 --refuse-existing-output
+          python packaging/verify_export_media.py dist/av-verification/custom-ntsc.mp4 \
+            --fps 30000/1001 --width 320 --height 180
       - name: Assemble the portable package
         run: python packaging/windows/package.py --build-dir build/windows-msys2-release --output dist
       - name: Build the installer

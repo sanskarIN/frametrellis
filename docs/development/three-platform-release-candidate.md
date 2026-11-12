@@ -33,7 +33,7 @@ python3 packaging/verify_candidate_matrix.py \
   --version 1.5.0 --directory /path/to/candidate-assets
 ```
 
-The verifier refuses incomplete/mixed sets, unexpected files, symlinked payloads,
+The verifier refuses incomplete sets, unexpected files, symlinked payloads,
 duplicate/missing checksums, changes in file bytes, invalid application version
 in SPDX files, non-ELF AppImages, non-MZ Windows installers and DMGs without an
 expected UDIF trailer. It **does not execute or trust any packaged code**.
@@ -44,7 +44,9 @@ Windows-only set in a separate directory for full ZIP/archive verification.
 validate DMG signatures, notarization tickets, code-signing identities,
 Gatekeeper/quarantine, audio playback, Glibc compatibility, exact executable
 architecture, whether SPDX inventories and source archives account for *every*
-bundled component, or whether binaries match the indicated source SHA.
+bundled component, or whether binaries match the indicated source SHA. **GitHub workflow provenance
+must independently establish that every platform was built from the exact same
+frozen commit**; SHA256SUMS alone cannot establish source-build identity.
 
 ## Publication hold
 

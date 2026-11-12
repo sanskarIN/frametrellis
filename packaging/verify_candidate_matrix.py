@@ -12,8 +12,12 @@ import argparse
 import hashlib
 import json
 import re
+import stat
 import sys
-from pathlib import Path
+import tarfile
+import unicodedata
+import zipfile
+from pathlib import Path, PurePosixPath
 
 VERSION = re.compile(r"^[0-9]+\.[0-9]+\.[0-9]+$")
 SUM_LINE = re.compile(r"^([0-9a-fA-F]{64})  ([A-Za-z0-9][A-Za-z0-9_.-]+)$")
@@ -80,6 +84,70 @@ def validate_spdx(path: Path, version: str) -> None:
         raise ValueError(f"SPDX version or application package missing: {path.name}")
 
 
+def safe_archive_path(name: str) -> bool:
+    """Reject absolute, traversing and platform-ambiguous archive members."""
+    if not name or "\\" in name or ":" in name or name.startswith("/"):
+        return False
+    parts = name.rstrip("/").split("/")
+    return all(part not in ("", ".", "..") for part in parts)
+
+
+def validate_windows_portable_zip(path: Path) -> None:
+    """Verify the editor and subprocess helper are unique adjacent ZIP entries."""
+    with zipfile.ZipFile(path, "r") as archive:
+        entries = archive.infolist()
+        names = [item.filename.rstrip("/") for item in entries]
+        if len(names) != len(set(unicodedata.normalize("NFC", name).casefold()
+                                 for name in names)):
+            raise ValueError("Portable ZIP has duplicate or case-folded duplicate paths")
+        for item in entries:
+            if not safe_archive_path(item.filename):
+                raise ValueError(f"Unsafe portable ZIP path: {item.filename}")
+            if stat.S_ISLNK(item.external_attr >> 16):
+                raise ValueError(f"Portable ZIP contains a symbolic link: {item.filename}")
+
+        executables: dict[str, list[PurePosixPath]] = {
+            name: [
+                PurePosixPath(item.filename)
+                for item in entries
+                if not item.is_dir()
+                and PurePosixPath(item.filename).name.casefold() == name
+            ]
+            for name in ("frametrellis.exe", "frametrellis-render.exe")
+        }
+        if len(executables["frametrellis.exe"]) != 1:
+            raise ValueError("Portable ZIP must contain exactly one frametrellis.exe")
+        if len(executables["frametrellis-render.exe"]) != 1:
+            raise ValueError("Portable ZIP must contain exactly one frametrellis-render.exe")
+        if executables["frametrellis.exe"][0].parent != executables[
+            "frametrellis-render.exe"
+        ][0].parent:
+            raise ValueError("Portable ZIP editor and render helper must be adjacent")
+        bad_file = archive.testzip()
+        if bad_file:
+            raise ValueError(f"Corrupt portable ZIP member: {bad_file}")
+
+
+def validate_corresponding_source_tar(path: Path) -> None:
+    """Reject unsafe/empty source archives; legal source completeness is separate."""
+    seen: set[str] = set()
+    nonempty_files = 0
+    with tarfile.open(path, "r:") as archive:
+        for item in archive:
+            if not safe_archive_path(item.name):
+                raise ValueError(f"Unsafe corresponding-source TAR path: {item.name}")
+            normalized = unicodedata.normalize("NFC", item.name.rstrip("/")).casefold()
+            if normalized in seen:
+                raise ValueError(f"Duplicate corresponding-source TAR path: {item.name}")
+            seen.add(normalized)
+            if not (item.isfile() or item.isdir()):
+                raise ValueError(f"Corresponding-source TAR has a link/special entry: {item.name}")
+            if item.isfile() and item.size > 0:
+                nonempty_files += 1
+    if not nonempty_files:
+        raise ValueError(f"Corresponding-source TAR has no nonempty files: {path.name}")
+
+
 def validate_structure(path: Path, version: str) -> None:
     name = path.name
     if name.endswith(".spdx.json"):
@@ -103,9 +171,9 @@ def validate_structure(path: Path, version: str) -> None:
             if stream.read(2) != b"MZ":
                 raise ValueError(f"Windows installer lacks an MZ header: {name}")
     elif name.endswith(".zip"):
-        with path.open("rb") as stream:
-            if stream.read(2) != b"PK":
-                raise ValueError(f"Windows ZIP lacks a ZIP signature: {name}")
+        validate_windows_portable_zip(path)
+    elif name.endswith("-third-party-sources.tar"):
+        validate_corresponding_source_tar(path)
 
 
 def verify(directory: Path, version: str) -> list[str]:
@@ -126,6 +194,10 @@ def verify(directory: Path, version: str) -> list[str]:
     manifest = directory / "SHA256SUMS.txt"
     if manifest.is_symlink() or not manifest.is_file():
         raise ValueError("Unsafe checksum manifest")
+    notes = directory / "release-notes.md"
+    if notes.is_symlink() or (notes.exists() and
+                              (not notes.is_file() or notes.stat().st_size == 0)):
+        raise ValueError("Unsafe or empty optional release notes")
     records = checksums_from_text(manifest.read_text(encoding="utf-8"), required)
     for name in sorted(required):
         path = directory / name
@@ -144,7 +216,8 @@ def main() -> int:
     args = parser.parse_args()
     try:
         files = verify(args.directory, args.version)
-    except (OSError, ValueError, json.JSONDecodeError) as exc:
+    except (OSError, ValueError, json.JSONDecodeError,
+            tarfile.TarError, zipfile.BadZipFile) as exc:
         print(f"Candidate matrix FAILED: {exc}", file=sys.stderr)
         return 1
     print(f"Candidate integrity matrix PASS: {len(files)} assets, three operating systems.")

@@ -40,7 +40,12 @@ python3 packaging/verify_candidate_matrix.py \
 The verifier refuses incomplete sets, unexpected files, symlinked payloads,
 duplicate/missing checksums, changes in file bytes, invalid application version
 in SPDX files, non-ELF AppImages, non-MZ Windows installers and DMGs without an
-expected UDIF trailer. It **does not execute or trust any packaged code**.
+expected UDIF trailer. The proposed Windows portable ZIP must be a **real,
+CRC-verified archive** with unique safe paths and adjacent editor/renderer
+executables; all four corresponding-source TARs must be parseable, contain
+nonempty files, and reject traversal, symlinks, special entries and duplicate
+paths. This is *structural safety*, not proof that the source archives contain
+all required upstream sources. It **does not execute or trust any packaged code**.
 Continue to run the Windows-specific `verify_release_assets.py` with the
 Windows-only set in a separate directory for full ZIP/archive verification.
 

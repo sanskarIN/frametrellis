@@ -15,6 +15,10 @@ download without Apple Developer ID signing and notarization.
    plus MLT data inside `Contents/PlugIns/mlt-7` and
    `Contents/Resources/mlt-7`. The editor resolves those local folders.
 4. Use `macdeployqt` to deploy Qt frameworks, GUI plugins and QML imports.
+   Explicitly deploy both Cocoa and **offscreen** Qt QPA plugins: macdeployqt
+   commonly bundles only Cocoa, but the independently packaged renderer and
+   unattended GUI screenshots require the offscreen platform. The bundle
+   verifier rejects a missing platform plugin before a DMG is published.
 5. Use `dylibbundler` on both executables **and** the dynamically loaded
    MLT modules to copy linked codec/media dependencies into `Contents/Frameworks`.
 6. Run `packaging/macos/verify_bundle.py` to reject remaining Homebrew or

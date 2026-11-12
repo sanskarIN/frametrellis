@@ -100,12 +100,18 @@ def write_manifest(root: Path, kind: str, target: Path) -> dict:
     target.parent.mkdir(parents=True, exist_ok=True)
     # Write once; never include the host's path, timestamp, username, or
     # environment variables, so unchanged package bytes get identical JSON.
+    created = False
     try:
         with target.open("x", encoding="utf-8", newline="\n") as handle:
+            # A concurrent writer may win the exclusive-create race. Only
+            # clean up files this process successfully created; otherwise
+            # deleting the path could destroy the concurrent writer's data.
+            created = True
             json.dump(report, handle, ensure_ascii=False, indent=2, sort_keys=True)
             handle.write("\n")
     except BaseException:
-        target.unlink(missing_ok=True)
+        if created:
+            target.unlink(missing_ok=True)
         raise
     return report
 

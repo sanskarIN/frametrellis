@@ -16,11 +16,14 @@ be attached to a stable GitHub release until the checks below pass.
 - The `linuxdeploy` build is pinned to a known release and SHA256. Its Qt 6
   plug-in, Qt Quick QML scanner and media dependencies copy the required
   runtime libraries and QML modules. The plug-in's upstream release does
-  **not** publish an API checksum; the exact downloaded SHA256 is now
-  printed in the experimental build log and retained in the basename-only
-  `linuxdeploy-plugin-qt-downloaded.sha256` artifact for review. That value is
-  **observed evidence, not independent provenance**: verify it against a
-  trusted upstream copy/source and pin it before final production approval.
+  **not** publish an API checksum; the exact SHA256 was independently observed
+  in two successful project CI runs and is now pinned in the build script.
+  The build fails before launching the tool when the downloaded bytes differ.
+  A basename-only copy remains in
+  `linuxdeploy-plugin-qt-downloaded.sha256` for offline inspection. This is
+  **locally recorded, reproducible evidence, not publisher-authenticated
+  provenance**: independently verify the original upstream binary/source
+  before final production approval.
 - CI checks the final AppImage hash and starts the AppImage with only its own
   Qt/MLT dependencies, generating a synthetic project with the real renderer.
   It also generates a deterministic SHA-256 inventory of the *staged* AppDir
@@ -54,8 +57,8 @@ bash packaging/linux/build-appimage.sh build/linux dist/linux "$HOME/mlt"
    runtimes installed. Check X11/Wayland, sound devices and sandboxed systems.
 2. Confirm *actual* MP4 H.264/AAC bitstreams, FPS, duration, non-silent
    preview, subtitles, graphics/driver operation, 4K and long repeated exports.
-3. Freeze exact upstream tool versions, content hashes and transitive source
-   provenance. Audit **every redistributed Qt, MLT, FFmpeg, SDL2 and codec
+3. Independently authenticate the pinned CI-baseline Qt deploy-plugin digest,
+   freeze upstream tool versions and transitive source provenance. Audit **every redistributed Qt, MLT, FFmpeg, SDL2 and codec
    license** and corresponding source. The experimental AppImage does not yet
    satisfy the complete release SBOM/source-license gate.
 4. Verify glibc baseline across supported distributions, directory traversal,

@@ -9,6 +9,7 @@ from __future__ import annotations
 import argparse
 import os
 import signal
+from contextlib import suppress
 import subprocess
 import sys
 
@@ -30,17 +31,13 @@ def execute(argv: list[str], seconds: int) -> int:
             file=sys.stderr,
             flush=True,
         )
-        try:
+        with suppress(ProcessLookupError):
             os.killpg(process.pid, signal.SIGTERM)
-        except ProcessLookupError:
-            pass
         try:
             process.wait(timeout=5)
         except subprocess.TimeoutExpired:
-            try:
+            with suppress(ProcessLookupError):
                 os.killpg(process.pid, signal.SIGKILL)
-            except ProcessLookupError:
-                pass
             process.wait()
         return 124
 

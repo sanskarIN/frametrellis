@@ -38,8 +38,8 @@ jobs:
       - uses: actions/checkout@v6
       - name: Install native toolchain and codec/bundle dependencies
         run: |
-          brew install cmake ninja pkg-config qt mlt ffmpeg sdl2 dylibbundler
-          brew list --versions qt mlt ffmpeg sdl2 dylibbundler
+          brew install cmake ninja pkg-config qt mlt ffmpeg sdl2 sdl3 dylibbundler
+          brew list --versions qt mlt ffmpeg sdl2 sdl3 dylibbundler
       - name: Configure full editor and helper
         run: |
           cmake --preset macos \

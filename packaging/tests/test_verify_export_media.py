@@ -125,10 +125,14 @@ class IndependentExportVerifierTests(unittest.TestCase):
         self.assertIsNone(checker.mean_volume_dbfs("no volume"))
 
     def test_missing_media_is_rejected_without_executing_tools(self):
-        with tempfile.TemporaryDirectory() as tmp:
-            with mock.patch.object(checker, "run_command") as run:
-                self.assertTrue(checker.verify(Path(tmp) / "missing.mp4", Fraction(25), 640, 360, 2.0, -60))
-                run.assert_not_called()
+        with (
+            tempfile.TemporaryDirectory() as tmp,
+            mock.patch.object(checker, "run_command") as run,
+        ):
+            self.assertTrue(
+                checker.verify(Path(tmp) / "missing.mp4", Fraction(25), 640, 360, 2.0, -60)
+            )
+            run.assert_not_called()
 
     def test_independent_bitstream_checks_execute_and_accept_real_signal(self):
         with tempfile.TemporaryDirectory() as tmp:

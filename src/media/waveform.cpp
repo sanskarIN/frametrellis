@@ -21,6 +21,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <limits>
 
 namespace ft::media {
 
@@ -50,6 +51,22 @@ Result<WaveformData> computeWaveform(const QString& filePath, const MediaInfo& i
         return makeError(ErrorCode::InvalidArgument,
                          QStringLiteral("The waveform resolution is out of range."));
     }
+    // Untrusted media metadata can contain negative, zero or extreme
+    // durations. Validate the values BEFORE casting floating-point lengths to
+    // size_t/int, which is undefined if the value cannot be represented. Also
+    // avoid opening a decoder for a request we will inevitably reject.
+    const double seconds = static_cast<double>(info.durationUs) / 1e6;
+    const double bins = std::ceil(seconds * static_cast<double>(binsPerSecond));
+    const double decodedFrames = std::ceil(seconds * kReadRate);
+    if (info.durationUs <= 0 || !std::isfinite(bins) || bins < 1.0 ||
+        bins > static_cast<double>(kMaxBins) || !std::isfinite(decodedFrames) ||
+        decodedFrames < 1.0 ||
+        decodedFrames > static_cast<double>(std::numeric_limits<int>::max())) {
+        return makeError(ErrorCode::Media,
+                         QStringLiteral("The length of the sound cannot be determined."));
+    }
+    const auto expectedBins = static_cast<std::size_t>(bins);
+    const auto expectedFrames = static_cast<int>(decodedFrames);
     if (!engine::MltRuntime::isInitialized()) {
         return makeError(ErrorCode::Engine, QStringLiteral("The media engine is not initialised."));
     }
@@ -61,14 +78,7 @@ Result<WaveformData> computeWaveform(const QString& filePath, const MediaInfo& i
     }
     const int frequency = info.audioSampleRate > 0 ? info.audioSampleRate : 48000;
     const int channels = std::clamp(info.audioChannels, 1, 8);
-    const double seconds = static_cast<double>(info.durationUs) / 1e6;
-    const auto expectedBins = static_cast<std::size_t>(std::ceil(seconds * binsPerSecond));
-    const int frames =
-        std::max(producer->get_length(), static_cast<int>(std::ceil(seconds * kReadRate)));
-    if (expectedBins == 0 || expectedBins > kMaxBins) {
-        return makeError(ErrorCode::Media,
-                         QStringLiteral("The length of the sound cannot be determined."));
-    }
+    const int frames = std::max(producer->get_length(), expectedFrames);
 
     WaveformData data;
     data.binsPerSecond = binsPerSecond;

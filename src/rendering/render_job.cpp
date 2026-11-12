@@ -397,7 +397,18 @@ void RenderJob::onProcessFinished(int exitCode, QProcess::ExitStatus status)
         return;
     }
     if (status == QProcess::NormalExit && exitCode == protocol::Success && m_sawFinished) {
-        setState(State::Succeeded);
+        // A helper may emit a finished event and exit zero even if publishing
+        // the destination fails or it writes an empty file. Do not show a
+        // successful editor export without the requested final output.
+        const QFileInfo output(m_settings.outputPath);
+        if (output.isFile() && output.size() > 0) {
+            setState(State::Succeeded);
+        } else {
+            removeOwnedPartialOutput();
+            fail(QStringLiteral("The renderer reported success but produced no usable MP4 file."),
+                 output.isFile() ? QStringLiteral("The final MP4 file is empty.")
+                                 : QStringLiteral("The final MP4 file is missing."));
+        }
     } else if ((status == QProcess::NormalExit && exitCode == protocol::Cancelled) ||
                (m_state == State::Cancelling && m_cancelKillIssued &&
                 status == QProcess::CrashExit)) {

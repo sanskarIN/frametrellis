@@ -22,6 +22,14 @@ target_compile_definitions(tst_render PRIVATE
     FT_STDOUT_RENDER_HELPER="$<TARGET_FILE:ft_render_stdout_fixture>")
 add_dependencies(tst_render ft_render_stdout_fixture)
 
+# A well-formed 'finished' event and zero exit are not sufficient without
+# a final nonempty destination MP4. Exercise the GUI-side job independently.
+add_executable(ft_render_success_fixture ../support/render_success_fixture.cpp)
+target_link_libraries(ft_render_success_fixture PRIVATE ft_compile_options)
+target_compile_definitions(tst_render PRIVATE
+    FT_SUCCESS_RENDER_HELPER="$<TARGET_FILE:ft_render_success_fixture>")
+add_dependencies(tst_render ft_render_success_fixture)
+
 add_executable(ft_render_cancel_fixture ../support/render_cancel_fixture.cpp)
 target_link_libraries(ft_render_cancel_fixture PRIVATE ft_compile_options)
 target_compile_definitions(tst_render PRIVATE

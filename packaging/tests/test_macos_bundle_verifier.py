@@ -116,6 +116,7 @@ class MacBundleVerifierTests(unittest.TestCase):
                 (contents / "PlugIns/mlt-7" / f"libmlt{name}.so").write_bytes(b"fixture")
             problems = verify.check_bundle(app)
             self.assertTrue(any("libmltnormalize" in item for item in problems))
+            self.assertTrue(any("libqoffscreen.dylib" in item for item in problems))
             self.assertFalse(any("libmltcore" in item for item in problems))
 
     def test_broken_bundle_symlink_rejected(self):

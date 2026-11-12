@@ -2,8 +2,12 @@
 
 **Planning and validation only — v1.5.0 has NOT been approved, tagged or published.**
 The existing stable publication workflows remain **Windows-only**.
-Experimental Linux AppImages and UNNOTARIZED macOS DMGs are **not**
-valid production release assets.
+The old preparation/uploader now explicitly **reject stable v1.5.0 or newer**
+through the `--windows-only-assets` release-version gate. This prevents
+accidentally publishing a three-platform featured release with only five
+Windows artifacts; it is a safeguard, **not** the missing three-platform
+release pipeline. Experimental Linux AppImages and UNNOTARIZED macOS DMGs
+are **not** valid production release assets.
 
 ## Proposed complete artifact set
 

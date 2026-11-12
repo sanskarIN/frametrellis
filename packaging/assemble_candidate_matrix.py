@@ -146,7 +146,9 @@ def assemble(
         try:
             checked = verify(output, version)
         except Exception:
-            sentinel.write_text("Candidate verification FAILED. Do not publish.\n", encoding="utf-8")
+            sentinel.write_text(
+                "Candidate verification FAILED. Do not publish.\n", encoding="utf-8"
+            )
             raise
     except Exception:
         # Never erase the user's sources or delete a pre-existing directory.

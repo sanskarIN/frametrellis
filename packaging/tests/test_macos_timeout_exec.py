@@ -65,6 +65,42 @@ class MacTimeoutTests(unittest.TestCase):
         ):
             self.assertEqual(timeout.execute(["/not-present"], 5), 127)
 
+    def test_sampling_uses_native_mac_tool_with_bounded_timeout(self):
+        import tempfile
+
+        with tempfile.TemporaryDirectory() as directory:
+            with (
+                mock.patch.object(timeout.sys, "platform", "darwin"),
+                mock.patch.object(timeout.subprocess, "run") as invoke,
+            ):
+                invoke.return_value.returncode = 0
+                timeout.capture_stalled_process(8192, directory)
+                args, kwargs = invoke.call_args
+                self.assertEqual(args[0][:3], ["/usr/bin/sample", "8192", "3"])
+                self.assertEqual(args[0][-2], "-file")
+                self.assertTrue(args[0][-1].endswith("timeout-sample-8192.txt"))
+                self.assertEqual(kwargs["timeout"], 15)
+                self.assertFalse(kwargs["check"])
+
+    def test_sampling_disabled_without_opt_in(self):
+        with mock.patch.object(timeout.subprocess, "run") as invoke:
+            timeout.capture_stalled_process(8192, None)
+            invoke.assert_not_called()
+
+    def test_sampler_failure_does_not_skip_group_cleanup(self):
+        fake = mock.Mock(pid=8192)
+        fake.wait.side_effect = [subprocess.TimeoutExpired("command", 10), 0]
+        with (
+            mock.patch.object(timeout.subprocess, "Popen", return_value=fake),
+            mock.patch.object(timeout, "capture_stalled_process",
+                              side_effect=OSError("sampling denied")),
+            mock.patch.object(timeout.os, "killpg") as kill,
+        ):
+            # Catch sample failure, but always terminate the stalled program.
+            with self.assertRaises(OSError):
+                timeout.execute(["/tmp/stuck"], 10, "/tmp/diagnostics")
+            kill.assert_not_called()
+
     def test_rejects_empty_argv_or_unbounded_deadline(self):
         with self.assertRaises(ValueError):
             timeout.execute([], 30)

@@ -65,7 +65,9 @@ jobs:
           out="$RUNNER_TEMP/ft-packages"
           app="$out/FrameTrellis-macos-${{ matrix.arch }}-development.app"
           dmg="$out/FrameTrellis-macos-${{ matrix.arch }}-UNNOTARIZED-development.dmg"
-          shasum -a 256 -c "$dmg.sha256"
+          # The published checksum must contain a basename, not $RUNNER_TEMP.
+          test "$(awk '{print $2}' "$dmg.sha256")" = "$(basename "$dmg")"
+          (cd "$out" && shasum -a 256 -c "$(basename "$dmg").sha256")
           codesign --verify --deep --strict "$app"
           # Never supply a staged MLT path: the packaged executable must
           # discover its own Contents/PlugIns and Contents/Resources.

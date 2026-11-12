@@ -15,6 +15,7 @@ import re
 import stat
 import sys
 import tarfile
+import unicodedata
 import zipfile
 from pathlib import Path, PurePosixPath
 
@@ -96,7 +97,8 @@ def validate_windows_portable_zip(path: Path) -> None:
     with zipfile.ZipFile(path, "r") as archive:
         entries = archive.infolist()
         names = [item.filename.rstrip("/") for item in entries]
-        if len(names) != len(set(name.casefold() for name in names)):
+        if len(names) != len(set(unicodedata.normalize("NFC", name).casefold()
+                                 for name in names)):
             raise ValueError("Portable ZIP has duplicate or case-folded duplicate paths")
         for item in entries:
             if not safe_archive_path(item.filename):
@@ -134,7 +136,7 @@ def validate_corresponding_source_tar(path: Path) -> None:
         for item in archive:
             if not safe_archive_path(item.name):
                 raise ValueError(f"Unsafe corresponding-source TAR path: {item.name}")
-            normalized = item.name.rstrip("/").casefold()
+            normalized = unicodedata.normalize("NFC", item.name.rstrip("/")).casefold()
             if normalized in seen:
                 raise ValueError(f"Duplicate corresponding-source TAR path: {item.name}")
             seen.add(normalized)
@@ -192,6 +194,10 @@ def verify(directory: Path, version: str) -> list[str]:
     manifest = directory / "SHA256SUMS.txt"
     if manifest.is_symlink() or not manifest.is_file():
         raise ValueError("Unsafe checksum manifest")
+    notes = directory / "release-notes.md"
+    if notes.is_symlink() or (notes.exists() and
+                              (not notes.is_file() or notes.stat().st_size == 0)):
+        raise ValueError("Unsafe or empty optional release notes")
     records = checksums_from_text(manifest.read_text(encoding="utf-8"), required)
     for name in sorted(required):
         path = directory / name

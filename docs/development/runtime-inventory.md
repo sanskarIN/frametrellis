@@ -13,24 +13,27 @@ makes the exact shipped file tree reviewable without writing private build paths
 
 After building the development AppDir:
 
-\`\`\`bash
+```bash
 python3 packaging/runtime_inventory.py generate \
   --kind linux-appdir --root dist/linux/AppDir \
   --manifest dist/linux/appdir-inventory.json
 python3 packaging/runtime_inventory.py verify \
   --root dist/linux/AppDir --manifest dist/linux/appdir-inventory.json
-\`\`\`
+```
 
 This is an **AppDir inventory**, not an inventory of an arbitrary compressed
-AppImage executable. A future production workflow must inventory the **exact
-AppDir extracted from the final hashed AppImage** and compare it with the
-staged tree, then independently run real packaged code on clean target Linux.
+AppImage executable. The experimental Linux CI now creates this inventory
+*after* staging and compares it with the **exact AppDir extracted from the
+final hashed AppImage**, before testing real packaged code on a clean Ubuntu
+container. The report and self-observed SHA-256 are saved as development CI
+artifacts. This does not establish authenticated provenance or clean-host
+compatibility outside the tested Ubuntu environment.
 
 ## macOS development .app
 
 After building and signing the *development* macOS application:
 
-\`\`\`bash
+```bash
 python3 packaging/runtime_inventory.py generate \
   --kind macos-app \
   --root dist/macos/FrameTrellis-macos-arm64-development.app \
@@ -38,7 +41,7 @@ python3 packaging/runtime_inventory.py generate \
 python3 packaging/runtime_inventory.py verify \
   --root dist/macos/FrameTrellis-macos-arm64-development.app \
   --manifest dist/macos/arm64-app-inventory.json
-\`\`\`
+```
 
 Repeat separately for **native Intel and Apple Silicon** and for the actual
 .app extracted from each final DMG. Never treat a staged-only manifest as

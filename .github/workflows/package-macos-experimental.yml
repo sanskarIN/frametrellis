@@ -73,11 +73,13 @@ jobs:
           # discover its own Contents/PlugIns and Contents/Resources.
           unset FRAMETRELLIS_MLT_REPOSITORY MLT_REPOSITORY MLT_DATA
           unset DYLD_LIBRARY_PATH DYLD_FALLBACK_LIBRARY_PATH QT_PLUGIN_PATH QML2_IMPORT_PATH
-          "$app/Contents/MacOS/frametrellis-render" --self-test "$RUNNER_TEMP/mac-bundled" \
+          python3 packaging/macos/timeout_exec.py --seconds 240 -- \
+            "$app/Contents/MacOS/frametrellis-render" --self-test "$RUNNER_TEMP/mac-bundled" \
             | tee "$RUNNER_TEMP/mac-staged-render.log"
           grep -Fq "$app/Contents/PlugIns/mlt-7" "$RUNNER_TEMP/mac-staged-render.log"
           test -s "$RUNNER_TEMP/mac-bundled/self-test-export.mp4"
-          "$app/Contents/MacOS/frametrellis" \
+          python3 packaging/macos/timeout_exec.py --seconds 90 -- \
+            "$app/Contents/MacOS/frametrellis" \
             --screenshot "$RUNNER_TEMP/mac-bundled-gui.png" \
             --screenshot-delay 1200 "$RUNNER_TEMP/mac-bundled/self-test.ftproj"
           test -s "$RUNNER_TEMP/mac-bundled-gui.png"
@@ -91,11 +93,13 @@ jobs:
           python3 packaging/macos/verify_bundle.py "$mounted"
           # Running a renderer *from the read-only mounted DMG* catches hidden
           # dependencies on the staging directory and Homebrew runtime.
-          "$mounted/Contents/MacOS/frametrellis-render" \
+          python3 packaging/macos/timeout_exec.py --seconds 240 -- \
+            "$mounted/Contents/MacOS/frametrellis-render" \
             --self-test "$RUNNER_TEMP/mac-mounted" | tee "$RUNNER_TEMP/mac-mounted-render.log"
           grep -Fq "$mounted/Contents/PlugIns/mlt-7" "$RUNNER_TEMP/mac-mounted-render.log"
           test -s "$RUNNER_TEMP/mac-mounted/self-test-export.mp4"
-          "$mounted/Contents/MacOS/frametrellis" \
+          python3 packaging/macos/timeout_exec.py --seconds 90 -- \
+            "$mounted/Contents/MacOS/frametrellis" \
             --screenshot "$RUNNER_TEMP/mac-mounted-gui.png" \
             --screenshot-delay 1200 "$RUNNER_TEMP/mac-mounted/self-test.ftproj"
           test -s "$RUNNER_TEMP/mac-mounted-gui.png"

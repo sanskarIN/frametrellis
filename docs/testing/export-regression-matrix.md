@@ -67,6 +67,10 @@ python3 packaging/verify_export_media.py /path/to/self-test-export.mp4 \
 
 The native Linux and both native Mac CI jobs run this independent check after
 generating the sample project, as does the Windows package-building CI job.
+All three operating-system build paths also render the disposable project a
+second time with `--fps 30000/1001 --width 320` and independently verify the
+resulting **320x180**, rational-FPS MP4 and non-silent AAC audio. This is an
+executable gate for export-FPS conversion, not a source-code-only check.
 The clean Windows verifier still checks binary packaging and repeated FPS
 exports **without** requiring a development FFmpeg tool on its PATH.
 A passing synthetic 2-second clip does **not** prove long multi-track export,

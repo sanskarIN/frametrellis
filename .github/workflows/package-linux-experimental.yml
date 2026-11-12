@@ -142,7 +142,7 @@ jobs:
               # should be diagnosed in one run, not discovered one at a time.
               ldd "$bundled/usr/lib/mlt-7/libmltavformat.so" \
                 | tee /results/avformat-dependencies.log
-              if grep -Fq 'not found' /results/avformat-dependencies.log; then
+              if grep -Fq "not found" /results/avformat-dependencies.log; then
                 echo "Missing MLT/FFmpeg runtime dependency on clean Ubuntu" >&2
                 exit 1
               fi

@@ -198,9 +198,16 @@ python3 "$root/packaging/macos/verify_bundle.py" "$app"
 
 # Produce a development DMG for smoke and future clean-host testing; never
 # publish it as the stable Mac binary without identity signing/notarization.
-hdiutil create -quiet -volname 'FrameTrellis Development' \
-    -srcfolder "$app" -format UDZO -ov "$dmg"
+# An opaque -quiet hdiutil failure previously hid an Intel-only DMG error.
+# Report available free space and staged bytes, but do not expose user paths
+# beyond the short CI-owned package directory already present in build logs.
+echo "macOS candidate staging size and free-space evidence:"
+du -sh "$app"
+df -h "$output"
+hdiutil create -volname 'FrameTrellis Development' \
+    -srcfolder "$app" -format UDZO "$dmg"
 test -s "$dmg"
+hdiutil verify "$dmg"
 # Record only the DMG filename, never the temporary CI staging path.
 # Release-artifact checksums must remain valid after users move the files.
 (cd "$output" && shasum -a 256 "$(basename "$dmg")" > "$(basename "$dmg").sha256")

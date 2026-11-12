@@ -71,7 +71,7 @@ def main() -> None:
     parser.add_argument("--project-version", required=True)
     parser.add_argument(
         "--windows-only-assets", action="store_true",
-        help="Fail closed for stable v1.5.0+ until all three-platform release assets are supported.",
+        help="Refuse stable v1.5.0+ until three-platform release assets are supported.",
     )
     args = parser.parse_args()
     try:

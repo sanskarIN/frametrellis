@@ -135,6 +135,9 @@ class MacBundleVerifierTests(unittest.TestCase):
             cocoa = contents / "PlugIns/platforms/libqcocoa.dylib"
             cocoa.parent.mkdir(parents=True)
             cocoa.write_bytes(b"fixture")
+            # Include both required QPA plugins so this test isolates the
+            # broken-symlink failure rather than aborting at the preflight.
+            (cocoa.parent / "libqoffscreen.dylib").write_bytes(b"fixture")
             (contents / "Resources/broken").symlink_to("missing")
             with mock.patch.object(
                 verify.subprocess, "run",

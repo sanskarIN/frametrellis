@@ -299,6 +299,40 @@ private slots:
         QVERIFY(partFiles().isEmpty());
     }
 
+    void helperZeroExitCannotClaimSuccessWithoutOutput()
+    {
+        const Project original = project(25);
+        for (const QString& mode :
+             {QStringLiteral("missing"), QStringLiteral("empty"),
+              QStringLiteral("nonempty")}) {
+            ExportSettings settings;
+            settings.outputPath =
+                m_dir.filePath(QStringLiteral("fixture-%1-success.mp4").arg(mode));
+            settings.speedPreset = QStringLiteral("ultrafast");
+            RenderJob job(QStringLiteral(FT_SUCCESS_RENDER_HELPER));
+            QSignalSpy finished(&job, &RenderJob::finished);
+            QVERIFY(job.start(original, settings));
+            QVERIFY(finished.count() > 0 || finished.wait(15'000));
+            const bool valid = mode == QStringLiteral("nonempty");
+            QCOMPARE(job.state(), valid ? RenderJob::State::Succeeded
+                                       : RenderJob::State::Failed);
+            if (!valid) {
+                QVERIFY2(job.errorMessage().contains(QStringLiteral("no usable MP4")),
+                         qPrintable(job.errorMessage()));
+                QVERIFY2(job.errorDetail().contains(
+                             mode == QStringLiteral("missing")
+                                 ? QStringLiteral("missing")
+                                 : QStringLiteral("empty")),
+                         qPrintable(job.errorDetail()));
+            } else {
+                QFile output(settings.outputPath);
+                QVERIFY(output.open(QIODevice::ReadOnly));
+                QCOMPARE(output.readAll(), QByteArrayLiteral("test"));
+            }
+            QVERIFY(partFiles().isEmpty());
+        }
+    }
+
     void cancelBeforeProcessStartedStillReachesHelper()
     {
         const Project original = project(25);

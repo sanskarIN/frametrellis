@@ -33,7 +33,9 @@ jobs:
       - name: Check Windows verification PowerShell syntax
         shell: pwsh
         run: |
-          foreach ($path in @('packaging/windows/verify.ps1', 'packaging/windows/module-paths.ps1')) {
+          foreach ($path in @('packaging/windows/verify.ps1',
+                              'packaging/windows/module-paths.ps1',
+                              'scripts/windows/Collect-FrameTrellisCrashEvents.ps1')) {
             $errors = $null
             $tokens = $null
             [System.Management.Automation.Language.Parser]::ParseFile(

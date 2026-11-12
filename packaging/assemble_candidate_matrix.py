@@ -131,7 +131,8 @@ def assemble(
         checksums: list[str] = []
         for name, source in sorted(sources.items()):
             destination = output / name
-            shutil.copyfile(source, destination, follow_symlinks=False)
+            # Preserve AppImage executable mode and metadata from verified staging.
+            shutil.copy2(source, destination, follow_symlinks=False)
             expected_hash = digest_file(source)
             actual_hash = digest_file(destination)
             if expected_hash != actual_hash:

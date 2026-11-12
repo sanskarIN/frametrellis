@@ -14,18 +14,48 @@ import re
 import shutil
 from pathlib import Path
 
-# Mapping between optional modules and their macdeployqt bundle locations.
+# Explicit allowlist of optional modules and their macdeployqt bundle locations.
+# Homebrew macdeployqt may install QML plugins under PlugIns/quick, not just
+# Resources/qml. The native audit must still reject any unlisted missing dylib.
 # Do not prune anything that FrameTrellis's source QML imports directly.
 OPTIONAL_MODULES = {
-    "QtQuick.Pdf": ("Resources/qml/QtQuick/Pdf", "PlugIns/imageformats/libqpdf.dylib"),
-    "QtQuick.Scene2D": ("Resources/qml/QtQuick/Scene2D",),
-    "QtQuick.Scene3D": ("Resources/qml/QtQuick/Scene3D",),
-    "QtQuick.Timeline": ("Resources/qml/QtQuick/Timeline",),
+    "QtQuick.Pdf": (
+        "Resources/qml/QtQuick/Pdf",
+        "PlugIns/imageformats/libqpdf.dylib",
+        "PlugIns/quick/libpdfquickplugin.dylib",
+    ),
+    "QtQuick.Scene2D": (
+        "Resources/qml/QtQuick/Scene2D",
+        "PlugIns/quick/libqtquickscene2dplugin.dylib",
+    ),
+    "QtQuick.Scene3D": (
+        "Resources/qml/QtQuick/Scene3D",
+        "PlugIns/quick/libqtquickscene3dplugin.dylib",
+    ),
+    "QtQuick.Timeline": (
+        "Resources/qml/QtQuick/Timeline",
+        "PlugIns/quick/libqtquicktimelineplugin.dylib",
+        "PlugIns/quick/libqtquicktimelineblendtreesplugin.dylib",
+    ),
     "QtQuick.VirtualKeyboard": (
         "Resources/qml/QtQuick/VirtualKeyboard",
         "PlugIns/platforminputcontexts/libqtvirtualkeyboardplugin.dylib",
+        "PlugIns/quick/libvirtualkeyboardplugin.dylib",
+        "PlugIns/quick/libqtvkbplugin.dylib",
+        "PlugIns/quick/libqtvkbcomponentsplugin.dylib",
+        "PlugIns/quick/libqtvkbsettingsplugin.dylib",
+        "PlugIns/quick/libqtvkbstylesplugin.dylib",
+        "PlugIns/quick/libqtvkbpinyinplugin.dylib",
+        "PlugIns/quick/libqtvkbhangulplugin.dylib",
+        "PlugIns/quick/libqtvkbtcimeplugin.dylib",
+        "PlugIns/quick/libqtvkbopenwnnplugin.dylib",
+        "PlugIns/quick/libqtvkbthaiplugin.dylib",
+        "PlugIns/quick/libqtvkbhunspellplugin.dylib",
     ),
-    "QtQml.StateMachine": ("Resources/qml/QtQml/StateMachine",),
+    "QtQml.StateMachine": (
+        "Resources/qml/QtQml/StateMachine",
+        "PlugIns/quick/libqtqmlstatemachineplugin.dylib",
+    ),
 }
 IMPORT_RE = re.compile(r"^\s*import\s+([A-Za-z][\w.]*)\b", re.MULTILINE)
 

@@ -43,11 +43,21 @@ python3 packaging/runtime_inventory.py verify \
   --manifest dist/macos/arm64-app-inventory.json
 ```
 
-Repeat separately for **native Intel and Apple Silicon** and for the actual
-.app extracted from each final DMG. Never treat a staged-only manifest as
-proof of the final mounted disk image. Code signing or notarization **changes
-bytes**, so the final manifest must be generated *after* signing and any
-stapling changes; never reuse pre-signing hashes as release evidence.
+The experimental macOS CI now repeats this procedure separately for **native
+Intel and Apple Silicon**. After ad-hoc signing and DMG creation, it records
+the signed staged .app's inventory and SHA-256, then mounts the DMG read-only
+and verifies the **actual mounted .app** against the identical inventory.
+CI independently checks the mounted code signature, audits the library
+closure and runs the bundled renderer and Qt Quick GUI from the mounted image.
+Any difference in native binaries, resources, permissions, internal symlinks
+or directories fails the development job.
+
+The generated manifest and self-observed checksum are attached to the
+**UNNOTARIZED development artifacts only**. Neither is an independent
+publisher signature. Production Developer ID signing or notarization can
+**change bytes**, so future release candidates must be inventoried *after*
+all signing and stapling operations, and checked against the exact final
+deliverable. Never reuse pre-signing hashes as release evidence.
 
 ## Verifier properties
 

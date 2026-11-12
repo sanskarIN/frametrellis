@@ -1,9 +1,12 @@
 # Publish FrameTrellis from your GitHub account (automatic asset attachment)
 
 The repository owner creates and **publishes** the stable GitHub Release through GitHub's
-Releases interface. This guide is version-independent: substitute the exact numeric
-release version for every `X.Y.Z` placeholder below. The `Attach verified release assets` workflow then **automatically
-uploads five files** from a successful, exact-commit `Prepare manual release` run.
+Releases interface. **This five-file procedure applies only to approved
+Windows-only stable releases through v1.4.x**, not the upcoming three-platform
+v1.5.0 featured release. Substitute the exact numeric release version for every
+`X.Y.Z` placeholder only within that supported release family. The
+`Attach verified release assets` workflow then **automatically uploads five
+Windows files** from a successful, exact-commit `Prepare manual release` run.
 Neither workflow creates a tag or GitHub Release. This is a change from the earlier
 fully manual attachment process.
 
@@ -11,6 +14,23 @@ fully manual attachment process.
 > attachment finishes. Do not publish unless physical Windows editing/audio/export
 > and project-backup acceptance is complete. If asset upload fails, the release
 > remains published but incomplete: stop announcements and resolve the failed run.
+
+## v1.5.0 three-platform publication remains blocked
+
+The v1.5.0 featured release is planned to include Windows x64, Linux x86_64,
+and native Apple Silicon/Intel macOS. Its [planned 14-file asset contract](../development/three-platform-release-candidate.md)
+requires 13 platform payloads and one checksum manifest. **Do not follow
+the five-asset Windows instructions below for v1.5.0 or later.** Both legacy
+preparation and automatic attachment intentionally reject a stable v1.5.0+
+tag using the `--windows-only-assets` release policy. An owner-created
+public release could still appear online *without files* if published
+prematurely; never treat an upload failure as release approval.
+
+The owner must first have a separately completed, securely verified
+three-platform preparation/attachment path, complete Mac notarization and
+clean-host licensing/audio/export testing, and authorize publication under
+the [v1.5.0 preflight](v1.5.0-preflight.md). Do not bypass this hold via
+manual five-file uploads.
 
 ## Before publishing
 

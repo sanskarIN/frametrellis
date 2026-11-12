@@ -103,6 +103,63 @@ jobs:
             "$bundled/usr/bin/frametrellis-render" \
             --self-test "$RUNNER_TEMP/linux-bundled-helper"
           test -s "$RUNNER_TEMP/linux-bundled-helper/self-test-export.mp4"
+      - name: Smoke packaged AppImage in isolated Ubuntu 24.04 (no Qt/MLT)
+        run: |
+          set -euo pipefail
+          # A passing same-host AppImage can silently rely on Qt/MLT from the
+          # build runner. Start a fresh container containing only base desktop
+          # system libraries; prohibit network access while executing the app.
+          pkg="$RUNNER_TEMP/linux-packages/FrameTrellis-linux-x86_64-EXPERIMENTAL.AppImage"
+          mkdir -p "$RUNNER_TEMP/linux-cleanhost"
+          docker build --tag frametrellis-cleanhost-smoke:24.04 - <<'DOCKERFILE'
+          FROM ubuntu:24.04
+          RUN apt-get update && apt-get install -y --no-install-recommends \
+              libgl1 libegl1 libopengl0 libxkbcommon0 libxkbcommon-x11-0 \
+              libxcb-cursor0 libfontconfig1 libdbus-1-3 libasound2t64 \
+              libharfbuzz0b libfribidi0 libpango-1.0-0 libcairo2 \
+              libjack-jackd2-0 libusb-1.0-0 fonts-dejavu-core ca-certificates && rm -rf /var/lib/apt/lists/*
+          DOCKERFILE
+          docker run --rm --network none \
+            --volume "$pkg:/opt/FrameTrellis.AppImage:ro" \
+            --volume "$RUNNER_TEMP/linux-cleanhost:/results" \
+            --env APPIMAGE_EXTRACT_AND_RUN=1 \
+            --env QT_QPA_PLATFORM=offscreen \
+            --env QT_QUICK_BACKEND=software \
+            --env SDL_AUDIODRIVER=dummy \
+            frametrellis-cleanhost-smoke:24.04 \
+            /bin/bash -euc '
+              test ! -d /usr/lib/x86_64-linux-gnu/qt6
+              test ! -e /usr/lib/x86_64-linux-gnu/libmlt-7.so.7
+              mkdir -p /results/render
+              mkdir -p /tmp/extracted
+              cd /tmp/extracted
+              /opt/FrameTrellis.AppImage --appimage-extract >/dev/null
+              bundled="$PWD/squashfs-root"
+              test -x "$bundled/usr/bin/frametrellis-render"
+              test -d "$bundled/usr/lib/mlt-7"
+              # Inspect the actual dynamically loaded FFmpeg service in the
+              # clean container. A single library missing several SONAMEs
+              # should be diagnosed in one run, not discovered one at a time.
+              ldd "$bundled/usr/lib/mlt-7/libmltavformat.so" \
+                | tee /results/avformat-dependencies.log
+              if grep -Fq "not found" /results/avformat-dependencies.log; then
+                echo "Missing MLT/FFmpeg runtime dependency on clean Ubuntu" >&2
+                exit 1
+              fi
+              /opt/FrameTrellis.AppImage --screenshot /results/gui.png \
+                --screenshot-delay 1200
+              test -s /results/gui.png
+              platform_plugin="$(find "$bundled/usr" -type f -name libqoffscreen.so -print -quit)"
+              test -n "$platform_plugin"
+              export QT_QPA_PLATFORM_PLUGIN_PATH="$(dirname "$platform_plugin")"
+              export LD_LIBRARY_PATH="$bundled/usr/lib:$bundled/usr/lib/x86_64-linux-gnu"
+              export FRAMETRELLIS_MLT_REPOSITORY="$bundled/usr/lib/mlt-7"
+              export MLT_DATA="$bundled/usr/share/mlt-7"
+              "$bundled/usr/bin/frametrellis-render" --self-test /results/render
+              test -s /results/render/self-test-export.mp4
+            '
+          test -s "$RUNNER_TEMP/linux-cleanhost/gui.png"
+          test -s "$RUNNER_TEMP/linux-cleanhost/render/self-test-export.mp4"
       - name: Upload explicitly experimental AppImage + checksums
         uses: actions/upload-artifact@v6
         with:
@@ -120,6 +177,8 @@ jobs:
           name: linux-experimental-appimage-evidence
           path: |
             ${{ runner.temp }}/linux-appimage-gui.png
+            ${{ runner.temp }}/linux-cleanhost/gui.png
+            ${{ runner.temp }}/linux-cleanhost/avformat-dependencies.log
             build/linux/Testing/Temporary
           if-no-files-found: ignore
           retention-days: 14

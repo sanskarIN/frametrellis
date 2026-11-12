@@ -73,6 +73,9 @@ def check_bundle(app: Path) -> list[str]:
         # A bundled renderer runs offscreen in CI and on unattended hosts.
         # macdeployqt copies Cocoa by default but not the offscreen QPA plugin.
         contents / "PlugIns/platforms/libqoffscreen.dylib",
+        # The Homebrew SDL2-compat runtime loads SDL3 via dlopen() before
+        # main(); otool -L alone cannot detect this dependency.
+        contents / "Frameworks/libSDL3.dylib",
     ]
     problems = [f"Missing required bundle component: {p}" for p in required if not p.exists()]
     module_dir = contents / "PlugIns/mlt-7"

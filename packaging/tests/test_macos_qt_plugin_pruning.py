@@ -62,6 +62,57 @@ class MacPruneOptionalQtTests(unittest.TestCase):
         self.assertEqual(removed, [])
         self.assertTrue(all(path.exists() for path in [keyboard, context, pdf, imageformat]))
 
+
+    def test_prunes_unreferenced_native_quick_plugins_from_failed_macos_ci(self):
+        """Homebrew deploys optional QML modules under PlugIns/quick as well."""
+        (self.sources / "Main.qml").write_text(
+            "import QtQuick\\nimport QtQuick.Controls.Basic\\n", encoding="utf-8"
+        )
+        quick_plugins = [
+            "libqtvkbopenwnnplugin.dylib",
+            "libqtvkbthaiplugin.dylib",
+            "libvirtualkeyboardplugin.dylib",
+            "libqtquickscene2dplugin.dylib",
+            "libqtvkbplugin.dylib",
+            "libqtvkbpinyinplugin.dylib",
+            "libqtquicktimelineplugin.dylib",
+            "libpdfquickplugin.dylib",
+            "libqtquickscene3dplugin.dylib",
+            "libqtvkbtcimeplugin.dylib",
+            "libqtvkbhangulplugin.dylib",
+            "libqtqmlstatemachineplugin.dylib",
+            "libqtvkbsettingsplugin.dylib",
+            "libqtquicktimelineblendtreesplugin.dylib",
+            "libqtvkbhunspellplugin.dylib",
+            "libqtvkbcomponentsplugin.dylib",
+            "libqtvkbstylesplugin.dylib",
+        ]
+        candidates = [self.add_plugin("PlugIns/quick/" + name) for name in quick_plugins]
+        required = self.add_plugin("PlugIns/quick/libqtquickcontrols2basicstyleplugin.dylib")
+        removed = pruner.prune(self.app, self.sources)
+        self.assertEqual(
+            {path for path in removed if path.startswith("PlugIns/quick/")},
+            {"PlugIns/quick/" + name for name in quick_plugins},
+        )
+        self.assertTrue(all(not path.exists() for path in candidates))
+        self.assertTrue(required.is_file(), "Non-allowlisted plugins must survive")
+
+    def test_imported_quick_plugins_are_preserved(self):
+        (self.sources / "Main.qml").write_text(
+            "import QtQuick.VirtualKeyboard\\n"
+            "import QtQuick.Timeline\\n"
+            "import QtQml.StateMachine\\n"
+            "import QtQuick.Pdf\\n", encoding="utf-8"
+        )
+        installed = [
+            self.add_plugin("PlugIns/quick/libqtvkbpinyinplugin.dylib"),
+            self.add_plugin("PlugIns/quick/libqtquicktimelineblendtreesplugin.dylib"),
+            self.add_plugin("PlugIns/quick/libqtqmlstatemachineplugin.dylib"),
+            self.add_plugin("PlugIns/quick/libpdfquickplugin.dylib"),
+        ]
+        self.assertEqual(pruner.prune(self.app, self.sources), [])
+        self.assertTrue(all(path.exists() for path in installed))
+
     def test_rejects_symlink_in_prunable_path(self):
         (self.sources / "Main.qml").write_text("import QtQuick\n")
         external = Path(self.directory.name) / "external"

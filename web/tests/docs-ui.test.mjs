@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
+import { spawnSync } from 'node:child_process';
+import { fileURLToPath } from 'node:url';
 import test from 'node:test';
 import { codeText, matchesGuide } from '../site/assets/docs.mjs';
 
@@ -36,4 +38,36 @@ test('generated documentation exposes functional section anchors and the docs-on
     const home = readFileSync(new URL('../_site/index.html', import.meta.url), 'utf8');
     assert.doesNotMatch(home, /assets\/docs\.mjs/);
     assert.doesNotMatch(home, /class="doc-toc"/);
+});
+
+test('support pages consistently use the current Buy Me a Coffee profile', () => {
+    const canonical = 'https://buymeacoffee.com/sanskarIN';
+    const legacy = 'https://buymeacoffee.com/' + 'SanskarCodes';
+    const homepage = readFileSync(new URL('../_site/index.html', import.meta.url), 'utf8');
+
+    assert.ok(homepage.includes(`href="${canonical}"`));
+    assert.ok(!homepage.includes(legacy));
+
+    for (const relative of ['../../README.md', '../../docs/maintainers.md',
+                            '../../.github/FUNDING.yml']) {
+        const content = readFileSync(new URL(relative, import.meta.url), 'utf8');
+        assert.ok(content.includes(canonical), `Canonical BMC link missing from ${relative}`);
+        assert.ok(!content.includes(legacy), `Outdated BMC link found in ${relative}`);
+    }
+});
+
+test('all tracked support URLs point to the single canonical BMC profile', () => {
+    const result = spawnSync('git', ['grep', '-n', '-i', '-F', 'buymeacoffee.com/'], {
+        cwd: fileURLToPath(new URL('../../', import.meta.url)),
+        encoding: 'utf8',
+    });
+    assert.equal(result.status, 0, result.stderr || 'git grep failed to find support links');
+    let found = 0;
+    for (const line of result.stdout.split('\n')) {
+        for (const [, username] of line.matchAll(/buymeacoffee\.com\/([A-Za-z0-9_-]+)/gi)) {
+            ++found;
+            assert.equal(username, 'sanskarIN', `Incorrect BMC profile in ${line}`);
+        }
+    }
+    assert.ok(found >= 4, 'Expected BMC links in README, maintainer docs, site and funding');
 });

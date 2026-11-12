@@ -278,7 +278,7 @@ ${body}
     </p>
     <p class="fine">
       FrameTrellis is free. If you would like to support its development, you can
-      <a href="https://buymeacoffee.com/SanskarCodes" rel="noopener">buy the maintainer a coffee</a>
+      <a href="https://buymeacoffee.com/sanskarIN" rel="noopener">buy the maintainer a coffee</a>
       or contribute via <a href="https://razorpay.me/@SanskarCodes" rel="noopener">Razorpay</a> — entirely optional.
     </p>
   </div>

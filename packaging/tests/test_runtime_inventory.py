@@ -135,9 +135,11 @@ class RuntimeInventoryTests(unittest.TestCase):
                 manifest.write_text("concurrent writer data", encoding="utf-8")
                 return real_inventory(package_root, kind)
 
-            with patch.object(inventory, "inventory", side_effect=competing_writer):
-                with self.assertRaises(FileExistsError):
-                    inventory.write_manifest(root, "linux-appdir", manifest)
+            with (
+                patch.object(inventory, "inventory", side_effect=competing_writer),
+                self.assertRaises(FileExistsError),
+            ):
+                inventory.write_manifest(root, "linux-appdir", manifest)
             self.assertEqual(manifest.read_text(encoding="utf-8"),
                              "concurrent writer data")
 

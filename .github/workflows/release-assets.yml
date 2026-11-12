@@ -53,7 +53,11 @@ jobs:
             echo "::error::Cannot determine CMake project version."
             exit 1
           fi
-          python3 packaging/release_version.py --tag "$RELEASE_TAG" --project-version "$version" > version.txt
+          # This legacy workflow attaches five Windows-only files. Block stable
+          # v1.5.0+ before it attempts any upload, even if the owner has
+          # already published a release by mistake.
+          python3 packaging/release_version.py --tag "$RELEASE_TAG" \
+            --project-version "$version" --windows-only-assets > version.txt
           if grep -qx 'prerelease=true' version.txt; then
             echo "::error::This workflow attaches stable release packages only."
             exit 1

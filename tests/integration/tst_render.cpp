@@ -303,8 +303,7 @@ private slots:
     {
         const Project original = project(25);
         for (const QString& mode :
-             {QStringLiteral("missing"), QStringLiteral("empty"),
-              QStringLiteral("nonempty")}) {
+             {QStringLiteral("missing"), QStringLiteral("empty"), QStringLiteral("nonempty")}) {
             ExportSettings settings;
             settings.outputPath =
                 m_dir.filePath(QStringLiteral("fixture-%1-success.mp4").arg(mode));
@@ -314,15 +313,13 @@ private slots:
             QVERIFY(job.start(original, settings));
             QVERIFY(finished.count() > 0 || finished.wait(15'000));
             const bool valid = mode == QStringLiteral("nonempty");
-            QCOMPARE(job.state(), valid ? RenderJob::State::Succeeded
-                                       : RenderJob::State::Failed);
+            QCOMPARE(job.state(), valid ? RenderJob::State::Succeeded : RenderJob::State::Failed);
             if (!valid) {
                 QVERIFY2(job.errorMessage().contains(QStringLiteral("no usable MP4")),
                          qPrintable(job.errorMessage()));
-                QVERIFY2(job.errorDetail().contains(
-                             mode == QStringLiteral("missing")
-                                 ? QStringLiteral("missing")
-                                 : QStringLiteral("empty")),
+                QVERIFY2(job.errorDetail().contains(mode == QStringLiteral("missing")
+                                                        ? QStringLiteral("missing")
+                                                        : QStringLiteral("empty")),
                          qPrintable(job.errorDetail()));
             } else {
                 QFile output(settings.outputPath);

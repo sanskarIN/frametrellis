@@ -112,7 +112,9 @@ int main(int argc, char* argv[])
     qCInfo(lcUi) << "FrameTrellis" << ft::version::string << "starting";
 
     const ft::Status engineStatus = ft::engine::MltRuntime::initialize();
-    smokeCheckpoint(QStringLiteral("MLT initialized"));
+    const bool engineReady = static_cast<bool>(engineStatus);
+    smokeCheckpoint(engineReady ? QStringLiteral("MLT initialized")
+                                : QStringLiteral("MLT initialization failed"));
     int exitCode = 0;
     {
         ft::ui::AppController controller(engineStatus, renderHelperPath());
@@ -154,16 +156,29 @@ int main(int argc, char* argv[])
                 if (parser.isSet(screenshotOption)) {
                     auto* window = qobject_cast<QQuickWindow*>(engine.rootObjects().first());
                     const QString target = parser.value(screenshotOption);
-                    QTimer::singleShot(parser.value(delayOption).toInt(), &app, [window, target] {
-                        smokeCheckpoint(QStringLiteral("screenshot callback entered"));
-                        const QImage capture = window ? window->grabWindow() : QImage{};
-                        smokeCheckpoint(QStringLiteral("window grab returned"));
-                        const bool saved = !capture.isNull() && capture.save(target);
-                        smokeCheckpoint(saved ? QStringLiteral("screenshot saved")
-                                              : QStringLiteral("screenshot failed"));
-                        qCInfo(lcUi) << "Screenshot" << target << (saved ? "saved" : "failed");
-                        QCoreApplication::exit(saved ? 0 : 2);
-                    });
+                    QTimer::singleShot(
+                        parser.value(delayOption).toInt(), &app, [window, target, engineReady] {
+                            smokeCheckpoint(QStringLiteral("screenshot callback entered"));
+                            // A GUI may still display an error banner when MLT is missing.
+                            // CI must not treat such a screenshot as proof that a
+                            // packaged video editor can import, preview or export.
+                            if (!engineReady) {
+                                smokeCheckpoint(
+                                    QStringLiteral("screenshot refused: MLT unavailable"));
+                                qCCritical(lcUi)
+                                    << "Screenshot smoke failed: essential MLT services "
+                                       "are unavailable";
+                                QCoreApplication::exit(3);
+                                return;
+                            }
+                            const QImage capture = window ? window->grabWindow() : QImage{};
+                            smokeCheckpoint(QStringLiteral("window grab returned"));
+                            const bool saved = !capture.isNull() && capture.save(target);
+                            smokeCheckpoint(saved ? QStringLiteral("screenshot saved")
+                                                  : QStringLiteral("screenshot failed"));
+                            qCInfo(lcUi) << "Screenshot" << target << (saved ? "saved" : "failed");
+                            QCoreApplication::exit(saved ? 0 : 2);
+                        });
                     smokeCheckpoint(QStringLiteral("screenshot timer scheduled"));
                 }
                 smokeCheckpoint(QStringLiteral("entering GUI event loop"));

@@ -35,6 +35,14 @@ next to the editor). On macOS, the GUI is in
 build copies `frametrellis-render` into that same `Contents/MacOS` folder,
 so exports can be launched from Finder as well as from the command line.
 
+For automated packaging/GUI smoke tests, `frametrellis --screenshot <file>`
+returns **0 only if the screenshot was saved and essential MLT services
+initialized successfully**. Exit **2** means the capture failed, while
+exit **3** means MLT initialization or required services failed even if the
+QML error view could be drawn. Run the renderer's `--self-test` separately
+to prove actual media import, encoding and preview service availability.
+Do not accept a nonempty screenshot alone as evidence of a working editor.
+
 ## Windows 11 (MSYS2, UCRT64)
 
 1. Install [MSYS2](https://www.msys2.org/) and open the **MSYS2 UCRT64** shell.

@@ -95,6 +95,29 @@ jobs:
           FT_SCREENSHOT_DIR: ${{ runner.temp }}/frametrellis-screenshots
         run: ctest --preset linux-debug
 
+      - name: Reject GUI screenshot success when required MLT plugins are absent
+        env:
+          QT_QPA_PLATFORM: offscreen
+          QT_QUICK_BACKEND: software
+          SDL_AUDIODRIVER: dummy
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/empty-mlt-repository"
+          shot="$RUNNER_TEMP/invalid-mlt-smoke.png"
+          # Override MLT with a real but empty repository directory.
+          # The GUI can still paint its error state; screenshot mode must
+          # exit 3 rather than misleading packaging CI with a green check.
+          set +e
+          FRAMETRELLIS_MLT_REPOSITORY="$RUNNER_TEMP/empty-mlt-repository" \
+            timeout 30s ./build/linux-debug/bin/frametrellis \
+              --screenshot "$shot" --screenshot-delay 200
+          status=$?
+          set -e
+          test "$status" -eq 3 || {
+            echo "::error::Expected exit 3 for unhealthy MLT, got $status"
+            exit 1
+          }
+          test ! -e "$shot"
       - name: Upload feature screenshots
         if: always()
         uses: actions/upload-artifact@v6

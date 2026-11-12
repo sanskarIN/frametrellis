@@ -14,7 +14,10 @@ spec = importlib.util.spec_from_file_location("release_version", SOURCE)
 assert spec and spec.loader
 # Avoid requiring third-party dependencies: import directly from the packaging folder.
 sys.path.insert(0, str(SOURCE.parent))
-from release_version import resolve_release_version  # noqa: E402
+from release_version import (  # noqa: E402
+    require_windows_only_assets,
+    resolve_release_version,
+)
 
 
 class ReleaseVersionTests(unittest.TestCase):
@@ -58,6 +61,54 @@ class ReleaseVersionTests(unittest.TestCase):
                 self.assertEqual(result.version, tag[1:])
                 self.assertEqual(result.package_version, "1.4.0")
                 self.assertTrue(result.prerelease)
+
+    def test_legacy_windows_only_release_contract_is_version_gated(self):
+        # The old five-file uploader is valid for old Windows-only stable
+        # releases, but not for a proposed three-platform featured release.
+        require_windows_only_assets(resolve_release_version("v1.4.0", "1.4.0"))
+        require_windows_only_assets(resolve_release_version("v1.5.0-beta.1", "1.5.0"))
+        for tag, version in (
+            ("v1.5.0", "1.5.0"),
+            ("v1.5.1", "1.5.1"),
+            ("v2.0.0", "2.0.0"),
+        ):
+            with self.subTest(tag=tag), self.assertRaisesRegex(
+                ValueError, "full three-platform release matrix"
+            ):
+                require_windows_only_assets(resolve_release_version(tag, version))
+
+    def test_legacy_windows_only_cli_blocks_1_5_stable(self):
+        rejected = subprocess.run(
+            [
+                sys.executable,
+                str(SOURCE),
+                "--tag",
+                "v1.5.0",
+                "--project-version",
+                "1.5.0",
+                "--windows-only-assets",
+            ],
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        self.assertNotEqual(rejected.returncode, 0)
+        self.assertIn("three-platform", rejected.stderr)
+        allowed = subprocess.run(
+            [
+                sys.executable,
+                str(SOURCE),
+                "--tag",
+                "v1.4.0",
+                "--project-version",
+                "1.4.0",
+                "--windows-only-assets",
+            ],
+            capture_output=True,
+            text=True,
+            check=True,
+        )
+        self.assertIn("package_version=1.4.0", allowed.stdout)
 
     def test_tag_requires_matching_cmake_version(self):
         with self.assertRaisesRegex(ValueError, "does not match"):

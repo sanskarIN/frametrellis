@@ -23,6 +23,12 @@ be attached to a stable GitHub release until the checks below pass.
   trusted upstream copy/source and pin it before final production approval.
 - CI checks the final AppImage hash and starts the AppImage with only its own
   Qt/MLT dependencies, generating a synthetic project with the real renderer.
+  It also generates a deterministic SHA-256 inventory of the *staged* AppDir
+  and verifies the *actual extracted final AppImage* against that same
+  manifest (contents, executable permissions and internal symlinks). Any
+  mismatch fails the experimental build. The manifest and its observed
+  checksum are uploaded alongside the test artifact for review; these are
+  not authenticated publisher signatures.
   No externally supplied footage is used or uploaded.
 - An additional **experimental isolation gate** launches the exact packaged
   AppImage inside a fresh Ubuntu 24.04 container with common desktop system

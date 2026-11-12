@@ -46,7 +46,7 @@ jobs:
           # Validate tag syntax, version match, and the base binary-package name.
           # The manual release tag and CMake package version must match.
           if ! python3 packaging/release_version.py --tag "$tag" \
-                 --project-version "$project" >> "$GITHUB_OUTPUT"; then
+                 --project-version "$project" --windows-only-assets >> "$GITHUB_OUTPUT"; then
             echo "::error::Invalid release tag or mismatched CMake version"
             exit 1
           fi

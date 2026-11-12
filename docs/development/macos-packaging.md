@@ -21,6 +21,10 @@ download without Apple Developer ID signing and notarization.
    verifier rejects a missing platform plugin before a DMG is published.
 5. Use `dylibbundler` on both executables **and** the dynamically loaded
    MLT modules to copy linked codec/media dependencies into `Contents/Frameworks`.
+   Explicitly copy `libSDL3.dylib` alongside SDL2, because Homebrew's
+   SDL2-compat resolves SDL3 using `dlopen()` before `main()` and ordinary
+   linker-dependency audits cannot see this edge. Verify its bundled presence
+   and include the copied library in transitive dependency closure.
 6. Run `packaging/macos/verify_bundle.py` to reject remaining Homebrew or
    other absolute non-system dylib links, malformed references and paths
    escaping the application bundle. Perform ad-hoc signing for integrity tests.
@@ -35,7 +39,7 @@ download without Apple Developer ID signing and notarization.
 From a fresh checkout with Homebrew dependencies available:
 
 ```bash
-brew install cmake ninja pkg-config qt mlt ffmpeg sdl2 dylibbundler
+brew install cmake ninja pkg-config qt mlt ffmpeg sdl2 sdl3 dylibbundler
 cmake --preset macos -DCMAKE_PREFIX_PATH="$(brew --prefix qt);$(brew --prefix mlt)"
 cmake --build --preset macos
 ctest --preset macos
@@ -51,7 +55,7 @@ macOS download. For each architecture, the **same frozen source SHA** needs:
 - GUI startup and shutdown, project open/save/recovery, video+audio preview,
   MLT plugin availability, video effects, subtitle fonts, long 4K exports,
   MP4 stream FPS and actual audible AAC verified independently.
-- A complete record of Qt, MLT, FFmpeg, SDL2 and transitive codecs/plugins,
+- A complete record of Qt, MLT, FFmpeg, SDL2/SDL2-compat, SDL3 and transitive codecs/plugins,
   including **all required redistributed licenses**, source provenance and
   complete checksum/SBOM audit. This experimental script stages main project
   notices but **does not yet prove third-party license closure**.

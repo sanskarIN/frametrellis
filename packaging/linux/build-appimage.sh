@@ -61,23 +61,27 @@ toolsdir="$output/bundle-tools"
 mkdir -p "$toolsdir"
 linuxdeploy="$toolsdir/linuxdeploy-x86_64.AppImage"
 qtdeploy="$toolsdir/linuxdeploy-plugin-qt-x86_64.AppImage"
-# Pin the linuxdeploy release, source URL and publisher-provided digest.
-# The older Qt plugin release does not yet publish a digest via GitHub's API:
-# CI records its SHA256, but this unpinned tool is one of the explicit
-# supply-chain gates before promotion to a stable distributable release.
+# linuxdeploy has a publisher-provided digest. The older Qt plug-in release
+# does NOT publish a digest via GitHub's API. Two independent successful
+# FrameTrellis Linux AppImage CI runs recorded the SAME plug-in SHA-256.
+# Pin that observed baseline to fail closed if the downloaded artifact drifts.
+# This is reproducibility evidence, NOT independent upstream provenance;
+# publisher/source verification remains a stable-release requirement.
 linuxdeploy_url="https://github.com/linuxdeploy/linuxdeploy/releases/download/1-alpha-20251107-1/linuxdeploy-x86_64.AppImage"
 linuxdeploy_sha="c20cd71e3a4e3b80c3483cef793cda3f4e990aca14014d23c544ca3ce1270b4d"
 qtdeploy_url="https://github.com/linuxdeploy/linuxdeploy-plugin-qt/releases/download/1-alpha-20250213-1/linuxdeploy-plugin-qt-x86_64.AppImage"
+qtdeploy_sha="15106be885c1c48a021198e7e1e9a48ce9d02a86dd0a1848f00bdbf3c1c92724"
 curl -fLsS --retry 3 "$linuxdeploy_url" -o "$linuxdeploy"
 echo "$linuxdeploy_sha  $linuxdeploy" | sha256sum -c -
 curl -fLsS --retry 3 "$qtdeploy_url" -o "$qtdeploy"
-# GitHub does not publish a digest for this older plugin release. Record the
-# observed hash in CI logs AND an artifact with a portable (basename-only)
-# checksum, so a maintainer can review/pin it before any stable promotion.
-# This is evidence only; self-observation is NOT a trusted upstream checksum.
+# Enforce the known successful CI baseline before EVER executing this tool.
+# An upstream replacement or unexpected download fails this build; do not
+# derive the expected value from the file just downloaded.
+echo "$qtdeploy_sha  $qtdeploy" | sha256sum -c -
+# Also publish a basename-only digest for downstream offline review. The
+# observed digest is NOT an authenticated third-party signature.
 (cd "$toolsdir" && sha256sum "$(basename "$qtdeploy")") \
     | tee "$output/linuxdeploy-plugin-qt-downloaded.sha256"
-(cd "$toolsdir" && sha256sum -c "$output/linuxdeploy-plugin-qt-downloaded.sha256")
 chmod +x "$linuxdeploy" "$qtdeploy"
 
 export ARCH=x86_64 APPIMAGE_EXTRACT_AND_RUN=1
@@ -138,7 +142,7 @@ test -s "$dest"
     echo "Qt version: ${QT_VERSION:-from-build-environment}"
     echo "MLT prefix: $mlt"
     echo "linuxdeploy release: 1-alpha-20251107-1 (pinned SHA256)"
-    echo "Qt deploy plugin: 1-alpha-20250213-1 (recorded SHA256; pin before release)"
+    echo "Qt deploy plugin: 1-alpha-20250213-1 (CI-baseline SHA256 pinned; independent upstream verification pending)"
     echo "This file has NOT passed independent clean-distro QA, full third-party"
     echo "license/source provenance, or broad glibc and audio-device testing."
 } > "$output/DEVELOPMENT-NOTICES.txt"

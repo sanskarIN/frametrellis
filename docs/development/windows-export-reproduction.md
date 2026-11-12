@@ -18,7 +18,11 @@ If your Windows or organization policy blocks local scripts, follow your normal 
 
 When no `-Project` is supplied, each run uses the render helper's own
 `--self-test` synthetic media and writes to a unique `run-001`, `run-002` etc.
-This checks installation and repeated process lifecycles, not editor playback or a representative long video.
+The harness now requires a nonempty `self-test-export.mp4` inside **each**
+run folder; a helper that exits 0 without producing an MP4 is reported as
+`missing-output` (or `empty-output` for zero bytes), not as success.
+This checks installation and repeated process lifecycles, not editor playback,
+independent codec validation or a representative long video.
 
 ## Repeated actual project exports
 

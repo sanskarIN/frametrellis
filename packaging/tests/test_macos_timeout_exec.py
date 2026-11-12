@@ -92,14 +92,14 @@ class MacTimeoutTests(unittest.TestCase):
         fake.wait.side_effect = [subprocess.TimeoutExpired("command", 10), 0]
         with (
             mock.patch.object(timeout.subprocess, "Popen", return_value=fake),
-            mock.patch.object(timeout, "capture_stalled_process",
+            mock.patch.object(timeout.sys, "platform", "darwin"),
+            mock.patch.object(timeout.subprocess, "run",
                               side_effect=OSError("sampling denied")),
             mock.patch.object(timeout.os, "killpg") as kill,
         ):
-            # Catch sample failure, but always terminate the stalled program.
-            with self.assertRaises(OSError):
-                timeout.execute(["/tmp/stuck"], 10, "/tmp/diagnostics")
-            kill.assert_not_called()
+            # A denied sampler must not prevent the actual child termination.
+            self.assertEqual(timeout.execute(["/tmp/stuck"], 10, "/tmp/diagnostics"), 124)
+            kill.assert_called_once_with(8192, timeout.signal.SIGTERM)
 
     def test_rejects_empty_argv_or_unbounded_deadline(self):
         with self.assertRaises(ValueError):

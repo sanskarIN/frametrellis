@@ -66,7 +66,7 @@ class MacPruneOptionalQtTests(unittest.TestCase):
     def test_prunes_unreferenced_native_quick_plugins_from_failed_macos_ci(self):
         """Homebrew deploys optional QML modules under PlugIns/quick as well."""
         (self.sources / "Main.qml").write_text(
-            "import QtQuick\\nimport QtQuick.Controls.Basic\\n", encoding="utf-8"
+            "import QtQuick\nimport QtQuick.Controls.Basic\n", encoding="utf-8"
         )
         quick_plugins = [
             "libqtvkbopenwnnplugin.dylib",
@@ -99,10 +99,10 @@ class MacPruneOptionalQtTests(unittest.TestCase):
 
     def test_imported_quick_plugins_are_preserved(self):
         (self.sources / "Main.qml").write_text(
-            "import QtQuick.VirtualKeyboard\\n"
-            "import QtQuick.Timeline\\n"
-            "import QtQml.StateMachine\\n"
-            "import QtQuick.Pdf\\n", encoding="utf-8"
+            "import QtQuick.VirtualKeyboard\n"
+            "import QtQuick.Timeline\n"
+            "import QtQml.StateMachine\n"
+            "import QtQuick.Pdf\n", encoding="utf-8"
         )
         installed = [
             self.add_plugin("PlugIns/quick/libqtvkbpinyinplugin.dylib"),

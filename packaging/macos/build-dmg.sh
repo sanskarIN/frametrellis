@@ -86,6 +86,35 @@ qtdeploy="$qt_prefix/bin/macdeployqt"
 # app. The remaining dependency verifier still rejects missing linked code.
 python3 "$root/packaging/macos/prune_unused_qt.py" "$app" "$root/src/ui/qml"
 
+# macdeployqt defaults to Cocoa on macOS and does NOT install Qt's offscreen
+# QPA plugin. Our renderer creates a QGuiApplication with an offscreen backend
+# on headless CI and on supported unattended exports. A bundle containing only
+# libqcocoa.dylib passes otool auditing yet fails at startup ("offscreen not
+# found"). Resolve the plugin path from the SAME Homebrew Qt that compiled the
+# app and ship the plugin inside Contents/PlugIns/platforms.
+plugin_directory=""
+qtbase_prefix="$(brew --prefix qtbase)"
+for candidate in \
+    "$("$qt_prefix/bin/qtpaths6" --plugin-dir 2>/dev/null || true)" \
+    "$("$qt_prefix/bin/qtpaths" --plugin-dir 2>/dev/null || true)" \
+    "$("$qt_prefix/bin/qmake6" -query QT_INSTALL_PLUGINS 2>/dev/null || true)" \
+    "$("$qt_prefix/bin/qmake" -query QT_INSTALL_PLUGINS 2>/dev/null || true)" \
+    "$qt_prefix/share/qt/plugins" \
+    "$qtbase_prefix/share/qt/plugins"; do
+    if [[ -n "$candidate" && -f "$candidate/platforms/libqoffscreen.dylib" ]]; then
+        plugin_directory="$candidate"
+        break
+    fi
+done
+if [[ -z "$plugin_directory" ]]; then
+    echo "Qt offscreen QPA plugin missing from Homebrew Qt; cannot verify bundled renderer" >&2
+    exit 1
+fi
+mkdir -p "$contents/PlugIns/platforms"
+ditto "$plugin_directory/platforms/libqoffscreen.dylib" \
+    "$contents/PlugIns/platforms/libqoffscreen.dylib"
+echo "Bundled Qt QPA platforms: cocoa, offscreen"
+
 # MLT loads service plug-ins dynamically. Include the plug-ins explicitly as
 # dylibbundler inputs so its dependency closure covers FFmpeg and other codecs.
 # Qt frameworks are deployed by macdeployqt (and must not be copied twice).

@@ -242,6 +242,44 @@ class CandidateMatrixTests(unittest.TestCase):
                 with self.assertRaisesRegex(ValueError, "no nonempty files"):
                     matrix.verify(root, "1.5.0")
 
+    def test_unicode_normalized_zip_names_cannot_collide(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            make_candidate(root)
+            name = "FrameTrellis-1.5.0-windows-x64.zip"
+            replace_payload(root, name, fixture_zip([
+                ("FrameTrellis/frametrellis.exe", b"gui"),
+                ("FrameTrellis/frametrellis-render.exe", b"render"),
+                ("FrameTrellis/caf\u00e9.txt", b"first"),
+                ("FrameTrellis/cafe\u0301.txt", b"second"),
+            ]))
+            with self.assertRaisesRegex(ValueError, "duplicate"):
+                matrix.verify(root, "1.5.0")
+
+    def test_unicode_normalized_tar_names_cannot_collide(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            make_candidate(root)
+            name = "FrameTrellis-1.5.0-macos-arm64-third-party-sources.tar"
+            archive_bytes = io.BytesIO()
+            with tarfile.open(fileobj=archive_bytes, mode="w") as archive:
+                for path in ("src/caf\u00e9.txt", "src/cafe\u0301.txt"):
+                    content = b"data"
+                    info = tarfile.TarInfo(path)
+                    info.size = len(content)
+                    archive.addfile(info, io.BytesIO(content))
+            replace_payload(root, name, archive_bytes.getvalue())
+            with self.assertRaisesRegex(ValueError, "Duplicate corresponding-source TAR"):
+                matrix.verify(root, "1.5.0")
+
+    def test_empty_optional_release_notes_are_rejected(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            make_candidate(root)
+            (root / "release-notes.md").write_bytes(b"")
+            with self.assertRaisesRegex(ValueError, "Unsafe or empty optional release notes"):
+                matrix.verify(root, "1.5.0")
+
     def test_bad_version_and_path_records_rejected(self):
         with self.assertRaises(ValueError):
             matrix.required_payloads("1.5.0-rc1")

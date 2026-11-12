@@ -24,6 +24,18 @@ run folder; a helper that exits 0 without producing an MP4 is reported as
 This checks installation and repeated process lifecycles, not editor playback,
 independent codec validation or a representative long video.
 
+## Clean-host CI repeated exports (development evidence only)
+
+The Windows package workflow now runs **three independent native helper
+processes** on each clean-host verification runner (Windows Server 2022,
+Windows Server 2025 and Windows 11 ARM x64 emulation), using the packaged
+portable renderer and the disposable synthetic project produced by its own
+self-test. Each process must create a nonempty MP4 at `30000/1001` FPS,
+and any crash, timeout or missing/empty output fails the verification job.
+The harness summary and outputs remain in the job's private CI artifacts.
+This is short synthetic-media stress, **not** a physical Windows x64 long
+export, user-media playback, native exception call stack or real audio test.
+
 ## Repeated actual project exports
 
 Use **a copy** of a failing project, with locally available source media.

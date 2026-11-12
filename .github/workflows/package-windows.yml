@@ -134,7 +134,9 @@ jobs:
     steps:
       - uses: actions/checkout@v6
         with:
-          sparse-checkout: packaging/windows
+          sparse-checkout: |
+            packaging/windows
+            scripts/windows
       - uses: actions/download-artifact@v7
         with:
           name: windows-packages
@@ -155,6 +157,52 @@ jobs:
             -WorkDir "$env:RUNNER_TEMP\ft" -Artifacts "$env:RUNNER_TEMP\ft-artifacts" `
             -Label "${{ matrix.os }}" -PortableGuiRuns $portableRuns `
             -SoftwareBackendDiagnostics:$isArm -DummyAudioDiagnostics:$isArm
+      - name: Repeated real packaged-renderer exports (separate processes)
+        shell: pwsh
+        run: |
+          # The previous verification generated only synthetic, disposable
+          # source media and the corresponding self-test project. Reuse that
+          # exact project to exercise three independent 30000/1001 FPS exports
+          # from the *extracted portable package*, not from the build tree.
+          $work = Join-Path $env:RUNNER_TEMP 'ft\verify packages'
+          $portableRoot = Join-Path $work 'portable'
+          $portableFolders = @(Get-ChildItem -LiteralPath $portableRoot -Directory)
+          if ($portableFolders.Count -ne 1) {
+            throw "Expected exactly one extracted portable package"
+          }
+          $renderer = Join-Path $portableFolders[0].FullName 'frametrellis-render.exe'
+          $project = Join-Path $work 'self-test portable\self-test.ftproj'
+          if (-not (Test-Path -LiteralPath $renderer -PathType Leaf) -or
+              -not (Test-Path -LiteralPath $project -PathType Leaf)) {
+            throw "The clean-host verification did not produce a portable renderer and test project"
+          }
+          # Prevent developer Qt/MLT DLLs from the hosted runner's PATH from
+          # masking missing package dependencies. Keep Windows system paths.
+          $env:PATH = @("$env:SystemRoot\System32", $env:SystemRoot,
+            "$env:SystemRoot\System32\Wbem",
+            "$env:SystemRoot\System32\WindowsPowerShell\v1.0") -join ';'
+          foreach ($name in @('QT_PLUGIN_PATH', 'QML_IMPORT_PATH',
+              'QML2_IMPORT_PATH', 'QT_QPA_PLATFORM', 'QT_QUICK_BACKEND',
+              'SDL_AUDIODRIVER', 'MLT_REPOSITORY', 'MLT_DATA',
+              'FRAMETRELLIS_MLT_REPOSITORY')) {
+            Remove-Item "Env:$name" -ErrorAction SilentlyContinue
+          }
+          $output = Join-Path $env:RUNNER_TEMP 'ft-artifacts\repeat-export'
+          & ./scripts/windows/Test-FrameTrellisRepeatedExports.ps1 `
+            -Renderer $renderer -Project $project -OutputDirectory $output `
+            -Runs 3 -TimeoutSeconds 240 -Fps '30000/1001'
+          if ($LASTEXITCODE -ne 0) {
+            throw "Three consecutive packaged renderer exports did not all pass"
+          }
+          $summary = Get-Content -LiteralPath (
+            Join-Path $output 'frametrellis-render-repro-summary.json') -Raw |
+            ConvertFrom-Json
+          $runs = @($summary.runs)
+          if ($runs.Count -ne 3 -or
+              @($runs | Where-Object { $_.status -ne 'success' -or
+                                       $_.outputBytes -le 1024 }).Count -ne 0) {
+            throw "Packaged repeated-renderer summary fails nonempty output gate"
+          }
       - name: Upload screenshots and logs
         if: always()
         uses: actions/upload-artifact@v6

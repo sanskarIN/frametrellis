@@ -66,8 +66,11 @@ class CandidateAssemblerTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as temp:
             root = Path(temp)
             stages = create_stages(root)
+            appimage = stages["linux-x86_64"] / f"FrameTrellis-{VERSION}-linux-x86_64.AppImage"
+            appimage.chmod(0o755)
             out = root / "final"
             self.assertEqual(len(assemble(VERSION, COMMIT, stages, out)), 13)
+            self.assertTrue((out / appimage.name).stat().st_mode & 0o100)
             self.assertEqual(len(verify(out, VERSION)), 13)
             self.assertEqual(len(list(out.iterdir())), 14)
             self.assertFalse((out / "SOURCE_COMMIT.txt").exists())

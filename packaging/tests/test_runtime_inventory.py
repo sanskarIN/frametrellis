@@ -7,6 +7,7 @@ import json
 import tempfile
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 
 MODULE = Path(__file__).resolve().parents[1] / "runtime_inventory.py"
 SPEC = importlib.util.spec_from_file_location("runtime_inventory", MODULE)
@@ -120,6 +121,25 @@ class RuntimeInventoryTests(unittest.TestCase):
             inventory.write_manifest(root, "linux-appdir", manifest)
             with self.assertRaisesRegex(ValueError, "Refusing to overwrite"):
                 inventory.write_manifest(root, "linux-appdir", manifest)
+
+    def test_concurrent_exclusive_writer_manifest_is_not_deleted(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp) / "AppDir"
+            sample_bundle(root)
+            manifest = Path(tmp) / "inventory.json"
+            real_inventory = inventory.inventory
+
+            def competing_writer(package_root: Path, kind: str) -> dict:
+                # The competing file appears after the initial exists() check
+                # but before our exclusive open("x"). Its bytes are not ours.
+                manifest.write_text("concurrent writer data", encoding="utf-8")
+                return real_inventory(package_root, kind)
+
+            with patch.object(inventory, "inventory", side_effect=competing_writer):
+                with self.assertRaises(FileExistsError):
+                    inventory.write_manifest(root, "linux-appdir", manifest)
+            self.assertEqual(manifest.read_text(encoding="utf-8"),
+                             "concurrent writer data")
 
     def test_invalid_manifest_schema_rejected(self):
         with tempfile.TemporaryDirectory() as tmp:

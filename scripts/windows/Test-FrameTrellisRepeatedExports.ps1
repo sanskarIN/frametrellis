@@ -66,11 +66,15 @@ for ($i = 1; $i -le $Runs; ++$i) {
     [void](New-Item -ItemType Directory -Path $caseDir)
     $stdoutFile = Join-Path $caseDir "renderer.stdout.log"
     $stderrFile = Join-Path $caseDir "renderer.stderr.log"
+    # The self-test renderer uses a different fixed output filename from
+    # --project mode. Verify exactly the file it promises to create instead
+    # of treating a zero process exit code as proof that video was produced.
     $outputFile = Join-Path $caseDir "export.mp4"
     if ($projectPath) {
         $arguments = @("--project", $projectPath, "--output", $outputFile,
                        "--fps", $Fps)
     } else {
+        $outputFile = Join-Path $caseDir "self-test-export.mp4"
         $arguments = @("--self-test", $caseDir)
     }
     # Windows file paths cannot contain double quotes. Quote each argument to
@@ -139,9 +143,10 @@ for ($i = 1; $i -le $Runs; ++$i) {
     }
 
     $seconds = [math]::Round(((Get-Date) - $startedAt).TotalSeconds, 2)
-    # A zero renderer exit code alone is not proof that the requested MP4 was
-    # published. Check only this run's dedicated output; leave it untouched
-    # for independent media probing and privacy-conscious crash analysis.
+    # A zero renderer exit code alone is not proof that an MP4 was published.
+    # The synthetic mode must check self-test-export.mp4 and the project mode
+    # must check export.mp4, both inside the current disposable test folder.
+    # Leave files untouched for independent FFprobe and private crash analysis.
     $outputInfo = if (Test-Path -LiteralPath $outputFile -PathType Leaf) {
         Get-Item -LiteralPath $outputFile
     } else {
@@ -156,9 +161,9 @@ for ($i = 1; $i -le $Runs; ++$i) {
         $status = "timeout"
     } elseif ($exitCode -ne 0) {
         $status = "renderer-failed"
-    } elseif ($projectPath -and -not $outputExists) {
+    } elseif (-not $outputExists) {
         $status = "missing-output"
-    } elseif ($projectPath -and $outputBytes -eq 0) {
+    } elseif ($outputBytes -eq 0) {
         $status = "empty-output"
     }
     $exitHex = if ($null -eq $exitCode) {

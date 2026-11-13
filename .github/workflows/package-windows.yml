@@ -73,8 +73,23 @@ jobs:
           mkdir -p dist/av-verification
           ./build/windows-msys2-release/bin/frametrellis-render.exe --self-test dist/av-verification
           python packaging/verify_export_media.py dist/av-verification/self-test-export.mp4
-          # Independently verify exact user-requested rational FPS and width,
-          # not merely that the helper exited successfully.
+          # Validate *every* exposed stable-candidate output rate with an
+          # independent FFprobe/FFmpeg implementation, not solely the render
+          # helper's internal FPS check or the clean-host MP4 header smoke.
+          # Match uses the generated self-test project's exact 25 FPS rate.
+          for case in match:25 24:24 25:25 ntsc:30000/1001 30:30 60:60; do
+            label="${case%%:*}"
+            rate="${case#*:}"
+            requested="$rate"
+            if [[ "$label" == match ]]; then requested=match; fi
+            output="dist/av-verification/output-${label}.mp4"
+            ./build/windows-msys2-release/bin/frametrellis-render.exe \
+              --project dist/av-verification/self-test.ftproj \
+              --output "$output" --fps "$requested" --refuse-existing-output
+            python packaging/verify_export_media.py "$output" \
+              --fps "$rate" --width 640 --height 360 --duration 2
+          done
+          # Independently assert a custom even output width at NTSC rate.
           ./build/windows-msys2-release/bin/frametrellis-render.exe \
             --project dist/av-verification/self-test.ftproj \
             --output dist/av-verification/custom-ntsc.mp4 \

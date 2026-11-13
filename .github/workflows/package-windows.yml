@@ -103,6 +103,24 @@ jobs:
             --fps 30000/1001 --width 320 --refuse-existing-output
           python packaging/verify_export_media.py dist/av-verification/custom-ntsc.mp4 \
             --fps 30000/1001 --width 320 --height 180
+      - name: Extended real multi-track NTSC MP4 stress export
+        run: |
+          set -euo pipefail
+          # Stretch only the built-in synthetic 2-second project; source media
+          # remains untouched. Three tracks (video, image overlay, WAV audio)
+          # are repeated on the timeline for roughly one minute.
+          duration=$(python packaging/make_export_stress_fixture.py \
+            --input dist/av-verification/self-test.ftproj \
+            --output dist/av-verification/extended-test.ftproj --repeats 30)
+          ./build/windows-msys2-release/bin/frametrellis-render.exe \
+            --project dist/av-verification/extended-test.ftproj \
+            --output dist/av-verification/extended-ntsc.mp4 \
+            --fps 30000/1001 --refuse-existing-output
+          # FFprobe independently verifies the output rate, strict duration
+          # and both streams; FFmpeg decodes picture and non-silent AAC.
+          python packaging/verify_export_media.py \
+            dist/av-verification/extended-ntsc.mp4 \
+            --fps 30000/1001 --width 640 --height 360 --duration "$duration"
       - name: Assemble the portable package
         run: python packaging/windows/package.py --build-dir build/windows-msys2-release --output dist
       - name: Build the installer

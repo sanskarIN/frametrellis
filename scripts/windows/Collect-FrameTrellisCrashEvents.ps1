@@ -86,16 +86,25 @@ $providerNames = @(
     'disk', 'Ntfs', 'Microsoft-Windows-Ntfs', 'storahci', 'stornvme',
     'volmgr', 'Microsoft-Windows-StorPort', 'Microsoft-Windows-WHEA-Logger'
 )
+# Parse once into UTC instants. [datetime]::Parse can convert a "Z"
+# timestamp to local wall time, and DateTime subtraction ignores Kind; mixing
+# that local clock with an event's UTC clock creates false correlations.
+$crashTimesUtc = @(
+    foreach ($crash in $crashes) {
+        [datetimeoffset]::Parse(
+            $crash.timeUtc, [Globalization.CultureInfo]::InvariantCulture
+        ).UtcDateTime
+    }
+)
 $signals = @(
     foreach ($event in $system) {
         if ([string] $event.ProviderName -notin $providerNames) {
             continue
         }
         $near = $false
-        foreach ($crash in $crashes) {
-            $crashTime = [datetime]::Parse(
-                $crash.timeUtc, [Globalization.CultureInfo]::InvariantCulture)
-            if ([math]::Abs(($event.TimeCreated.ToUniversalTime() - $crashTime).TotalMinutes) -le
+        $eventUtc = $event.TimeCreated.ToUniversalTime()
+        foreach ($crashTime in $crashTimesUtc) {
+            if ([math]::Abs(($eventUtc - $crashTime).TotalMinutes) -le
                 $CorrelationMinutes) {
                 $near = $true
                 break

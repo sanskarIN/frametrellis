@@ -9,7 +9,6 @@ SOURCE_COMMIT.txt before touching the output directory. Nothing is published.
 from __future__ import annotations
 
 import argparse
-import re
 import shutil
 import stat
 import sys

@@ -124,6 +124,27 @@ class CandidateAssemblerTests(unittest.TestCase):
                 assemble(VERSION, COMMIT, stages, output)
             self.assertEqual((output / "private.txt").read_text(), "keep this")
 
+    def test_output_inside_source_stage_is_rejected_before_any_mutation(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            stages = create_stages(root)
+            source = stages["linux-x86_64"]
+            before = {entry.name for entry in source.iterdir()}
+            output = source / "candidate"
+            with self.assertRaisesRegex(ValueError, "inside a source stage"):
+                assemble(VERSION, COMMIT, stages, output)
+            self.assertFalse(output.exists())
+            self.assertEqual({entry.name for entry in source.iterdir()}, before)
+
+    def test_output_path_with_parent_traversal_is_also_rejected(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            stages = create_stages(root)
+            output = root / "windows-x64" / ".." / "macos-arm64" / "candidate"
+            with self.assertRaisesRegex(ValueError, "inside a source stage"):
+                assemble(VERSION, COMMIT, stages, output)
+            self.assertFalse((stages["macos-arm64"] / "candidate").exists())
+
     def test_rejects_invalid_matching_hash_zip_and_marks_incomplete(self):
         with tempfile.TemporaryDirectory() as temp:
             root = Path(temp)

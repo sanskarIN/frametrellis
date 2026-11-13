@@ -9,8 +9,8 @@ import zipfile
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-from assemble_candidate_matrix import platform_names  # noqa: E402
-from extract_ci_stage import unpack  # noqa: E402
+from assemble_candidate_matrix import platform_names
+from extract_ci_stage import unpack
 
 SHA = "a" * 40
 VERSION = "1.5.0"

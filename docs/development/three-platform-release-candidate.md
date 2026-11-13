@@ -28,6 +28,42 @@ SPDX inventories, production AppImage, or notarized DMGs exist yet. An
 `EXPERIMENTAL`, `UNNOTARIZED` or `development` artifact is automatically
 unacceptable as a stable candidate.
 
+## Offline assembly of a complete candidate (not a publication workflow)
+
+When the **real production** Windows, Linux, Apple Silicon and Intel macOS
+packaging jobs have produced ALL of their per-platform payloads and complete
+SPDX/source archives, collect each platform in a distinct staging folder
+(`win/`, `linux/`, `mac-arm/`, `mac-intel/`). Each folder must contain
+**exactly** the required files in the platform row above, plus one
+`SOURCE_COMMIT.txt` with the exact 40-character lowercase Git SHA followed
+by one newline. The SHA must refer to the **same frozen main commit** for
+all four packages. No experimental/development files are accepted.
+
+```bash
+frozen_sha="$(git rev-parse HEAD)"
+python3 packaging/assemble_candidate_matrix.py \
+  --version 1.5.0 --source-sha "$frozen_sha" \
+  --windows-dir /path/to/win --linux-dir /path/to/linux \
+  --macos-arm64-dir /path/to/mac-arm --macos-x86_64-dir /path/to/mac-intel \
+  --output-dir /path/to/NEW-release-candidate
+```
+
+The destination **must not already exist**; it is created without overwriting
+other files. The tool verifies stage completeness, refuses divergent
+source-SHA declarations and unexpected/symlinked/empty inputs, copies exactly
+13 production payloads, checks copied SHA-256 values, writes basename-only
+`SHA256SUMS.txt`, then runs the full cross-platform archive/SPDX/structure
+verifier. If anything fails after staging begins, a conspicuous
+`INCOMPLETE-DO-NOT-PUBLISH` marker remains and the candidate verifier will
+reject that directory. The tool never tags, signs, notarizes or uploads.
+
+**Security limit:** `SOURCE_COMMIT.txt` is a self-declared, unsigned
+consistency marker, **not proof of source-build identity**. Independently
+authenticate every stage against trusted protected GitHub Actions run IDs,
+exact checkout SHAs, uploaded artifact digests and source dependency records
+before approving the frozen commit. Do not create placeholder SPDX documents,
+empty source archives or renamed development binaries to satisfy this tool.
+
 ## Local offline integrity gate
 
 After producing all 13 files from the **same frozen main SHA**, run:

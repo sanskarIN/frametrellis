@@ -23,9 +23,29 @@ COMMIT = "a" * 40
 
 def valid_payload(name: str) -> bytes:
     if name.endswith(".spdx.json"):
+        app = "SPDXRef-Package-FrameTrellis"
+        codec = "SPDXRef-Package-TestCodec"
         return json.dumps({
-            "spdxVersion": "SPDX-2.3",
-            "packages": [{"name": "FrameTrellis", "versionInfo": VERSION}],
+            "spdxVersion": "SPDX-2.3", "dataLicense": "CC0-1.0",
+            "SPDXID": "SPDXRef-DOCUMENT", "name": "Synthetic candidate",
+            "documentNamespace": "https://example.org/test/assembly",
+            "creationInfo": {"created": "2026-11-13T00:00:00Z",
+                             "creators": ["Tool: test-assembler"]},
+            "packages": [
+                {"SPDXID": app, "name": "FrameTrellis", "versionInfo": VERSION,
+                 "licenseDeclared": "GPL-3.0-or-later",
+                 "licenseConcluded": "GPL-3.0-or-later",
+                 "downloadLocation": "https://github.com/sanskarIN/frametrellis"},
+                {"SPDXID": codec, "name": "SyntheticCodec", "versionInfo": "1.0.0",
+                 "licenseDeclared": "MIT", "licenseConcluded": "MIT",
+                 "downloadLocation": "https://example.org/source"},
+            ],
+            "relationships": [
+                {"spdxElementId": "SPDXRef-DOCUMENT", "relationshipType": "DESCRIBES",
+                 "relatedSpdxElement": app},
+                {"spdxElementId": app, "relationshipType": "CONTAINS",
+                 "relatedSpdxElement": codec},
+            ],
         }).encode("utf-8")
     if name.endswith(".zip"):
         data = io.BytesIO()

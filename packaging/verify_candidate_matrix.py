@@ -71,18 +71,73 @@ def digest_file(path: Path) -> str:
 
 
 def validate_spdx(path: Path, version: str) -> None:
+    """Reject placeholder SBOMs; the declared inventory still needs a legal audit."""
     document = json.loads(path.read_text(encoding="utf-8"))
     if not isinstance(document, dict) or document.get("spdxVersion") != "SPDX-2.3":
         raise ValueError(f"Invalid SPDX 2.3 document: {path.name}")
+    if document.get("SPDXID") != "SPDXRef-DOCUMENT" or document.get("dataLicense") != "CC0-1.0":
+        raise ValueError(f"Missing SPDX document identity/license: {path.name}")
+    namespace = document.get("documentNamespace")
+    if not isinstance(namespace, str) or not namespace.startswith("https://"):
+        raise ValueError(f"Invalid SPDX document namespace: {path.name}")
+    creation = document.get("creationInfo")
+    if (not isinstance(creation, dict)
+            or not isinstance(creation.get("created"), str)
+            or not re.fullmatch(r"\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z",
+                                creation["created"])
+            or not isinstance(creation.get("creators"), list)
+            or not creation["creators"]
+            or not all(isinstance(s, str) and s.strip() for s in creation["creators"])):
+        raise ValueError(f"Missing SPDX creation information: {path.name}")
     packages = document.get("packages")
-    if not isinstance(packages, list) or not any(
-        isinstance(package, dict)
-        and package.get("name") == "FrameTrellis"
-        and package.get("versionInfo") == version
-        for package in packages
-    ):
-        raise ValueError(f"SPDX version or application package missing: {path.name}")
-
+    if not isinstance(packages, list) or len(packages) < 2:
+        raise ValueError(f"SPDX needs an application and third-party inventory: {path.name}")
+    app_id: str | None = None
+    identifiers: set[str] = set()
+    dependent_ids: set[str] = set()
+    for package in packages:
+        if not isinstance(package, dict):
+            raise ValueError(f"Malformed SPDX package: {path.name}")
+        ident = package.get("SPDXID")
+        if (not isinstance(ident, str)
+                or not re.fullmatch(r"SPDXRef-[A-Za-z0-9.-]+", ident)
+                or ident == "SPDXRef-DOCUMENT" or ident in identifiers):
+            raise ValueError(f"Missing or duplicate SPDX package ID: {path.name}")
+        identifiers.add(ident)
+        for field in ("name", "versionInfo", "licenseDeclared", "licenseConcluded",
+                      "downloadLocation"):
+            val = package.get(field)
+            if not isinstance(val, str) or not val.strip():
+                raise ValueError(f"Missing SPDX package {field}: {path.name}")
+        if package["name"] == "FrameTrellis":
+            if app_id is not None or package["versionInfo"] != version:
+                raise ValueError(f"SPDX version or application package mismatch: {path.name}")
+            if package["licenseDeclared"] != "GPL-3.0-or-later":
+                raise ValueError(f"SPDX application license mismatch: {path.name}")
+            app_id = ident
+        else:
+            if package["downloadLocation"] in ("NOASSERTION", "NONE"):
+                raise ValueError(f"Third-party SPDX package lacks source location: {path.name}")
+            dependent_ids.add(ident)
+    if app_id is None or not dependent_ids:
+        raise ValueError(f"SPDX version or third-party packages missing: {path.name}")
+    relations = document.get("relationships")
+    if not isinstance(relations, list):
+        raise ValueError(f"SPDX document relationships missing: {path.name}")
+    described = False
+    contained: set[str] = set()
+    for relation in relations:
+        if not isinstance(relation, dict):
+            raise ValueError(f"Malformed SPDX relationship: {path.name}")
+        origin = relation.get("spdxElementId")
+        related = relation.get("relatedSpdxElement")
+        kind = relation.get("relationshipType")
+        if kind == "DESCRIBES" and origin == "SPDXRef-DOCUMENT" and related == app_id:
+            described = True
+        if kind == "CONTAINS" and origin == app_id and related in dependent_ids:
+            contained.add(related)
+    if not described or contained != dependent_ids:
+        raise ValueError(f"SPDX missing app/third-party DESCRIBES or CONTAINS links: {path.name}")
 
 def safe_archive_path(name: str) -> bool:
     """Reject absolute, traversing and platform-ambiguous archive members."""

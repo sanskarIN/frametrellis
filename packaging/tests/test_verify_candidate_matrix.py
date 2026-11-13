@@ -19,12 +19,38 @@ matrix = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(matrix)
 
 
+def fixture_spdx() -> dict:
+    app = "SPDXRef-Package-FrameTrellis"
+    third = "SPDXRef-Package-SyntheticCodec"
+    return {
+        "spdxVersion": "SPDX-2.3",
+        "dataLicense": "CC0-1.0",
+        "SPDXID": "SPDXRef-DOCUMENT",
+        "name": "FrameTrellis test SBOM",
+        "documentNamespace": "https://example.org/test/frametrellis",
+        "creationInfo": {"created": "2026-11-13T00:00:00Z",
+                         "creators": ["Tool: test-fixture"]},
+        "packages": [
+            {"SPDXID": app, "name": "FrameTrellis", "versionInfo": "1.5.0",
+             "licenseDeclared": "GPL-3.0-or-later",
+             "licenseConcluded": "GPL-3.0-or-later",
+             "downloadLocation": "https://github.com/sanskarIN/frametrellis"},
+            {"SPDXID": third, "name": "SyntheticCodec", "versionInfo": "1.0.0",
+             "licenseDeclared": "MIT", "licenseConcluded": "MIT",
+             "downloadLocation": "https://example.org/synthetic-source"},
+        ],
+        "relationships": [
+            {"spdxElementId": "SPDXRef-DOCUMENT", "relationshipType": "DESCRIBES",
+             "relatedSpdxElement": app},
+            {"spdxElementId": app, "relationshipType": "CONTAINS",
+             "relatedSpdxElement": third},
+        ],
+    }
+
+
 def fixture_payload(name: str) -> bytes:
     if name.endswith(".spdx.json"):
-        return json.dumps({
-            "spdxVersion": "SPDX-2.3",
-            "packages": [{"name": "FrameTrellis", "versionInfo": "1.5.0"}],
-        }).encode("utf-8")
+        return json.dumps(fixture_spdx()).encode("utf-8")
     if name.endswith(".AppImage"):
         return b"\x7fELFdummy"
     if name.endswith(".dmg"):
@@ -137,15 +163,54 @@ class CandidateMatrixTests(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, "repeated"):
                 matrix.verify(root, "1.5.0")
 
+    def test_placeholder_application_only_spdx_does_not_pass(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            make_candidate(root)
+            filename = "FrameTrellis-1.5.0-linux-x86_64.spdx.json"
+            replace_payload(root, filename, json.dumps({
+                "spdxVersion": "SPDX-2.3",
+                "packages": [{"name": "FrameTrellis", "versionInfo": "1.5.0"}],
+            }).encode("utf-8"))
+            with self.assertRaisesRegex(ValueError, "identity/license"):
+                matrix.verify(root, "1.5.0")
+
+    def test_spdx_missing_describes_or_contains_fails(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            make_candidate(root)
+            filename = "FrameTrellis-1.5.0-macos-arm64.spdx.json"
+            for relation in fixture_spdx()["relationships"]:
+                sbom = fixture_spdx()
+                sbom["relationships"].remove(relation)
+                replace_payload(root, filename, json.dumps(sbom).encode("utf-8"))
+                with self.assertRaisesRegex(ValueError, "DESCRIBES or CONTAINS"):
+                    matrix.verify(root, "1.5.0")
+
+    def test_spdx_missing_third_party_source_and_duplicate_ids_fail(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            make_candidate(root)
+            filename = "FrameTrellis-1.5.0-windows-x64.spdx.json"
+            sbom = fixture_spdx()
+            sbom["packages"][1]["downloadLocation"] = "NOASSERTION"
+            replace_payload(root, filename, json.dumps(sbom).encode("utf-8"))
+            with self.assertRaisesRegex(ValueError, "source location"):
+                matrix.verify(root, "1.5.0")
+            sbom["packages"][1]["downloadLocation"] = "https://example.org/source"
+            sbom["packages"][1]["SPDXID"] = sbom["packages"][0]["SPDXID"]
+            replace_payload(root, filename, json.dumps(sbom).encode("utf-8"))
+            with self.assertRaisesRegex(ValueError, "duplicate"):
+                matrix.verify(root, "1.5.0")
+
     def test_wrong_spdx_version_is_rejected_even_with_matching_hash(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
             make_candidate(root)
             name = "FrameTrellis-1.5.0-macos-arm64.spdx.json"
             path = root / name
-            document = {"spdxVersion": "SPDX-2.3", "packages": [
-                {"name": "FrameTrellis", "versionInfo": "1.4.0"}
-            ]}
+            document = fixture_spdx()
+            document["packages"][0]["versionInfo"] = "1.4.0"
             path.write_text(json.dumps(document), encoding="utf-8")
             manifest = root / "SHA256SUMS.txt"
             lines = manifest.read_text(encoding="utf-8").splitlines()

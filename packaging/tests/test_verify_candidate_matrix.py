@@ -209,9 +209,8 @@ class CandidateMatrixTests(unittest.TestCase):
             make_candidate(root)
             name = "FrameTrellis-1.5.0-macos-arm64.spdx.json"
             path = root / name
-            document = {"spdxVersion": "SPDX-2.3", "packages": [
-                {"name": "FrameTrellis", "versionInfo": "1.4.0"}
-            ]}
+            document = fixture_spdx()
+            document["packages"][0]["versionInfo"] = "1.4.0"
             path.write_text(json.dumps(document), encoding="utf-8")
             manifest = root / "SHA256SUMS.txt"
             lines = manifest.read_text(encoding="utf-8").splitlines()

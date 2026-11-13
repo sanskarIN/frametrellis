@@ -3,8 +3,10 @@
 A project is a UTF-8 JSON document. The **v2 development format** adds optional
 sequence-level markers; this abridged example shows that shape. The **v3 development
 format** additionally preserves clip volume automation. **v4** adds opacity curves,
-**v5** adds position/scale/rotation curves, and **v6** adds sequence subtitles.
-The reader supports v1 through v6.
+**v5** adds position/scale/rotation curves, **v6** adds sequence subtitles,
+and **v7** adds optional per-clip two-channel stereo balance. The current
+development reader supports v1 through v7; older stable builds may reject a
+v7 file.
 
 ```json
 {
@@ -117,13 +119,25 @@ The reader supports v1 through v6.
   have no sampled frame. Such cues and cues beyond the video remain in the file
   and SRT exports. Changing an empty sequence's frame rate preserves milliseconds.
   `burnIn` controls preview and rendered video together; appearance does not enter SRT.
-* The writer chooses v6 whenever cues exist or appearance differs from the defaults
-  (`burnIn=true`, `fontPercent=5`, `background=true`). Clearing cues and resetting
-  style permits a lower format. A `subtitles` field before v6 is rejected, even
-  if empty, so older formats cannot silently lose captions.
-* Otherwise the writer chooses the minimum required development format: v5 if any clip has
-  transform points, otherwise v4 if it has opacity points, otherwise v3 if it has
-  volume points, otherwise v2. Clearing curves can lower the next save's version.
+* The writer chooses at least v6 whenever cues exist or appearance differs from
+  the defaults (`burnIn=true`, `fontPercent=5`, `background=true`). Clearing
+  cues and resetting style permits a lower format if no other higher-version
+  fields exist. A `subtitles` field before v6 is rejected, even if empty, so
+  older formats cannot silently lose captions.
+* Optional `balance` is a **v7** clip scalar in `[-1.0, 1.0]`, with `0.0`
+  meaning centered, negative values moving stereo sound left and positive
+  values moving it right. A nonzero value is valid only for supported stereo
+  sources and requires a compatible audio-processing runtime. Unlike volume
+  keyframes, balance is not a source-anchored envelope. The writer omits a
+  neutral `balance` field; a nonzero value forces project format v7, even if
+  captions or other features would require an earlier version. The v1–v6
+  reader path refuses a `balance` key regardless of its value, rather than
+  silently ignoring a field unsupported by that format.
+* Otherwise the writer chooses the minimum required development format: v5 if any clip
+  has transform points, otherwise v4 if it has opacity points, otherwise v3
+  if it has volume points, otherwise v2. Nonzero stereo balance overrides
+  this minimum to v7. Clearing curves and re-centering balance can lower
+  the next save's version.
   Older readers refuse unsupported versions rather than losing automation.
   Nonempty audio curves before v3, opacity curves before v4, and transform curves
   before v5 are rejected as inconsistent.

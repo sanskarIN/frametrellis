@@ -76,9 +76,14 @@ python3 packaging/verify_candidate_matrix.py \
 ```
 
 The verifier refuses incomplete sets, unexpected files, symlinked payloads,
-duplicate/missing checksums, changes in file bytes, invalid application version
-in SPDX files, non-ELF AppImages, non-MZ Windows installers and DMGs without an
-expected UDIF trailer. The proposed Windows portable ZIP must be a **real,
+duplicate/missing checksums and changes in file bytes. Each SPDX 2.3 document
+must declare a correctly versioned FrameTrellis application, a non-placeholder
+third-party package inventory with source locations, and matching
+DESCRIBES/CONTAINS relationships. An application-only placeholder SBOM now
+fails even with a valid checksum. This is a **structural** check, not proof
+that all actual shipped libraries or their full corresponding sources are
+accounted for. It also rejects non-ELF AppImages, non-MZ Windows installers
+and DMGs without an expected UDIF trailer. The proposed Windows portable ZIP must be a **real,
 CRC-verified archive** with unique safe paths and adjacent editor/renderer
 executables; all four corresponding-source TARs must be parseable, contain
 nonempty files, and reject traversal, symlinks, special entries and duplicate

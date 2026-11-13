@@ -86,14 +86,12 @@ $providerNames = @(
     'disk', 'Ntfs', 'Microsoft-Windows-Ntfs', 'storahci', 'stornvme',
     'volmgr', 'Microsoft-Windows-StorPort', 'Microsoft-Windows-WHEA-Logger'
 )
-# Parse once into UTC instants. [datetime]::Parse can convert a "Z"
-# timestamp to local wall time, and DateTime subtraction ignores Kind; mixing
-# that local clock with an event's UTC clock creates false correlations.
-$crashTimesUtc = @(
+# Compare offset-aware instants rather than local wall-clock ticks.
+# These pure helpers are exercised by the Windows package CI regression.
+. (Join-Path $PSScriptRoot 'FrameTrellisCrashTime.ps1')
+$crashInstants = @(
     foreach ($crash in $crashes) {
-        [datetimeoffset]::Parse(
-            $crash.timeUtc, [Globalization.CultureInfo]::InvariantCulture
-        ).UtcDateTime
+        ConvertTo-FrameTrellisEventInstant -Timestamp $crash.timeUtc
     }
 )
 $signals = @(
@@ -102,10 +100,9 @@ $signals = @(
             continue
         }
         $near = $false
-        $eventUtc = $event.TimeCreated.ToUniversalTime()
-        foreach ($crashTime in $crashTimesUtc) {
-            if ([math]::Abs(($eventUtc - $crashTime).TotalMinutes) -le
-                $CorrelationMinutes) {
+        $eventInstant = [datetimeoffset]::new($event.TimeCreated)
+        foreach ($crashInstant in $crashInstants) {
+            if (Test-FrameTrellisCrashProximity -EventInstant $eventInstant -CrashInstant $crashInstant -Minutes $CorrelationMinutes) {
                 $near = $true
                 break
             }

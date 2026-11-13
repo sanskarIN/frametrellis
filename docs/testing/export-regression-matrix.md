@@ -102,6 +102,20 @@ and redact files before sharing; never publish crash dumps with private media.
 The disposable Windows fixture checks both default-off and enabled sampling,
 along with output-missing/empty/nonempty classifications.
 
+## Extended multi-track stress export (v1.5 development)
+
+The Windows package-build CI also uses
+`packaging/make_export_stress_fixture.py` to extend **only** its disposable
+FrameTrellis self-test project into approximately one minute of back-to-back
+picture, overlay and audio clips. The original self-test source media are
+unchanged and no private material is accessed. A fresh rendering subprocess
+exports that multi-track sequence at 30000/1001 FPS. Independent FFprobe/FFmpeg
+checks exact rational FPS, MP4 video/AAC stream presence, complete picture
+decode, non-silent sound and duration with a tightened **2%** tolerance
+(minimum 200 ms), rather than silently accepting a missing final 10%.
+This test covers more timeline iterations than the existing 2-second smoke,
+but does **not** establish that the native Windows #175 faults are resolved.
+
 ## Future automation priorities
 
 - Add generated-media integration tests for Unicode paths and destination replacement.

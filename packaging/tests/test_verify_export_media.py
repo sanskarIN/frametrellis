@@ -109,6 +109,14 @@ class IndependentExportVerifierTests(unittest.TestCase):
         info["streams"][1]["channels"] = 0
         self.assertTrue(any("audio layout" in p for p in self.inspect(info)))
 
+    def test_long_output_missing_multiple_seconds_is_rejected(self):
+        info = synthetic_probe()
+        info["format"]["duration"] = "55.0"
+        self.assertTrue(any("container duration" in message for message in
+                            checker.probe_problems(info, Fraction(25), 640, 360, 60.0)))
+        info["format"]["duration"] = "59.5"
+        self.assertEqual(checker.probe_problems(info, Fraction(25), 640, 360, 60.0), [])
+
     def test_missing_json_metadata_rejected(self):
         self.assertTrue(self.inspect(None))
         self.assertTrue(self.inspect({}))

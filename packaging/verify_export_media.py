@@ -76,7 +76,9 @@ def probe_problems(
         actual_duration = float(container.get("duration"))
     except (ValueError, TypeError):
         actual_duration = float("nan")
-    tolerance = max(0.2, duration * 0.10)
+    # For extended renders, a 10% window could mask several missing seconds.
+    # Allow a bounded 2% container rounding/encoder tail, minimum 200 ms.
+    tolerance = max(0.2, duration * 0.02)
     if not math.isfinite(actual_duration) or abs(actual_duration - duration) > tolerance:
         problems.append(
             f"container duration {actual_duration} s; expected {duration:.3f} +/- {tolerance:.3f} s"

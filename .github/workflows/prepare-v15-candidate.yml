@@ -1,0 +1,159 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
+# FUTURE production candidate only. NEVER creates a tag or GitHub Release.
+# Explicit owner approval, production package pipelines and hardware evidence
+# remain required; current experimental AppImage/DMG artifacts are rejected.
+name: Prepare v1.5 three-platform candidate (NOT A RELEASE)
+
+on:
+  workflow_dispatch:
+    inputs:
+      source_sha:
+        description: Frozen protected main 40-character Git SHA
+        required: true
+        type: string
+      windows_run:
+        description: Successful production Windows GitHub Actions run ID
+        required: true
+        type: string
+      linux_run:
+        description: Successful production Linux GitHub Actions run ID
+        required: true
+        type: string
+      macos_arm64_run:
+        description: Successful production Apple Silicon run ID
+        required: true
+        type: string
+      macos_x86_64_run:
+        description: Successful production Intel Mac run ID
+        required: true
+        type: string
+
+permissions:
+  actions: read
+  contents: read
+
+concurrency:
+  group: v15-production-candidate-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  check-and-assemble:
+    name: Collect exact-SHA production assets; verify but never publish
+    runs-on: ubuntu-24.04
+    timeout-minutes: 115
+    env:
+      GH_TOKEN: ${{ github.token }}
+      FROZEN_SHA: ${{ inputs.source_sha }}
+      RUN_WINDOWS: ${{ inputs.windows_run }}
+      RUN_LINUX: ${{ inputs.linux_run }}
+      RUN_MAC_ARM: ${{ inputs.macos_arm64_run }}
+      RUN_MAC_INTEL: ${{ inputs.macos_x86_64_run }}
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ inputs.source_sha }}
+          persist-credentials: false
+
+      - name: Check frozen main, release version and final notes
+        run: |
+          set -euo pipefail
+          [[ "$GITHUB_REF" == "refs/heads/main" ]] || {
+            echo "::error::Dispatch this workflow from protected main only"; exit 1;
+          }
+          [[ "$FROZEN_SHA" =~ ^[0-9a-f]{40}$ ]] || {
+            echo "::error::Expected a lowercase 40-character source SHA"; exit 1;
+          }
+          [[ "$(git rev-parse HEAD)" == "$FROZEN_SHA" ]] || {
+            echo "::error::Checked-out SHA differs from frozen SHA"; exit 1;
+          }
+          main_sha="$(gh api "repos/$GITHUB_REPOSITORY/branches/main" --jq .commit.sha)"
+          [[ "$main_sha" == "$FROZEN_SHA" ]] || {
+            echo "::error::main advanced or frozen SHA does not match"; exit 1;
+          }
+          project="$(grep -Pzo 'project\(FrameTrellis\s+VERSION\s+\K[0-9.]+' CMakeLists.txt | tr -d '\0')"
+          python3 packaging/release_version.py --tag v1.5.0 --project-version "$project" > version.txt
+          [[ "$project" == "1.5.0" ]] || {
+            echo "::error::Do not prepare an unversioned v1.5.0"; exit 1;
+          }
+          notes=docs/releases/v1.5.0.md
+          test -s "$notes"
+          if head -n 20 "$notes" | grep -qiE '(^<!--[[:space:]]*draft|^#[[:space:]].*(draft|not released)|^>.*(not published|not released))'; then
+            echo "::error::Final owner-approved release notes are not ready"; exit 1;
+          fi
+          mkdir -p downloaded stages
+
+      - name: Validate each exact-run production artifact and authenticated GitHub ZIP digest
+        run: |
+          set -euo pipefail
+          for platform in windows-x64 linux-x86_64 macos-arm64 macos-x86_64; do
+            case "$platform" in
+              windows-x64) run="$RUN_WINDOWS";;
+              linux-x86_64) run="$RUN_LINUX";;
+              macos-arm64) run="$RUN_MAC_ARM";;
+              macos-x86_64) run="$RUN_MAC_INTEL";;
+            esac
+            [[ "$run" =~ ^[1-9][0-9]*$ ]] || {
+              echo "::error::Invalid production run ID for $platform"; exit 1;
+            }
+            gh api "repos/$GITHUB_REPOSITORY/actions/runs/$run" > "downloaded/$platform-run.json"
+            jq -e --arg sha "$FROZEN_SHA" --arg repo "$GITHUB_REPOSITORY" '
+              .status == "completed" and .conclusion == "success"
+              and .head_sha == $sha and .head_branch == "main"
+              and (.event == "push" or .event == "workflow_dispatch")
+              and .repository.full_name == $repo
+              and .head_repository.full_name == $repo
+            ' "downloaded/$platform-run.json" >/dev/null || {
+              echo "::error::Untrusted/non-main/mismatched workflow run for $platform"; exit 1;
+            }
+            gh api "repos/$GITHUB_REPOSITORY/actions/runs/$run/artifacts?per_page=100" \
+              > "downloaded/$platform-artifacts.json"
+            name="production-v1.5.0-$platform"
+            json="downloaded/$platform-artifacts.json"
+            count="$(jq --arg name "$name" '
+              [.artifacts[] | select(.name == $name and (.expired | not))] | length
+            ' "$json")"
+            [[ "$count" == "1" ]] || {
+              echo "::error::Expected one unexpired $name artifact from $run"; exit 1;
+            }
+            id="$(jq -r --arg name "$name" '
+              .artifacts[] | select(.name == $name and (.expired | not)) | .id
+            ' "$json")"
+            digest="$(jq -r --arg name "$name" '
+              .artifacts[] | select(.name == $name and (.expired | not)) | .digest
+            ' "$json")"
+            [[ "$digest" =~ ^sha256:[0-9a-fA-F]{64}$ ]] || {
+              echo "::error::GitHub artifact digest missing or malformed"; exit 1;
+            }
+            archive="downloaded/$platform.zip"
+            gh api "repos/$GITHUB_REPOSITORY/actions/artifacts/$id/zip" --output "$archive"
+            printf '%s  %s\n' "${digest#sha256:}" "$archive" | sha256sum --check --status || {
+              echo "::error::ZIP bytes do not match the trusted GitHub artifact digest"; exit 1;
+            }
+            python3 packaging/extract_ci_stage.py \
+              --version 1.5.0 --platform "$platform" --source-sha "$FROZEN_SHA" \
+              --archive "$archive" --output "stages/$platform"
+          done
+
+      - name: Assemble and independently verify exact 14-file candidate
+        run: |
+          set -euo pipefail
+          python3 packaging/assemble_candidate_matrix.py \
+            --version 1.5.0 --source-sha "$FROZEN_SHA" \
+            --windows-dir stages/windows-x64 \
+            --linux-dir stages/linux-x86_64 \
+            --macos-arm64-dir stages/macos-arm64 \
+            --macos-x86_64-dir stages/macos-x86_64 \
+            --output-dir release-candidate
+          python3 packaging/verify_candidate_matrix.py \
+            --version 1.5.0 --directory release-candidate
+          (cd release-candidate && sha256sum --check SHA256SUMS.txt)
+          test "$(find release-candidate -maxdepth 1 -type f | wc -l)" -eq 14
+
+      - name: Save offline candidate only (never publish or tag)
+        uses: actions/upload-artifact@v6
+        with:
+          name: v1.5.0-three-platform-candidate-NOT-APPROVED-NOT-RELEASED
+          path: release-candidate/*
+          if-no-files-found: error
+          compression-level: 0
+          retention-days: 14

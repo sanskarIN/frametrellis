@@ -66,6 +66,32 @@ exact checkout SHAs, uploaded artifact digests and source dependency records
 before approving the frozen commit. Do not create placeholder SPDX documents,
 empty source archives or renamed development binaries to satisfy this tool.
 
+## Future authenticated GitHub Actions candidate preparation
+
+The owner-dispatched, **non-publishing** workflow
+[Prepare v1.5 three-platform candidate](../../.github/workflows/prepare-v15-candidate.yml)
+accepts one frozen protected-main commit and four trusted production workflow
+run IDs (Windows, Linux, Apple Silicon and Intel). It refuses the current
+1.4.0 CMake version, DRAFT v1.5.0 notes, run results from PR branches,
+mismatched SHAs, non-successful runs, missing production artifacts and
+unverified artifact ZIP bytes. It checks each downloaded archive's SHA-256
+against GitHub's own artifact digest **before** safe flat-stage extraction.
+The expected artifact names are
+`production-v1.5.0-windows-x64`,
+`production-v1.5.0-linux-x86_64`,
+`production-v1.5.0-macos-arm64` and
+`production-v1.5.0-macos-x86_64`; each must contain only that platform's
+full 1.5.0 production payloads and exact `SOURCE_COMMIT.txt` evidence.
+The workflow then calls the existing fail-closed assembler/verifier and
+uploads **only a retained, clearly NOT-APPROVED candidate artifact**.
+
+This route is intentionally unusable until separately approved production
+packaging workflows exist, real source archives and SPDX inventories are
+complete, the version and draft notes are finalized, and hardware/signing
+acceptance is recorded. Even a successful candidate artifact is **not**
+permission to create a release or use the old five-file uploader. The
+future 14-file publication attachment path is still missing.
+
 ## Local offline integrity gate
 
 After producing all 13 files from the **same frozen main SHA**, run:

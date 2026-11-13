@@ -103,9 +103,17 @@ function Test-StandaloneExports([string] $Folder, [string] $Project, [string] $W
     $render = Join-Path $Folder 'frametrellis-render.exe'
     $outDir = Join-Path $WorkDir "standalone $What"
     New-Item -ItemType Directory -Force -Path $outDir | Out-Null
+    # The self-test project is 25 FPS. Probe every stable-candidate output
+    # rate using the REAL packaged helper. Its RenderRunner internally
+    # verifies the encoded stream's exact rational FPS before exiting zero;
+    # the independent MP4 header/nonempty gate below catches missing output.
     foreach ($case in @(
+        @{ Label = 'match'; Rate = 'match' },
         @{ Label = '24fps'; Rate = '24' },
-        @{ Label = 'ntsc'; Rate = '30000/1001' }
+        @{ Label = '25fps'; Rate = '25' },
+        @{ Label = 'ntsc'; Rate = '30000/1001' },
+        @{ Label = '30fps'; Rate = '30' },
+        @{ Label = '60fps'; Rate = '60' }
     )) {
         $output = Join-Path $outDir ("repeat-$($case.Label).mp4")
         if (Test-Path -LiteralPath $output) {

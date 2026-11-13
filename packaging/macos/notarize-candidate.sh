@@ -68,9 +68,21 @@ if [[ -e "$out/$filename" || -e "$out/$filename.sha256" ]]; then
     exit 1
 fi
 staging="$(mktemp -d "$out/.ft-notarize.XXXXXXXX")"
-trap 'rm -rf "$staging"' EXIT
 app="$staging/FrameTrellis.app"
 dmg="$staging/$filename"
+# The Apple notary service can take minutes. Another signer might create the
+# same candidate while this run waits. Track exactly which final output *we*
+# created, so a failed checksum handoff cannot overwrite or delete its file.
+linked_dmg=false
+published=false
+cleanup() {
+    if [[ "$linked_dmg" == true && "$published" != true &&
+          -f "$out/$filename" && "$out/$filename" -ef "$dmg" ]]; then
+        rm -f -- "$out/$filename"
+    fi
+    rm -rf -- "$staging"
+}
+trap cleanup EXIT
 ditto "$src" "$app"
 
 # Code-sign from the deepest native components outward. A single --deep
@@ -110,8 +122,21 @@ xcrun stapler validate "$dmg"
 hdiutil verify "$dmg"
 # Never expose a production-style DMG until signing/notarization and staple
 # verification succeeded. Gatekeeper testing on a quarantined clean Mac is
-# STILL required separately.
-mv "$dmg" "$out/$filename"
-(cd "$out" && shasum -a 256 "$filename" > "$filename.sha256")
+# STILL required separately. Staging is on the SAME filesystem as output.
+# Unlike mv, hard-link creation fails atomically if another signer already
+# produced this version/arch, even if it appeared during notarization.
+if ! ln "$dmg" "$out/$filename"; then
+    echo "Refusing to replace another notarized candidate: $filename" >&2
+    exit 1
+fi
+linked_dmg=true
+(cd "$staging" && shasum -a 256 "$filename" > "$filename.sha256")
+# Likewise never replace someone else's checksum. The EXIT trap removes only
+# our own hard-linked DMG if this second exclusive publication step fails.
+if ! ln "$staging/$filename.sha256" "$out/$filename.sha256"; then
+    echo "Refusing to replace another notarized checksum: $filename.sha256" >&2
+    exit 1
+fi
+published=true
 echo "Created notarized *candidate* DMG: $out/$filename"
 echo "Manual clean-Mac Gatekeeper, license and source-SHA checks remain mandatory."

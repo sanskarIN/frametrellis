@@ -120,6 +120,17 @@ def assemble(
         raise ValueError("Refusing to overwrite an existing candidate output directory")
     if not output.parent.is_dir() or output.parent.is_symlink():
         raise ValueError("Output parent must be an existing, non-symlinked directory")
+    # Do not create the finished bundle inside one of its own source stages.
+    # Resolve relative '..' segments and ancestor aliases before checking.
+    # Without this, a successful assembly silently adds a new directory to
+    # one of the previously validated (exact-content) input stages.
+    resolved_output = output.resolve(strict=False)
+    for platform, stage in stages.items():
+        resolved_stage = stage.resolve(strict=True)
+        if resolved_output == resolved_stage or resolved_stage in resolved_output.parents:
+            raise ValueError(
+                f"Candidate output must not be inside a source stage: {platform}"
+            )
 
     # Exclusive directory creation prevents overwriting any existing output.
     # Keep the sentinel on ANY failure: verify_candidate_matrix refuses extra

@@ -48,8 +48,10 @@ python3 packaging/assemble_candidate_matrix.py \
   --output-dir /path/to/NEW-release-candidate
 ```
 
-The destination **must not already exist**; it is created without overwriting
-other files. The tool verifies stage completeness, refuses divergent
+The destination **must not already exist or be nested inside any input
+stage**; use a separate output folder so the four declared source inventories
+remain unchanged. It is created without overwriting other files. The tool
+verifies stage completeness, refuses divergent
 source-SHA declarations and unexpected/symlinked/empty inputs, copies exactly
 13 production payloads, checks copied SHA-256 values, writes basename-only
 `SHA256SUMS.txt`, then runs the full cross-platform archive/SPDX/structure

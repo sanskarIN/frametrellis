@@ -1,0 +1,126 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
+# Owner must publish the release in GitHub UI only after separate approval.
+# This workflow ONLY attaches the already verified full 14-file candidate;
+# it never creates a release, tags a commit or bypasses production QA gates.
+name: Attach approved v1.5.0 three-platform assets
+
+on:
+  release:
+    types: [published]
+
+permissions:
+  actions: read
+  contents: write
+
+concurrency:
+  group: attach-v15-three-platform-${{ github.event.release.id }}
+  cancel-in-progress: false
+
+jobs:
+  attach:
+    name: Verify exact owner-approved candidate; attach 14 release files
+    if: ${{ github.event.release.tag_name == 'v1.5.0' && !github.event.release.prerelease && !github.event.release.draft }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 115
+    env:
+      GH_TOKEN: ${{ github.token }}
+      RELEASE_TAG: ${{ github.event.release.tag_name }}
+      RELEASE_ID: ${{ github.event.release.id }}
+    steps:
+      - name: Check out the exact published tag
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ github.event.release.tag_name }}
+          persist-credentials: false
+
+      - name: Confirm separate owner approval, exact frozen main and version
+        id: validated
+        run: |
+          set -euo pipefail
+          tag_sha="$(git rev-parse HEAD)"
+          main_sha="$(gh api "repos/$GITHUB_REPOSITORY/branches/main" --jq .commit.sha)"
+          [[ "$tag_sha" == "$main_sha" ]] || {
+            echo "::error::Tag is not the exact protected main commit"; exit 1;
+          }
+          release="$(gh api "repos/$GITHUB_REPOSITORY/releases/$RELEASE_ID")"
+          [[ "$(jq -r .tag_name <<< "$release")" == "v1.5.0" ]] || exit 1
+          # This marker is an explicit SECOND release-UI confirmation,
+          # not an automated substitute for physical platform acceptance.
+          jq -r .body <<< "$release" | grep -Fxq \
+            'FrameTrellis-1.5.0-OWNER-APPROVED' || {
+              echo "::error::Missing the separately approved v1.5.0 owner marker"; exit 1;
+            }
+          project="$(grep -Pzo 'project\(FrameTrellis\s+VERSION\s+\K[0-9.]+' CMakeLists.txt | tr -d '\0')"
+          [[ "$project" == "1.5.0" ]] || {
+            echo "::error::Stable v1.5.0 CMake version not finalized"; exit 1;
+          }
+          python3 packaging/release_version.py \
+            --tag "$RELEASE_TAG" --project-version "$project" > version.txt
+          notes=docs/releases/v1.5.0.md
+          test -s "$notes"
+          if head -n 20 "$notes" | grep -qiE '(^<!--[[:space:]]*draft|^#[[:space:]].*(draft|not released)|^>.*(not published|not released))'; then
+            echo "::error::Draft release notes may not be attached"; exit 1;
+          fi
+          echo "sha=$tag_sha" >> "$GITHUB_OUTPUT"
+
+      - name: Find exact-SHA successful candidate preparation run
+        id: prepared
+        env:
+          FROZEN_SHA: ${{ steps.validated.outputs.sha }}
+        run: |
+          set -euo pipefail
+          gh api \
+            "repos/$GITHUB_REPOSITORY/actions/workflows/prepare-v15-candidate.yml/runs?status=success&per_page=100" \
+            > runs.json
+          run_id="$(jq -r --arg sha "$FROZEN_SHA" '
+            [.workflow_runs[]
+              | select(.head_sha == $sha and .head_branch == "main")
+              | select(.event == "workflow_dispatch" and .conclusion == "success")
+            ] | sort_by(.run_started_at) | last | .id // empty
+          ' runs.json)"
+          [[ -n "$run_id" ]] || {
+            echo "::error::No successful exact-SHA 14-file candidate preparation"; exit 1;
+          }
+          gh api "repos/$GITHUB_REPOSITORY/actions/runs/$run_id/artifacts?per_page=100" > artifacts.json
+          count="$(jq '[
+            .artifacts[]
+            | select(.name == "v1.5.0-three-platform-candidate-NOT-APPROVED-NOT-RELEASED"
+                     and (.expired | not))
+          ] | length' artifacts.json)"
+          [[ "$count" == "1" ]] || {
+            echo "::error::Matching run lacks a unique complete candidate artifact"; exit 1;
+          }
+          echo "run_id=$run_id" >> "$GITHUB_OUTPUT"
+
+      - name: Download only candidate from authenticated exact preparation run
+        uses: actions/download-artifact@v7
+        with:
+          name: v1.5.0-three-platform-candidate-NOT-APPROVED-NOT-RELEASED
+          path: prepared
+          repository: ${{ github.repository }}
+          run-id: ${{ steps.prepared.outputs.run_id }}
+          github-token: ${{ github.token }}
+
+      - name: Independently re-verify all 14 downloaded files
+        run: |
+          set -euo pipefail
+          python3 packaging/verify_candidate_matrix.py --version 1.5.0 --directory prepared
+          (cd prepared && sha256sum --check SHA256SUMS.txt)
+
+      - name: Confirm release is empty and attach exactly fourteen verified files
+        run: |
+          set -euo pipefail
+          count="$(gh api "repos/$GITHUB_REPOSITORY/releases/$RELEASE_ID/assets?per_page=100" --jq length)"
+          [[ "$count" == "0" ]] || {
+            echo "::error::Release already has assets; refuse overwrite or mixed commits"; exit 1;
+          }
+          while IFS= read -r path; do
+            gh release upload "$RELEASE_TAG" "$path" --repo "$GITHUB_REPOSITORY"
+          done < <(find prepared -mindepth 1 -maxdepth 1 -type f | LC_ALL=C sort)
+
+      - name: Verify published SHA-256, size and state for every public file
+        run: |
+          set -euo pipefail
+          gh api "repos/$GITHUB_REPOSITORY/releases/$RELEASE_ID/assets?per_page=100" > published-assets.json
+          python3 packaging/verify_published_candidate.py \
+            --assets-json published-assets.json --directory prepared --version 1.5.0

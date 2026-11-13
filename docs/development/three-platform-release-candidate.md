@@ -95,6 +95,34 @@ bundled component, or whether binaries match the indicated source SHA. **GitHub 
 must independently establish that every platform was built from the exact same
 frozen commit**; SHA256SUMS alone cannot establish source-build identity.
 
+## Exact-SHA approved release attachment (future; no release created here)
+
+Only after every hardware, licensing, source-provenance, Developer ID,
+notarization and 14-file candidate gate is completed and the owner separately
+approves publication, the owner publishes `v1.5.0` from the frozen
+protected-main SHA using GitHub Releases UI. The release description must
+also contain a **separate exact line**:
+
+```text
+FrameTrellis-1.5.0-OWNER-APPROVED
+```
+
+The new [v1.5.0-specific attachment workflow](../../.github/workflows/release-assets-v15.yml)
+does not create tags/releases. It verifies that explicit marker, current
+protected main SHA equals the published tag, CMake version 1.5.0, final
+non-DRAFT notes and a successful same-SHA manual 14-file preparation run.
+It downloads only that run's complete retained candidate, independently
+checks all 13 platform payloads and SHA256SUMS.txt, refuses any existing
+release assets and uploads the 14 files. It then checks names, sizes and
+GitHub's SHA-256 published asset digests against the verified local bytes.
+A partial uploader failure must be investigated manually; it cannot
+safely mix a second run's files or overwrite an existing release.
+
+The legacy five-file uploader is skipped for v1.5.0 but retains its
+separate Windows-only version restriction for other versions. None of these
+workflows supplies missing production Linux/macOS archives, notarization
+credentials, physical QA, or grants approval without owner action.
+
 ## Publication hold
 
 1. Freeze all four builds at the exact same approved Git commit.

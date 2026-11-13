@@ -54,6 +54,35 @@ renders or generated outputs after failures. A per-run timeout terminates only
 that run's child renderer. Large exports may require considerable disk space.
 The output still needs manual image/audio quality and duration verification.
 
+## Local Windows crash / storage-event correlation
+
+The old v1.4.0 log recorded editor and renderer exits without a native stack.
+In particular, `0xC0000006` is an in-page error and must be investigated
+separately from the editor's `0xC0000005` access violation. A disk or storage
+warning occurring near the same time would be **a lead, not proof of cause**.
+
+The new local-only diagnostic collector reads limited Windows Application
+Error / Windows Error Reporting event metadata and selected System disk,
+NTFS, storage-controller and hardware warning IDs. It **does not** copy
+raw Windows event messages, paths, unrelated user events or crash dumps
+into the report, change registry keys, or upload anything. PowerShell
+can run it without administrator privileges when the relevant event logs
+are readable.
+
+Use the actual failure time window on your own PC:
+
+```powershell
+powershell -NoProfile -File .\scripts\windows\Collect-FrameTrellisCrashEvents.ps1 `
+    -Since "2026-11-07 09:35:00" -Until "2026-11-07 10:05:00"
+```
+
+The report remains in your local
+`%LOCALAPPDATA%\FrameTrellis\Diagnostics` directory by default. Review
+it before sharing; even event timestamps can be personally identifying.
+A near-time event is correlation only; a WER minidump with private native
+symbols/call stack, physical export reproduction and drive health checks
+are still needed to identify the cause.
+
 ## Interpreting the evidence
 
 - `success`: child process exit code 0; **not proof** of visual or audio correctness.

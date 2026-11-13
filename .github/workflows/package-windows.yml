@@ -33,7 +33,11 @@ jobs:
       - name: Check Windows verification PowerShell syntax
         shell: pwsh
         run: |
-          foreach ($path in @('packaging/windows/verify.ps1', 'packaging/windows/module-paths.ps1')) {
+          foreach ($path in @('packaging/windows/verify.ps1',
+                              'packaging/windows/module-paths.ps1',
+                              'scripts/windows/Collect-FrameTrellisCrashEvents.ps1',
+                              'scripts/windows/FrameTrellisCrashTime.ps1',
+                              'packaging/tests/test_crash_event_time.ps1')) {
             $errors = $null
             $tokens = $null
             [System.Management.Automation.Language.Parser]::ParseFile(
@@ -43,6 +47,9 @@ jobs:
               exit 1
             }
           }
+      - name: Test crash-event timezone correlation without reading event logs
+        shell: pwsh
+        run: ./packaging/tests/test_crash_event_time.ps1
       - name: Test Windows module path security boundaries
         shell: pwsh
         run: ./packaging/tests/test_verify_module_paths.ps1

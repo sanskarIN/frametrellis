@@ -54,6 +54,36 @@ Failure before all gates pass leaves no production-style output file.
 Temporary signed packages are deleted; original app/project/media are
 untouched.
 
+## Offline verification of the finished notarized DMG
+
+After the notarization script has produced a candidate **and its companion
+basename-only checksum**, transfer both files to a supported clean physical
+Mac of the **matching CPU architecture**. Do not install Homebrew, developer
+Qt, MLT or FFmpeg merely to make a package appear to work.
+
+```bash
+bash packaging/macos/verify-notarized-candidate.sh \
+  /path/to/FrameTrellis-1.5.0-macos-arm64.dmg
+```
+
+Run the x86_64 candidate on a **native Intel Mac** separately.
+
+The script checks the final DMG's SHA-256 against the adjacent manifest,
+`hdiutil verify`, validates the stapled Apple notarization ticket, mounts
+the exact candidate read-only, verifies that both packaged executables
+exist, verifies the mounted app's Developer ID Application signature and
+team identity, then copies the app into a disposable location and requires
+Gatekeeper `spctl` acceptance after applying download-quarantine metadata
+to the **copy only**. It neither modifies the source DMG, launches unrelated
+programs, publishes files, nor obtains signing credentials. An `UNNOTARIZED`
+development DMG is rejected by name before mounting.
+
+This is an independent **signature/Gatekeeper preflight**, not an assurance
+of successful Finder GUI launch, audible playback, source-media compatibility,
+licensing or complete production QA. After a pass, launch the actual app from
+Finder on a clean machine, open/save a test project, verify live system audio,
+perform long MP4 exports and inspect video/audio streams before approval.
+
 ## What this does NOT certify
 
 - Apple notarization can require additional Qt/QML hardened-runtime

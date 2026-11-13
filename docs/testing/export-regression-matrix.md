@@ -17,16 +17,17 @@ This document defines repeatable acceptance checks for FrameTrellis MP4 export. 
 | Destination collision | Existing output file | Replace only after a fully verified render |
 | Missing media | Project with offline source | Clear failure or documented placeholder behavior; no silent success |
 | Non-ASCII paths | Unicode project and output paths | Output is created and playable |
-| Clean Windows packaged repeated CLI export | On each clean Windows 2022/2025/11 ARM host, use only its portable renderer and generated 2-second self-test .ftproj | Two independently encoded MP4s with a verified ISO BMFF ftyp header at 24 and 30000/1001 FPS, custom width 320 and no external development DLLs |
+| Clean Windows packaged FPS matrix | On each clean Windows 2022/2025/11 ARM host, use only its portable renderer and generated 2-second self-test .ftproj | Six separate MP4 exports at Match/24/25/30000/1001/30/60 FPS, custom even output width 320, independent nonempty ISO BMFF ftyp headers and no external development DLLs |
 | Packaged CLI no-overwrite | Retry the first finished MP4 with --refuse-existing-output | Nonzero renderer exit and exactly unchanged SHA256 checksum |
 | Clean-host GUI repeated startup | Launch the packaged GUI using the default backend independently 3 times on native x64 hosts and 5 on ARM x64 emulation | Every startup stays alive until screenshot, loads only packaged/Windows DLLs and exits cleanly; a subsequent success never hides a failure |
 
 **Packaged Windows evidence:** `.github/workflows/package-windows.yml` invokes
 `packaging/windows/verify.ps1` against the ZIP and installer without developer
 tools on `PATH`. The portable renderer uses disposable synthetic footage and
-exports **two separate MP4s** at 24 and 30000/1001 fps and an even custom width,
-then checks the ISO BMFF MP4 `ftyp` header and that
-`--refuse-existing-output` preserves the first file byte-for-byte.
+exports **six separate MP4s** at Match, 24, 25, 30000/1001,
+30 and 60 FPS at custom even width 320. The clean-host verifier checks
+the ISO BMFF MP4 `ftyp` header for every output and confirms that
+`--refuse-existing-output` preserves an already finished file byte-for-byte.
 The GUI is also launched independently three times on Windows 2022 and 2025
 and five times on Windows 11 ARM, retaining individual screenshots, logs and
 exit statuses. A nonempty file alone is **not proof of full stream integrity
@@ -71,11 +72,19 @@ All three operating-system build paths also render the disposable project a
 second time with `--fps 30000/1001 --width 320` and independently verify the
 resulting **320x180**, rational-FPS MP4 and non-silent AAC audio. This is an
 executable gate for export-FPS conversion, not a source-code-only check.
-The clean Windows verifier still checks binary packaging and repeated FPS
-exports **without** requiring a development FFmpeg tool on its PATH.
-A passing synthetic 2-second clip does **not** prove long multi-track export,
-headphone/speaker audibility, color fidelity, all delivery presets or physical
-GPU/driver stability. Those remain distinct v1.5.0 release gates.
+The Windows package-build CI independently FFprobes and fully decodes all
+six output frame-rate cases and verifies non-silent AAC at each rate; the
+clean Windows verifier checks real packaged-binary exports **without**
+requiring a developer FFmpeg tool on its PATH.
+A separate Windows package-build gate stretches the disposable three-lane
+picture/overlay/audio timeline into approximately one minute, renders it at
+30000/1001 FPS and independently verifies MP4/AAC decoding, exact frame rate
+and a stricter two-percent duration tolerance (minimum 200 ms). The
+experimental Linux AppImage and read-only mounted macOS DMGs are likewise
+tested using independent FFprobe/FFmpeg analysis of **bundled helper**
+exports. These passes do **not** prove long exports with real user footage,
+physical speaker audibility, color fidelity, all delivery presets, signing
+or hardware GPU/driver stability; those remain distinct v1.5.0 gates.
 
 ## Opt-in Windows resource samples (v1.5 development)
 

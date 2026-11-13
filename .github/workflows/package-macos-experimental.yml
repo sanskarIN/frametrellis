@@ -123,6 +123,13 @@ jobs:
             --self-test "$RUNNER_TEMP/mac-mounted" | tee "$RUNNER_TEMP/mac-mounted-render.log"
           grep -Fq "$mounted/Contents/PlugIns/mlt-7" "$RUNNER_TEMP/mac-mounted-render.log"
           test -s "$RUNNER_TEMP/mac-mounted/self-test-export.mp4"
+          # Independent FFprobe/FFmpeg analysis of the real signed, mounted
+          # helper's result. This verifies encoded 25 FPS video, complete
+          # video decode, valid AAC and non-silent decoded audio; the command
+          # does not execute the renderer from Homebrew or the build tree.
+          python3 packaging/verify_export_media.py \
+            "$RUNNER_TEMP/mac-mounted/self-test-export.mp4" \
+            --fps 25 --width 640 --height 360 --duration 2
           export FT_GUI_SMOKE_LOG="$RUNNER_TEMP/mac-mounted-startup.log"
           python3 packaging/macos/timeout_exec.py --seconds 90 \
             --diagnostics-dir "$RUNNER_TEMP/mac-mounted-stall" -- \

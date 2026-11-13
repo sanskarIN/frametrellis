@@ -19,7 +19,8 @@ concurrency:
 jobs:
   attach:
     name: Verify and attach release assets
-    if: ${{ !github.event.release.prerelease && !github.event.release.draft }}
+    # v1.5.0 has its own strict 14-file verified uploader, not this legacy 5-file job.
+    if: ${{ !github.event.release.prerelease && !github.event.release.draft && github.event.release.tag_name != 'v1.5.0' }}
     runs-on: ubuntu-24.04
     timeout-minutes: 90
     env:

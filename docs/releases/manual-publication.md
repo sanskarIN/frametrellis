@@ -26,11 +26,14 @@ tag using the `--windows-only-assets` release policy. An owner-created
 public release could still appear online *without files* if published
 prematurely; never treat an upload failure as release approval.
 
-The owner must first have a separately completed, securely verified
-three-platform preparation/attachment path, complete Mac notarization and
-clean-host licensing/audio/export testing, and authorize publication under
-the [v1.5.0 preflight](v1.5.0-preflight.md). Do not bypass this hold via
-manual five-file uploads.
+The three-platform [candidate collector](../../.github/workflows/prepare-v15-candidate.yml)
+and [approval-gated 14-file uploader](../../.github/workflows/release-assets-v15.yml)
+have been merged, but no complete *production* package matrix or requisite
+hardware/notarization/licensing evidence exists yet. For the actual owner-operated
+workflow **only after explicit approval**, use the
+[v1.5.0 manual publication runbook](v1.5.0-owner-release-runbook.md) and
+[full preflight](v1.5.0-preflight.md). Do not bypass this hold with five
+Windows assets, renamed development packages or premature publication.
 
 ## Before publishing
 

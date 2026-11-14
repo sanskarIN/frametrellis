@@ -81,7 +81,7 @@ for remaining engineering gaps.
 |---|---|
 | Windows 11 and Windows 10 1809 or later (x64) | Installer and portable ZIP. Before each release they are verified automatically on clean Windows Server 2022, Windows Server 2025 and Windows 11 (ARM64, x64 emulation) machines |
 | Linux (x86-64) | Build from source; builds and tests run in CI on Ubuntu 24.04. No package yet |
-| macOS | Not supported yet (planned) |
+| macOS 15+ (Apple Silicon arm64 and Intel x86_64) | **Supported when built from source** using Homebrew dependencies; native editor, renderer and tests run in CI on both architectures. No officially distributed, notarized standalone installer yet |
 
 ## Building
 
@@ -115,6 +115,19 @@ ctest --preset linux
 ./build/linux/bin/frametrellis
 ```
 
+Quick start on **macOS 15+** (Apple Silicon or Intel, with Homebrew and the native developer tools; see the [macOS build guide](docs/development/building.md#macos-supported-from-source-apple-silicon-and-intel)):
+
+```sh
+brew install cmake ninja pkg-config qt mlt ffmpeg sdl2
+git clone https://github.com/sanskarIN/frametrellis.git && cd frametrellis
+cmake --preset macos -DCMAKE_PREFIX_PATH="$(brew --prefix qt);$(brew --prefix mlt)"
+cmake --build --preset macos
+QT_QPA_PLATFORM=offscreen QT_QUICK_BACKEND=software SDL_AUDIODRIVER=dummy ctest --preset macos
+open ./build/macos/bin/frametrellis.app
+```
+
+These source builds use Homebrew libraries at runtime. They are **not** self-contained or notarized macOS download packages.
+
 ## Using FrameTrellis
 
 1. **Import** media with *File → Import Media…* (Ctrl+I) or by dropping files onto the media bin.
@@ -142,7 +155,7 @@ and Turbo presets and how to measure improvements. The [user guide](docs/user-gu
   when they are unavailable.
 - The Windows packages are not code-signed, and their automatic checks run on clean virtual
   machines, not on physical PCs.
-- There are no Linux or macOS packages yet.
+- Linux and macOS can be built from source, but there are no official standalone Linux/macOS release packages yet. Experimental CI bundles are not notarized production installers.
 
 ## Testing
 

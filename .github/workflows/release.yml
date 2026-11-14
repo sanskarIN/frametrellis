@@ -42,12 +42,17 @@ jobs:
             exit 1
           fi
           tag="v$project"
-          echo "Preparing complete owner-approved bundle for $tag; this job cannot publish."
-          # Validate tag syntax, version match, and the base binary-package name.
-          # The manual release tag and CMake package version must match.
+          echo "Preparing an offline candidate bundle for $tag; this job cannot publish or approve."
+          # Legacy versions retain the strict old Windows-only gate.
+          # Only v1.5.0 explicitly opts into the Windows binaries + Linux/macOS
+          # supported-from-source release scope. No other stable version inherits it.
+          policy="--windows-only-assets"
+          if [[ "$project" == "1.5.0" ]]; then
+            policy="--v15-source-build-assets"
+          fi
           if ! python3 packaging/release_version.py --tag "$tag" \
-                 --project-version "$project" --windows-only-assets >> "$GITHUB_OUTPUT"; then
-            echo "::error::Invalid release tag or mismatched CMake version"
+                 --project-version "$project" "$policy" >> "$GITHUB_OUTPUT"; then
+            echo "::error::Invalid tag, version or explicitly selected asset scope"
             exit 1
           fi
           version="${tag#v}"
@@ -148,7 +153,9 @@ jobs:
             echo "\`Get-FileHash .\\FrameTrellis-$VERSION-windows-x64-setup.exe\` and check the value"
             echo "against \`SHA256SUMS.txt\`."
             echo
-            echo "Linux and macOS: no packages yet. Build from source as described in"
+            echo "Linux (x86_64) and macOS 15+ (Apple Silicon and Intel) support source builds."
+            echo "There are no official standalone Linux/macOS release installers in this asset set."
+            echo "Build with the required Qt/MLT/FFmpeg and (for macOS) Homebrew libraries as described in"
             echo "[the building guide](https://github.com/$GITHUB_REPOSITORY/blob/$TAG/docs/development/building.md)."
             echo
             echo "## Checksums"

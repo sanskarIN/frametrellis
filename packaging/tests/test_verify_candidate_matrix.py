@@ -278,6 +278,31 @@ class CandidateMatrixTests(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, "Unsafe portable ZIP"):
                 matrix.verify(root, "1.5.0")
 
+    def test_windows_portable_rejects_reserved_devices_and_unsafe_components(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            make_candidate(root)
+            name = "FrameTrellis-1.5.0-windows-x64.zip"
+            for bad_path in (
+                "FrameTrellis/CON",
+                "FrameTrellis/prn.txt",
+                "FrameTrellis/COM1.dll",
+                "FrameTrellis/LPT9",
+                "FrameTrellis/COM¹.txt",
+                "FrameTrellis/folder./file.txt",
+                "FrameTrellis/trailing ",
+                "FrameTrellis/bad?.txt",
+                "FrameTrellis/control" + chr(1) + ".txt",
+            ):
+                with self.subTest(bad_path=bad_path):
+                    replace_payload(root, name, fixture_zip([
+                        ("FrameTrellis/frametrellis.exe", b"gui"),
+                        ("FrameTrellis/frametrellis-render.exe", b"render"),
+                        (bad_path, b"unportable"),
+                    ]))
+                    with self.assertRaisesRegex(ValueError, "Unsafe portable ZIP path"):
+                        matrix.verify(root, "1.5.0")
+
     def test_windows_portable_rejects_invalid_zip_even_with_matching_checksum(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)

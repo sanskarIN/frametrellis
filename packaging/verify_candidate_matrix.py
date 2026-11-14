@@ -147,6 +147,27 @@ def safe_archive_path(name: str) -> bool:
     return all(part not in ("", ".", "..") for part in parts)
 
 
+WINDOWS_RESERVED_NAMES = re.compile(
+    r"^(?:CON|PRN|AUX|NUL|COM[1-9¹²³]|LPT[1-9¹²³])$", re.IGNORECASE
+)
+
+
+def safe_windows_zip_path(name: str) -> bool:
+    """Reject paths that cannot be safely extracted to ordinary Windows files.
+
+    NTFS/Win32 can reinterpret trailing periods/spaces and device basenames;
+    ZIP paths containing those names may fail or alias other files on extraction.
+    """
+    if not safe_archive_path(name):
+        return False
+    for component in name.rstrip("/").split("/"):
+        if (component.rstrip(" .") != component
+                or any(ord(char) < 32 or char in '<>"|?*' for char in component)
+                or WINDOWS_RESERVED_NAMES.fullmatch(component.split(".", 1)[0])):
+            return False
+    return True
+
+
 def validate_windows_portable_zip(path: Path) -> None:
     """Verify the editor and subprocess helper are unique adjacent ZIP entries."""
     with zipfile.ZipFile(path, "r") as archive:
@@ -156,7 +177,7 @@ def validate_windows_portable_zip(path: Path) -> None:
                                  for name in names)):
             raise ValueError("Portable ZIP has duplicate or case-folded duplicate paths")
         for item in entries:
-            if not safe_archive_path(item.filename):
+            if not safe_windows_zip_path(item.filename):
                 raise ValueError(f"Unsafe portable ZIP path: {item.filename}")
             if stat.S_ISLNK(item.external_attr >> 16):
                 raise ValueError(f"Portable ZIP contains a symbolic link: {item.filename}")

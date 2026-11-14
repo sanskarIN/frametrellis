@@ -1,13 +1,14 @@
 # v1.5.0 three-platform release candidate: planned asset contract
 
 **Planning and validation only — v1.5.0 has NOT been approved, tagged or published.**
-The existing stable publication workflows remain **Windows-only**.
-The old preparation/uploader now explicitly **reject stable v1.5.0 or newer**
-through the `--windows-only-assets` release-version gate. This prevents
-accidentally publishing a three-platform featured release with only five
-Windows artifacts; it is a safeguard, **not** the missing three-platform
-release pipeline. Experimental Linux AppImages and UNNOTARIZED macOS DMGs
-are **not** valid production release assets.
+The legacy stable preparation/uploader remain **Windows-only** and reject
+v1.5.0 or newer through the `--windows-only-assets` release-version gate.
+Separate, fail-closed three-platform **candidate collection** and
+**post-approval release attachment** workflows are now integrated (#265,
+#266, with artifact retrieval fixed in #269). These workflows do **not**
+produce the missing production Linux/macOS packages, licenses or SBOMs.
+Experimental Linux AppImages and UNNOTARIZED macOS DMGs are **not** valid
+production release assets.
 
 ## Proposed complete artifact set
 
@@ -90,7 +91,8 @@ packaging workflows exist, real source archives and SPDX inventories are
 complete, the version and draft notes are finalized, and hardware/signing
 acceptance is recorded. Even a successful candidate artifact is **not**
 permission to create a release or use the old five-file uploader. The
-future 14-file publication attachment path is still missing.
+14-file attachment workflow exists but it cannot compensate for absent
+production packages, signing, licensing, physical QA or owner approval.
 
 ## Local offline integrity gate
 
@@ -169,11 +171,12 @@ credentials, physical QA, or grants approval without owner action.
    quarantined Gatekeeper acceptance; real Finder launch, physical audio and
    long media-render verification still require independent manual evidence.
 5. Generate complete source archives and SPDX per platform; verify all checksums.
-6. Only then extend the guarded owner-operated stable release preparation and
-   five-file uploader to the **approved** full 14-file candidate matrix. New
-   workflows must fail closed on an absent or failing platform.
-7. Owner must separately approve `v1.5.0` creation and publication. Do **not**
-   auto-tag, auto-publish, or attach experimental artifacts.
+6. Use the separate 14-file nonpublishing candidate preparation and
+   owner-approval-gated uploader; the legacy five-file path does **not**
+   accept v1.5.0. Never proceed when any platform stage is missing.
+7. Owner must separately approve `v1.5.0` creation and publication, following
+   [the manual owner runbook](../releases/v1.5.0-owner-release-runbook.md).
+   Do **not** auto-tag, auto-publish, or attach experimental artifacts.
 
 The version and asset naming scheme remain a **candidate contract** until the
 actual production packaging pipelines and maintainer review are complete.

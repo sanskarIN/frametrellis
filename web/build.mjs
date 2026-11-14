@@ -181,12 +181,11 @@ const MAINTAINER_LINKS = [
     ['Website', 'https://sanskarin.github.io'],
     ['Blog', 'https://sanskarin.github.io/blog/'],
     ['GitHub', 'https://github.com/sanskarIN'],
-    ['LinkedIn', 'https://linkedin.com/in/SanskarCodes'],
-    ['dev.to', 'https://dev.to/SanskarCodes'],
+    ['LinkedIn', 'https://linkedin.com/in/sanskarIN'],
+    ['dev.to', 'https://dev.to/sanskarIN'],
     ['X', 'https://x.com/SanskarCodes'],
-    ['Instagram', 'https://instagram.com/SanskarCode'],
-    ['Threads', 'https://www.threads.com/@SanskarCode'],
-    ['Bluesky', 'https://bsky.app/profile/SanskarCodes.bsky.social'],
+    ['Facebook', 'https://facebook.com/sanskarIN'],
+    ['Bluesky', 'https://sanskarin.bsky.social'],
 ];
 
 function layout({ relPath, title, description, body, nav, absolute = false, wide = false }) {

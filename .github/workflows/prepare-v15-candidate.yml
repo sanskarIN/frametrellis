@@ -125,7 +125,12 @@ jobs:
               echo "::error::GitHub artifact digest missing or malformed"; exit 1;
             }
             archive="downloaded/$platform.zip"
-            gh api "repos/$GITHUB_REPOSITORY/actions/artifacts/$id/zip" --output "$archive"
+            # gh api emits response bytes on stdout; it has no --output flag.
+            # A redirect/API error body cannot pass the authenticated SHA-256 check.
+            gh api "repos/$GITHUB_REPOSITORY/actions/artifacts/$id/zip" > "$archive"
+            test -s "$archive" || {
+              echo "::error::Downloaded production artifact ZIP is empty"; exit 1;
+            }
             printf '%s  %s\n' "${digest#sha256:}" "$archive" | sha256sum --check --status || {
               echo "::error::ZIP bytes do not match the trusted GitHub artifact digest"; exit 1;
             }

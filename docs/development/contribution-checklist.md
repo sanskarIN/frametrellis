@@ -9,7 +9,12 @@ Before opening a pull request:
 5. For packaging Python changes, run `python3 -m unittest discover -s packaging/tests -v` and `ruff check`.
 6. For editor changes, verify project load/save, undo/redo, media relinking and export cancellation where relevant.
 7. Record the commands actually executed and any unavailable checks in the PR description; do not claim unrun checks passed.
-8. Wait for required GitHub Actions checks and review before merging. Never bypass branch protection.
+8. Check the current branch head and all required workflows, not only older green runs.
+9. When other open PRs change the same C++/QML files or shortcuts, review combined behavior and rerun CI after resolving conflicts.
+10. Wait for required GitHub Actions checks and review before merging. Never bypass branch protection.
+
+For check names, risk areas, head-SHA validation and integration of overlapping branches,
+see [Reviewing and integrating feature PRs](feature-pr-review.md).
 
 ## Release hygiene
 

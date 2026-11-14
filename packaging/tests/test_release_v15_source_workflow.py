@@ -57,6 +57,19 @@ class ReleaseScopeWorkflowTests(unittest.TestCase):
         self.assertIn("manual-release-assets", prepare)
         self.assertNotIn("gh release create", prepare)
 
+    def test_website_republishes_after_either_uploader(self):
+        page_workflow = (ROOT / ".github/workflows/pages.yml").read_text(
+            encoding="utf-8"
+        )
+        for name in (
+            "Attach verified release assets",
+            "Attach approved v1.5.0 three-platform assets",
+            "Attach approved v1.5.0 Windows assets (source builds on Linux and macOS)",
+        ):
+            with self.subTest(workflow=name):
+                self.assertIn('"' + name + '"', page_workflow)
+        self.assertIn("github.event.workflow_run.conclusion == 'success'", page_workflow)
+
     def test_uploaders_cannot_create_tags_or_releases(self):
         for path in (SOURCE, FULL):
             source = path.read_text(encoding="utf-8")

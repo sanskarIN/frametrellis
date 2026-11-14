@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // SPDX-FileCopyrightText: 2026 Sanskar and FrameTrellis contributors
+#include "core/version.h"
 #include "editing/project_document.h"
 #include "editing/timeline_edits.h"
 #include "engine/frame_utils.h"
@@ -83,6 +84,25 @@ private:
     }
 
 private slots:
+
+    void helperReportsCompiledRevisionWithoutProjectOrMedia()
+    {
+        QProcess helper;
+        helper.start(QStringLiteral(FT_RENDER_HELPER), {QStringLiteral("--build-info")});
+        QVERIFY(helper.waitForFinished(10000));
+        QCOMPARE(helper.exitStatus(), QProcess::NormalExit);
+        QCOMPARE(helper.exitCode(), 0);
+        QJsonParseError error;
+        const QJsonDocument parsed =
+            QJsonDocument::fromJson(helper.readAllStandardOutput(), &error);
+        QCOMPARE(error.error, QJsonParseError::NoError);
+        QVERIFY(parsed.isObject());
+        QCOMPARE(parsed.object().value(QStringLiteral("version")).toString(),
+                 QString::fromLatin1(version::string));
+        QCOMPARE(parsed.object().value(QStringLiteral("sourceRevision")).toString(),
+                 QString::fromLatin1(version::sourceRevision));
+        QVERIFY(!parsed.object().contains(QStringLiteral("projectPath")));
+    }
 
     void helperListsExportPresetsAsJson()
     {

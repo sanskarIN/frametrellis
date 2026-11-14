@@ -3,7 +3,7 @@
   "out": "download/index.html",
   "nav": "download",
   "title": "Download",
-  "description": "Download FrameTrellis for Windows, or build it from source on Windows and Linux."
+  "description": "Download FrameTrellis for Windows, or build it from source on Windows, Linux and macOS."
 }
 -->
 <div class="wrap page-head">
@@ -51,6 +51,14 @@ ctest --preset linux
 ./build/linux/bin/frametrellis</code></pre>
       </div>
     </div>
+    <h3>macOS 15+ (Apple Silicon arm64 and Intel x86_64)</h3>
+    <p class="sub">Native macOS source builds are supported and tested in CI. Homebrew-provided libraries are required at runtime; these are not official, notarized standalone DMG installers.</p>
+<pre><code>brew install cmake ninja pkg-config qt mlt ffmpeg sdl2
+git clone https://github.com/sanskarIN/frametrellis.git &amp;&amp; cd frametrellis
+cmake --preset macos -DCMAKE_PREFIX_PATH="$(brew --prefix qt);$(brew --prefix mlt)"
+cmake --build --preset macos
+QT_QPA_PLATFORM=offscreen QT_QUICK_BACKEND=software SDL_AUDIODRIVER=dummy ctest --preset macos
+open ./build/macos/bin/frametrellis.app</code></pre>
   </div>
 </section>
 

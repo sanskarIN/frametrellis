@@ -50,7 +50,7 @@ const DOC_GROUPS = [
         title: 'Using FrameTrellis',
         items: [
             { src: 'docs/user-guide/installation.md', slug: 'installation', label: 'Installation',
-              summary: 'Installing on Windows, building on Linux, and where data is kept.' },
+              summary: 'Installing on Windows, building on Linux/macOS, and where data is kept.' },
             { src: 'docs/user-guide/README.md', slug: 'user-guide', label: 'User guide',
               summary: 'Every feature of the editor, from importing media to exporting.' },
             { src: 'docs/user-guide/formats.md', slug: 'formats', label: 'Supported formats',
@@ -353,8 +353,9 @@ function downloadsHtml(release) {
     <div class="grid features">
       ${card(release.installer, 'Windows installer', 'For Windows 10 (version 1809 or later) and Windows 11, 64-bit. Installs for your user account; no administrator rights needed.', true)}
       ${card(release.zip, 'Portable ZIP', 'No installation: extract the folder anywhere, for example on a USB drive, and run <code>frametrellis.exe</code>.', false)}
-      <div class="card download"><h3>Linux and macOS</h3><p>There are no packages for Linux or macOS yet. You can
-        <a href="#source">build FrameTrellis from source</a> on Linux; macOS support is planned.</p></div>
+      <div class="card download"><h3>Linux and macOS source builds</h3><p>Official standalone packages are not yet available for these platforms.
+        <a href="#source">Build FrameTrellis from source</a> on Linux or on macOS 15+ (Apple Silicon or Intel).
+        macOS requires Homebrew runtime libraries; no notarized release DMG is provided yet.</p></div>
     </div>
     <p class="muted">Also published with this release: ${extra}.</p>
     <p class="notice"><strong>The Windows packages are not code-signed.</strong> Windows SmartScreen may show

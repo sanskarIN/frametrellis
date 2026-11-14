@@ -2,7 +2,6 @@
 """Guard the authenticated v1.5 candidate download against unsupported CLI flags."""
 from __future__ import annotations
 
-import re
 import unittest
 from pathlib import Path
 

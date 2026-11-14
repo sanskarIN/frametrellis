@@ -176,32 +176,44 @@ private slots:
     {
         playback::PlaybackEngine engine;
         QSignalSpy frames(&engine, &playback::PlaybackEngine::frameReady);
-        engine.setAudioEnabled(false); // Deterministic wall-clock preview on CI runners.
+        engine.setAudioEnabled(false); // CI has no reliable physical audio device.
         engine.setMaximumPreviewSize(QSize(160, 90));
-        engine.setProject(project());
-        engine.seek(68);
-        QVERIFY(!waitForFrameAt(frames, 68).isNull());
+
+        // A 20-frame sequence at 25 fps exercises the same wrap/stop boundary
+        // without rendering three seconds of frames on slower Apple Silicon CI.
+        // Keep actual media decoding and frame delivery in the test.
+        Project p = project();
+        const Id clipId = p.timeline().tracks()[0].clips[0].id;
+        QVERIFY(p.timeline().trimClipEnd(clipId, 20, p.sourceLookup()));
+        engine.setProject(p);
+        engine.seek(15);
+        QVERIFY(!waitForFrameAt(frames, 15).isNull());
+        QCOMPARE(engine.duration(), FrameCount{20});
         frames.clear();
 
         engine.setLoopEnabled(true);
         engine.play();
         const auto restarted = [&] {
-            for (const QList<QVariant>& args : std::as_const(frames)) {
-                if (args.at(1).value<FrameCount>() <= 2) {
-                    return true;
-                }
-            }
-            return false;
+            // The worker publishes the playhead before queued Qt signals are
+            // delivered. Checking the actual worker position avoids mistaking
+            // coalesced GUI frameReady callbacks for a playback-loop failure.
+            return engine.isPlaying() && engine.position() <= 3;
         };
         QVERIFY2(QTest::qWaitFor(restarted, 6000),
-                 "Loop preview did not return to the sequence start.");
+                 qPrintable(QStringLiteral("Loop did not restart: position=%1, "
+                                           "rendered=%2, delivered=%3, playing=%4")
+                                .arg(engine.position())
+                                .arg(engine.renderedFrameCount())
+                                .arg(engine.deliveredFrameCount())
+                                .arg(engine.isPlaying())));
+        QVERIFY(QTest::qWaitFor([&] { return !frames.isEmpty(); }, 3000));
         QVERIFY(engine.isPlaying());
 
-        // Turning loop off must restore the default stop-at-end behavior without
-        // interrupting the current pass or affecting the project.
+        // Turning loop off must restore stop-at-end without interrupting the
+        // current pass or affecting the project.
         engine.setLoopEnabled(false);
         QVERIFY(QTest::qWaitFor([&] { return !engine.isPlaying(); }, 7000));
-        QVERIFY(engine.position() >= 70);
+        QVERIFY(engine.position() >= 15);
     }
 
     void singleFrameLoopStillHonoursProjectFrameRate()

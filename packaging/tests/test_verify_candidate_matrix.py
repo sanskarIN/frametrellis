@@ -292,7 +292,7 @@ class CandidateMatrixTests(unittest.TestCase):
                 "FrameTrellis/folder./file.txt",
                 "FrameTrellis/trailing ",
                 "FrameTrellis/bad?.txt",
-                "FrameTrellis/control\\x01.txt",
+                "FrameTrellis/control" + chr(1) + ".txt",
             ):
                 with self.subTest(bad_path=bad_path):
                     replace_payload(root, name, fixture_zip([

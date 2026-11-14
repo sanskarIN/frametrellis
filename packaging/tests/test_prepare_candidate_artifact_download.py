@@ -16,7 +16,7 @@ class CandidateArtifactDownloadTests(unittest.TestCase):
             source,
             r'gh api "repos/\$GITHUB_REPOSITORY/actions/artifacts/\$id/zip" > "\$archive"',
         )
-        self.assertNotRegex(source, r'gh api[^\n]*--output')
+        self.assertNotRegex(source, r'(?m)^\s*gh api[^\n]*--output')
         self.assertIn('test -s "$archive"', source)
 
     def test_download_is_followed_by_exact_authenticated_digest_verification(self):

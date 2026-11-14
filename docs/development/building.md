@@ -115,13 +115,18 @@ If your distribution's MLT pulls in a Qt-based MLT module linked against a *diff
 version than the one you build with, point FrameTrellis at a module folder without it
 (`FRAMETRELLIS_MLT_REPOSITORY=/path/to/mlt-7`) or use `scripts/build-mlt.sh`.
 
-## macOS (development support; bundled distribution still pending)
+## macOS (supported from source; Apple Silicon and Intel)
 
-On macOS 15 or newer, with [Homebrew](https://brew.sh/) installed, use
-the native toolchain and install Qt 6, MLT 7, SDL2, and their codecs:
+**Source-build support is available on macOS 15 or newer**, on both Apple Silicon
+(arm64) and Intel (x86_64). The native desktop CI builds, runs the editor/renderer,
+and tests both architectures. Install the native developer tools and
+[Homebrew](https://brew.sh/), then install Qt 6, MLT 7, SDL2 and their codecs.
+This is a source-build workflow, not a one-click standalone installation:
 
 ```sh
 brew install cmake ninja pkg-config qt mlt ffmpeg sdl2
+git clone https://github.com/sanskarIN/frametrellis.git
+cd frametrellis
 cmake --preset macos -DCMAKE_PREFIX_PATH="$(brew --prefix qt);$(brew --prefix mlt)"
 cmake --build --preset macos
 QT_QPA_PLATFORM=offscreen QT_QUICK_BACKEND=software SDL_AUDIODRIVER=dummy ctest --preset macos
@@ -130,9 +135,10 @@ open ./build/macos/bin/frametrellis.app
 ```
 
 The helper is copied into the app's `Contents/MacOS` folder. Verify it is
-present before exporting; the app is not yet a self-contained notarized
-installer. Qt/MLT/FFmpeg/SDL2 libraries are still supplied by Homebrew
-for these **development** builds. A ZIP or DMG is not ready for distribution
+present before exporting. **macOS is supported for source builds**, but the
+app is not yet an officially distributed, self-contained notarized installer.
+Qt/MLT/FFmpeg/SDL2 libraries are supplied by Homebrew at runtime.
+A standalone ZIP or DMG is not ready for official stable distribution
 until those native runtime libraries, MLT data/services, Qt Quick plugins,
 bundled-component licenses, architecture, code signing, notarization, and
 clean-host tests pass on both Apple Silicon and Intel.

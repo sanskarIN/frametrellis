@@ -1,7 +1,8 @@
 # Installing FrameTrellis
 
-FrameTrellis is published for **Windows (x64)**. On Linux you can build it from source; macOS is
-not supported yet.
+FrameTrellis publishes official downloadable installers for **Windows (x64)**.
+**Linux (x86-64) and macOS 15+ (Apple Silicon and Intel) are supported when built
+from source.** There are no official standalone Linux/macOS release installers yet.
 
 - [Windows](#windows)
 - [Linux](#linux)
@@ -97,8 +98,16 @@ Flatpak) is planned and will be published once it has been verified.
 
 ## macOS
 
-macOS is not supported yet. The code base is portable, and a macOS build is planned; see the
-[roadmap](../roadmap.md).
+**macOS 15 or newer is supported through source builds** on Apple Silicon (arm64)
+and Intel (x86_64). Native CI verifies the editor and renderer on both. Install
+Homebrew, the native developer toolchain, and the documented Qt 6, MLT 7,
+FFmpeg and SDL2 dependencies, then follow the
+[macOS build instructions](../development/building.md#macos-supported-from-source-apple-silicon-and-intel).
+
+The resulting `frametrellis.app` can be launched on the build machine, with
+Homebrew dependencies present. It is **not** a self-contained, Developer ID
+signed and notarized installer. Official macOS DMGs will be announced only
+after the separate production distribution and clean-host acceptance checks pass.
 
 ## Where FrameTrellis keeps its data
 

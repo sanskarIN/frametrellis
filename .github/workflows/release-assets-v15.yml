@@ -19,7 +19,10 @@ concurrency:
 jobs:
   attach:
     name: Verify exact owner-approved candidate; attach 14 release files
-    if: ${{ github.event.release.tag_name == 'v1.5.0' && !github.event.release.prerelease && !github.event.release.draft }}
+    # The owner must select this complete 14-file distribution explicitly.
+    # The alternative Windows-binary + Linux/macOS source-build approval marker
+    # is mutually exclusive, so only one uploader can ever attempt attachment.
+    if: ${{ github.event.release.tag_name == 'v1.5.0' && !github.event.release.prerelease && !github.event.release.draft && contains(github.event.release.body, 'FrameTrellis-1.5.0-OWNER-APPROVED') && !contains(github.event.release.body, 'FrameTrellis-1.5.0-SOURCE-BUILD-OWNER-APPROVED') }}
     runs-on: ubuntu-24.04
     timeout-minutes: 115
     env:

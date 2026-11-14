@@ -5,13 +5,17 @@
 name: Prepare manual release
 
 on:
-  # Also assemble a fresh upload-ready asset bundle whenever preparation
-  # or automatic attachment behavior changes on main. No release is published.
+  # Assemble a new non-publishing, exact-main-SHA candidate when release
+  # metadata or the preparation/attachment contract changes. A push never
+  # creates a tag, publishes a GitHub Release or uploads public assets.
   push:
     branches: [main]
     paths:
+      - "CMakeLists.txt"
+      - "docs/releases/v1.5.0.md"
       - ".github/workflows/release.yml"
       - ".github/workflows/release-assets.yml"
+      - ".github/workflows/release-assets-v15-source.yml"
   workflow_dispatch:
 
 permissions:

@@ -81,7 +81,7 @@
         <li>The MLT Multimedia Framework for compositing and playback, with FFmpeg for decoding and encoding.</li>
         <li>Integer frame counts and exact rational frame rates, so edits never drift.</li>
         <li>Exports run in a separate render process, so a failing codec cannot take your project down with it.</li>
-        <li>Unit, integration and interface tests run on Linux and Windows on every change.</li>
+        <li>Unit, integration and interface tests run on Linux, Windows and both native macOS architectures in CI.</li>
       </ul>
     </div>
   </div>
@@ -108,14 +108,14 @@
 <section aria-labelledby="platforms">
   <div class="wrap">
     <h2 id="platforms">Platforms</h2>
-    <p class="sub">A platform is only called supported once its builds and packages have been verified.</p>
+    <p class="sub">Source-build support means native builds and tests are verified; official installers require separate distribution checks.</p>
     <div class="table-wrap">
       <table>
         <thead><tr><th scope="col">Platform</th><th scope="col">Status</th></tr></thead>
         <tbody>
           <tr><td>Windows 11 and Windows 10 (x64)</td><td>{{windowsStatus}}</td></tr>
           <tr><td>Linux (x86-64)</td><td>Built and tested in CI on Ubuntu 24.04. For now you build it from source; a packaged Linux release is planned.</td></tr>
-          <tr><td>macOS</td><td>Not supported yet (planned).</td></tr>
+          <tr><td>macOS 15+ (Apple Silicon and Intel)</td><td><strong>Supported from source.</strong> Native builds and tests run in CI for arm64 and x86_64. Requires Homebrew dependencies; official notarized standalone installers are not available yet. <a href="{{link:docs/building/index.html}}">Build on macOS</a>.</td></tr>
         </tbody>
       </table>
     </div>

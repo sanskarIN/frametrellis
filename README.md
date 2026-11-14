@@ -225,12 +225,11 @@ FrameTrellis is maintained by **Sanskar**.
 [Website](https://sanskarin.github.io) ·
 [Blog](https://sanskarin.github.io/blog/) ·
 [Contact](https://sanskarin.github.io/contact) ·
-[LinkedIn](https://linkedin.com/in/SanskarCodes) ·
-[dev.to](https://dev.to/SanskarCodes) ·
+[LinkedIn](https://linkedin.com/in/sanskarIN) ·
+[dev.to](https://dev.to/sanskarIN) ·
 [X](https://x.com/SanskarCodes) ·
-[Instagram](https://instagram.com/SanskarCode) ·
-[Threads](https://www.threads.com/@SanskarCode) ·
-[Bluesky](https://bsky.app/profile/SanskarCodes.bsky.social)
+[Facebook](https://facebook.com/sanskarIN) ·
+[Bluesky](https://sanskarin.bsky.social)
 
 FrameTrellis is free and always will be. If you would like to support its development, you can
 [sponsor on GitHub](https://github.com/sponsors/sanskarIN),

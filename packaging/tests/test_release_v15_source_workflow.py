@@ -41,7 +41,7 @@ class ReleaseScopeWorkflowTests(unittest.TestCase):
         ):
             with self.subTest(feature=feature):
                 self.assertIn(feature, src)
-        paths = re.findall(r"\bFrameTrellis-1\.5\.0-windows-x64-[\w.\-]+", src)
+        paths = re.findall(r"\bFrameTrellis-1\.5\.0-windows-x64[.\-][\w.\-]+", src)
         self.assertEqual(set(paths), {
             "FrameTrellis-1.5.0-windows-x64-setup.exe",
             "FrameTrellis-1.5.0-windows-x64.zip",

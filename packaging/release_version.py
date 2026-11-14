@@ -90,7 +90,10 @@ def main() -> None:
     )
     policies.add_argument(
         "--v15-source-build-assets", action="store_true",
-        help="Explicit alternative: five Windows files plus Linux/macOS source builds, stable v1.5.0 only.",
+        help=(
+            "Explicit alternative: five Windows assets with Linux/macOS source "
+            "builds (stable v1.5.0 only)."
+        ),
     )
     args = parser.parse_args()
     try:

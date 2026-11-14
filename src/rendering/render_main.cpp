@@ -211,10 +211,10 @@ int main(int argc, char** argv)
     if (parser.isSet(buildInfoOption)) {
         // This does not initialize MLT, decode source media or open a project.
         const QByteArray json =
-            QJsonDocument(QJsonObject{{QStringLiteral("version"),
-                                       QString::fromLatin1(version::string)},
-                                      {QStringLiteral("sourceRevision"),
-                                       QString::fromLatin1(version::sourceRevision)}})
+            QJsonDocument(
+                QJsonObject{{QStringLiteral("version"), QString::fromLatin1(version::string)},
+                            {QStringLiteral("sourceRevision"),
+                             QString::fromLatin1(version::sourceRevision)}})
                 .toJson(QJsonDocument::Compact);
         std::fwrite(json.constData(), 1, static_cast<size_t>(json.size()), stdout);
         std::fputc(10, stdout);

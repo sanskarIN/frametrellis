@@ -1,0 +1,150 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
+# Alternative stable v1.5.0 distribution: Windows x64 binaries and Linux/macOS
+# supported from source. Must NOT create a tag/release or accept a 14-file scope.
+# The repository owner publishes manually ONLY after a separate release approval.
+name: Attach approved v1.5.0 Windows assets (source builds on Linux and macOS)
+
+on:
+  release:
+    types: [published]
+
+permissions:
+  actions: read
+  contents: write
+
+concurrency:
+  group: attach-v15-${{ github.event.release.id }}
+  cancel-in-progress: false
+
+jobs:
+  attach:
+    name: Verify source-build release scope and attach five authenticated Windows assets
+    if: ${{ github.event.release.tag_name == 'v1.5.0' && !github.event.release.prerelease && !github.event.release.draft && contains(github.event.release.body, 'FrameTrellis-1.5.0-SOURCE-BUILD-OWNER-APPROVED') && !contains(github.event.release.body, 'FrameTrellis-1.5.0-OWNER-APPROVED') }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 115
+    env:
+      GH_TOKEN: ${{ github.token }}
+      RELEASE_TAG: ${{ github.event.release.tag_name }}
+      RELEASE_ID: ${{ github.event.release.id }}
+    steps:
+      - name: Check out exact published tag
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ github.event.release.tag_name }}
+          persist-credentials: false
+
+      - name: Validate separate explicit owner approval, exact source and version
+        id: source
+        run: |
+          set -euo pipefail
+          tag_sha="$(git rev-parse HEAD)"
+          main_sha="$(gh api "repos/$GITHUB_REPOSITORY/branches/main" --jq .commit.sha)"
+          [[ "$tag_sha" == "$main_sha" ]] || {
+            echo "::error::Release tag must exactly equal verified protected main"; exit 1;
+          }
+          release="$(gh api "repos/$GITHUB_REPOSITORY/releases/$RELEASE_ID")"
+          [[ "$(jq -r .tag_name <<< "$release")" == "$RELEASE_TAG" ]] || exit 1
+          jq -r .body <<< "$release" | grep -Fxq \
+            'FrameTrellis-1.5.0-SOURCE-BUILD-OWNER-APPROVED' || {
+              echo "::error::Exact source-build owner approval line missing"; exit 1;
+            }
+          if jq -r .body <<< "$release" | grep -Fxq \
+            'FrameTrellis-1.5.0-OWNER-APPROVED'; then
+            echo "::error::Conflicting 14-file approval marker"; exit 1;
+          fi
+          project="$(grep -Pzo 'project\(FrameTrellis\s+VERSION\s+\K[0-9.]+' CMakeLists.txt | tr -d '\0')"
+          [[ "$project" == "1.5.0" ]] || {
+            echo "::error::The stable CMake project must be version 1.5.0"; exit 1;
+          }
+          python3 packaging/release_version.py --tag "$RELEASE_TAG" \
+            --project-version "$project" --v15-source-build-assets > version.txt
+          notes="docs/releases/v1.5.0.md"
+          test -s "$notes"
+          if head -n 20 "$notes" | grep -qiE '(^<!--[[:space:]]*draft|^#[[:space:]].*(draft|not released)|^>.*(not published|not released))'; then
+            echo "::error::Release notes still marked draft/unreleased"; exit 1;
+          fi
+          echo "sha=$tag_sha" >> "$GITHUB_OUTPUT"
+
+      - name: Require source-build CI on same frozen protected-main SHA
+        env:
+          FROZEN_SHA: ${{ steps.source.outputs.sha }}
+        run: |
+          set -euo pipefail
+          for workflow in ci.yml desktop-platforms.yml; do
+            gh api "repos/$GITHUB_REPOSITORY/actions/workflows/$workflow/runs?status=success&per_page=100" > workflow-runs.json
+            jq -e --arg sha "$FROZEN_SHA" '
+              any(.workflow_runs[];
+                .head_sha == $sha
+                and .head_branch == "main"
+                and .event == "push"
+                and .conclusion == "success"
+              )
+            ' workflow-runs.json > /dev/null || {
+              echo "::error::No successful main $workflow run on exact SHA"; exit 1;
+            }
+          done
+
+      - name: Select the successful same-SHA Windows preparation run
+        id: prepared
+        env:
+          FROZEN_SHA: ${{ steps.source.outputs.sha }}
+        run: |
+          set -euo pipefail
+          gh api "repos/$GITHUB_REPOSITORY/actions/workflows/release.yml/runs?status=success&per_page=100" > runs.json
+          run_id="$(jq -r --arg sha "$FROZEN_SHA" '
+            [.workflow_runs[]
+              | select(.head_sha == $sha and .head_branch == "main")
+              | select(.event == "workflow_dispatch" or .event == "push")
+              | select(.conclusion == "success")
+            ] | sort_by(.run_started_at) | last | .id // empty
+          ' runs.json)"
+          [[ -n "$run_id" ]] || {
+            echo "::error::No same-SHA verified Windows release preparation"; exit 1;
+          }
+          gh api "repos/$GITHUB_REPOSITORY/actions/runs/$run_id/artifacts?per_page=100" > artifacts.json
+          count="$(jq '[.artifacts[]
+            | select(.name == "manual-release-assets" and (.expired | not))
+          ] | length' artifacts.json)"
+          [[ "$count" == "1" ]] || {
+            echo "::error::No unique unexpired complete release artifact"; exit 1;
+          }
+          echo "run_id=$run_id" >> "$GITHUB_OUTPUT"
+
+      - name: Download only validated candidate from authenticated preparation run
+        uses: actions/download-artifact@v7
+        with:
+          name: manual-release-assets
+          path: prepared
+          repository: ${{ github.repository }}
+          run-id: ${{ steps.prepared.outputs.run_id }}
+          github-token: ${{ github.token }}
+
+      - name: Independently verify all five candidate files and release notes
+        run: |
+          set -euo pipefail
+          python3 packaging/verify_release_assets.py --version 1.5.0 --directory prepared/release
+          (cd prepared/release && sha256sum --check SHA256SUMS.txt)
+          test -s prepared/release-notes.md
+
+      - name: Confirm empty release and attach exactly five verified files
+        run: |
+          set -euo pipefail
+          existing="$(gh api "repos/$GITHUB_REPOSITORY/releases/$RELEASE_ID/assets?per_page=100" --jq length)"
+          [[ "$existing" == "0" ]] || {
+            echo "::error::Refuse to overwrite or mix existing public assets"; exit 1;
+          }
+          for asset in \
+            FrameTrellis-1.5.0-windows-x64-setup.exe \
+            FrameTrellis-1.5.0-windows-x64.zip \
+            FrameTrellis-1.5.0-windows-x64.spdx.json \
+            FrameTrellis-1.5.0-windows-x64-third-party-sources.tar \
+            SHA256SUMS.txt; do
+            gh release upload "$RELEASE_TAG" "prepared/release/$asset" --repo "$GITHUB_REPOSITORY"
+          done
+
+      - name: Confirm public names, states, sizes and SHA-256 digests
+        run: |
+          set -euo pipefail
+          gh api "repos/$GITHUB_REPOSITORY/releases/$RELEASE_ID/assets?per_page=100" > published-assets.json
+          python3 packaging/verify_published_windows_v15.py \
+            --assets-json published-assets.json --directory prepared/release --version 1.5.0

@@ -65,19 +65,43 @@ def require_windows_only_assets(release: ReleaseVersion) -> None:
         )
 
 
+def require_v15_source_build_assets(release: ReleaseVersion) -> None:
+    """Authorize the *five-file* v1.5.0 option only via explicit scope selection.
+
+    This does not approve publication. Linux and macOS are advertised as
+    supported from source; it must not be described as a three-OS installer.
+    The legacy windows-only policy remains unchanged for all other releases.
+    """
+    if release.prerelease or release.tag != "v1.5.0":
+        raise ValueError(
+            "The explicit source-build distribution scope is permitted only "
+            "for stable v1.5.0; do not silently allow other release tags."
+        )
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--tag", required=True)
     parser.add_argument("--project-version", required=True)
-    parser.add_argument(
+    policies = parser.add_mutually_exclusive_group()
+    policies.add_argument(
         "--windows-only-assets", action="store_true",
-        help="Refuse stable v1.5.0+ until three-platform release assets are supported.",
+        help="Legacy release policy: refuse stable v1.5.0+ five-file assets.",
+    )
+    policies.add_argument(
+        "--v15-source-build-assets", action="store_true",
+        help=(
+            "Explicit alternative: five Windows assets with Linux/macOS source "
+            "builds (stable v1.5.0 only)."
+        ),
     )
     args = parser.parse_args()
     try:
         release = resolve_release_version(args.tag, args.project_version)
         if args.windows_only_assets:
             require_windows_only_assets(release)
+        if args.v15_source_build_assets:
+            require_v15_source_build_assets(release)
     except ValueError as exc:
         parser.error(str(exc))
     print(f"tag={release.tag}")

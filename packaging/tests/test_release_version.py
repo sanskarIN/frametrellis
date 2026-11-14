@@ -16,6 +16,7 @@ assert spec and spec.loader
 sys.path.insert(0, str(SOURCE.parent))
 from release_version import (  # noqa: E402
     require_windows_only_assets,
+    require_v15_source_build_assets,
     resolve_release_version,
 )
 
@@ -76,6 +77,49 @@ class ReleaseVersionTests(unittest.TestCase):
                 ValueError, "full three-platform release matrix"
             ):
                 require_windows_only_assets(resolve_release_version(tag, version))
+
+    def test_explicit_source_build_option_is_exactly_stable_v15(self):
+        require_v15_source_build_assets(
+            resolve_release_version("v1.5.0", "1.5.0")
+        )
+        for tag, version in (
+            ("v1.4.0", "1.4.0"),
+            ("v1.5.0-rc.1", "1.5.0"),
+            ("v1.5.1", "1.5.1"),
+            ("v2.0.0", "2.0.0"),
+        ):
+            with self.subTest(tag=tag), self.assertRaisesRegex(
+                ValueError, "only for stable v1.5.0"
+            ):
+                require_v15_source_build_assets(
+                    resolve_release_version(tag, version)
+                )
+
+    def test_source_build_cli_requires_explicit_scope(self):
+        accepted = subprocess.run(
+            [
+                sys.executable, str(SOURCE), "--tag", "v1.5.0",
+                "--project-version", "1.5.0", "--v15-source-build-assets",
+            ], capture_output=True, text=True, check=True,
+        )
+        self.assertIn("package_version=1.5.0", accepted.stdout)
+        for args in (
+            ["--tag", "v1.5.0-rc.1", "--project-version", "1.5.0"],
+            ["--tag", "v1.5.1", "--project-version", "1.5.1"],
+        ):
+            result = subprocess.run(
+                [sys.executable, str(SOURCE), *args, "--v15-source-build-assets"],
+                capture_output=True, text=True, check=False,
+            )
+            self.assertNotEqual(result.returncode, 0)
+        conflict = subprocess.run(
+            [sys.executable, str(SOURCE), "--tag", "v1.5.0",
+             "--project-version", "1.5.0", "--windows-only-assets",
+             "--v15-source-build-assets"],
+            capture_output=True, text=True, check=False,
+        )
+        self.assertNotEqual(conflict.returncode, 0)
+        self.assertIn("not allowed with argument", conflict.stderr)
 
     def test_legacy_windows_only_cli_blocks_1_5_stable(self):
         rejected = subprocess.run(

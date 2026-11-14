@@ -7,7 +7,12 @@ name: Publish website
 
 on:
   workflow_run:
-    workflows: ["Attach verified release assets"]
+    # Rebuild the public download page only after whichever mutually
+    # exclusive release-asset uploader finished successfully.
+    workflows:
+      - "Attach verified release assets"
+      - "Attach approved v1.5.0 three-platform assets"
+      - "Attach approved v1.5.0 Windows assets (source builds on Linux and macOS)"
     types: [completed]
   push:
     branches: [main]

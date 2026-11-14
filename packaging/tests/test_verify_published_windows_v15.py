@@ -9,7 +9,7 @@ import unittest
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-from verify_published_windows_v15 import expected_names, verify  # noqa: E402
+from verify_published_windows_v15 import expected_names, verify
 
 
 class PublishedWindowsV15Tests(unittest.TestCase):

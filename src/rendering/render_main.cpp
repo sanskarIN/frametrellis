@@ -190,6 +190,9 @@ int main(int argc, char** argv)
     const QCommandLineOption watchStdinOption(
         QStringLiteral("watch-stdin"),
         QStringLiteral("Cancel when stdin receives \"cancel\" or is closed."));
+    const QCommandLineOption buildInfoOption(
+        QStringLiteral("build-info"),
+        QStringLiteral("Print compiled version and source revision as JSON without rendering."));
     const QCommandLineOption listPresetsOption(
         QStringLiteral("list-presets"),
         QStringLiteral("Print available export profiles as a JSON object and exit."));
@@ -201,8 +204,23 @@ int main(int argc, char** argv)
     parser.addOptions({projectOption, outputOption, shortSideOption, widthOption, fpsOption,
                        startFrameOption, endFrameOption, crfOption, presetOption, audioOption,
                        renderTokenOption, noAudioOption, refuseOutputOption, noUpscaleOption,
-                       watchStdinOption, selfTestOption, inspectProjectOption, listPresetsOption});
+                       watchStdinOption, selfTestOption, inspectProjectOption, listPresetsOption,
+                       buildInfoOption});
     parser.process(app);
+
+    if (parser.isSet(buildInfoOption)) {
+        // This does not initialize MLT, decode source media or open a project.
+        const QByteArray json =
+            QJsonDocument(QJsonObject{{QStringLiteral("version"),
+                                       QString::fromLatin1(version::string)},
+                                      {QStringLiteral("sourceRevision"),
+                                       QString::fromLatin1(version::sourceRevision)}})
+                .toJson(QJsonDocument::Compact);
+        std::fwrite(json.constData(), 1, static_cast<size_t>(json.size()), stdout);
+        std::fputc(10, stdout);
+        std::fflush(stdout);
+        return protocol::Success;
+    }
 
     if (parser.isSet(listPresetsOption)) {
         // Discovery only: no project load, source decoding, output file or MLT startup.

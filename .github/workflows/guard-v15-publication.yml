@@ -1,11 +1,14 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
-# Fail closed if stable v1.5.0 is published without one unambiguous owner marker.
+# Fail closed if stable v1.5.0 is published or edited without one unambiguous owner marker.
+# Main pushes also reconcile an existing unapproved publication back to Draft.
 # This workflow never creates a tag/release and never publishes anything.
 name: Restore unapproved v1.5.0 publication to draft
 
 on:
+  push:
+    branches: [main]
   release:
-    types: [published]
+    types: [published, edited]
   workflow_dispatch:
     inputs:
       release_id:
@@ -27,7 +30,7 @@ concurrency:
 jobs:
   guard:
     name: Enforce explicit v1.5.0 owner publication approval
-    if: ${{ github.event_name == 'workflow_dispatch' || (github.event_name == 'release' && github.event.release.tag_name == 'v1.5.0' && !github.event.release.prerelease) }}
+    if: ${{ github.event_name == 'workflow_dispatch' || (github.event_name == 'release' && github.event.release.tag_name == 'v1.5.0' && !github.event.release.prerelease) || (github.event_name == 'push' && github.ref == 'refs/heads/main') }}
     permissions:
       contents: write
     runs-on: ubuntu-24.04
@@ -44,6 +47,7 @@ jobs:
         id: decision
         env:
           EVENT_NAME: ${{ github.event_name }}
+          EVENT_REF: ${{ github.ref }}
           EVENT_RELEASE_ID: ${{ github.event.release.id }}
           INPUT_RELEASE_ID: ${{ inputs.release_id }}
           CONFIRMATION: ${{ inputs.confirmation }}
@@ -51,10 +55,13 @@ jobs:
           set -euo pipefail
           if [[ "$EVENT_NAME" == "release" ]]; then
             [[ "$EVENT_RELEASE_ID" =~ ^[1-9][0-9]*$ ]] || {
-              echo "::error::Published event has no valid release ID"; exit 1;
+              echo "::error::Published/edited event has no valid release ID"; exit 1;
             }
             release_id="$EVENT_RELEASE_ID"
           elif [[ "$EVENT_NAME" == "workflow_dispatch" ]]; then
+            [[ "$EVENT_REF" == "refs/heads/main" ]] || {
+              echo "::error::Manual state correction must run from protected main"; exit 1;
+            }
             [[ "$CONFIRMATION" == "RESTORE_V1_5_0_TO_DRAFT" ]] || {
               echo "::error::Manual state correction requires the exact confirmation phrase"; exit 1;
             }
@@ -62,8 +69,15 @@ jobs:
               echo "::error::Release ID must be a positive integer"; exit 1;
             }
             release_id="$INPUT_RELEASE_ID"
+          elif [[ "$EVENT_NAME" == "push" && "$EVENT_REF" == "refs/heads/main" ]]; then
+            # Resolve only the existing v1.5.0 release. An API failure is fatal:
+            # silently skipping an inaccessible release would weaken the guard.
+            release_id="$(gh api "repos/$GITHUB_REPOSITORY/releases/tags/v1.5.0" --jq '.id')"
+            [[ "$release_id" =~ ^[1-9][0-9]*$ ]] || {
+              echo "::error::Could not resolve the existing v1.5.0 release ID"; exit 1;
+            }
           else
-            echo "::error::Unsupported event"; exit 1
+            echo "::error::Unsupported event/ref"; exit 1
           fi
 
           gh api "repos/$GITHUB_REPOSITORY/releases/$release_id" > release.json

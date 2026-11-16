@@ -1,0 +1,94 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
+# Fail closed if stable v1.5.0 is published without one unambiguous owner marker.
+# This workflow never creates a tag/release and never publishes anything.
+name: Restore unapproved v1.5.0 publication to draft
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      release_id:
+        description: Existing GitHub release ID (only v1.5.0 is eligible)
+        required: true
+        type: string
+      confirmation:
+        description: Type RESTORE_V1_5_0_TO_DRAFT to confirm the state correction
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: v15-publication-guard
+  cancel-in-progress: false
+
+jobs:
+  guard:
+    name: Enforce explicit v1.5.0 owner publication approval
+    if: ${{ github.event_name == 'workflow_dispatch' || (github.event_name == 'release' && github.event.release.tag_name == 'v1.5.0' && !github.event.release.prerelease) }}
+    permissions:
+      contents: write
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: main
+          persist-credentials: false
+
+      - name: Resolve the release and evaluate exact approval markers
+        id: decision
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          EVENT_RELEASE_ID: ${{ github.event.release.id }}
+          INPUT_RELEASE_ID: ${{ inputs.release_id }}
+          CONFIRMATION: ${{ inputs.confirmation }}
+        run: |
+          set -euo pipefail
+          if [[ "$EVENT_NAME" == "release" ]]; then
+            [[ "$EVENT_RELEASE_ID" =~ ^[1-9][0-9]*$ ]] || {
+              echo "::error::Published event has no valid release ID"; exit 1;
+            }
+            release_id="$EVENT_RELEASE_ID"
+          elif [[ "$EVENT_NAME" == "workflow_dispatch" ]]; then
+            [[ "$CONFIRMATION" == "RESTORE_V1_5_0_TO_DRAFT" ]] || {
+              echo "::error::Manual state correction requires the exact confirmation phrase"; exit 1;
+            }
+            [[ "$INPUT_RELEASE_ID" =~ ^[1-9][0-9]*$ ]] || {
+              echo "::error::Release ID must be a positive integer"; exit 1;
+            }
+            release_id="$INPUT_RELEASE_ID"
+          else
+            echo "::error::Unsupported event"; exit 1
+          fi
+
+          gh api "repos/$GITHUB_REPOSITORY/releases/$release_id" > release.json
+          python3 packaging/release_publication_guard.py \
+            --release-json release.json | tee decision.txt
+          decision="$(sed -n 's/^decision=//p' decision.txt)"
+          [[ "$decision" =~ ^(ignore|already-draft|approved-source-build|approved-three-platform|restore-draft)$ ]] || {
+            echo "::error::Unknown release-policy decision"; exit 1;
+          }
+          echo "release_id=$release_id" >> "$GITHUB_OUTPUT"
+          echo "decision=$decision" >> "$GITHUB_OUTPUT"
+
+      - name: Restore Draft when owner approval is missing or ambiguous
+        if: steps.decision.outputs.decision == 'restore-draft'
+        env:
+          RELEASE_ID: ${{ steps.decision.outputs.release_id }}
+        run: |
+          set -euo pipefail
+          gh api --method PATCH "repos/$GITHUB_REPOSITORY/releases/$RELEASE_ID" \
+            -F draft=true > restored-release.json
+          jq -e '
+            .tag_name == "v1.5.0"
+            and .draft == true
+            and .prerelease == false
+          ' restored-release.json >/dev/null || {
+            echo "::error::GitHub did not confirm restoration of v1.5.0 to Draft"; exit 1;
+          }
+          echo "Restored unapproved v1.5.0 release to Draft; tag and assets were not changed."

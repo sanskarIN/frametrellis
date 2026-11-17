@@ -383,8 +383,8 @@ ApplicationWindow {
             Action { text: qsTr("Forward Ten Seconds"); shortcut: "Ctrl+Shift+Right"; enabled: window.editKeys && (window.sourceMode ? sourceMonitor.loaded : !window.app.timeline.empty); onTriggered: window.sourceMode ? sourceMonitor.step(Math.round(window.app.timeline.frameRate * 10)) : window.app.playback.skipSeconds(10) }
             Action { text: qsTr("Previous Edit Point"); shortcut: "Up"; enabled: window.editKeys && !window.sourceMode; onTriggered: window.app.timeline.previousEditPoint() }
             Action { text: qsTr("Next Edit Point"); shortcut: "Down"; enabled: window.editKeys && !window.sourceMode; onTriggered: window.app.timeline.nextEditPoint() }
-            Action { text: qsTr("Go to Selection Start"); enabled: window.editKeys && window.app.timeline.selection.length > 0; onTriggered: window.app.timeline.seekToSelectionBoundary(false) }
-            Action { text: qsTr("Go to Selection Last Frame"); enabled: window.editKeys && window.app.timeline.selection.length > 0; onTriggered: window.app.timeline.seekToSelectionBoundary(true) }
+            Action { text: qsTr("Go to Selection Start"); shortcut: "Ctrl+Alt+Home"; enabled: window.editKeys && window.app.timeline.selection.length > 0; onTriggered: window.app.timeline.seekToSelectionBoundary(false) }
+            Action { text: qsTr("Go to Selection Last Frame"); shortcut: "Ctrl+Alt+End"; enabled: window.editKeys && window.app.timeline.selection.length > 0; onTriggered: window.app.timeline.seekToSelectionBoundary(true) }
             Action { text: qsTr("Go to Selection Midpoint"); enabled: window.editKeys && window.app.timeline.selection.length > 0; onTriggered: window.app.timeline.seekToSelectionMidpoint() }
             Action { text: qsTr("Copy Selection Timecodes"); enabled: window.editKeys && window.app.timeline.selection.length > 0; onTriggered: window.app.timeline.copySelectionTimecodes() }
             Action { text: qsTr("Previous Selected Clip Edge"); enabled: window.editKeys && window.app.timeline.selection.length > 0; onTriggered: window.app.timeline.seekToSelectedClipEdge(false) }
@@ -414,7 +414,7 @@ ApplicationWindow {
             Action { text: qsTr("Go to Sequence Midpoint"); enabled: window.editKeys && !window.app.timeline.empty; onTriggered: window.app.playback.goToSequenceMidpoint() }
             MenuSeparator {}
             Action { text: qsTr("Loop Preview"); shortcut: "Ctrl+Alt+L"; checkable: true; checked: window.app.playback.loopPreview; enabled: window.editKeys && !window.app.timeline.empty; onTriggered: window.app.playback.loopPreview = checked }
-            Action { text: qsTr("Mute Preview"); checkable: true; checked: window.app.playback.muted; enabled: window.app.playback.audioAvailable; onTriggered: window.app.playback.muted = checked }
+            Action { text: qsTr("Mute Preview"); shortcut: "M"; checkable: true; checked: window.app.playback.muted; enabled: window.editKeys && window.app.playback.audioAvailable; onTriggered: window.app.playback.muted = checked }
         }
         Menu {
             title: qsTr("&Help")

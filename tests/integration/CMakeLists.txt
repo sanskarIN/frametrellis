@@ -57,3 +57,12 @@ set_tests_properties(render_self_test_reports_unloadable_modules PROPERTIES
     LABELS integration
     PASS_REGULAR_EXPRESSION "FAIL engine: [^\n]*failed to dlopen [^\n]*libmltbroken"
     ENVIRONMENT "FRAMETRELLIS_MLT_REPOSITORY=${FT_BROKEN_MLT_REPOSITORY};QT_LOGGING_RULES=ft.*.info=false")
+
+# A factory with an incomplete MLT module directory must not leave a usable
+# global runtime flag behind, even after a second initialization attempt.
+ft_add_test(tst_engine_incomplete_runtime
+    SOURCES tst_engine_incomplete_runtime.cpp
+    LIBS ft_engine FrameTrellis::Mlt
+    LABELS integration)
+set_tests_properties(tst_engine_incomplete_runtime PROPERTIES
+    ENVIRONMENT "FRAMETRELLIS_MLT_REPOSITORY=${FT_BROKEN_MLT_REPOSITORY};QT_LOGGING_RULES=ft.*.info=false;QT_FORCE_STDERR_LOGGING=1")

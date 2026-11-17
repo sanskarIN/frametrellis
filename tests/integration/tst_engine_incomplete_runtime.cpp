@@ -55,6 +55,7 @@ private slots:
         QCOMPARE(preview.deliveredFrameCount(), qint64{0});
         QCOMPARE(preview.duration(), FrameCount{0});
         QVERIFY(!preview.isPlaying());
+        QVERIFY(!preview.hasAudioOutput());
         QCOMPARE(frames.count(), 0);
     }
 };

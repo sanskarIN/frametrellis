@@ -232,6 +232,19 @@ void PlaybackEngine::Worker::ensureProfile()
 void PlaybackEngine::Worker::rebuild()
 {
     m_needsRebuild = false;
+    // The editor still constructs the preview controller to show a useful
+    // installation error when MLT fails to start. Never create an MLT profile,
+    // producer or graph on this worker after that failed initialization.
+    if (!engine::MltRuntime::isInitialized()) {
+        m_tractor.reset();
+        m_builder.reset();
+        m_profile.reset();
+        m_duration = 0;
+        m_owner->m_duration = 0;
+        m_needsRender = false;
+        setPlaying(false);
+        return;
+    }
     if (!m_project) {
         m_tractor.reset();
         m_duration = 0;

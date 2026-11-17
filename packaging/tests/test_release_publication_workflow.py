@@ -38,7 +38,10 @@ class ReadOnlyPublicationWorkflowTests(unittest.TestCase):
     def test_unapproved_release_is_warning_not_mutation(self):
         self.assertIn("owner-review-required", self.workflow)
         self.assertIn("::warning::Published v1.5.0", self.workflow)
-        self.assertIn("Publication and unpublication require an explicit owner action", self.workflow)
+        self.assertIn(
+            "Publication and unpublication require an explicit owner action",
+            self.workflow,
+        )
 
     def test_remains_triggered_on_main_and_release_changes(self):
         self.assertRegex(self.workflow, r"(?m)^\s*branches: \[main\]$")

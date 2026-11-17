@@ -1,6 +1,6 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 # SPDX-FileCopyrightText: 2026 Sanskar and FrameTrellis contributors
-"""Fail-closed tests for v1.5.0 publication approval markers."""
+"""Read-only classification tests for v1.5.0 historical approval markers."""
 
 import sys
 import unittest
@@ -27,8 +27,8 @@ class ReleasePublicationGuardTests(unittest.TestCase):
         value.update(overrides)
         return value
 
-    def test_unapproved_publication_must_return_to_draft(self):
-        self.assertEqual(publication_decision(self.release()), "restore-draft")
+    def test_unapproved_publication_is_flagged_for_owner_review(self):
+        self.assertEqual(publication_decision(self.release()), "owner-review-required")
 
     def test_source_build_marker_is_accepted_as_one_exact_line(self):
         release = self.release(body=f"Notes\n{SOURCE_BUILD_MARKER}\n")
@@ -38,7 +38,7 @@ class ReleasePublicationGuardTests(unittest.TestCase):
         release = self.release(body=f"Notes\n{THREE_PLATFORM_MARKER}\n")
         self.assertEqual(publication_decision(release), "approved-three-platform")
 
-    def test_missing_or_substring_only_marker_is_rejected(self):
+    def test_missing_or_substring_only_marker_requires_owner_review(self):
         for body in (
             f"Approval requested: {SOURCE_BUILD_MARKER}",
             f"Inline marker: {THREE_PLATFORM_MARKER}",
@@ -46,10 +46,10 @@ class ReleasePublicationGuardTests(unittest.TestCase):
         ):
             with self.subTest(body=body):
                 self.assertEqual(
-                    publication_decision(self.release(body=body)), "restore-draft"
+                    publication_decision(self.release(body=body)), "owner-review-required"
                 )
 
-    def test_conflicting_markers_are_rejected(self):
+    def test_conflicting_markers_require_owner_review(self):
         bodies = (
             f"{SOURCE_BUILD_MARKER}\n{THREE_PLATFORM_MARKER}",
             f"{SOURCE_BUILD_MARKER}\n{THREE_PLATFORM_MARKER} extra",
@@ -57,7 +57,7 @@ class ReleasePublicationGuardTests(unittest.TestCase):
         for body in bodies:
             with self.subTest(body=body):
                 self.assertEqual(
-                    publication_decision(self.release(body=body)), "restore-draft"
+                    publication_decision(self.release(body=body)), "owner-review-required"
                 )
 
     def test_repeated_selected_marker_matches_existing_exact_line_gate(self):

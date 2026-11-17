@@ -1,8 +1,8 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
-# Fail closed if stable v1.5.0 is published or edited without one unambiguous owner marker.
-# Main pushes also reconcile an existing unapproved publication back to Draft.
-# This workflow never creates a tag/release and never publishes anything.
-name: Restore unapproved v1.5.0 publication to draft
+# Read-only audit of the historical v1.5.0 owner-approval markers.
+# Never create, publish, unpublish, draft, delete, or edit any release.
+# GitHub release visibility is controlled manually by the repository owner.
+name: Audit v1.5.0 publication (read-only)
 
 on:
   push:
@@ -10,29 +10,18 @@ on:
   release:
     types: [published, edited]
   workflow_dispatch:
-    inputs:
-      release_id:
-        description: Existing GitHub release ID (only v1.5.0 is eligible)
-        required: true
-        type: string
-      confirmation:
-        description: Type RESTORE_V1_5_0_TO_DRAFT to confirm the state correction
-        required: true
-        type: string
 
 permissions:
   contents: read
 
 concurrency:
-  group: v15-publication-guard
+  group: v15-publication-audit
   cancel-in-progress: false
 
 jobs:
-  guard:
-    name: Enforce explicit v1.5.0 owner publication approval
-    if: ${{ github.event_name == 'workflow_dispatch' || (github.event_name == 'release' && github.event.release.tag_name == 'v1.5.0' && !github.event.release.prerelease) || (github.event_name == 'push' && github.ref == 'refs/heads/main') }}
-    permissions:
-      contents: write
+  audit:
+    name: Report v1.5.0 publication marker status (never mutate)
+    if: ${{ github.event_name == 'workflow_dispatch' || (github.event_name == 'release' && github.event.release.tag_name == 'v1.5.0') || (github.event_name == 'push' && github.ref == 'refs/heads/main') }}
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     env:
@@ -43,66 +32,53 @@ jobs:
           ref: main
           persist-credentials: false
 
-      - name: Resolve the release and evaluate exact approval markers
-        id: decision
+      - name: Inspect release and report owner-approval evidence without edits
         env:
           EVENT_NAME: ${{ github.event_name }}
           EVENT_REF: ${{ github.ref }}
           EVENT_RELEASE_ID: ${{ github.event.release.id }}
-          INPUT_RELEASE_ID: ${{ inputs.release_id }}
-          CONFIRMATION: ${{ inputs.confirmation }}
         run: |
           set -euo pipefail
+          if [[ "$EVENT_NAME" == "workflow_dispatch" && "$EVENT_REF" != "refs/heads/main" ]]; then
+            echo "::error::Run the manual audit from main only"
+            exit 1
+          fi
           if [[ "$EVENT_NAME" == "release" ]]; then
             [[ "$EVENT_RELEASE_ID" =~ ^[1-9][0-9]*$ ]] || {
-              echo "::error::Published/edited event has no valid release ID"; exit 1;
+              echo "::error::Release event has no valid release ID"
+              exit 1
             }
             release_id="$EVENT_RELEASE_ID"
-          elif [[ "$EVENT_NAME" == "workflow_dispatch" ]]; then
-            [[ "$EVENT_REF" == "refs/heads/main" ]] || {
-              echo "::error::Manual state correction must run from protected main"; exit 1;
-            }
-            [[ "$CONFIRMATION" == "RESTORE_V1_5_0_TO_DRAFT" ]] || {
-              echo "::error::Manual state correction requires the exact confirmation phrase"; exit 1;
-            }
-            [[ "$INPUT_RELEASE_ID" =~ ^[1-9][0-9]*$ ]] || {
-              echo "::error::Release ID must be a positive integer"; exit 1;
-            }
-            release_id="$INPUT_RELEASE_ID"
-          elif [[ "$EVENT_NAME" == "push" && "$EVENT_REF" == "refs/heads/main" ]]; then
-            # Resolve only the existing v1.5.0 release. An API failure is fatal:
-            # silently skipping an inaccessible release would weaken the guard.
+          else
             release_id="$(gh api "repos/$GITHUB_REPOSITORY/releases/tags/v1.5.0" --jq '.id')"
             [[ "$release_id" =~ ^[1-9][0-9]*$ ]] || {
-              echo "::error::Could not resolve the existing v1.5.0 release ID"; exit 1;
+              echo "::error::Could not resolve the existing v1.5.0 release ID"
+              exit 1
             }
-          else
-            echo "::error::Unsupported event/ref"; exit 1
           fi
 
           gh api "repos/$GITHUB_REPOSITORY/releases/$release_id" > release.json
-          python3 packaging/release_publication_guard.py \
-            --release-json release.json | tee decision.txt
-          decision="$(sed -n 's/^decision=//p' decision.txt)"
-          [[ "$decision" =~ ^(ignore|already-draft|approved-source-build|approved-three-platform|restore-draft)$ ]] || {
-            echo "::error::Unknown release-policy decision"; exit 1;
-          }
-          echo "release_id=$release_id" >> "$GITHUB_OUTPUT"
-          echo "decision=$decision" >> "$GITHUB_OUTPUT"
+          output="$(python3 packaging/release_publication_guard.py --release-json release.json)"
+          printf '%s\n' "$output"
+          decision="${output#decision=}"
+          case "$decision" in
+            ignore|already-draft|approved-source-build|approved-three-platform)
+              echo "v1.5.0 publication audit: $decision"
+              ;;
+            owner-review-required)
+              echo "::warning::Published v1.5.0 has missing, partial, or conflicting historical approval markers. Review manually; this workflow does not modify any release."
+              ;;
+            *)
+              echo "::error::Unknown audit decision: $decision"
+              exit 1
+              ;;
+          esac
 
-      - name: Restore Draft when owner approval is missing or ambiguous
-        if: steps.decision.outputs.decision == 'restore-draft'
-        env:
-          RELEASE_ID: ${{ steps.decision.outputs.release_id }}
-        run: |
-          set -euo pipefail
-          gh api --method PATCH "repos/$GITHUB_REPOSITORY/releases/$RELEASE_ID" \
-            -F draft=true > restored-release.json
-          jq -e '
-            .tag_name == "v1.5.0"
-            and .draft == true
-            and .prerelease == false
-          ' restored-release.json >/dev/null || {
-            echo "::error::GitHub did not confirm restoration of v1.5.0 to Draft"; exit 1;
-          }
-          echo "Restored unapproved v1.5.0 release to Draft; tag and assets were not changed."
+          {
+            echo "### FrameTrellis v1.5.0 publication audit"
+            echo
+            echo "- Release ID: $release_id"
+            echo "- Decision: $decision"
+            echo "- Result: read-only audit; no release state changes"
+            echo "- Publication and unpublication require an explicit owner action."
+          } >> "$GITHUB_STEP_SUMMARY"

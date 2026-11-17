@@ -350,6 +350,33 @@ private slots:
         }
     }
 
+    void rendererMustConfirmExactOutputPathBeforeReportingSuccess()
+    {
+        // A synthetic helper may exit zero after writing an MP4 but report
+        // completion for a different file (or omit the destination entirely).
+        // Such a protocol violation must never be shown as a successful export.
+        const Project original = project(25);
+        for (const QString& mode : {QStringLiteral("no-path"), QStringLiteral("mismatch")}) {
+            ExportSettings settings;
+            settings.outputPath =
+                m_dir.filePath(QStringLiteral("fixture-%1-success.mp4").arg(mode));
+            settings.speedPreset = QStringLiteral("ultrafast");
+            RenderJob job(QStringLiteral(FT_SUCCESS_RENDER_HELPER));
+            QSignalSpy finished(&job, &RenderJob::finished);
+            QVERIFY(job.start(original, settings));
+            QVERIFY(finished.count() > 0 || finished.wait(15'000));
+            QCOMPARE(job.state(), RenderJob::State::Failed);
+            QVERIFY2(job.errorMessage().contains(QStringLiteral("did not confirm")),
+                     qPrintable(job.errorMessage()));
+            // Do not delete or overwrite the user's existing output on a
+            // protocol error: a human can examine the file independently.
+            QFile output(settings.outputPath);
+            QVERIFY(output.open(QIODevice::ReadOnly));
+            QCOMPARE(output.readAll(), QByteArrayLiteral("test"));
+            QVERIFY(partFiles().isEmpty());
+        }
+    }
+
     void cancelBeforeProcessStartedStillReachesHelper()
     {
         const Project original = project(25);

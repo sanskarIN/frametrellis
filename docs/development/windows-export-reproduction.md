@@ -104,6 +104,8 @@ media names. They stay on your computer, but review/redact them carefully
 before posting any results. Do not upload proprietary footage, raw minidumps,
 or personal paths to a public issue.
 
-The proposed v1.5.0 stable release remains explicitly **on hold** pending the
-owner's later authorization, resolution/disposition of native crashes and
-hands-on Windows acceptance.
+**Release status:** [v1.5.0 is already published as stable](https://github.com/sanskarIN/frametrellis/releases/tag/v1.5.0)
+(16 November 2026; five Windows x64 distribution assets). This diagnostic
+remains useful for investigating real native crashes, which do **not** have
+a proven root-cause fix. Do not interpret the historical release-gate notes
+as a request to republish or alter that release.

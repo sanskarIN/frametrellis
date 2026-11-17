@@ -1,20 +1,23 @@
 # Development history and unreleased changes
 
-**Latest stable: [FrameTrellis v1.4.0](https://github.com/sanskarIN/frametrellis/releases/tag/v1.4.0),
-published on 2 November 2026.** Its exact shipped features are listed in
-[v1.4.0.md](v1.4.0.md). The integrated PR list below is a **historical
-pre-release development log** accumulated after v1.3.1; it is not an
-up-to-date list of still-unreleased features.
+**Latest stable: [FrameTrellis v1.5.0](https://github.com/sanskarIN/frametrellis/releases/tag/v1.5.0),
+published on 16 November 2026.** Its shipped features, limitations and
+platform distribution are described in [v1.5.0.md](v1.5.0.md).
+The integrated PR list below is a **historical development log** written
+before v1.5.0 publication, not a current list of unreleased functionality.
+Statements comparing features with v1.4.0 are retained as historical context.
+They do not override the published v1.5.0 notes.
 
-## Future work after v1.4.0
+## Future work after v1.5.0
 
-Priorities include source monitoring/three-point editing, verified proxy
-generation, audio metering, long-timeline performance profiling, and
-further cross-platform packaging. See the [professional-editor assessment](../development/pro-editor-assessment.md)
-and [roadmap](../roadmap.md). No features are claimed as released until
-their actual tag and packages are verified.
+Priorities include verified proxy generation, audio metering, long-timeline
+performance profiling, crash root-cause investigation and production
+Linux/macOS packaging. See the
+[professional-editor assessment](../development/pro-editor-assessment.md)
+and [roadmap](../roadmap.md). No additional features are claimed as released
+until their actual tag and packages are verified.
 
-## Post-v1.4.0 development changes (not in the stable download)
+## Historical post-v1.4.0 development changes (check v1.5.0 release notes)
 
 - **Selectable export FPS (development PR):** the Export dialog provides Match project,
   common integer/NTSC frame rates and a custom FPS entry. The render helper accepts

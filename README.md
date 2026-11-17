@@ -16,13 +16,16 @@ account, no cloud processing, no telemetry and no advertising.
 
 ![The FrameTrellis workspace with media bin, program monitor, clip inspector and a three-track timeline](docs/images/workspace.png)
 
-> **Latest stable release: 1.4.0 (2 November 2026).** Includes timeline gap/slip/roll
-> editing, volume/opacity/transform keyframes, subtitles and review exports.
+> **Latest stable release: 1.5.0 (16 November 2026).** The featured release adds
+> a Source Monitor, precision insertion/replacement, independent export FPS, selected-range
+> exports, media relinking and audio/subtitle workflow improvements.
 > Download the Windows installer or portable ZIP from the
-> [v1.4.0 release](https://github.com/sanskarIN/frametrellis/releases/tag/v1.4.0).
-> Both Windows packages, SHA-256 checksums, SPDX SBOM and corresponding-source archive
-> are attached. On Linux, build from source. **Back up projects before upgrading:**
-> files using newer format versions may not reopen in v1.3.1.
+> [v1.5.0 release](https://github.com/sanskarIN/frametrellis/releases/tag/v1.5.0).
+> The five published assets comprise the installer, portable ZIP, SHA-256 checksums,
+> SPDX SBOM and corresponding-source archive. Linux x86-64 and macOS 15+ (Intel
+> and Apple Silicon) are supported **from source**, not as stable packaged downloads.
+> **Back up projects before upgrading:** new project-format v7 files may not
+> reopen in older versions.
 
 
 ## Features
@@ -67,11 +70,17 @@ What works today (each item is implemented and covered by automated tests):
 - [x] Asynchronous folder import, media audits and usage/health filters,
       undoable unused-media cleanup and protected preview PNG snapshots
 - [x] Creator upload and low-bandwidth review MP4 profiles with no-upscale safeguards
+- [x] Source/Program monitoring with frame-accurate source In/Out selection,
+      insert and replace workflows with undoable timeline edits
+- [x] Export at a frame rate independent of the project timebase, select
+      timeline ranges, and use Creator 1440p/4K delivery presets
+- [x] Batch relink compatible missing files with a single undoable edit;
+      per-clip stereo balance and expanded subtitle timing tools
 
 Planned (see the [roadmap](docs/roadmap.md)): editable native text titles, animation
 easing and custom pivots, proxy media, customisable shortcuts, additional export
-formats, and Linux and macOS packages. These are **not included** in v1.4.0.
-See the [v1.4.0 notes](docs/releases/v1.4.0.md) for the exact shipped scope
+formats, and standalone Linux and macOS packages. These are **not included**
+in v1.5.0. See the [v1.5.0 notes](docs/releases/v1.5.0.md) for the exact shipped scope
 and the [professional-editor assessment](docs/development/pro-editor-assessment.md)
 for remaining engineering gaps.
 
@@ -145,11 +154,12 @@ and Turbo presets and how to measure improvements. The [user guide](docs/user-gu
 
 - Titles are PNG image overlays rather than editable text layers, and dissolve/crossfade
   is the only transition. Volume, opacity and position/scale/rotation keyframes are
-  available in v1.4.0; easing curves and custom pivots remain planned. Keep generated
+  available in v1.5.0; easing curves and custom pivots remain planned. Keep generated
   PNGs when moving the project.
 - Video export supports MP4 (H.264 + AAC), with optional subtitle burn-in;
   embedded switchable subtitle tracks and alternative video codecs/containers are
-  not yet supported. Frame rate is fixed once clips are on the timeline.
+  not yet supported. The project timebase remains fixed for editing, but
+  exported MP4s can use a separately selected output frame rate.
 - Very large timelines (thousands of clips) are not optimised yet.
 - Picture adjustments need an FFmpeg/MLT build with a working `eq` filter; the inspector says
   when they are unavailable.

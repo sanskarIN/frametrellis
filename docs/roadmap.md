@@ -147,12 +147,32 @@ Acceptance criteria, each checked before the release:
   See the [release notes](releases/v1.4.0.md) and
   [publication evidence](releases/v1.4.0-preflight.md).
 
+## v1.5.0 — Source Monitor, export control and recovery ✅
+
+- ✅ Published stable **v1.5.0** on 16 November 2026 from
+  [commit `4edbf6cb`](https://github.com/sanskarIN/frametrellis/commit/4edbf6cb3c5eecfd9ec92993689de8943620ddfd).
+- ✅ Source Monitor and frame-accurate In/Out selection; compatible insert and replace
+  edits; improved ripple/gap operations and selection navigation.
+- ✅ Independent export FPS, selected timeline ranges, custom output width, and
+  Creator 1440p/4K profiles, with output stream verification.
+- ✅ Batch media relinking, pre-export recovery snapshots, per-clip stereo balance
+  and additional subtitle editing actions.
+- ✅ Five verified published files: Windows x64 installer, portable ZIP, SHA-256
+  checksums, SPDX SBOM and third-party source archive.
+- ✅ Linux x86-64 and macOS 15+ (Apple Silicon and Intel) source-build support;
+  standalone stable Linux/macOS production installers were **not** published.
+- ℹ️ Native Windows long-export crashes and intermittent Windows 11 ARM startup
+  failures have mitigation/testing evidence but no proven root-cause resolution.
+  See [v1.5.0 release notes](releases/v1.5.0.md) and
+  [historical preflight](releases/v1.5.0-preflight.md).
+
 The [professional-editor assessment](development/pro-editor-assessment.md) records
 the audited source state, concrete capability gaps and the next implementation order.
 
 ## Next milestones
 - ⏳ A Linux package (AppImage or Flatpak), published once it has been verified
-- ⏳ A macOS build in CI, then a `.dmg` package once it has been verified
+- ⏳ A production macOS `.dmg` package, signed/notarized and tested on clean Intel
+  and Apple Silicon Macs before publication
 - ⏳ Further export acceleration beyond safe encoder speed presets (MLT parallel frame
   rendering is still disabled because it previously corrupted audio)
 - ⏳ Performance work for very long timelines (virtualised clip views, thumbnail strips)

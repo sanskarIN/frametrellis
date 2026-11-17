@@ -1,11 +1,11 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 # SPDX-FileCopyrightText: 2026 Sanskar and FrameTrellis contributors
-"""Fail-closed publication policy for the v1.5.0 GitHub Release.
+"""Read-only historical owner-approval audit for the v1.5.0 GitHub Release.
 
 The release-event workflow runs after GitHub marks a release as published.
 This helper decides whether that publication carries one of the two explicit
 owner approval markers. It does not create, publish, tag, or edit a release;
-the workflow performs only the narrowly scoped draft restoration.
+all publication-state decisions remain manual.
 """
 from __future__ import annotations
 
@@ -19,12 +19,10 @@ THREE_PLATFORM_MARKER = "FrameTrellis-1.5.0-OWNER-APPROVED"
 
 
 def publication_decision(release: dict[str, Any]) -> str:
-    """Return the safe action for one GitHub release API object.
+    """Classify release approval evidence without mutating a GitHub release.
 
-    A published stable v1.5.0 release is allowed to remain public only when
-    one supported approval marker appears as a complete body line. Missing,
-    substring-only, or conflicting markers fail closed. Other tags,
-    prereleases, and already-draft releases are never modified.
+    Missing, substring-only or conflicting historical approval markers result
+    in a warning for owner review, not in publication-state changes.
     """
     if not isinstance(release, dict):
         raise ValueError("Release API response must be a JSON object")
@@ -54,7 +52,7 @@ def publication_decision(release: dict[str, Any]) -> str:
         return "approved-source-build"
     if matrix_exact and not source_any:
         return "approved-three-platform"
-    return "restore-draft"
+    return "owner-review-required"
 
 
 def main() -> int:

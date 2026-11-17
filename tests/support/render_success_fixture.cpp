@@ -33,8 +33,8 @@ int main(int argc, char* argv[])
         if (!file) {
             return 2;
         }
-    } else if (output.find("fixture-nonempty-success") != std::string::npos ||
-               missingPath || mismatchedPath || relativePath || contradictoryPath) {
+    } else if (output.find("fixture-nonempty-success") != std::string::npos || missingPath ||
+               mismatchedPath || relativePath || contradictoryPath) {
         std::ofstream file(output, std::ios::binary);
         if (!file) {
             return 2;
@@ -44,14 +44,15 @@ int main(int argc, char* argv[])
     std::fputs("@ft {\"event\":\"started\",\"encoder\":\"synthetic-fixture\",\"total\":25}\n",
                stdout);
     auto emitFinished = [](const QJsonObject& event) {
-        const QByteArray line = QByteArrayLiteral("@ft ") +
-                                QJsonDocument(event).toJson(QJsonDocument::Compact) + '\n';
+        const QByteArray line =
+            QByteArrayLiteral("@ft ") + QJsonDocument(event).toJson(QJsonDocument::Compact) + '\n';
         std::fwrite(line.constData(), 1, static_cast<size_t>(line.size()), stdout);
     };
     QJsonObject finished{{QStringLiteral("event"), QStringLiteral("finished")}};
     if (!missingPath) {
-        const std::string reported = relativePath ? "relative.mp4"
-                                                  : mismatchedPath ? output + ".wrong" : output;
+        const std::string reported = relativePath     ? "relative.mp4"
+                                     : mismatchedPath ? output + ".wrong"
+                                                      : output;
         finished.insert(QStringLiteral("output"), QString::fromStdString(reported));
     }
     if (contradictoryPath) {

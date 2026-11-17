@@ -2,7 +2,6 @@
 # SPDX-FileCopyrightText: 2026 Sanskar and FrameTrellis contributors
 """Prevent reintroducing automatic edits to published GitHub release state."""
 
-import re
 import unittest
 from pathlib import Path
 

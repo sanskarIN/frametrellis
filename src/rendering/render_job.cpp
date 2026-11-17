@@ -349,6 +349,22 @@ void RenderJob::handleEvent(const QJsonObject& event)
         }
         emit progressChanged();
     } else if (type == QLatin1String("finished")) {
+        // A zero-exit helper must identify the exact requested destination. An
+        // unrelated or malformed finished event cannot certify a stale MP4.
+        const QString reportedPath = event.value(QLatin1String("output")).toString();
+        const QFileInfo reportedFile(reportedPath);
+        const QString expectedPath = QFileInfo(m_settings.outputPath).absoluteFilePath();
+#ifdef Q_OS_WIN
+        constexpr Qt::CaseSensitivity pathCase = Qt::CaseInsensitive;
+#else
+        constexpr Qt::CaseSensitivity pathCase = Qt::CaseSensitive;
+#endif
+        if (reportedPath.isEmpty() || !reportedFile.isAbsolute() ||
+            reportedFile.absoluteFilePath().compare(expectedPath, pathCase) != 0) {
+            qCWarning(lcRender) << "Rejected renderer completion for an unexpected output path";
+            m_errorMessage = QStringLiteral("The renderer did not confirm the requested output.");
+            return;
+        }
         m_sawFinished = true;
         m_framesDone = m_totalFrames;
         emit progressChanged();
@@ -396,7 +412,8 @@ void RenderJob::onProcessFinished(int exitCode, QProcess::ExitStatus status)
     if (isFinished(m_state)) {
         return;
     }
-    if (status == QProcess::NormalExit && exitCode == protocol::Success && m_sawFinished) {
+    if (status == QProcess::NormalExit && exitCode == protocol::Success && m_sawFinished &&
+        m_errorMessage.isEmpty()) {
         // A helper may emit a finished event and exit zero even if publishing
         // the destination fails or it writes an empty file. Do not show a
         // successful editor export without the requested final output.

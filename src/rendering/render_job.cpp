@@ -412,7 +412,8 @@ void RenderJob::onProcessFinished(int exitCode, QProcess::ExitStatus status)
     if (isFinished(m_state)) {
         return;
     }
-    if (status == QProcess::NormalExit && exitCode == protocol::Success && m_sawFinished) {
+    if (status == QProcess::NormalExit && exitCode == protocol::Success && m_sawFinished &&
+        m_errorMessage.isEmpty()) {
         // A helper may emit a finished event and exit zero even if publishing
         // the destination fails or it writes an empty file. Do not show a
         // successful editor export without the requested final output.

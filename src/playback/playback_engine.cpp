@@ -175,6 +175,13 @@ void PlaybackEngine::Worker::openAudio()
     if (m_audio) {
         return;
     }
+    // No preview or transport is usable without MLT. In the incomplete-
+    // installation error UI, avoid initializing SDL or opening a native audio
+    // endpoint unnecessarily while the window is being constructed.
+    if (!engine::MltRuntime::isInitialized()) {
+        m_owner->m_audioAvailable = false;
+        return;
+    }
     m_audio = createAudioOutput();
     if (m_audio && !m_audio->open(kAudioFrequency, kAudioChannels)) {
         m_audio.reset();

@@ -3,15 +3,21 @@
 Release notes for each tagged version live in this folder (`vX.Y.Z.md`) and are used as the
 GitHub release description. Unreleased changes are collected in [unreleased.md](unreleased.md).
 
-## Next proposed release (not yet published)
+## Latest stable release
 
-The [v1.5.0 candidate notes](v1.5.0.md) and
-[v1.5.0 preflight gates](v1.5.0-preflight.md) are **drafts**, not
-release announcements or verified physical Windows QA.
-Keep v1.4.0 as the latest stable until all release gates pass.
+**[FrameTrellis v1.5.0](https://github.com/sanskarIN/frametrellis/releases/tag/v1.5.0)**
+was published on **16 November 2026** from
+[commit `4edbf6cb`](https://github.com/sanskarIN/frametrellis/commit/4edbf6cb3c5eecfd9ec92993689de8943620ddfd).
+It includes five public files: the Windows x64 installer, portable ZIP, SPDX
+SBOM, corresponding-source archive, and SHA-256 checksums. Linux and macOS
+are supported from source; no stable standalone packages are available.
+The [v1.5.0 preflight](v1.5.0-preflight.md) is an archived planning checklist,
+**not** a statement that the release remains unpublished. See the
+[published notes](v1.5.0.md) for exact features and limitations.
 
 | Version | Notes |
 |---|---|
+| 1.5.0 | [v1.5.0.md](v1.5.0.md) — **published featured stable 16 November 2026**; Windows x64 binaries and Linux/macOS source-build instructions |
 | 1.4.0 | [v1.4.0.md](v1.4.0.md) — **published stable 2 November 2026**; see the [publication record](v1.4.0-preflight.md) |
 | 1.3.1 | [v1.3.1.md](v1.3.1.md) — maintenance fixes for media-bin selection, offline keyboard relink and regression coverage (published stable) |
 | 1.3.0 | [v1.3.0.md](v1.3.0.md) — source safety, searchable media bin, timecode navigation and render diagnostics |
@@ -22,7 +28,7 @@ Keep v1.4.0 as the latest stable until all release gates pass.
 | 1.1.0 | [v1.1.0.md](v1.1.0.md) — clip duplication, title overlays and container renderer |
 | 1.0.0 | [v1.0.0.md](v1.0.0.md) — the first stable release |
 
-The stable [v1.4.0 GitHub release](https://github.com/sanskarIN/frametrellis/releases/tag/v1.4.0)
+The earlier stable [v1.4.0 GitHub release](https://github.com/sanskarIN/frametrellis/releases/tag/v1.4.0)
 was published on **2 November 2026** from commit
 [`1ba161ed`](https://github.com/sanskarIN/frametrellis/commit/1ba161ed8b7d7f8a0a38494e535e3ac8644d797f).
 Its Windows installer, portable ZIP, SPDX bill of materials, corresponding
@@ -38,14 +44,16 @@ that earlier release's automated/manual testing distinction.
 
 ## Publishing a release as the repository owner
 
-For v1.4.0 and subsequent releases, use the [direct GitHub release publishing
-checklist](manual-publication.md). The **Prepare manual release** workflow only
-rebuilds, verifies and assembles files; it never creates a GitHub tag or
-release. Once physical-device acceptance is recorded and the owner publishes
-the release in the GitHub UI, the **Attach verified release assets** workflow
-automatically verifies and uploads all five matching assets. A failed job
-means the publicly visible release may be missing files: inspect the run.
+For v1.4.0 and subsequent releases, consult the
+[manual release checklist](manual-publication.md) and the release-specific
+runbook. The repository owner publishes releases through the GitHub UI;
+preparation workflows must not create a GitHub tag or publish a release.
+Attachment workflows depend on the version and its separately approved
+distribution scope. Verify each release's actual published asset list and
+checksums rather than assuming every workflow will upload files.
 
-The `Windows packages` CI workflow can still run automatically. After asset
-attachment succeeds, `Publish website` refreshes the download page. **No
-Actions workflow creates or publishes a GitHub release.**
+The `Windows packages` CI workflow runs independently of publication.
+Website downloads must point to the actual published artifacts. Release
+publication and unpublication are manual owner decisions; the
+[v1.5.0 publication audit](../development/release-publication-policy.md)
+is **read-only** and cannot send a published release back to Draft.

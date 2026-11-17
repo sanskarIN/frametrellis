@@ -25,13 +25,16 @@ int main(int argc, char* argv[])
 
     const bool missingPath = output.find("fixture-no-path-success") != std::string::npos;
     const bool mismatchedPath = output.find("fixture-mismatch-success") != std::string::npos;
+    const bool relativePath = output.find("fixture-relative-success") != std::string::npos;
+    const bool contradictoryPath =
+        output.find("fixture-contradictory-success") != std::string::npos;
     if (output.find("fixture-empty-success") != std::string::npos) {
         std::ofstream file(output, std::ios::binary);
         if (!file) {
             return 2;
         }
     } else if (output.find("fixture-nonempty-success") != std::string::npos ||
-               missingPath || mismatchedPath) {
+               missingPath || mismatchedPath || relativePath || contradictoryPath) {
         std::ofstream file(output, std::ios::binary);
         if (!file) {
             return 2;
@@ -40,14 +43,23 @@ int main(int argc, char* argv[])
     }
     std::fputs("@ft {\"event\":\"started\",\"encoder\":\"synthetic-fixture\",\"total\":25}\n",
                stdout);
+    auto emitFinished = [](const QJsonObject& event) {
+        const QByteArray line = QByteArrayLiteral("@ft ") +
+                                QJsonDocument(event).toJson(QJsonDocument::Compact) + '\n';
+        std::fwrite(line.constData(), 1, static_cast<size_t>(line.size()), stdout);
+    };
     QJsonObject finished{{QStringLiteral("event"), QStringLiteral("finished")}};
     if (!missingPath) {
-        finished.insert(QStringLiteral("output"),
-                        QString::fromStdString(mismatchedPath ? output + ".wrong" : output));
+        const std::string reported = relativePath ? "relative.mp4"
+                                                  : mismatchedPath ? output + ".wrong" : output;
+        finished.insert(QStringLiteral("output"), QString::fromStdString(reported));
     }
-    const QByteArray line = QByteArrayLiteral("@ft ") +
-                            QJsonDocument(finished).toJson(QJsonDocument::Compact) + '\n';
-    std::fwrite(line.constData(), 1, static_cast<size_t>(line.size()), stdout);
+    if (contradictoryPath) {
+        QJsonObject unexpected = finished;
+        unexpected.insert(QStringLiteral("output"), QStringLiteral("unrelated.mp4"));
+        emitFinished(unexpected);
+    }
+    emitFinished(finished);
     std::fflush(stdout);
     return 0;
 }

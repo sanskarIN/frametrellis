@@ -313,8 +313,9 @@ Status MltRuntime::initialize()
     caps.transformFilter = hasService(repository, mlt_service_filter_type, "affine");
     caps.eqFilter =
         hasService(repository, mlt_service_filter_type, "avfilter.eq") && eqFilterWorks();
+    // Keep the detected services available for the startup error UI, but do not
+    // advertise MLT as initialized before all mandatory services are confirmed.
     g_capabilities = caps;
-    g_initialized = true;
 
     qCInfo(lcEngine).noquote() << "MLT" << caps.mltVersion << "repository" << caps.repositoryPath;
     const QStringList essentials = caps.missingEssentials();
@@ -326,11 +327,16 @@ Status MltRuntime::initialize()
             // The modules that failed to load usually explain why services are missing.
             details += QStringLiteral("; ") + moduleLoadErrors.join(u' ');
         }
+        // Factory::init succeeded, but the installation is unusable. Close the
+        // partially initialized repository so a second initialize() does not
+        // incorrectly return success and the process can try again safely.
+        Mlt::Factory::close();
         return makeError(
             ErrorCode::Engine,
             QStringLiteral("The installation is incomplete: required MLT services are missing."),
             details);
     }
+    g_initialized = true;
     for (const QString& optional : caps.missingOptional()) {
         qCWarning(lcEngine).noquote() << "Optional MLT service unavailable:" << optional;
     }

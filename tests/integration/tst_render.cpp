@@ -356,7 +356,9 @@ private slots:
         // completion for a different file (or omit the destination entirely).
         // Such a protocol violation must never be shown as a successful export.
         const Project original = project(25);
-        for (const QString& mode : {QStringLiteral("no-path"), QStringLiteral("mismatch")}) {
+        for (const QString& mode : {QStringLiteral("no-path"), QStringLiteral("mismatch"),
+                                    QStringLiteral("relative"),
+                                    QStringLiteral("contradictory")}) {
             ExportSettings settings;
             settings.outputPath =
                 m_dir.filePath(QStringLiteral("fixture-%1-success.mp4").arg(mode));

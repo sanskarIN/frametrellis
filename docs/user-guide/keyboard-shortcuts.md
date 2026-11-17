@@ -8,6 +8,8 @@
 | Shift+Left / Shift+Right | Back / forward one second |
 | Up / Down | Previous / next edit point |
 | Home / End | Go to start / end of the active Program or Source monitor |
+| Ctrl+Alt+Home / Ctrl+Alt+End | Go to first / last visible frame of the selected timeline clips (disabled without a selection) |
+| M | Toggle Program preview audio mute when an audio device is available; disabled while dialogs are open |
 | Ctrl+G | Jump to a SMPTE timecode within the sequence (Program tab only) |
 | I / O | Mark In / Out at the displayed Source frame (post-v1.4.0 development) |
 | Ctrl+Shift+M | Match exclusive Source Out to the selected timeline clip's duration after Source In (Source tab, post-v1.4.0 development) |

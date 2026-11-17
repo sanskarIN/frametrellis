@@ -2219,6 +2219,52 @@ private slots:
         timeline->clearSelection();
     }
 
+    void selectionBoundaryShortcutsPreserveTimelineAndUndo()
+    {
+        auto* timeline = m_app->timeline();
+        QVERIFY(!track(0).clips.empty());
+        QVERIFY(!track(2).clips.empty());
+        const Project before = m_app->project()->project();
+        const QString undoBefore = m_app->project()->undoText();
+        const Clip picture = track(0).clips.back();
+        const Clip sound = track(2).clips.front();
+        const FrameCount first = std::min(picture.start, sound.start);
+        const FrameCount last = std::max(picture.end(), sound.end()) - 1;
+
+        timeline->clearSelection();
+        timeline->select(picture.id, false);
+        timeline->select(sound.id, true);
+        const QStringList selected = timeline->selection();
+
+        m_app->playback()->goToEnd();
+        QTest::keyClick(m_window, Qt::Key_Home, Qt::ControlModifier | Qt::AltModifier);
+        QCOMPARE(m_app->playback()->positionFrames(), first);
+        QTest::keyClick(m_window, Qt::Key_End, Qt::ControlModifier | Qt::AltModifier);
+        QCOMPARE(m_app->playback()->positionFrames(), last);
+
+        timeline->clearSelection();
+        m_app->playback()->goToStart();
+        QTest::keyClick(m_window, Qt::Key_End, Qt::ControlModifier | Qt::AltModifier);
+        QCOMPARE(m_app->playback()->positionFrames(), FrameCount{0});
+        QCOMPARE(m_app->project()->project(), before);
+        QCOMPARE(m_app->project()->undoText(), undoBefore);
+        QVERIFY(selected.size() == 2);
+    }
+
+    void previewMuteShortcutRespectsAvailableAudio()
+    {
+        const bool previous = m_app->playback()->muted();
+        m_app->playback()->setMuted(false);
+        const bool audioAvailable = m_app->playback()->audioAvailable();
+        QTest::keyClick(m_window, Qt::Key_M);
+        QCOMPARE(m_app->playback()->muted(), audioAvailable);
+        if (audioAvailable) {
+            QTest::keyClick(m_window, Qt::Key_M);
+            QVERIFY(!m_app->playback()->muted());
+        }
+        m_app->playback()->setMuted(previous);
+    }
+
     void copySelectionTimecodesDocumentsExactFrameBoundsWithoutEditing()
     {
         auto* timeline = m_app->timeline();

@@ -21,6 +21,8 @@ FtDialog {
         ["Ctrl+Shift+Left / Right", qsTr("Back / forward ten seconds")],
         ["Up / Down", qsTr("Previous / next edit point")],
         ["Home / End", qsTr("Go to start / end of active monitor")],
+        ["Ctrl+Alt+Home / End", qsTr("Go to first / last frame of timeline selection")],
+        ["M", qsTr("Toggle Program preview audio mute")],
         ["Ctrl+G", qsTr("Go to Program sequence timecode")],
         ["Shift+M", qsTr("Add a timeline review marker")],
         ["Ctrl+PgUp / PgDown", qsTr("Previous / next sequence marker")],

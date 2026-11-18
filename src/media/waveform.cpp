@@ -125,14 +125,21 @@ QImage renderWaveform(const WaveformData& data, double startSeconds, double seco
 {
     QImage image(size.expandedTo(QSize(1, 1)), QImage::Format_ARGB32_Premultiplied);
     image.fill(Qt::transparent);
-    if (data.isEmpty() || size.isEmpty() || seconds <= 0.0) {
+    // Requests originate in QML and can carry invalid float values. Reject
+    // them before flooring a bin index or converting one to size_t.
+    if (data.isEmpty() || size.isEmpty() || !std::isfinite(startSeconds) ||
+        !std::isfinite(seconds) || !std::isfinite(gain) || startSeconds < 0.0 ||
+        seconds <= 0.0 || gain < 0.0) {
+        return image;
+    }
+    const double binsPerPixel = seconds * data.binsPerSecond / size.width();
+    const double firstBin = startSeconds * data.binsPerSecond;
+    const auto count = static_cast<double>(data.peaks.size());
+    if (!std::isfinite(binsPerPixel) || !std::isfinite(firstBin) || firstBin >= count) {
         return image;
     }
     QPainter painter(&image);
-    const double binsPerPixel = seconds * data.binsPerSecond / size.width();
-    const double firstBin = startSeconds * data.binsPerSecond;
     const double half = size.height() / 2.0;
-    const auto count = static_cast<double>(data.peaks.size());
     for (int x = 0; x < size.width(); ++x) {
         const double from = firstBin + x * binsPerPixel;
         const double to = std::max(from + binsPerPixel, from + 1.0);

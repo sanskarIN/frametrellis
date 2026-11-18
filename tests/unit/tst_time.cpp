@@ -249,14 +249,11 @@ private slots:
         const auto micros = rate.framesToMicroseconds(frames);
         QVERIFY(micros.has_value());
         QCOMPARE(*micros, std::numeric_limits<std::int64_t>::max() - 31);
-        QCOMPARE(timecode::formatClock(frames, rate),
-                 QStringLiteral("2562047788:00:54.776"));
+        QCOMPARE(timecode::formatClock(frames, rate), QStringLiteral("2562047788:00:54.776"));
 
         // Ordinary clock formatting and its negative sign are unaffected.
-        QCOMPARE(timecode::formatClock(101, FrameRate::integer(25)),
-                 QStringLiteral("0:04.040"));
-        QCOMPARE(timecode::formatClock(-101, FrameRate::integer(25)),
-                 QStringLiteral("-0:04.040"));
+        QCOMPARE(timecode::formatClock(101, FrameRate::integer(25)), QStringLiteral("0:04.040"));
+        QCOMPARE(timecode::formatClock(-101, FrameRate::integer(25)), QStringLiteral("-0:04.040"));
     }
 
     void clockFormat()

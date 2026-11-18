@@ -4310,6 +4310,35 @@ private slots:
         m_app->timeline()->clearSelection();
     }
 
+    void clipInspectorRejectsInvalidNumbersWithoutEditingProject()
+    {
+        QVERIFY(!track(0).clips.empty());
+        const Id clipId = track(0).clips.front().id;
+        const Project before = m_app->project()->project();
+        const QString undoBefore = m_app->project()->undoText();
+
+        for (const QString& property :
+             {QStringLiteral("gain"), QStringLiteral("brightness"), QStringLiteral("contrast"),
+              QStringLiteral("saturation"), QStringLiteral("opacity")}) {
+            for (const QVariant& invalid : {QVariant(std::numeric_limits<double>::quiet_NaN()),
+                                            QVariant(std::numeric_limits<double>::infinity()),
+                                            QVariant(-std::numeric_limits<double>::infinity()),
+                                            QVariant(QStringLiteral("not a number"))}) {
+                QVERIFY(!m_app->timeline()->setClipProperty(clipId, property, invalid));
+                QCOMPARE(m_app->project()->project(), before);
+                QCOMPARE(m_app->project()->undoText(), undoBefore);
+            }
+        }
+
+        // Normal finite edits still work and remain one-step undoable.
+        QVERIFY(m_app->timeline()->setClipProperty(clipId, QStringLiteral("opacity"), 0.5));
+        QCOMPARE(m_app->project()->project().timeline().clip(clipId)->properties.video.opacity,
+                 0.5);
+        m_app->timeline()->endEdit();
+        m_app->project()->undo();
+        QCOMPARE(m_app->project()->project(), before);
+    }
+
     void stereoBalanceInspectorEditsAndPreservesClipHistory()
     {
         if (!engine::MltRuntime::capabilities().pannerFilter) {

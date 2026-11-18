@@ -1874,10 +1874,23 @@ bool TimelineController::setClipProperty(const QString& clipId, const QString& n
     if (!clip) {
         return false;
     }
+    // QML may supply NaN, infinity or a nonnumeric QVariant. Do not allow
+    // std::clamp to pass through NaN or silently turn invalid text into zero.
+    const bool numericProperty =
+        name == QLatin1String("gain") || name == QLatin1String("brightness") ||
+        name == QLatin1String("contrast") || name == QLatin1String("saturation") ||
+        name == QLatin1String("opacity");
+    bool validNumber = false;
+    const double number = numericProperty ? value.toDouble(&validNumber) : 0.0;
+    if (numericProperty && (!validNumber || !std::isfinite(number))) {
+        emit statusMessage(QStringLiteral("Enter a valid finite number for this clip setting."));
+        return false;
+    }
+
     ClipProperties p = clip->properties;
     QString text;
     if (name == QLatin1String("gain")) {
-        p.gain = std::clamp(value.toDouble(), 0.0, kMaxClipGain);
+        p.gain = std::clamp(number, 0.0, kMaxClipGain);
         text = QStringLiteral("Change Volume");
     } else if (name == QLatin1String("balance")) {
         const MediaAsset* asset = project().asset(clip->assetId);
@@ -1902,16 +1915,16 @@ bool TimelineController::setClipProperty(const QString& clipId, const QString& n
         p.fadeOut = std::clamp<FrameCount>(value.toLongLong(), 0, clip->duration - p.fadeIn);
         text = QStringLiteral("Change Fade Out");
     } else if (name == QLatin1String("brightness")) {
-        p.video.brightness = std::clamp(value.toDouble(), -1.0, 1.0);
+        p.video.brightness = std::clamp(number, -1.0, 1.0);
         text = QStringLiteral("Change Brightness");
     } else if (name == QLatin1String("contrast")) {
-        p.video.contrast = std::clamp(value.toDouble(), 0.0, 2.0);
+        p.video.contrast = std::clamp(number, 0.0, 2.0);
         text = QStringLiteral("Change Contrast");
     } else if (name == QLatin1String("saturation")) {
-        p.video.saturation = std::clamp(value.toDouble(), 0.0, 3.0);
+        p.video.saturation = std::clamp(number, 0.0, 3.0);
         text = QStringLiteral("Change Saturation");
     } else if (name == QLatin1String("opacity")) {
-        p.video.opacity = std::clamp(value.toDouble(), 0.0, 1.0);
+        p.video.opacity = std::clamp(number, 0.0, 1.0);
         text = QStringLiteral("Change Opacity");
     } else {
         return false;

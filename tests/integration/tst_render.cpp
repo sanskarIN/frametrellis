@@ -12,6 +12,7 @@
 #include "rendering/render_job.h"
 #include "rendering/render_protocol.h"
 #include "rendering/render_runner.h"
+#include "rendering/sample_media.h"
 #include "rendering/self_test.h"
 
 #include <QDir>
@@ -27,6 +28,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <limits>
 
 using namespace ft;
 using namespace ft::rendering;
@@ -149,6 +151,56 @@ private slots:
         m_tone = makeTone(m_dir.path(), QStringLiteral("tone.wav"), 2.0, 880.0);
         QVERIFY(!m_video.isEmpty() && !m_tone.isEmpty());
         QVERIFY(!availableVideoEncoders().isEmpty());
+    }
+
+    void syntheticMediaRejectsInvalidNumericInputs()
+    {
+        const QString wavPath = m_dir.filePath(QStringLiteral("numeric-fixture.wav"));
+        const QString videoPath = m_dir.filePath(QStringLiteral("numeric-fixture.mp4"));
+
+        // The signed sample count must never be calculated from an unbounded
+        // double, even if no real audio is ultimately requested.
+        for (double seconds : {std::numeric_limits<double>::quiet_NaN(),
+                               std::numeric_limits<double>::infinity(),
+                               -std::numeric_limits<double>::infinity(), -1.0, 0.0, 3601.0,
+                               1.0e300}) {
+            QVERIFY(!writeSampleTone(wavPath, seconds));
+            QVERIFY(!QFile::exists(wavPath));
+        }
+        for (double frequency : {std::numeric_limits<double>::quiet_NaN(),
+                                 std::numeric_limits<double>::infinity(),
+                                 -std::numeric_limits<double>::infinity(), -1.0, 0.0, 24000.0,
+                                 1.0e300}) {
+            QVERIFY(!writeSampleTone(wavPath, 0.01, frequency));
+            QVERIFY(!QFile::exists(wavPath));
+        }
+
+        // A valid 10 ms tone contains exactly 480 interleaved stereo samples.
+        QVERIFY(writeSampleTone(wavPath, 0.01, 440.0));
+        QFile original(wavPath);
+        QVERIFY(original.open(QIODevice::ReadOnly));
+        const QByteArray bytes = original.readAll();
+        QCOMPARE(bytes.size(), qsizetype{44 + 480 * 4});
+        original.close();
+
+        // A bad subsequent request must not overwrite an earlier good file.
+        QVERIFY(!writeSampleTone(wavPath, 1.0e300, 440.0));
+        QVERIFY(!writeSampleTone(wavPath, 0.01, 1.0e300));
+        QFile preserved(wavPath);
+        QVERIFY(preserved.open(QIODevice::ReadOnly));
+        QCOMPARE(preserved.readAll(), bytes);
+
+        SampleVideoSpec spec;
+        for (double frequency : {std::numeric_limits<double>::quiet_NaN(),
+                                 std::numeric_limits<double>::infinity(), -440.0, 24000.0}) {
+            spec.toneFrequency = frequency;
+            QVERIFY(!writeSampleVideo(videoPath, spec));
+            QVERIFY(!QFile::exists(videoPath));
+        }
+        spec.toneFrequency = 440.0;
+        spec.fps = 0;
+        QVERIFY(!writeSampleVideo(videoPath, spec));
+        QVERIFY(!QFile::exists(videoPath));
     }
 
     void preCancelledRunPreservesPreviousExportWithoutStartingEncoder()

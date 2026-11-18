@@ -14,6 +14,7 @@
 #include <mlt++/Mlt.h>
 
 #include <chrono>
+#include <cmath>
 #include <condition_variable>
 #include <deque>
 #include <mutex>
@@ -413,7 +414,11 @@ bool PlaybackEngine::Worker::applyCommands(std::deque<Command>& commands)
             m_loopEnabled = command.flag;
             break;
         case Command::Type::Volume:
-            m_volume = std::clamp(command.value, 0.0, 2.0);
+            // std::clamp does not sanitize NaN. Passing an invalid gain into
+            // PCM sample conversion can cause undefined float-to-int casts.
+            if (std::isfinite(command.value)) {
+                m_volume = std::clamp(command.value, 0.0, 2.0);
+            }
             break;
         }
     }

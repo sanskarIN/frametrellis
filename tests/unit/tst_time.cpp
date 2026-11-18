@@ -239,6 +239,26 @@ private slots:
         QCOMPARE(timecode::formatClock(-42, pal), QStringLiteral("-0:01.680"));
     }
 
+    void clockFormattingNearInt64LimitDoesNotOverflow()
+    {
+        // At 999 fps, this valid frame count converts to INT64_MAX - 31
+        // microseconds. Adding 500 before division used to overflow signed
+        // int64_t, despite the rounded millisecond count being representable.
+        const FrameRate rate = FrameRate::integer(999);
+        constexpr FrameCount frames = 9'214'148'664'817'921;
+        const auto micros = rate.framesToMicroseconds(frames);
+        QVERIFY(micros.has_value());
+        QCOMPARE(*micros, std::numeric_limits<std::int64_t>::max() - 31);
+        QCOMPARE(timecode::formatClock(frames, rate),
+                 QStringLiteral("2562047788:00:54.776"));
+
+        // Ordinary clock formatting and its negative sign are unaffected.
+        QCOMPARE(timecode::formatClock(101, FrameRate::integer(25)),
+                 QStringLiteral("0:04.040"));
+        QCOMPARE(timecode::formatClock(-101, FrameRate::integer(25)),
+                 QStringLiteral("-0:04.040"));
+    }
+
     void clockFormat()
     {
         const FrameRate pal = *FrameRate::create(25, 1);

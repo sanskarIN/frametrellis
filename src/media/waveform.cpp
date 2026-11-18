@@ -132,6 +132,13 @@ QImage renderWaveform(const WaveformData& data, double startSeconds, double seco
         seconds <= 0.0 || gain < 0.0) {
         return image;
     }
+    // Media durations use signed 64-bit microseconds. A drawing window
+    // beyond that representable range cannot correspond to valid media.
+    constexpr double kMaxMediaSeconds =
+        static_cast<double>(std::numeric_limits<std::int64_t>::max()) / 1'000'000.0;
+    if (startSeconds > kMaxMediaSeconds || seconds > kMaxMediaSeconds - startSeconds) {
+        return image;
+    }
     const double binsPerPixel = seconds * data.binsPerSecond / size.width();
     const double firstBin = startSeconds * data.binsPerSecond;
     const auto count = static_cast<double>(data.peaks.size());

@@ -166,7 +166,9 @@ QString formatClock(FrameCount frames, const FrameRate& rate)
     if (!micros) {
         return QStringLiteral("--");
     }
-    const qint64 totalMillis = (*micros + 500) / 1000;
+    // Round microseconds to milliseconds without adding to a potentially
+    // near-INT64_MAX timestamp. The division result is safely representable.
+    const qint64 totalMillis = *micros / 1000 + (*micros % 1000 >= 500 ? 1 : 0);
     const qint64 millis = totalMillis % 1000;
     const qint64 totalSeconds = totalMillis / 1000;
     const qint64 seconds = totalSeconds % 60;

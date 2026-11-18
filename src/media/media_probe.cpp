@@ -288,6 +288,12 @@ Result<QImage> renderThumbnail(const QString& filePath, const MediaInfo& info, Q
     if (!info.hasVideo || info.width <= 0 || info.height <= 0) {
         return makeError(ErrorCode::InvalidArgument, QStringLiteral("This media has no picture."));
     }
+    // Broken probe metadata must not turn a negative timestamp into an
+    // implementation-dependent int frame position before MLT seeks.
+    if (info.kind == MediaKind::Video && info.durationUs < 0) {
+        return makeError(ErrorCode::InvalidArgument,
+                         QStringLiteral("The video duration is invalid for thumbnails."));
+    }
     const QSize size = engine::fitPreviewSize(QSize(info.width, info.height), maxSize);
     if (info.kind == MediaKind::Image) {
         QString reason;

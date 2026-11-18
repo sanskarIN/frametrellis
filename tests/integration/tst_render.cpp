@@ -160,17 +160,15 @@ private slots:
 
         // The signed sample count must never be calculated from an unbounded
         // double, even if no real audio is ultimately requested.
-        for (double seconds : {std::numeric_limits<double>::quiet_NaN(),
-                               std::numeric_limits<double>::infinity(),
-                               -std::numeric_limits<double>::infinity(), -1.0, 0.0, 3601.0,
-                               1.0e300}) {
+        for (double seconds :
+             {std::numeric_limits<double>::quiet_NaN(), std::numeric_limits<double>::infinity(),
+              -std::numeric_limits<double>::infinity(), -1.0, 0.0, 3601.0, 1.0e300}) {
             QVERIFY(!writeSampleTone(wavPath, seconds));
             QVERIFY(!QFile::exists(wavPath));
         }
-        for (double frequency : {std::numeric_limits<double>::quiet_NaN(),
-                                 std::numeric_limits<double>::infinity(),
-                                 -std::numeric_limits<double>::infinity(), -1.0, 0.0, 24000.0,
-                                 1.0e300}) {
+        for (double frequency :
+             {std::numeric_limits<double>::quiet_NaN(), std::numeric_limits<double>::infinity(),
+              -std::numeric_limits<double>::infinity(), -1.0, 0.0, 24000.0, 1.0e300}) {
             QVERIFY(!writeSampleTone(wavPath, 0.01, frequency));
             QVERIFY(!QFile::exists(wavPath));
         }

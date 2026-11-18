@@ -2193,11 +2193,11 @@ private slots:
             QCOMPARE(timeline->clock(frame), timecode::formatClock(rounded, rate));
         }
 
-        for (double frame : {std::numeric_limits<double>::quiet_NaN(),
-                             std::numeric_limits<double>::infinity(),
-                             -std::numeric_limits<double>::infinity(), 1.0e300, -1.0e300,
-                             static_cast<double>(kMaxTimelineFrames) + 1.0,
-                             -static_cast<double>(kMaxTimelineFrames) - 1.0}) {
+        for (double frame :
+             {std::numeric_limits<double>::quiet_NaN(), std::numeric_limits<double>::infinity(),
+              -std::numeric_limits<double>::infinity(), 1.0e300, -1.0e300,
+              static_cast<double>(kMaxTimelineFrames) + 1.0,
+              -static_cast<double>(kMaxTimelineFrames) - 1.0}) {
             QCOMPARE(timeline->timecode(frame), QStringLiteral("--"));
             QCOMPARE(timeline->clock(frame), QStringLiteral("--"));
         }

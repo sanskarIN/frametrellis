@@ -116,13 +116,20 @@ void PlaybackController::togglePlay()
 
 void PlaybackController::seek(double frame)
 {
+    // Frame positions arrive from QML and may be NaN, infinite or far outside
+    // the timeline. Do not feed an unbounded value into llround(): its signed
+    // integer result is not representable for arbitrary doubles.
+    if (!std::isfinite(frame)) {
+        return;
+    }
     // The engine must know the latest sequence before it clamps the seek target.
     if (m_syncTimer.isActive()) {
         syncNow();
     }
     const FrameCount length = m_project->project().timeline().duration();
-    const auto target = std::clamp<FrameCount>(static_cast<FrameCount>(std::llround(frame)), 0,
-                                               std::max<FrameCount>(length - 1, 0));
+    const FrameCount last = std::max<FrameCount>(length - 1, 0);
+    const auto target =
+        static_cast<FrameCount>(std::llround(std::clamp(frame, 0.0, static_cast<double>(last))));
     if (target != m_position) {
         m_position = target; // move the playhead immediately; the picture follows
         emit positionChanged();

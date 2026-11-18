@@ -2178,6 +2178,37 @@ private slots:
         QCOMPARE(m_app->project()->project(), before);
     }
 
+    void seekRejectsNonfiniteValuesAndClampsBeforeRounding()
+    {
+        auto* playback = m_app->playback();
+        const Project before = m_app->project()->project();
+        const QString undoBefore = m_app->project()->undoText();
+        const FrameCount duration = before.timeline().duration();
+        QVERIFY(duration > 2);
+        const FrameCount last = duration - 1;
+        const FrameCount original = playback->positionFrames();
+
+        playback->seek(2.0);
+        QCOMPARE(playback->positionFrames(), FrameCount{2});
+        playback->seek(std::numeric_limits<double>::quiet_NaN());
+        QCOMPARE(playback->positionFrames(), FrameCount{2});
+        playback->seek(std::numeric_limits<double>::infinity());
+        QCOMPARE(playback->positionFrames(), FrameCount{2});
+        playback->seek(-std::numeric_limits<double>::infinity());
+        QCOMPARE(playback->positionFrames(), FrameCount{2});
+
+        // Clamp finite values while still in floating-point representation;
+        // conversion via llround on either extreme used to be out of range.
+        playback->seek(1.0e300);
+        QCOMPARE(playback->positionFrames(), last);
+        playback->seek(-1.0e300);
+        QCOMPARE(playback->positionFrames(), FrameCount{0});
+        playback->seek(static_cast<double>(original));
+        QCOMPARE(playback->positionFrames(), original);
+        QCOMPARE(m_app->project()->project(), before);
+        QCOMPARE(m_app->project()->undoText(), undoBefore);
+    }
+
     void navigateIndividualSelectedClipEdgesWithoutChangingTimeline()
     {
         auto* timeline = m_app->timeline();

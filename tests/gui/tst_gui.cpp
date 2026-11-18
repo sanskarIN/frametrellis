@@ -2178,6 +2178,33 @@ private slots:
         QCOMPARE(m_app->project()->project(), before);
     }
 
+    void timelineTimeLabelsRejectInvalidAndOutOfRangeFrames()
+    {
+        auto* timeline = m_app->timeline();
+        const Project before = m_app->project()->project();
+        const QString undoBefore = m_app->project()->undoText();
+        const FrameRate rate = before.settings().frameRate;
+
+        // Preserve finite, bounded frame labels, including negative preroll
+        // positions and the maximum supported timeline frame.
+        for (double frame : {0.0, 1.5, -1.5, static_cast<double>(kMaxTimelineFrames)}) {
+            const auto rounded = static_cast<FrameCount>(std::llround(frame));
+            QCOMPARE(timeline->timecode(frame), timecode::format(rounded, rate));
+            QCOMPARE(timeline->clock(frame), timecode::formatClock(rounded, rate));
+        }
+
+        for (double frame :
+             {std::numeric_limits<double>::quiet_NaN(), std::numeric_limits<double>::infinity(),
+              -std::numeric_limits<double>::infinity(), 1.0e300, -1.0e300,
+              static_cast<double>(kMaxTimelineFrames) + 1.0,
+              -static_cast<double>(kMaxTimelineFrames) - 1.0}) {
+            QCOMPARE(timeline->timecode(frame), QStringLiteral("--"));
+            QCOMPARE(timeline->clock(frame), QStringLiteral("--"));
+        }
+        QCOMPARE(m_app->project()->project(), before);
+        QCOMPARE(m_app->project()->undoText(), undoBefore);
+    }
+
     void seekRejectsNonfiniteValuesAndClampsBeforeRounding()
     {
         auto* playback = m_app->playback();

@@ -326,12 +326,20 @@ bool TimelineController::empty() const
 
 QString TimelineController::timecode(double frame) const
 {
+    // QML can pass non-finite values during layout/drag calculations. Never
+    // convert them (or frames beyond the editor's timeline cap) with llround().
+    if (!std::isfinite(frame) || std::abs(frame) > static_cast<double>(kMaxTimelineFrames)) {
+        return QStringLiteral("--");
+    }
     return timecode::format(static_cast<FrameCount>(std::llround(frame)),
                             project().settings().frameRate);
 }
 
 QString TimelineController::clock(double frame) const
 {
+    if (!std::isfinite(frame) || std::abs(frame) > static_cast<double>(kMaxTimelineFrames)) {
+        return QStringLiteral("--");
+    }
     return timecode::formatClock(static_cast<FrameCount>(std::llround(frame)),
                                  project().settings().frameRate);
 }

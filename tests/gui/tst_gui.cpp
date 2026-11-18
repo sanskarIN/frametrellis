@@ -4290,14 +4290,13 @@ private slots:
         const Project before = m_app->project()->project();
         const QString undoBefore = m_app->project()->undoText();
 
-        for (const QString& property : {QStringLiteral("gain"), QStringLiteral("brightness"),
-                                        QStringLiteral("contrast"), QStringLiteral("saturation"),
-                                        QStringLiteral("opacity")}) {
-            for (const QVariant& invalid :
-                 {QVariant(std::numeric_limits<double>::quiet_NaN()),
-                  QVariant(std::numeric_limits<double>::infinity()),
-                  QVariant(-std::numeric_limits<double>::infinity()),
-                  QVariant(QStringLiteral("not a number"))}) {
+        for (const QString& property :
+             {QStringLiteral("gain"), QStringLiteral("brightness"), QStringLiteral("contrast"),
+              QStringLiteral("saturation"), QStringLiteral("opacity")}) {
+            for (const QVariant& invalid : {QVariant(std::numeric_limits<double>::quiet_NaN()),
+                                            QVariant(std::numeric_limits<double>::infinity()),
+                                            QVariant(-std::numeric_limits<double>::infinity()),
+                                            QVariant(QStringLiteral("not a number"))}) {
                 QVERIFY(!m_app->timeline()->setClipProperty(clipId, property, invalid));
                 QCOMPARE(m_app->project()->project(), before);
                 QCOMPARE(m_app->project()->undoText(), undoBefore);

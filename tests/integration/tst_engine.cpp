@@ -17,6 +17,7 @@
 #include <mlt++/Mlt.h>
 
 #include <cmath>
+#include <limits>
 #include <utility>
 
 using namespace ft;
@@ -273,6 +274,27 @@ private slots:
         Result<MediaInfo> toneInfo = media::probeMedia(m_media.tone);
         QVERIFY(toneInfo);
         QVERIFY(!media::renderThumbnail(m_media.tone, *toneInfo, QSize(32, 32)));
+    }
+
+    void thumbnailRejectsNegativeDurationWithoutTouchingNativeDecoder()
+    {
+        Result<MediaInfo> probed = media::probeMedia(m_media.video);
+        QVERIFY(probed);
+        MediaInfo info = *probed;
+        for (const std::int64_t duration :
+             {std::int64_t{-1}, std::numeric_limits<std::int64_t>::min()}) {
+            info.durationUs = duration;
+            const auto result = media::renderThumbnail(m_media.video, info, QSize(80, 80));
+            QVERIFY(!result);
+            QCOMPARE(result.error().code, ErrorCode::InvalidArgument);
+        }
+
+        // Unknown/zero duration can still choose frame zero without a negative
+        // or overflowing native seek.
+        info.durationUs = 0;
+        const auto first = media::renderThumbnail(m_media.video, info, QSize(80, 80));
+        QVERIFY(first);
+        QVERIFY(isCloseTo(averageColor(*first), Qt::red));
     }
 
     void sourceFramePreviewMatchesProjectRateAndRejectsOutOfRange()

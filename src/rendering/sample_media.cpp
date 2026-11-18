@@ -55,9 +55,8 @@ bool writeSampleVideo(const QString& path, const SampleVideoSpec& spec)
     // frequencies into native plugins.
     if (!rate || spec.fps <= 0 || spec.segmentColors.isEmpty() || spec.size.isEmpty() ||
         spec.segmentColors.size() > std::numeric_limits<int>::max() / spec.fps ||
-        (spec.withAudio &&
-         (!std::isfinite(spec.toneFrequency) || spec.toneFrequency <= 0.0 ||
-          spec.toneFrequency >= 24000.0))) {
+        (spec.withAudio && (!std::isfinite(spec.toneFrequency) || spec.toneFrequency <= 0.0 ||
+                            spec.toneFrequency >= 24000.0))) {
         return false;
     }
     auto profile = engine::createProfile(spec.size.width(), spec.size.height(), *rate);

@@ -5,6 +5,7 @@
 
 #include <QTest>
 
+#include <cmath>
 #include <cstdint>
 #include <limits>
 
@@ -65,6 +66,45 @@ private slots:
             QVERIFY(!result);
             QCOMPARE(result.error().code, ErrorCode::InvalidArgument);
         }
+    }
+
+    void invalidWaveformDrawParametersProduceTransparentImage()
+    {
+        media::WaveformData data;
+        data.binsPerSecond = 100;
+        data.peaks = {0, 64, 128, 255, 128, 64, 0};
+        const QSize size(70, 20);
+        const QColor color(Qt::white);
+        const auto isTransparent = [](const QImage& image) {
+            if (image.isNull()) {
+                return false;
+            }
+            for (int y = 0; y < image.height(); ++y) {
+                for (int x = 0; x < image.width(); ++x) {
+                    if (image.pixelColor(x, y).alpha() != 0) {
+                        return false;
+                    }
+                }
+            }
+            return true;
+        };
+
+        const auto normal = media::renderWaveform(data, 0.0, 0.07, size, color);
+        QVERIFY(!isTransparent(normal));
+        const double nan = std::numeric_limits<double>::quiet_NaN();
+        const double inf = std::numeric_limits<double>::infinity();
+        for (double start : {nan, inf, -inf, -1.0, 1.0e300}) {
+            QVERIFY(isTransparent(media::renderWaveform(data, start, 0.07, size, color)));
+        }
+        for (double seconds : {nan, inf, -inf, -1.0, 0.0, 1.0e300}) {
+            QVERIFY(isTransparent(media::renderWaveform(data, 0.0, seconds, size, color)));
+        }
+        for (double gain : {nan, inf, -inf, -1.0}) {
+            QVERIFY(isTransparent(media::renderWaveform(data, 0.0, 0.07, size, color, gain)));
+        }
+        QVERIFY(isTransparent(media::renderWaveform(data, inf, inf, size, color, nan)));
+        // Rejected draw requests never mutate the cached waveform peaks.
+        QCOMPARE(data.peaks, (std::vector<std::uint8_t>{0, 64, 128, 255, 128, 64, 0}));
     }
 
     void validDurationUsesNormalEngineAvailabilityCheck()

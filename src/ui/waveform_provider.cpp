@@ -9,6 +9,8 @@
 #include <QRunnable>
 #include <QThreadPool>
 
+#include <cmath>
+
 namespace ft::ui {
 
 namespace {
@@ -41,7 +43,8 @@ std::optional<Request> parseRequest(const QString& id)
     request.color = QColor(QLatin1Char('#') + parts[3]);
     request.gain = parts[4].toDouble(&okGain) / 100.0;
     if (!okStart || !okDuration || !okGain || !request.color.isValid() || request.seconds <= 0.0 ||
-        request.startSeconds < 0.0 || !isValidId(request.assetId)) {
+        request.startSeconds < 0.0 || !std::isfinite(request.gain) || request.gain < 0.0 ||
+        !isValidId(request.assetId)) {
         return std::nullopt;
     }
     return request;

@@ -37,6 +37,33 @@ private slots:
         }
     }
 
+    void rejectsExcessiveAudioSampleRateBeforeNativeAllocation()
+    {
+        MediaInfo info;
+        info.kind = MediaKind::Audio;
+        info.hasAudio = true;
+        info.durationUs = 2'000'000;
+        info.audioChannels = 2;
+
+        for (int sampleRate : {384'001, 1'000'000, std::numeric_limits<int>::max()}) {
+            info.audioSampleRate = sampleRate;
+            const auto result =
+                media::computeWaveform(QStringLiteral("nonexistent-media-file.wav"), info);
+            QVERIFY(!result);
+            QCOMPARE(result.error().code, ErrorCode::Media);
+        }
+
+        // 384 kHz remains admissible. This test does not initialise MLT;
+        // valid rates proceed to the normal engine-availability check.
+        for (int sampleRate : {0, 48'000, 192'000, 384'000}) {
+            info.audioSampleRate = sampleRate;
+            const auto result =
+                media::computeWaveform(QStringLiteral("nonexistent-media-file.wav"), info);
+            QVERIFY(!result);
+            QCOMPARE(result.error().code, ErrorCode::Engine);
+        }
+    }
+
     void rejectsVeryLargeFiniteDurationWithoutStartingDecoder()
     {
         MediaInfo info;

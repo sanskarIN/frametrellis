@@ -67,6 +67,15 @@ Result<WaveformData> computeWaveform(const QString& filePath, const MediaInfo& i
     }
     const auto expectedBins = static_cast<std::size_t>(bins);
     const auto expectedFrames = static_cast<int>(decodedFrames);
+    // A corrupted probe may claim an absurd input rate (up to INT_MAX). At
+    // one tenth of a second per decoder request, trusting it can allocate
+    // hundreds of millions of PCM samples before a single waveform bin.
+    // Unknown rates keep the existing 48 kHz fallback below.
+    constexpr int kMaxWaveformSampleRate = 384'000;
+    if (info.audioSampleRate > kMaxWaveformSampleRate) {
+        return makeError(ErrorCode::Media,
+                         QStringLiteral("The audio sample rate is out of range."));
+    }
     if (!engine::MltRuntime::isInitialized()) {
         return makeError(ErrorCode::Engine, QStringLiteral("The media engine is not initialised."));
     }

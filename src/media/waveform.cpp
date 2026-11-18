@@ -128,8 +128,8 @@ QImage renderWaveform(const WaveformData& data, double startSeconds, double seco
     // Requests originate in QML and can carry invalid float values. Reject
     // them before flooring a bin index or converting one to size_t.
     if (data.isEmpty() || size.isEmpty() || !std::isfinite(startSeconds) ||
-        !std::isfinite(seconds) || !std::isfinite(gain) || startSeconds < 0.0 ||
-        seconds <= 0.0 || gain < 0.0) {
+        !std::isfinite(seconds) || !std::isfinite(gain) || startSeconds < 0.0 || seconds <= 0.0 ||
+        gain < 0.0) {
         return image;
     }
     // Media durations use signed 64-bit microseconds. A drawing window

@@ -14,6 +14,7 @@
 #include <mlt++/Mlt.h>
 
 #include <cmath>
+#include <limits>
 #include <numbers>
 
 namespace ft::rendering {
@@ -49,7 +50,13 @@ QByteArray colorString(const QColor& c)
 bool writeSampleVideo(const QString& path, const SampleVideoSpec& spec)
 {
     const std::optional<FrameRate> rate = FrameRate::create(spec.fps, 1);
-    if (!rate || spec.segmentColors.isEmpty() || spec.size.isEmpty()) {
+    // Validate the synthetic fixture before constructing MLT producers. Even
+    // test inputs must not overflow the frame count or pass invalid audio
+    // frequencies into native plugins.
+    if (!rate || spec.fps <= 0 || spec.segmentColors.isEmpty() || spec.size.isEmpty() ||
+        spec.segmentColors.size() > std::numeric_limits<int>::max() / spec.fps ||
+        (spec.withAudio && (!std::isfinite(spec.toneFrequency) || spec.toneFrequency <= 0.0 ||
+                            spec.toneFrequency >= 24000.0))) {
         return false;
     }
     auto profile = engine::createProfile(spec.size.width(), spec.size.height(), *rate);
@@ -112,8 +119,15 @@ bool writeSampleTone(const QString& path, double seconds, double frequency)
     constexpr int kRate = 48000;
     constexpr int kChannels = 2;
     constexpr double kAmplitude = 0.5 * 32767.0; // -6 dBFS
+    // Reject invalid and out-of-range values before converting to a signed
+    // sample count. A non-finite or above-Nyquist frequency would also make the
+    // sine/lround path undefined or produce misleading fixture audio.
+    if (!std::isfinite(seconds) || seconds <= 0.0 || seconds > 3600.0 ||
+        !std::isfinite(frequency) || frequency <= 0.0 || frequency >= kRate / 2.0) {
+        return false;
+    }
     const auto frames = static_cast<qint64>(std::llround(seconds * kRate));
-    if (!(frames > 0 && frames <= qint64{kRate} * 3600) || !(frequency > 0.0)) {
+    if (frames <= 0 || frames > qint64{kRate} * 3600) {
         return false;
     }
     const auto dataBytes = static_cast<quint32>(frames * kChannels * 2);

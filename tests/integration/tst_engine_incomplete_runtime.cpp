@@ -5,7 +5,9 @@
 // all of the media services required by the editor are missing. Neither the
 // initial attempt nor a subsequent call may report a usable runtime.
 #include "engine/mlt_runtime.h"
+#include "playback/playback_engine.h"
 
+#include <QSignalSpy>
 #include <QTest>
 
 using namespace ft;
@@ -32,6 +34,29 @@ private slots:
 
         engine::MltRuntime::shutdown();
         QVERIFY(!engine::MltRuntime::isInitialized());
+    }
+
+    void failedStartupNeverConstructsPreviewGraphs()
+    {
+        const Status startup = engine::MltRuntime::initialize();
+        QVERIFY2(!startup, "The test requires an incomplete MLT module repository");
+        QVERIFY(!engine::MltRuntime::isInitialized());
+
+        playback::PlaybackEngine preview;
+        QSignalSpy frames(&preview, &playback::PlaybackEngine::frameReady);
+        const Project project =
+            Project::createNew(QStringLiteral("Unavailable preview"), ProjectSettings{});
+        preview.setProject(project);
+        preview.play();
+        preview.seek(0);
+        QTest::qWait(250);
+
+        QCOMPARE(preview.renderedFrameCount(), qint64{0});
+        QCOMPARE(preview.deliveredFrameCount(), qint64{0});
+        QCOMPARE(preview.duration(), FrameCount{0});
+        QVERIFY(!preview.isPlaying());
+        QVERIFY(!preview.hasAudioOutput());
+        QCOMPARE(frames.count(), 0);
     }
 };
 

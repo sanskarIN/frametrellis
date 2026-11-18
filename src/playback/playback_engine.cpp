@@ -175,6 +175,13 @@ void PlaybackEngine::Worker::openAudio()
     if (m_audio) {
         return;
     }
+    // No preview or transport is usable without MLT. In the incomplete-
+    // installation error UI, avoid initializing SDL or opening a native audio
+    // endpoint unnecessarily while the window is being constructed.
+    if (!engine::MltRuntime::isInitialized()) {
+        m_owner->m_audioAvailable = false;
+        return;
+    }
     m_audio = createAudioOutput();
     if (m_audio && !m_audio->open(kAudioFrequency, kAudioChannels)) {
         m_audio.reset();
@@ -232,6 +239,19 @@ void PlaybackEngine::Worker::ensureProfile()
 void PlaybackEngine::Worker::rebuild()
 {
     m_needsRebuild = false;
+    // The editor still constructs the preview controller to show a useful
+    // installation error when MLT fails to start. Never create an MLT profile,
+    // producer or graph on this worker after that failed initialization.
+    if (!engine::MltRuntime::isInitialized()) {
+        m_tractor.reset();
+        m_builder.reset();
+        m_profile.reset();
+        m_duration = 0;
+        m_owner->m_duration = 0;
+        m_needsRender = false;
+        setPlaying(false);
+        return;
+    }
     if (!m_project) {
         m_tractor.reset();
         m_duration = 0;

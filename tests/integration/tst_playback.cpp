@@ -10,6 +10,8 @@
 #include <QTemporaryDir>
 #include <QTest>
 
+#include <limits>
+
 using namespace ft;
 using namespace ft::testing;
 
@@ -145,6 +147,28 @@ private slots:
         engine.seek(0);
         const QImage frame = waitForFrameAt(frames, 0);
         QCOMPARE(frame.size(), QSize(80, 46));
+    }
+
+    void invalidPreviewVolumeDoesNotPoisonPlayback()
+    {
+        playback::PlaybackEngine engine;
+        QSignalSpy frames(&engine, &playback::PlaybackEngine::frameReady);
+        engine.setMaximumPreviewSize(QSize(160, 90));
+        engine.setProject(project());
+        engine.seek(10);
+        QVERIFY(!waitForFrameAt(frames, 10).isNull());
+        frames.clear();
+
+        // These must not reach the float-to-PCM conversion. A native audio
+        // output (when available) is exercised under the sanitizer CI job.
+        engine.setVolume(0.75);
+        engine.setVolume(std::numeric_limits<double>::quiet_NaN());
+        engine.setVolume(std::numeric_limits<double>::infinity());
+        engine.setVolume(-std::numeric_limits<double>::infinity());
+        engine.play();
+        QVERIFY(QTest::qWaitFor([&] { return engine.position() >= 20; }, 8'000));
+        engine.pause();
+        QVERIFY(!frames.isEmpty());
     }
 
     void playsInRealTimeAndStopsAtTheEnd()

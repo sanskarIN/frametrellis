@@ -3762,8 +3762,20 @@ private slots:
         const QString undo = m_app->project()->undoText();
         const bool modified = m_app->project()->isModified();
         const FrameCount length = snapshot.timeline().duration();
-        QVERIFY(length > 0);
+        QVERIFY(length > 1);
 
+        // Even extreme transport jumps must clamp without signed overflow,
+        // leave sequence data untouched, and stay exact at frame boundaries.
+        playback->goToStart();
+        playback->step(std::numeric_limits<int>::max());
+        QCOMPARE(playback->positionFrames(), length - 1);
+        playback->step(std::numeric_limits<int>::min());
+        QCOMPARE(playback->positionFrames(), FrameCount{0});
+        playback->goToEnd();
+        playback->step(1);
+        QCOMPARE(playback->positionFrames(), length - 1);
+        playback->step(-1);
+        QCOMPARE(playback->positionFrames(), length - 2);
         playback->goToStart();
         QVERIFY(!playback->skipSeconds(0));
         QVERIFY(!playback->skipSeconds(61));

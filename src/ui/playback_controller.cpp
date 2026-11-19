@@ -116,20 +116,32 @@ void PlaybackController::togglePlay()
 
 void PlaybackController::seek(double frame)
 {
-    // Frame positions arrive from QML and may be NaN, infinite or far outside
-    // the timeline. Do not feed an unbounded value into llround(): its signed
-    // integer result is not representable for arbitrary doubles.
+    // QML can supply NaN, infinity, or enormous finite doubles. Compare the
+    // floating-point boundary before llround(): int64's largest values round
+    // up to 2^63 in double and cannot safely be passed to llround().
     if (!std::isfinite(frame)) {
         return;
     }
-    // The engine must know the latest sequence before it clamps the seek target.
+    const FrameCount length = m_project->project().timeline().duration();
+    const FrameCount last = length > 0 ? length - 1 : 0;
+    const FrameCount target =
+        frame <= 0.0 ? 0
+        : frame >= static_cast<double>(last)
+            ? last
+            : static_cast<FrameCount>(std::llround(frame));
+    seekExact(target);
+}
+
+void PlaybackController::seekExact(FrameCount frame)
+{
+    // Integer transport requests must not make a round trip through double:
+    // that loses individual frames in long-duration projects.
     if (m_syncTimer.isActive()) {
         syncNow();
     }
     const FrameCount length = m_project->project().timeline().duration();
-    const FrameCount last = std::max<FrameCount>(length - 1, 0);
-    const auto target =
-        static_cast<FrameCount>(std::llround(std::clamp(frame, 0.0, static_cast<double>(last))));
+    const FrameCount last = length > 0 ? length - 1 : 0;
+    const FrameCount target = std::clamp(frame, FrameCount{0}, last);
     if (target != m_position) {
         m_position = target; // move the playhead immediately; the picture follows
         emit positionChanged();
@@ -144,13 +156,21 @@ bool PlaybackController::seekToTimecode(const QString& label)
     if (!frame || *frame < 0 || *frame >= length) {
         return false;
     }
-    seek(static_cast<double>(*frame));
+    seekExact(*frame);
     return true;
 }
 
 void PlaybackController::step(int frames)
 {
-    seek(static_cast<double>(m_position + frames));
+    const FrameCount length = m_project->project().timeline().duration();
+    const FrameCount last = length > 0 ? length - 1 : 0;
+    const FrameCount current = std::clamp(m_position, FrameCount{0}, last);
+    const FrameCount delta = frames;
+    // Saturate before adding: frame positions near INT64_MAX must never wrap.
+    const FrameCount target = delta > 0   ? (delta >= last - current ? last : current + delta)
+                              : delta < 0 ? (-delta >= current ? 0 : current + delta)
+                                          : current;
+    seekExact(target);
 }
 
 bool PlaybackController::skipSeconds(int seconds)
@@ -162,14 +182,24 @@ bool PlaybackController::skipSeconds(int seconds)
     // Multiply the exact project rate, not the nominal SMPTE timecode rate
     // (30 fps would be wrong for 30000/1001). Bound input to avoid overflow.
     const FrameRate rate = m_project->project().settings().frameRate;
-    const FrameCount magnitude = static_cast<FrameCount>(
-        std::llround(static_cast<double>(std::abs(seconds)) * rate.toDouble()));
-    const FrameCount delta = seconds < 0 ? -magnitude : magnitude;
-    const FrameCount target = std::clamp<FrameCount>(m_position + delta, 0, length - 1);
+    const FrameCount last = length - 1;
+    const double requested = static_cast<double>(std::abs(seconds)) * rate.toDouble();
+    if (!std::isfinite(requested) || requested <= 0.0) {
+        return false;
+    }
+    // A full-sequence skip needs no huge integer conversion, and the resulting
+    // sum cannot overflow even when the playhead is near INT64_MAX.
+    const FrameCount magnitude = requested >= static_cast<double>(last)
+                                     ? last
+                                     : static_cast<FrameCount>(std::llround(requested));
+    const FrameCount current = std::clamp(m_position, FrameCount{0}, last);
+    const FrameCount target = seconds < 0
+                                  ? (magnitude >= current ? 0 : current - magnitude)
+                                  : (magnitude >= last - current ? last : current + magnitude);
     if (target == m_position) {
         return false;
     }
-    seek(static_cast<double>(target));
+    seekExact(target);
     return true;
 }
 
@@ -180,7 +210,7 @@ bool PlaybackController::goToSequenceMidpoint()
         return false;
     }
     const FrameCount midpoint = (length - 1) / 2;
-    seek(static_cast<double>(midpoint));
+    seekExact(midpoint);
     return true;
 }
 
@@ -191,8 +221,8 @@ void PlaybackController::goToStart()
 
 void PlaybackController::goToEnd()
 {
-    seek(static_cast<double>(
-        std::max<FrameCount>(m_project->project().timeline().duration() - 1, 0)));
+    const FrameCount length = m_project->project().timeline().duration();
+    seekExact(length > 0 ? length - 1 : 0);
 }
 
 bool PlaybackController::savePreviewFrame(const QString& targetPath)

@@ -85,6 +85,8 @@ signals:
     void errorOccurred(const QString& message);
 
 private:
+    void seekExact(FrameCount frame);
+
     ProjectController* m_project;
     playback::PlaybackEngine m_engine;
     QTimer m_syncTimer;

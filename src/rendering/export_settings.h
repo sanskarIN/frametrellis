@@ -10,6 +10,8 @@
 #include <QString>
 #include <QStringList>
 
+#include <cstdint>
+
 namespace ft::rendering {
 
 /// Settings for exporting the timeline. The documented profile is an MP4 file with H.264 video
@@ -90,6 +92,11 @@ Status validateExport(const ExportSettings& settings, const Project& project,
 /// valid picture-only file must never be reported as a successful audio export,
 /// and a video-only export must not accidentally contain a soundtrack.
 Status verifyExportStreams(const MediaInfo& encoded, bool includeAudio);
+
+/// Check encoded MP4 duration without overflowing signed microsecond arithmetic.
+/// Reject nonpositive actual/expected durations and negative tolerances.
+bool encodedDurationMatches(std::int64_t actualUs, std::int64_t expectedUs,
+                            std::int64_t toleranceUs);
 
 /// Video encoders in order of preference; the first one MLT/FFmpeg provides is used.
 QStringList preferredVideoEncoders();

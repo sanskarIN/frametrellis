@@ -377,7 +377,7 @@ Status RenderRunner::run(const std::atomic<bool>& cancelRequested, const Started
     const Status streams =
         written ? verifyExportStreams(*written, m_settings.includeAudio) : Status{};
     if (!written || !streams || !expectedSize || !expectedRate ||
-        std::abs(written->durationUs - expectedUs) > toleranceUs) {
+        !encodedDurationMatches(written->durationUs, expectedUs, toleranceUs)) {
         QFile::remove(partPath);
         const QStorageInfo storage(QFileInfo(finalPath).absolutePath());
         const bool diskFull = storage.isValid() && storage.bytesAvailable() >= 0 &&

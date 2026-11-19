@@ -171,6 +171,27 @@ private slots:
         QVERIFY(!frames.isEmpty());
     }
 
+    void extremePreviewViewportCannotAllocateOversizedDecoderFrames()
+    {
+        // A high-resolution project is valid, but DPI/layout code must not
+        // request a full-resolution interactive decoder by passing INT_MAX.
+        Project highResolution = project();
+        ProjectSettings settings = highResolution.settings();
+        settings.width = 2560;
+        settings.height = 1440;
+        QVERIFY(highResolution.setSettings(settings));
+
+        playback::PlaybackEngine engine;
+        QSignalSpy frames(&engine, &playback::PlaybackEngine::frameReady);
+        engine.setMaximumPreviewSize(
+            QSize(std::numeric_limits<int>::max(), std::numeric_limits<int>::max()));
+        engine.setProject(highResolution);
+        engine.seek(0);
+        const QImage bounded = waitForFrameAt(frames, 0);
+        QVERIFY(!bounded.isNull());
+        QCOMPARE(bounded.size(), QSize(1920, 1080));
+    }
+
     void playsInRealTimeAndStopsAtTheEnd()
     {
         playback::PlaybackEngine engine;

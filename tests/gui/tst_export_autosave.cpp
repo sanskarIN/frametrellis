@@ -93,6 +93,54 @@ private slots:
         project.removeOwnAutosave();
     }
 
+    void malformedQualityInputCannotSilentlyEnableLosslessExport()
+    {
+        ProjectSettings profile;
+        profile.width = 320;
+        profile.height = 180;
+        profile.frameRate = FrameRate::integer(25);
+        Project original = Project::createNew(QStringLiteral("Quality input validation"), profile);
+        const auto asset = media::createAsset(testing::makeStill(
+            m_dir.path(), QStringLiteral("invalid-quality-still.png"), Qt::cyan, QSize(320, 180)));
+        QVERIFY(asset);
+        QVERIFY(original.addAsset(*asset));
+        Clip clip;
+        clip.id = createId();
+        clip.assetId = asset->id;
+        clip.duration = 25;
+        QVERIFY(original.timeline().insertClip(original.timeline().tracks()[0].id, clip,
+                                               original.sourceLookup()));
+        const QString projectPath = m_dir.filePath(QStringLiteral("quality-input.ftproj"));
+        QVERIFY(project_format::saveToFile(original, projectPath));
+        ui::ProjectController project;
+        QVERIFY(project.openProject(projectPath));
+        ui::ExportController exporter(&project, QStringLiteral(FT_RENDER_HELPER));
+
+        QVariantMap settings{
+            {QStringLiteral("presetId"), QStringLiteral("match")},
+            {QStringLiteral("outputPath"), m_dir.filePath(QStringLiteral("validated-quality.mp4"))},
+            {QStringLiteral("crf"), 20},
+            {QStringLiteral("audioBitrateKbps"), 192}};
+        QCOMPARE(exporter.validate(settings), QString());
+        // Genuine user-selected lossless quality (CRF 0) remains supported.
+        settings[QStringLiteral("crf")] = 0;
+        QCOMPARE(exporter.validate(settings), QString());
+
+        for (const QString& badQuality :
+             {QStringLiteral(""), QStringLiteral("invalid"), QStringLiteral("20.5"),
+              QStringLiteral("999999999999999999999")}) {
+            settings[QStringLiteral("crf")] = badQuality;
+            QVERIFY2(!exporter.validate(settings).isEmpty(), qPrintable(badQuality));
+        }
+        settings[QStringLiteral("crf")] = 18.5;
+        QVERIFY(!exporter.validate(settings).isEmpty());
+        settings[QStringLiteral("crf")] = 20;
+        settings[QStringLiteral("audioBitrateKbps")] = QStringLiteral("not-a-bitrate");
+        QVERIFY(!exporter.validate(settings).isEmpty());
+        settings[QStringLiteral("audioBitrateKbps")] = 192;
+        QCOMPARE(exporter.validate(settings), QString());
+    }
+
     void batchPreflightRejectsDuplicatesExistingFilesAndInvalidRanges()
     {
         ProjectSettings profile;

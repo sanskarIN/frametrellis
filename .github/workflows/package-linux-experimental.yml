@@ -133,7 +133,7 @@ jobs:
           mkdir -p "$RUNNER_TEMP/linux-cleanhost"
           docker build --tag frametrellis-cleanhost-smoke:24.04 - <<'DOCKERFILE'
           FROM ubuntu:24.04
-          RUN apt-get update && apt-get install -y --no-install-recommends \
+          RUN apt-get -o Acquire::Retries=5 update && apt-get -o Acquire::Retries=5 install -y --no-install-recommends \
               libgl1 libegl1 libopengl0 libxkbcommon0 libxkbcommon-x11-0 \
               libxcb-cursor0 libfontconfig1 libdbus-1-3 libasound2t64 \
               libharfbuzz0b libfribidi0 libpango-1.0-0 libcairo2 \

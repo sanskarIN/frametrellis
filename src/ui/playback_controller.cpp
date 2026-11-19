@@ -124,11 +124,10 @@ void PlaybackController::seek(double frame)
     }
     const FrameCount length = m_project->project().timeline().duration();
     const FrameCount last = length > 0 ? length - 1 : 0;
-    const FrameCount target =
-        frame <= 0.0 ? 0
-        : frame >= static_cast<double>(last)
-            ? last
-            : static_cast<FrameCount>(std::llround(frame));
+    const FrameCount target = frame <= 0.0 ? 0
+                              : frame >= static_cast<double>(last)
+                                  ? last
+                                  : static_cast<FrameCount>(std::llround(frame));
     seekExact(target);
 }
 

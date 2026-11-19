@@ -42,11 +42,6 @@ QString describe(const MediaInfo& info)
     return parts.join(QStringLiteral(", "));
 }
 
-bool closeTo(std::int64_t micros, std::int64_t expected)
-{
-    return std::abs(micros - expected) <= 100'000;
-}
-
 } // namespace
 
 bool SelfTestReport::passed() const
@@ -137,7 +132,8 @@ SelfTestReport runSelfTest(const QString& workDirectory,
     }
     const MediaInfo& video = assets[0].info;
     const bool probed = video.hasVideo && video.hasAudio &&
-                        closeTo(video.durationUs, kClipMicros) && assets[1].info.hasAudio &&
+                        encodedDurationMatches(video.durationUs, kClipMicros, 100'000) &&
+                        assets[1].info.hasAudio &&
                         assets[2].info.kind == MediaKind::Image;
     if (!record(QStringLiteral("probe"), probed,
                 QStringLiteral("video: %1; tone: %2; image: %3x%4")
@@ -254,10 +250,10 @@ SelfTestReport runSelfTest(const QString& workDirectory,
 
     // 6. The exported file has the expected shape.
     Result<MediaInfo> output = media::probeMedia(report.outputPath);
+    const auto expectedDuration = settings.frameRate.framesToMicroseconds(clipLength).value_or(0);
     const bool verified = output && output->hasVideo && output->hasAudio &&
                           output->width == settings.width && output->height == settings.height &&
-                          closeTo(output->durationUs,
-                                  settings.frameRate.framesToMicroseconds(clipLength).value_or(0));
+                          encodedDurationMatches(output->durationUs, expectedDuration, 100'000);
     record(QStringLiteral("verify"), verified,
            output ? describe(*output) : output.error().toString());
     return report;

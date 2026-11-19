@@ -133,8 +133,7 @@ SelfTestReport runSelfTest(const QString& workDirectory,
     const MediaInfo& video = assets[0].info;
     const bool probed = video.hasVideo && video.hasAudio &&
                         encodedDurationMatches(video.durationUs, kClipMicros, 100'000) &&
-                        assets[1].info.hasAudio &&
-                        assets[2].info.kind == MediaKind::Image;
+                        assets[1].info.hasAudio && assets[2].info.kind == MediaKind::Image;
     if (!record(QStringLiteral("probe"), probed,
                 QStringLiteral("video: %1; tone: %2; image: %3x%4")
                     .arg(describe(video), describe(assets[1].info))

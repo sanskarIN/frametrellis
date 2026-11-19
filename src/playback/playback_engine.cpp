@@ -601,8 +601,15 @@ void PlaybackEngine::step(int frames)
 
 void PlaybackEngine::setMaximumPreviewSize(QSize size)
 {
+    if (size.isEmpty()) {
+        return;
+    }
+    // QML viewport sizes are influenced by DPI and layout. A malformed or
+    // extreme request must not turn preview resizing into a multi-8K decoder
+    // allocation: 1080p is the maximum interactive monitor render size.
+    constexpr QSize kMaxPreviewSize(1920, 1080);
     Command c{Command::Type::PreviewSize};
-    c.size = size;
+    c.size = size.boundedTo(kMaxPreviewSize);
     m_worker->post(std::move(c));
 }
 

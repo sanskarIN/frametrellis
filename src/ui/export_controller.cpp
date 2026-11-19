@@ -193,13 +193,19 @@ rendering::ExportSettings ExportController::toSettings(const QVariantMap& map) c
     }
     s.outputPath = ProjectController::localPath(map.value(QStringLiteral("outputPath")).toString());
     if (map.contains(QStringLiteral("crf"))) {
-        s.crf = map.value(QStringLiteral("crf")).toInt();
+        // QVariant::toInt() without a conversion check turns malformed quality
+        // inputs into 0, a valid *lossless* CRF with unexpectedly heavy output.
+        bool valid = false;
+        const int crf = map.value(QStringLiteral("crf")).toString().toInt(&valid);
+        s.crf = valid ? crf : -1;
     }
     if (map.contains(QStringLiteral("speedPreset"))) {
         s.speedPreset = map.value(QStringLiteral("speedPreset")).toString();
     }
     if (map.contains(QStringLiteral("audioBitrateKbps"))) {
-        s.audioBitrateKbps = map.value(QStringLiteral("audioBitrateKbps")).toInt();
+        bool valid = false;
+        const int bitrate = map.value(QStringLiteral("audioBitrateKbps")).toString().toInt(&valid);
+        s.audioBitrateKbps = valid ? bitrate : -1;
     }
     if (map.contains(QStringLiteral("includeAudio"))) {
         s.includeAudio = map.value(QStringLiteral("includeAudio")).toBool();

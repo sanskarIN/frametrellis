@@ -32,6 +32,8 @@ jobs:
       - uses: actions/checkout@v6
       - name: Install Qt/media build dependencies and AppImage tools
         run: |
+          sudo install -m 0644 packaging/linux/apt-retries.conf /etc/apt/apt.conf.d/80-frametrellis-ci-retries
+          # Keep installation strict: a permanent package failure still fails CI.
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends \
             build-essential ninja-build pkg-config file curl patchelf desktop-file-utils \

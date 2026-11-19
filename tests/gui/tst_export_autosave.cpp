@@ -116,11 +116,11 @@ private slots:
         QVERIFY(project.openProject(projectPath));
         ui::ExportController exporter(&project, QStringLiteral(FT_RENDER_HELPER));
 
-        QVariantMap settings{{QStringLiteral("presetId"), QStringLiteral("match")},
-                             {QStringLiteral("outputPath"),
-                              m_dir.filePath(QStringLiteral("validated-quality.mp4"))},
-                             {QStringLiteral("crf"), 20},
-                             {QStringLiteral("audioBitrateKbps"), 192}};
+        QVariantMap settings{
+            {QStringLiteral("presetId"), QStringLiteral("match")},
+            {QStringLiteral("outputPath"), m_dir.filePath(QStringLiteral("validated-quality.mp4"))},
+            {QStringLiteral("crf"), 20},
+            {QStringLiteral("audioBitrateKbps"), 192}};
         QCOMPARE(exporter.validate(settings), QString());
         // Genuine user-selected lossless quality (CRF 0) remains supported.
         settings[QStringLiteral("crf")] = 0;

@@ -4394,9 +4394,8 @@ private slots:
     void exportDialogKeepsFooterReachableWhenWindowIsShort()
     {
         const QSize previousSize = m_window->size();
-        const auto restoreSize = qScopeGuard([this, previousSize] {
-            m_window->resize(previousSize);
-        });
+        const auto restoreSize =
+            qScopeGuard([this, previousSize] { m_window->resize(previousSize); });
         m_window->resize(1100, 630);
         QObject* dialog = m_window->findChild<QObject*>(QStringLiteral("exportDialog"));
         QVERIFY(dialog);

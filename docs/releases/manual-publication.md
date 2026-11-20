@@ -1,5 +1,12 @@
 # Publish FrameTrellis from your GitHub account (automatic asset attachment)
 
+> **Version-specific procedures override this historical legacy page.**
+> FrameTrellis v1.5.0 was published on 16 November 2026 with five Windows/source-build
+> assets. The *new* v1.5.1 candidate uses a separately approved, exact-version
+> [v1.5.1 owner runbook](v1.5.1-owner-release-runbook.md) and
+> [v1.5.1 uploader](../../.github/workflows/release-assets-v151-source.yml).
+> Do not treat the old blocked 14-file v1.5.0 plan below as current status.
+>
 The repository owner creates and **publishes** the stable GitHub Release through GitHub's
 Releases interface. **This five-file procedure applies only to approved
 Windows-only stable releases through v1.4.x**, not the upcoming three-platform

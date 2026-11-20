@@ -5,10 +5,15 @@ GitHub release description. Unreleased changes are collected in [unreleased.md](
 
 ## Next patch candidate
 
-[v1.5.1 draft notes](v1.5.1.md) and its [release gate](v1.5.1-preflight.md)
+[v1.5.1 candidate notes](v1.5.1.md) and its [release gate](v1.5.1-preflight.md)
 track post-v1.5.0 reliability changes. **v1.5.1 is not tagged or published.**
-The new uploader is limited to that exact version and requires manual owner
+A versioned offline candidate build does not grant publication approval.
+The uploader is limited to that exact version and requires separate manual owner
 approval, frozen-main build evidence and complete binary verification.
+
+The owner-facing [v1.5.1 release runbook](v1.5.1-owner-release-runbook.md)
+lists the non-publishing build process, physical QA and exact-tag manual steps
+for the proposed five-file Windows/source-build distribution.
 
 ## Latest stable release
 

@@ -502,10 +502,22 @@ private slots:
         settings.outputPath = m_dir.filePath(QStringLiteral("flood-helper.mp4"));
         RenderJob job(QStringLiteral(FT_STDOUT_RENDER_HELPER));
         QSignalSpy finished(&job, &RenderJob::finished);
+        QList<FrameCount> reported;
+        QList<FrameCount> reportedTotals;
+        QObject::connect(&job, &RenderJob::progressChanged, &job, [&] {
+            if (!job.encoder().isEmpty()) {
+                reported.append(job.framesDone());
+                reportedTotals.append(job.totalFrames());
+            }
+        });
         QVERIFY(job.start(original, settings));
         QVERIFY(finished.count() > 0 || finished.wait(20'000));
         QCOMPARE(job.state(), RenderJob::State::Failed);
         QCOMPARE(job.encoder(), QStringLiteral("flood-fixture"));
+        QCOMPARE(job.framesDone(), FrameCount{40});
+        QCOMPARE(job.totalFrames(), FrameCount{100});
+        QCOMPARE(reported, (QList<FrameCount>{0, 20, 40}));
+        QCOMPARE(reportedTotals, (QList<FrameCount>{100, 100, 100}));
         QVERIFY2(job.errorDetail().contains(QStringLiteral("0x0000002b")),
                  qPrintable(job.errorDetail()));
         QVERIFY(!QFile::exists(settings.outputPath));

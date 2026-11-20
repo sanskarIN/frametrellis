@@ -155,6 +155,7 @@ Status RenderJob::start(const Project& project, const ExportSettings& settings,
     m_buffer.clear();
     m_stderrTail.clear();
     m_discardingOversizedLine = false;
+    m_sawStarted = false;
     m_sawFinished = false;
     m_cancelSent = false;
     m_cancelKillIssued = false;
@@ -318,10 +319,11 @@ void RenderJob::handleEvent(const QJsonObject& event)
     const QString type = event.value(QLatin1String("event")).toString();
     if (type == QLatin1String("started")) {
         const auto total = protocol::frameCount(event.value(QLatin1String("total")));
-        if (!total || *total == 0) {
-            qCWarning(lcRender) << "Ignored invalid renderer started frame count";
+        if (!total || *total == 0 || m_sawStarted) {
+            qCWarning(lcRender) << "Ignored invalid or duplicate renderer started event";
             return;
         }
+        m_sawStarted = true;
         m_encoder = event.value(QLatin1String("encoder")).toString();
         m_totalFrames = *total;
         qCInfo(lcRender) << "Render helper started with encoder" << m_encoder << "and"
@@ -330,12 +332,15 @@ void RenderJob::handleEvent(const QJsonObject& event)
     } else if (type == QLatin1String("progress")) {
         const auto frame = protocol::frameCount(event.value(QLatin1String("frame")));
         const auto total = protocol::frameCount(event.value(QLatin1String("total")));
-        if (!frame || !total || *total == 0 || *frame > *total) {
-            qCWarning(lcRender) << "Ignored invalid renderer progress counts";
+        // Once started, the render has a fixed output frame count. Native
+        // helper bugs must not make progress jump backward or rewrite that
+        // count halfway through an export (which also distorts the ETA).
+        if (!m_sawStarted || m_sawFinished || !frame || !total || *total == 0 || *frame > *total ||
+            *total != m_totalFrames || *frame < m_framesDone) {
+            qCWarning(lcRender) << "Ignored out-of-order or invalid renderer progress counts";
             return;
         }
         m_framesDone = *frame;
-        m_totalFrames = *total;
         // Keep the last known export position in the editor's persistent log.
         // A sudden Windows process termination cannot run Qt shutdown handlers,
         // but the next startup can still correlate its timestamp with this marker.

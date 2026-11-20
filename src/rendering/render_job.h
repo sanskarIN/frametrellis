@@ -91,6 +91,7 @@ private:
     QString m_encoder;
     QString m_errorMessage;
     QString m_errorDetail;
+    bool m_sawStarted = false;
     bool m_sawFinished = false;
     bool m_cancelSent = false;
     bool m_cancelKillIssued = false;

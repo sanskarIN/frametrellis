@@ -321,6 +321,20 @@ Status verifyExportStreams(const MediaInfo& encoded, bool includeAudio)
     return {};
 }
 
+bool encodedDurationMatches(std::int64_t actualUs, std::int64_t expectedUs,
+                            std::int64_t toleranceUs)
+{
+    if (actualUs <= 0 || expectedUs <= 0 || toleranceUs < 0) {
+        return false;
+    }
+    // Positive signed 64-bit durations can be subtracted safely in either
+    // order, including when one value is INT64_MAX. Subtracting before
+    // validating a malformed probe result could cause signed overflow.
+    const std::int64_t difference =
+        actualUs > expectedUs ? actualUs - expectedUs : expectedUs - actualUs;
+    return difference <= toleranceUs;
+}
+
 QStringList preferredVideoEncoders()
 {
     return {QStringLiteral("libx264"), QStringLiteral("libopenh264"), QStringLiteral("h264_mf"),

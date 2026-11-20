@@ -165,6 +165,31 @@ private slots:
         QVERIFY(!verifyExportStreams(encoded, true));
     }
 
+    void encodedDurationMatchingRejectsOverflowAndMalformedMetadata()
+    {
+        QVERIFY(encodedDurationMatches(2'000'000, 2'000'000, 0));
+        QVERIFY(encodedDurationMatches(2'050'000, 2'000'000, 50'000));
+        QVERIFY(encodedDurationMatches(1'950'000, 2'000'000, 50'000));
+        QVERIFY(!encodedDurationMatches(2'050'001, 2'000'000, 50'000));
+        QVERIFY(!encodedDurationMatches(1'949'999, 2'000'000, 50'000));
+
+        // A zero or invalid probe duration must not pass just because the
+        // tolerance is larger than the expected clip.
+        QVERIFY(!encodedDurationMatches(0, 2'000, 10'000));
+        QVERIFY(!encodedDurationMatches(-1, 2'000, 10'000));
+        QVERIFY(!encodedDurationMatches(2'000, 0, 10'000));
+        QVERIFY(!encodedDurationMatches(2'000, -1, 10'000));
+        QVERIFY(!encodedDurationMatches(2'000, 2'000, -1));
+
+        const auto largest = std::numeric_limits<std::int64_t>::max();
+        const auto smallest = std::numeric_limits<std::int64_t>::min();
+        QVERIFY(!encodedDurationMatches(smallest, 2'000'000, 50'000));
+        QVERIFY(!encodedDurationMatches(largest, 2'000'000, 50'000));
+        QVERIFY(encodedDurationMatches(largest - 25, largest, 25));
+        QVERIFY(!encodedDurationMatches(largest - 26, largest, 25));
+        QVERIFY(encodedDurationMatches(largest, largest, 0));
+    }
+
     void batchOutputPublicationDoesNotReplaceExistingFiles()
     {
         const QString from = m_dir.filePath(QStringLiteral("no-overwrite.part.mp4"));

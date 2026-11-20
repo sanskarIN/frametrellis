@@ -4686,8 +4686,27 @@ private slots:
         QVERIFY(startFrame->setProperty("text", QStringLiteral("5")));
         QVERIFY(endFrame->setProperty("text", QStringLiteral("10")));
         QTRY_VERIFY(start->isEnabled());
+        // The batch button is below the fold in the scrollable export form.
+        // A click outside the Flickable viewport cannot exercise QML's batch
+        // action and would otherwise hang the full GUI suite until timeout.
+        QQuickItem* scroller =
+            findItem(m_window->contentItem(), QStringLiteral("exportSettingsScroll"));
+        QVERIFY(scroller);
+        const qreal currentScroll = scroller->property("contentY").toReal();
+        const qreal buttonCenter =
+            start->mapToItem(scroller, QPointF(start->width() / 2, start->height() / 2)).y();
+        const qreal maxScroll =
+            std::max(0.0, scroller->property("contentHeight").toReal() - scroller->height());
+        QVERIFY(scroller->setProperty(
+            "contentY", std::clamp(currentScroll + buttonCenter - scroller->height() / 2,
+                                   0.0, maxScroll)));
+        QTRY_VERIFY(start->mapToItem(scroller, QPointF(0, start->height() / 2)).y() >= 0);
+        QTRY_VERIFY(start->mapToItem(scroller, QPointF(0, start->height() / 2)).y() <
+                    scroller->height());
+        const QPoint buttonPosition = centreOf(start);
+        QVERIFY(buttonPosition.y() >= 0 && buttonPosition.y() < m_window->height());
         QSignalSpy finished(m_app->exporter(), &ui::ExportController::finished);
-        QTest::mouseClick(m_window, Qt::LeftButton, Qt::NoModifier, centreOf(start));
+        QTest::mouseClick(m_window, Qt::LeftButton, Qt::NoModifier, buttonPosition);
         QTRY_COMPARE_WITH_TIMEOUT(finished.size(), 1, 120'000);
         QVERIFY2(finished.first().at(0).toBool(), qPrintable(finished.first().at(1).toString()));
         QCOMPARE(m_app->exporter()->batchState(), QStringLiteral("succeeded"));

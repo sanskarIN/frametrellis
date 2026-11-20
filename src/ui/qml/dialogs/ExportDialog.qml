@@ -37,7 +37,8 @@ FtDialog {
     ]
 
     title: qsTr("Export video")
-    implicitWidth: 560
+    // Wider form leaves room for full preset names and output paths.
+    implicitWidth: 700
     closePolicy: exporter.busy ? Popup.NoAutoClose : Popup.CloseOnEscape
 
     function settings() {
@@ -129,17 +130,24 @@ FtDialog {
 
         // ---- Settings ----
         GridLayout {
+            objectName: "exportSettingsGrid"
             visible: !dialog.showProgress
             Layout.fillWidth: true
             columns: 2
+            // Pin every row/column explicitly: conditional range fields must
+            // never shift following labels and controls into opposite columns.
             columnSpacing: Theme.spacingM
             rowSpacing: Theme.spacingS
 
-            Label { text: qsTr("Preset"); color: Theme.textMuted }
+            Label { objectName: "exportPresetLabel"; Layout.row: 0; Layout.column: 0; text: qsTr("Preset"); color: Theme.textMuted }
             RowLayout {
+                Layout.row: 0
+                Layout.column: 1
                 Layout.fillWidth: true
                 ComboBox {
                     id: presetBox
+                    objectName: "exportPresetBox"
+                    Layout.minimumWidth: 180
                     Layout.fillWidth: true
                     model: dialog.exporter.presets
                     textRole: "name"
@@ -152,8 +160,9 @@ FtDialog {
                     onClicked: dialog.applyPreset(presetBox.currentIndex)
                 }
             }
-            Item { width: 1; height: 1 }
             Text {
+                Layout.row: 1
+                Layout.column: 1
                 Layout.fillWidth: true
                 text: presetBox.currentIndex >= 0 ? dialog.exporter.presets[presetBox.currentIndex].description : ""
                 color: Theme.textFaint
@@ -161,10 +170,13 @@ FtDialog {
                 wrapMode: Text.WordWrap
             }
 
-            Label { text: qsTr("Save to"); color: Theme.textMuted }
+            Label { Layout.row: 2; Layout.column: 0; text: qsTr("Save to"); color: Theme.textMuted }
             RowLayout {
+                Layout.row: 2
+                Layout.column: 1
                 Layout.fillWidth: true
                 TextField {
+                    objectName: "exportOutputPathField"
                     Layout.fillWidth: true
                     text: dialog.outputPath
                     onEditingFinished: dialog.outputPath = text
@@ -173,8 +185,10 @@ FtDialog {
                 FtButton { text: qsTr("Browse…"); onClicked: fileDialog.open() }
             }
 
-            Label { text: qsTr("Export FPS"); color: Theme.textMuted }
+            Label { objectName: "exportFpsLabel"; Layout.row: 3; Layout.column: 0; text: qsTr("Export FPS"); color: Theme.textMuted }
             RowLayout {
+                Layout.row: 3
+                Layout.column: 1
                 Layout.fillWidth: true
                 ComboBox {
                     id: fpsBox
@@ -194,8 +208,9 @@ FtDialog {
                     Accessible.name: qsTr("Custom export frame rate")
                 }
             }
-            Item { width: 1; height: 1 }
             Text {
+                Layout.row: 4
+                Layout.column: 1
                 Layout.fillWidth: true
                 text: qsTr("Changes the MP4 FPS only; project timing and audio speed stay unchanged.")
                 color: Theme.textFaint
@@ -203,9 +218,11 @@ FtDialog {
                 wrapMode: Text.WordWrap
             }
 
-            Label { text: qsTr("Timeline range"); color: Theme.textMuted }
+            Label { objectName: "exportRangeLabel"; Layout.row: 5; Layout.column: 0; text: qsTr("Timeline range"); color: Theme.textMuted }
             ComboBox {
                 id: rangeBox
+                Layout.row: 5
+                Layout.column: 1
                 objectName: "exportRangeBox"
                 Layout.fillWidth: true
                 model: [qsTr("Entire timeline"), qsTr("Selected clips' time span"),
@@ -214,6 +231,8 @@ FtDialog {
                 Accessible.name: qsTr("Export timeline range")
             }
             RowLayout {
+                Layout.row: 6
+                Layout.column: 1
                 Layout.fillWidth: true
                 visible: rangeBox.currentIndex === 2
                 spacing: Theme.spacingS
@@ -239,6 +258,8 @@ FtDialog {
                 }
             }
             Text {
+                Layout.row: 7
+                Layout.column: 1
                 Layout.fillWidth: true
                 text: qsTr("Frame numbers use project FPS; start is included, end is excluded. " +
                            "Selection mode exports every visible track across the selected time span. " +
@@ -248,10 +269,11 @@ FtDialog {
                 font.pixelSize: Theme.fontSizeSmall
                 wrapMode: Text.WordWrap
             }
-            Item { width: 1; height: 1 }
-
-            Label { text: qsTr("Quality"); color: Theme.textMuted }
+            Label { objectName: "exportQualityLabel"; Layout.row: 8; Layout.column: 0; text: qsTr("Quality"); color: Theme.textMuted }
             RowLayout {
+                objectName: "exportQualityRow"
+                Layout.row: 8
+                Layout.column: 1
                 Layout.fillWidth: true
                 Text { text: qsTr("Best"); color: Theme.textFaint; font.pixelSize: Theme.fontSizeSmall }
                 FtSlider {
@@ -265,17 +287,23 @@ FtDialog {
                 Text { text: "CRF " + quality.value; color: Theme.text; font.family: Theme.monoFamily; font.pixelSize: Theme.fontSizeSmall }
             }
 
-            Label { text: qsTr("Encoder speed"); color: Theme.textMuted }
+            Label { objectName: "exportSpeedLabel"; Layout.row: 9; Layout.column: 0; text: qsTr("Encoder speed"); color: Theme.textMuted }
             ComboBox {
                 id: speedBox
+                objectName: "exportSpeedBox"
+                Layout.row: 9
+                Layout.column: 1
                 Layout.fillWidth: true
                 model: dialog.exporter.speedPresets
                 currentIndex: 5
                 Accessible.name: qsTr("Encoder speed")
             }
 
-            Label { text: qsTr("Scaling"); color: Theme.textMuted }
+            Label { objectName: "exportScalingLabel"; Layout.row: 10; Layout.column: 0; text: qsTr("Scaling"); color: Theme.textMuted }
             ColumnLayout {
+                objectName: "exportScalingControls"
+                Layout.row: 10
+                Layout.column: 1
                 Layout.fillWidth: true
                 spacing: Theme.spacingS
                 FtCheckBox {
@@ -306,8 +334,11 @@ FtDialog {
                 }
             }
 
-            Label { text: qsTr("Audio"); color: Theme.textMuted }
+            Label { objectName: "exportAudioLabel"; Layout.row: 11; Layout.column: 0; text: qsTr("Audio"); color: Theme.textMuted }
             RowLayout {
+                objectName: "exportAudioControls"
+                Layout.row: 11
+                Layout.column: 1
                 FtCheckBox { id: audioCheck; checked: true; text: qsTr("Include audio (AAC)") }
                 ComboBox {
                     id: audioBox
@@ -319,8 +350,11 @@ FtDialog {
                 Text { text: qsTr("kbit/s"); color: Theme.textFaint; font.pixelSize: Theme.fontSizeSmall }
             }
 
-            Label { text: qsTr("Batch delivery"); color: Theme.textMuted }
+            Label { objectName: "exportBatchLabel"; Layout.row: 12; Layout.column: 0; text: qsTr("Batch delivery"); color: Theme.textMuted }
             ColumnLayout {
+                objectName: "exportBatchControls"
+                Layout.row: 12
+                Layout.column: 1
                 Layout.fillWidth: true
                 spacing: Theme.spacingS
                 RowLayout {
@@ -386,9 +420,10 @@ FtDialog {
                 }
             }
 
-            Item { width: 1; height: 1 }
             Text {
                 objectName: "exportOutputSummary"
+                Layout.row: 13
+                Layout.column: 1
                 Layout.fillWidth: true
                 text: dialog.exporter.describeOutput(dialog.settings())
                 color: Theme.textMuted
@@ -396,9 +431,10 @@ FtDialog {
                 wrapMode: Text.WordWrap
             }
 
-            Item { width: 1; height: 1 }
             Text {
                 id: validation
+                Layout.row: 14
+                Layout.column: 1
                 Layout.fillWidth: true
                 text: dialog.opened ? dialog.exporter.validate(dialog.settings()) : ""
                 visible: text.length > 0
@@ -505,7 +541,7 @@ FtDialog {
             onClicked: dialog.exporter.busy ? dialog.exporter.cancel() : dialog.close()
         }
         FtButton {
-            text: dialog.showProgress ? qsTr("New export") : qsTr("Export")
+            text: dialog.showProgress ? qsTr("New export") : qsTr("Export single MP4")
             primary: true
             visible: !dialog.exporter.busy
             enabled: dialog.showProgress || validation.text.length === 0

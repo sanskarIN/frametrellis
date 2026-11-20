@@ -4391,6 +4391,66 @@ private slots:
         m_app->project()->undo();
     }
 
+    void exportDialogGridKeepsLabelsBesideFieldsInEveryRangeMode()
+    {
+        // Regression for the screenshot where hidden optional range fields
+        // caused the automatic GridLayout flow to swap later labels and
+        // controls, shrinking the preset picker to its arrow width.
+        QObject* dialog = m_window->findChild<QObject*>(QStringLiteral("exportDialog"));
+        QVERIFY(dialog);
+        QVERIFY(QMetaObject::invokeMethod(dialog, "open"));
+        QTRY_VERIFY(dialog->property("opened").toBool());
+
+        auto item = [this](const char* name) {
+            return findItem(m_window->contentItem(), QString::fromLatin1(name));
+        };
+        QQuickItem* presetLabel = item("exportPresetLabel");
+        QQuickItem* preset = item("exportPresetBox");
+        QQuickItem* path = item("exportOutputPathField");
+        QQuickItem* fpsLabel = item("exportFpsLabel");
+        QQuickItem* fps = item("exportFrameRateBox");
+        QQuickItem* rangeLabel = item("exportRangeLabel");
+        QQuickItem* range = item("exportRangeBox");
+        QQuickItem* qualityLabel = item("exportQualityLabel");
+        QQuickItem* qualityRow = item("exportQualityRow");
+        QQuickItem* speedLabel = item("exportSpeedLabel");
+        QQuickItem* speed = item("exportSpeedBox");
+        QQuickItem* scalingLabel = item("exportScalingLabel");
+        QQuickItem* scaling = item("exportScalingControls");
+        QQuickItem* audioLabel = item("exportAudioLabel");
+        QQuickItem* audio = item("exportAudioControls");
+        QQuickItem* batchLabel = item("exportBatchLabel");
+        QQuickItem* batch = item("exportBatchControls");
+        QVERIFY(presetLabel && preset && path && fpsLabel && fps && rangeLabel && range);
+        QVERIFY(qualityLabel && qualityRow && speedLabel && speed && scalingLabel && scaling);
+        QVERIFY(audioLabel && audio && batchLabel && batch);
+
+        const auto aligned = [](const QQuickItem* label, const QQuickItem* control) {
+            const QPointF labelTop = label->mapToScene(QPointF(0, 0));
+            const QPointF controlTop = control->mapToScene(QPointF(0, 0));
+            const qreal labelCenterY = labelTop.y() + label->height() / 2;
+            const qreal controlCenterY = controlTop.y() + control->height() / 2;
+            return labelTop.x() + label->width() < controlTop.x() &&
+                   std::abs(labelCenterY - controlCenterY) < 35.0;
+        };
+        for (int mode : {0, 2, 1, 0}) {
+            QVERIFY(range->setProperty("currentIndex", mode));
+            QTRY_VERIFY(aligned(presetLabel, preset));
+            QVERIFY(aligned(fpsLabel, fps));
+            QVERIFY(aligned(rangeLabel, range));
+            QVERIFY(aligned(qualityLabel, qualityRow));
+            QVERIFY(aligned(speedLabel, speed));
+            QVERIFY(aligned(scalingLabel, scaling));
+            QVERIFY(aligned(audioLabel, audio));
+            QVERIFY(aligned(batchLabel, batch));
+            QVERIFY2(preset->width() >= 180, "Preset selector was reduced to arrow-only width");
+            QVERIFY2(path->width() >= 190, "Output file field became unreadably narrow");
+            QVERIFY(!preset->property("currentText").toString().isEmpty());
+        }
+        QVERIFY(QMetaObject::invokeMethod(dialog, "close"));
+        QTRY_VERIFY(!dialog->property("opened").toBool());
+    }
+
     void exportDialogValidatesAndExports()
     {
         QObject* dialog = m_window->findChild<QObject*>(QStringLiteral("exportDialog"));

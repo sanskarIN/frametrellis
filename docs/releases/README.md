@@ -3,6 +3,13 @@
 Release notes for each tagged version live in this folder (`vX.Y.Z.md`) and are used as the
 GitHub release description. Unreleased changes are collected in [unreleased.md](unreleased.md).
 
+## Next patch candidate
+
+[v1.5.1 draft notes](v1.5.1.md) and its [release gate](v1.5.1-preflight.md)
+track post-v1.5.0 reliability changes. **v1.5.1 is not tagged or published.**
+The new uploader is limited to that exact version and requires manual owner
+approval, frozen-main build evidence and complete binary verification.
+
 ## Latest stable release
 
 **[FrameTrellis v1.5.0](https://github.com/sanskarIN/frametrellis/releases/tag/v1.5.0)**

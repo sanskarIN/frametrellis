@@ -13,9 +13,11 @@ on:
     paths:
       - "CMakeLists.txt"
       - "docs/releases/v1.5.0.md"
+      - "docs/releases/v1.5.1.md"
       - ".github/workflows/release.yml"
       - ".github/workflows/release-assets.yml"
       - ".github/workflows/release-assets-v15-source.yml"
+      - ".github/workflows/release-assets-v151-source.yml"
   workflow_dispatch:
 
 permissions:
@@ -48,11 +50,13 @@ jobs:
           tag="v$project"
           echo "Preparing an offline candidate bundle for $tag; this job cannot publish or approve."
           # Legacy versions retain the strict old Windows-only gate.
-          # Only v1.5.0 explicitly opts into the Windows binaries + Linux/macOS
-          # supported-from-source release scope. No other stable version inherits it.
+          # Source-build scope is opt-in per exact stable patch version;
+          # supporting v1.5.1 here does not approve publication.
           policy="--windows-only-assets"
           if [[ "$project" == "1.5.0" ]]; then
             policy="--v15-source-build-assets"
+          elif [[ "$project" == "1.5.1" ]]; then
+            policy="--v151-source-build-assets"
           fi
           if ! python3 packaging/release_version.py --tag "$tag" \
                  --project-version "$project" "$policy" >> "$GITHUB_OUTPUT"; then

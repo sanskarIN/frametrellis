@@ -335,8 +335,8 @@ void RenderJob::handleEvent(const QJsonObject& event)
         // Once started, the render has a fixed output frame count. Native
         // helper bugs must not make progress jump backward or rewrite that
         // count halfway through an export (which also distorts the ETA).
-        if (!m_sawStarted || m_sawFinished || !frame || !total || *total == 0 ||
-            *frame > *total || *total != m_totalFrames || *frame < m_framesDone) {
+        if (!m_sawStarted || m_sawFinished || !frame || !total || *total == 0 || *frame > *total ||
+            *total != m_totalFrames || *frame < m_framesDone) {
             qCWarning(lcRender) << "Ignored out-of-order or invalid renderer progress counts";
             return;
         }

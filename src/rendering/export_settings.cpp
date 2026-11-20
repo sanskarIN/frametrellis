@@ -149,6 +149,13 @@ Result<ExportFrameBounds> resolveExportFrameBounds(const ExportSettings& setting
 
 QSize outputSize(const ExportSettings& settings, const ProjectSettings& project)
 {
+    // Callers may supply project settings from an unsanitized in-memory
+    // project. Reject invalid dimensions before dividing by width or
+    // narrowing a rounded floating-point dimension to int.
+    if (project.width < kMinFrameDimension || project.height < kMinFrameDimension ||
+        project.width > kMaxFrameDimension || project.height > kMaxFrameDimension) {
+        return {};
+    }
     // A nonzero width overrides the preset's short-side sizing for this export
     // only. Keep the original aspect ratio and round the derived height to even
     // pixels, as required by H.264's yuv420p encoder. Validation checks bounds.

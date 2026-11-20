@@ -107,6 +107,28 @@ private slots:
         QVERIFY(validateExport(settings, original));
     }
 
+    void sizingRejectsMalformedProjectDimensionsBeforeArithmetic()
+    {
+        ExportSettings settings = settingsFor(QStringLiteral("malformed-size.mp4"));
+        const ProjectSettings valid = projectWithClip().settings();
+        settings.customWidth = 1280;
+        QCOMPARE(outputSize(settings, valid), QSize(1280, 720));
+
+        for (const QSize invalid : {QSize(0, 1080), QSize(-1, 1080), QSize(1920, 0),
+                                    QSize(1920, -1), QSize(std::numeric_limits<int>::max(), 1080),
+                                    QSize(1920, std::numeric_limits<int>::max())}) {
+            ProjectSettings project = valid;
+            project.width = invalid.width();
+            project.height = invalid.height();
+            // Both custom-width and short-side export paths must fail closed.
+            settings.customWidth = 1280;
+            QCOMPARE(outputSize(settings, project), QSize());
+            settings.customWidth = 0;
+            settings.shortSide = 1080;
+            QCOMPARE(outputSize(settings, project), QSize());
+        }
+    }
+
     void customWidthRejectsInvalidAndOversizeOutput()
     {
         const Project original = projectWithClip();

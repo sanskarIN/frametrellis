@@ -42,7 +42,7 @@ class PatchReleaseWorkflowTests(unittest.TestCase):
         ):
             with self.subTest(token=token):
                 self.assertIn(token, source)
-        names = set(re.findall(r"FrameTrellis-1\\.5\\.1-windows-x64[.\\-][\\w.\\-]+", source))
+        names = set(re.findall(r"FrameTrellis-1\.5\.1-windows-x64[.\-][\w.\-]+", source))
         self.assertEqual(names, {
             "FrameTrellis-1.5.1-windows-x64-setup.exe",
             "FrameTrellis-1.5.1-windows-x64.zip",

@@ -111,7 +111,10 @@ def main() -> None:
     )
     policies.add_argument(
         "--v151-source-build-assets", action="store_true",
-        help="Explicit five-asset Windows binary + Linux/macOS source-build scope for stable v1.5.1 only.",
+        help=(
+            "Explicit five-asset Windows binary + Linux/macOS "
+            "source-build scope for stable v1.5.1 only."
+        ),
     )
     args = parser.parse_args()
     try:

@@ -4391,6 +4391,37 @@ private slots:
         m_app->project()->undo();
     }
 
+    void exportDialogKeepsFooterReachableWhenWindowIsShort()
+    {
+        const QSize previousSize = m_window->size();
+        const auto restoreSize = qScopeGuard([this, previousSize] {
+            m_window->resize(previousSize);
+        });
+        m_window->resize(1100, 630);
+        QObject* dialog = m_window->findChild<QObject*>(QStringLiteral("exportDialog"));
+        QVERIFY(dialog);
+        QVERIFY(QMetaObject::invokeMethod(dialog, "open"));
+        QTRY_VERIFY(dialog->property("opened").toBool());
+
+        QQuickItem* scroller =
+            findItem(m_window->contentItem(), QStringLiteral("exportSettingsScroll"));
+        QQuickItem* exportButton =
+            findItem(m_window->contentItem(), QStringLiteral("exportSingleMp4Button"));
+        QVERIFY(scroller && exportButton);
+        QTRY_VERIFY(dialog->property("height").toReal() <= m_window->height() - 30);
+        QTRY_VERIFY(scroller->property("contentHeight").toReal() > scroller->height() + 40);
+        QVERIFY(exportButton->isVisible());
+        const QPointF exportPosition = exportButton->mapToScene(QPointF(0, 0));
+        QVERIFY(exportPosition.y() >= 0);
+        QVERIFY(exportPosition.y() + exportButton->height() <= m_window->height());
+
+        // The last settings remain reachable without moving the primary action.
+        QVERIFY(scroller->setProperty("contentY", 120.0));
+        QTRY_VERIFY(scroller->property("contentY").toReal() > 60.0);
+        QVERIFY(QMetaObject::invokeMethod(dialog, "close"));
+        QTRY_VERIFY(!dialog->property("opened").toBool());
+    }
+
     void exportDialogGridKeepsLabelsBesideFieldsInEveryRangeMode()
     {
         // Regression for the screenshot where hidden optional range fields

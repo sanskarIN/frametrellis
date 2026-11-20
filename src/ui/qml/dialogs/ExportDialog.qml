@@ -39,6 +39,9 @@ FtDialog {
     title: qsTr("Export video")
     // Wider form leaves room for full preset names and output paths.
     implicitWidth: 700
+    // Keep the title and action footer visible on laptop-size displays.
+    // Only the form scrolls when it exceeds the available viewport.
+    height: Math.min(implicitHeight, parent ? parent.height - 32 : implicitHeight)
     closePolicy: exporter.busy ? Popup.NoAutoClose : Popup.CloseOnEscape
 
     function settings() {
@@ -96,6 +99,7 @@ FtDialog {
     }
 
     onOpened: {
+        exportSettingsScroll.contentY = 0
         if (!exporter.busy && (exporter.state !== "idle" || exporter.batchTotal > 0))
             exporter.reset()
         batchWarning = ""
@@ -126,7 +130,19 @@ FtDialog {
         onSaveRequested: dialog.exporter.start(dialog.settings())
     }
 
-    contentItem: ColumnLayout {
+    contentItem: Flickable {
+        id: exportSettingsScroll
+        objectName: "exportSettingsScroll"
+        implicitHeight: exportContent.implicitHeight
+        contentWidth: width
+        contentHeight: exportContent.implicitHeight
+        clip: true
+        boundsBehavior: Flickable.StopAtBounds
+        ScrollBar.vertical: ScrollBar { policy: ScrollBar.AsNeeded }
+
+        ColumnLayout {
+            id: exportContent
+            width: exportSettingsScroll.width
 
         // ---- Settings ----
         GridLayout {
@@ -521,6 +537,7 @@ FtDialog {
                 wrapMode: Text.WordWrap
             }
         }
+        }
     }
 
     footer: DialogButtons {
@@ -541,6 +558,7 @@ FtDialog {
             onClicked: dialog.exporter.busy ? dialog.exporter.cancel() : dialog.close()
         }
         FtButton {
+            objectName: "exportSingleMp4Button"
             text: dialog.showProgress ? qsTr("New export") : qsTr("Export single MP4")
             primary: true
             visible: !dialog.exporter.busy

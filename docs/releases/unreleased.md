@@ -10,14 +10,17 @@ They do not override the published v1.5.0 notes.
 
 ## Post-v1.5.0 maintenance candidate
 
-Current main-branch fixes being evaluated for a future **v1.5.1** patch include
-[#296](https://github.com/sanskarIN/frametrellis/pull/296) (overflow-safe
-encoded-duration comparison), [#298](https://github.com/sanskarIN/frametrellis/pull/298)
-(bounded Linux package mirror retries) and
-[#299](https://github.com/sanskarIN/frametrellis/pull/299)
-(exact integer playhead transport with saturating jumps).
-See the [draft patch notes](v1.5.1.md) and [release gate](v1.5.1-preflight.md).
-These changes are not included in the v1.5.0 published binaries.
+The **v1.5.1 release candidate** includes overflow-safe duration verification
+[#296](https://github.com/sanskarIN/frametrellis/pull/296), bounded Linux
+package-mirror retries [#298](https://github.com/sanskarIN/frametrellis/pull/298),
+exact integer playback transport [#299](https://github.com/sanskarIN/frametrellis/pull/299),
+renderer progress safety [#302](https://github.com/sanskarIN/frametrellis/pull/302),
+invalid resolution input protection [#303](https://github.com/sanskarIN/frametrellis/pull/303)
+and the repaired export dialog [#304](https://github.com/sanskarIN/frametrellis/pull/304).
+See the [candidate release notes](v1.5.1.md) and
+[unresolved acceptance gates](v1.5.1-preflight.md).
+These changes are not included in the v1.5.0 published binaries; the 1.5.1
+candidate is not itself a published release.
 
 ## Future work after v1.5.0
 

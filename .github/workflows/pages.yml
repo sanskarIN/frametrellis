@@ -13,6 +13,7 @@ on:
       - "Attach verified release assets"
       - "Attach approved v1.5.0 three-platform assets"
       - "Attach approved v1.5.0 Windows assets (source builds on Linux and macOS)"
+      - "Attach approved v1.5.1 Windows assets (source builds on Linux and macOS)"
     types: [completed]
   push:
     branches: [main]

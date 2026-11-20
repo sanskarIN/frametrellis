@@ -8,6 +8,17 @@ before v1.5.0 publication, not a current list of unreleased functionality.
 Statements comparing features with v1.4.0 are retained as historical context.
 They do not override the published v1.5.0 notes.
 
+## Post-v1.5.0 maintenance candidate
+
+Current main-branch fixes being evaluated for a future **v1.5.1** patch include
+[#296](https://github.com/sanskarIN/frametrellis/pull/296) (overflow-safe
+encoded-duration comparison), [#298](https://github.com/sanskarIN/frametrellis/pull/298)
+(bounded Linux package mirror retries) and
+[#299](https://github.com/sanskarIN/frametrellis/pull/299)
+(exact integer playhead transport with saturating jumps).
+See the [draft patch notes](v1.5.1.md) and [release gate](v1.5.1-preflight.md).
+These changes are not included in the v1.5.0 published binaries.
+
 ## Future work after v1.5.0
 
 Priorities include verified proxy generation, audio metering, long-timeline

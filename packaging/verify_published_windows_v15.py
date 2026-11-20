@@ -17,8 +17,8 @@ from verify_candidate_matrix import digest_file
 
 
 def expected_names(version: str) -> set[str]:
-    if version != "1.5.0":
-        raise ValueError("Five-file source-build distribution is v1.5.0 only")
+    if version not in {"1.5.0", "1.5.1"}:
+        raise ValueError("Five-file source-build distribution is approved only for v1.5.0 or v1.5.1")
     return {
         f"FrameTrellis-{version}-windows-x64-setup.exe",
         f"FrameTrellis-{version}-windows-x64.zip",

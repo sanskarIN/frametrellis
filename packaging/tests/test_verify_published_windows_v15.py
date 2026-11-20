@@ -30,9 +30,23 @@ class PublishedWindowsV15Tests(unittest.TestCase):
     def test_exact_set_succeeds(self):
         self.assertEqual(len(verify(self.assets, self.root, "1.5.0")), 5)
 
-    def test_version_cannot_silently_change(self):
-        with self.assertRaisesRegex(ValueError, "v1.5.0 only"):
-            verify(self.assets, self.root, "1.5.1")
+    def test_unsupported_version_cannot_silently_change(self):
+        with self.assertRaisesRegex(ValueError, "v1.5.0 or v1.5.1"):
+            verify(self.assets, self.root, "1.5.2")
+
+    def test_v151_requires_its_own_exact_verified_asset_set(self):
+        version = "1.5.1"
+        candidate = []
+        for name in sorted(expected_names(version)):
+            data = b"v151 test fixture/" + name.encode("utf-8")
+            (self.root / name).write_bytes(data)
+            candidate.append({
+                "name": name, "size": len(data), "state": "uploaded",
+                "digest": "sha256:" + hashlib.sha256(data).hexdigest(),
+            })
+        self.assertEqual(len(verify(candidate, self.root, version)), 5)
+        with self.assertRaises(ValueError):
+            verify(self.assets, self.root, version)
 
     def test_missing_extra_and_duplicate_rejected(self):
         for changed in (

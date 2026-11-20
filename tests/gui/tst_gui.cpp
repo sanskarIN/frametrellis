@@ -4698,8 +4698,8 @@ private slots:
         const qreal maxScroll =
             std::max(0.0, scroller->property("contentHeight").toReal() - scroller->height());
         QVERIFY(scroller->setProperty(
-            "contentY", std::clamp(currentScroll + buttonCenter - scroller->height() / 2,
-                                   0.0, maxScroll)));
+            "contentY",
+            std::clamp(currentScroll + buttonCenter - scroller->height() / 2, 0.0, maxScroll)));
         QTRY_VERIFY(start->mapToItem(scroller, QPointF(0, start->height() / 2)).y() >= 0);
         QTRY_VERIFY(start->mapToItem(scroller, QPointF(0, start->height() / 2)).y() <
                     scroller->height());

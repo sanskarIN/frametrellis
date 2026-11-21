@@ -19,8 +19,12 @@ bool mulOverflows(std::int64_t a, std::int64_t b, std::int64_t* out)
 #else
     if (a != 0 && b != 0) {
         const auto maxValue = std::numeric_limits<std::int64_t>::max();
+        const auto minValue = std::numeric_limits<std::int64_t>::min();
+        // Signed int64 has one more negative value than positive values.
+        // Using -maxValue as the lower bound incorrectly rejects valid products
+        // such as INT64_MIN * 1 on MSVC (which lacks __builtin_mul_overflow).
         if ((a > 0 && b > 0 && a > maxValue / b) || (a < 0 && b < 0 && a < maxValue / b) ||
-            (a > 0 && b < 0 && b < -maxValue / a) || (a < 0 && b > 0 && a < -maxValue / b)) {
+            (a > 0 && b < 0 && b < minValue / a) || (a < 0 && b > 0 && a < minValue / b)) {
             return true;
         }
     }

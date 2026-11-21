@@ -4,7 +4,15 @@
 
 ## How was it tested?
 
-<!-- Commands you ran and their results; new or updated tests. -->
+<!-- List exact commands and results. Mark unavailable checks as NOT RUN, not passed.
+Include unit/GUI/integration checks appropriate to your change. For GitHub Actions,
+review the latest branch head SHA rather than relying on a prior green run. -->
+
+## Integration and release status
+
+<!-- Does this modify shared QML menus, controllers, shortcuts or project/export paths?
+List possible overlap with open PRs. Do not claim the feature is in a stable release
+before its merge, verification and publication. -->
 
 ## Checklist
 

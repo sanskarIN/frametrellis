@@ -19,7 +19,8 @@ enum class Style {
 /// Formats a frame number as SMPTE timecode. Negative values are prefixed with '-'.
 QString format(FrameCount frames, const FrameRate& rate, Style style = Style::Automatic);
 
-/// Parses "HH:MM:SS:FF", "MM:SS:FF", "SS:FF" or "FF". A ';' separator selects drop-frame.
+/// Parses "HH:MM:SS:FF", "MM:SS:FF", "SS:FF" or "FF". A single ';' immediately
+/// before the final frame field selects drop-frame counting at supported rates.
 /// Returns std::nullopt for malformed input, out-of-range fields or non-existent drop-frame labels.
 std::optional<FrameCount> parse(const QString& text, const FrameRate& rate);
 

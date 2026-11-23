@@ -75,7 +75,6 @@ std::strong_ordering compareUnsignedFractions(std::uint64_t aNum, std::uint64_t 
     }
 }
 
-
 /*
  * Compute a full unsigned 64-by-64 product as two 64-bit words. Splitting
  * operands into 32-bit halves avoids compiler-specific __int128 (MSVC), and

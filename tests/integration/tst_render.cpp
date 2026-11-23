@@ -426,9 +426,9 @@ private slots:
 
     void rendererCannotClaimSuccessWithIncorrectFrameTotal()
     {
-        // The editor derives the expected 25 output frames from the frozen
-        // project before launching the child. A helper that claims 26 frames,
-        // reports finished and exits zero must never authenticate a stale MP4.
+        // This 25-fps fixture spans 40 timeline frames. A helper that claims
+        // 41 frames, reports finished and exits zero must not authenticate
+        // a stale MP4 instead of a newly completed 40-frame render.
         const Project original = project(25);
         ExportSettings settings;
         settings.outputPath = m_dir.filePath(QStringLiteral("fixture-wrong-total-success.mp4"));

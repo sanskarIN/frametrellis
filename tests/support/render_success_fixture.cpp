@@ -29,13 +29,14 @@ int main(int argc, char* argv[])
     const bool contradictoryPath =
         output.find("fixture-contradictory-success") != std::string::npos;
     const bool noStart = output.find("fixture-no-start-success") != std::string::npos;
+    const bool wrongTotal = output.find("fixture-wrong-total-success") != std::string::npos;
     if (output.find("fixture-empty-success") != std::string::npos) {
         std::ofstream file(output, std::ios::binary);
         if (!file) {
             return 2;
         }
     } else if (output.find("fixture-nonempty-success") != std::string::npos || missingPath ||
-               mismatchedPath || relativePath || contradictoryPath || noStart) {
+               mismatchedPath || relativePath || contradictoryPath || noStart || wrongTotal) {
         std::ofstream file(output, std::ios::binary);
         if (!file) {
             return 2;
@@ -43,8 +44,13 @@ int main(int argc, char* argv[])
         file.write("test", 4);
     }
     if (!noStart) {
-        std::fputs("@ft {\"event\":\"started\",\"encoder\":\"synthetic-fixture\",\"total\":25}\n",
-                   stdout);
+        if (wrongTotal) {
+            std::fputs("@ft {\"event\":\"started\",\"encoder\":\"synthetic-fixture\",\"total\":26}\n",
+                       stdout);
+        } else {
+            std::fputs("@ft {\"event\":\"started\",\"encoder\":\"synthetic-fixture\",\"total\":25}\n",
+                       stdout);
+        }
     }
     auto emitFinished = [](const QJsonObject& event) {
         const QByteArray line =

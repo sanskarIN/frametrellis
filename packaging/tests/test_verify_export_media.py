@@ -117,6 +117,19 @@ class IndependentExportVerifierTests(unittest.TestCase):
         info["format"]["duration"] = "59.5"
         self.assertEqual(checker.probe_problems(info, Fraction(25), 640, 360, 60.0), [])
 
+    def test_thirty_minute_render_cannot_hide_missing_seconds(self):
+        info = synthetic_probe()
+        # A plain 2% window would allow a 36-second truncation at 30 minutes.
+        for short_duration in ("1797.0", "1803.0"):
+            info["format"]["duration"] = short_duration
+            problems = checker.probe_problems(info, Fraction(25), 640, 360, 1800.0)
+            self.assertTrue(any("container duration" in p for p in problems))
+        for close_duration in ("1799.0", "1801.0"):
+            info["format"]["duration"] = close_duration
+            self.assertEqual(
+                checker.probe_problems(info, Fraction(25), 640, 360, 1800.0), []
+            )
+
     def test_missing_json_metadata_rejected(self):
         self.assertTrue(self.inspect(None))
         self.assertTrue(self.inspect({}))

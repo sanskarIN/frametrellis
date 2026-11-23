@@ -155,6 +155,48 @@ class IndependentExportVerifierTests(unittest.TestCase):
                 self.assertEqual(checker.verify(media, Fraction(25), 640, 360, 2.0, -60), [])
                 self.assertEqual(run.call_count, 3)
                 self.assertEqual(run.call_args_list[1].args[0][0], "ffmpeg")
+                self.assertEqual(run.call_args_list[1].kwargs["timeout"], 60)
+                self.assertEqual(run.call_args_list[2].kwargs["timeout"], 60)
+
+    def test_long_decode_timeout_is_passed_to_both_ffmpeg_streams(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            media = Path(tmp) / "long-review.mp4"
+            media.write_bytes(b"x" * 2048)
+            reports = [
+                subprocess.CompletedProcess([], 0, stdout=json.dumps(synthetic_probe()), stderr=""),
+                subprocess.CompletedProcess([], 0, stdout="", stderr=""),
+                subprocess.CompletedProcess([], 0, stdout="", stderr="mean_volume: -22.0 dB"),
+            ]
+            with mock.patch.object(checker, "run_command", side_effect=reports) as run:
+                self.assertEqual(
+                    checker.verify(media, Fraction(25), 640, 360, 2.0, -60, 7200), []
+                )
+                self.assertEqual(run.call_count, 3)
+                # FFprobe still gets its short safe default. The two complete
+                # stream decodes can use the explicit physical-QA budget.
+                self.assertNotIn("timeout", run.call_args_list[0].kwargs)
+                self.assertEqual(run.call_args_list[1].kwargs["timeout"], 7200)
+                self.assertEqual(run.call_args_list[2].kwargs["timeout"], 7200)
+
+    def test_cli_decode_timeout_default_and_bounds(self):
+        with mock.patch.object(checker, "verify", return_value=[]) as verify:
+            with mock.patch("sys.argv", ["verify_export_media.py", "synthetic.mp4"]):
+                self.assertEqual(checker.main(), 0)
+                self.assertEqual(verify.call_args.args[-1], 60)
+            for seconds in (10, 1800, 7200):
+                with mock.patch("sys.argv", [
+                    "verify_export_media.py", "synthetic.mp4",
+                    "--decode-timeout-seconds", str(seconds),
+                ]):
+                    self.assertEqual(checker.main(), 0)
+                    self.assertEqual(verify.call_args.args[-1], seconds)
+            for seconds in (0, 9, 7201):
+                with mock.patch("sys.argv", [
+                    "verify_export_media.py", "synthetic.mp4",
+                    "--decode-timeout-seconds", str(seconds),
+                ]), self.assertRaises(SystemExit) as exited:
+                    checker.main()
+                self.assertEqual(exited.exception.code, 2)
 
     def test_silent_audio_rejected_even_when_probe_has_aac(self):
         with tempfile.TemporaryDirectory() as tmp:

@@ -179,14 +179,19 @@ def main() -> int:
     parser.add_argument("--min-mean-dbfs", type=float, default=-60.0)
     parser.add_argument(
         "--decode-timeout-seconds", type=int, default=60,
-        help="timeout for each full FFmpeg stream decode (60 for CI; up to 7200 for long physical exports)",
+        help=(
+            "timeout for each full FFmpeg stream decode "
+            "(60 for CI; up to 7200 for long physical exports)"
+        ),
     )
     args = parser.parse_args()
     fps = parse_rate(args.fps)
     if fps is None or args.width <= 0 or args.height <= 0 or (
         not math.isfinite(args.duration) or args.duration <= 0
     ) or not math.isfinite(args.min_mean_dbfs) or not 10 <= args.decode_timeout_seconds <= 7200:
-        parser.error("invalid expected FPS, dimensions, duration, audio threshold or decode timeout")
+        parser.error(
+            "invalid expected FPS, dimensions, duration, audio threshold or decode timeout"
+        )
     try:
         problems = verify(
             args.media, fps, args.width, args.height, args.duration, args.min_mean_dbfs,

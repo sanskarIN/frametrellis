@@ -47,6 +47,36 @@ private slots:
         QVERIFY(!Rational(-1, minimum).isValid());
     }
 
+    void rationalComparisonRemainsExactAtInt64Limits()
+    {
+        const auto max = std::numeric_limits<std::int64_t>::max();
+        const auto min = std::numeric_limits<std::int64_t>::min();
+
+        // Both cross-products exceed int64 and differ by just one.
+        // A floating-point fallback can incorrectly report equality on
+        // Windows, where long double has the same precision as double.
+        const Rational larger(max - 1, max);
+        const Rational smaller(max - 2, max - 1);
+        QVERIFY(larger > smaller);
+        QVERIFY(smaller < larger);
+        QVERIFY(!(larger == smaller));
+        QCOMPARE(larger <=> larger, std::strong_ordering::equal);
+
+        // Exact ordering must also reverse for negative magnitudes.
+        const Rational negativeLarger(-(max - 1), max);
+        const Rational negativeSmaller(-(max - 2), max - 1);
+        QVERIFY(negativeLarger < negativeSmaller);
+        QVERIFY(negativeSmaller > negativeLarger);
+        QVERIFY(Rational(min, max) < Rational(-1, 1));
+        QVERIFY(Rational(min, max) < Rational(0, 1));
+        QVERIFY(Rational(0, 1) < larger);
+
+        // Fractions near one must be ordered without losing the low bit of
+        // a large cross-product on any supported compiler.
+        QVERIFY(Rational(max, max - 1) > Rational(1, 1));
+        QVERIFY(Rational(-max, max - 1) < Rational(-1, 1));
+    }
+
     void rationalParsing_data()
     {
         QTest::addColumn<QString>("text");

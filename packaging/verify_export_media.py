@@ -1,6 +1,10 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 """Independently inspect a rendered MP4 with FFprobe and decode it with FFmpeg.
 
+Full-file video and audio decoding of 30+ minute physical test footage may
+take more than the short 60-second CI default. Use --decode-timeout-seconds
+to set a bounded per-stream limit; only a full successful decode passes.
+
 This is a release *regression gate*: FrameTrellis's own media probe cannot
 substitute for a second implementation checking the output bitstream. Tests
 use synthetic, locally generated media only; they never upload user footage.
@@ -114,6 +118,7 @@ def verify(
     height: int,
     duration: float,
     min_mean_dbfs: float,
+    decode_timeout_seconds: int = 60,
 ) -> list[str]:
     problems: list[str] = []
     if not media.is_file() or media.stat().st_size < 1024:
@@ -140,7 +145,7 @@ def verify(
     video = run_command([
         "ffmpeg", "-hide_banner", "-nostdin", "-v", "error",
         "-i", str(media), "-map", "0:v:0", "-an", "-f", "null", "-",
-    ])
+    ], timeout=decode_timeout_seconds)
     if video.returncode:
         problems.append(f"FFmpeg could not decode video: {video.stderr.strip()[-400:]}")
 
@@ -150,7 +155,7 @@ def verify(
         "ffmpeg", "-hide_banner", "-nostdin", "-v", "info",
         "-i", str(media), "-map", "0:a:0", "-vn",
         "-af", "volumedetect", "-f", "null", "-",
-    ])
+    ], timeout=decode_timeout_seconds)
     if audio.returncode:
         problems.append(f"FFmpeg could not decode audio: {audio.stderr.strip()[-400:]}")
     else:
@@ -171,15 +176,20 @@ def main() -> int:
     parser.add_argument("--height", type=int, default=360)
     parser.add_argument("--duration", type=float, default=2.0, help="seconds")
     parser.add_argument("--min-mean-dbfs", type=float, default=-60.0)
+    parser.add_argument(
+        "--decode-timeout-seconds", type=int, default=60,
+        help="timeout for each full FFmpeg stream decode (60 for CI; up to 7200 for long physical exports)",
+    )
     args = parser.parse_args()
     fps = parse_rate(args.fps)
     if fps is None or args.width <= 0 or args.height <= 0 or (
         not math.isfinite(args.duration) or args.duration <= 0
-    ) or not math.isfinite(args.min_mean_dbfs):
-        parser.error("invalid expected FPS, dimensions, duration or audio threshold")
+    ) or not math.isfinite(args.min_mean_dbfs) or not 10 <= args.decode_timeout_seconds <= 7200:
+        parser.error("invalid expected FPS, dimensions, duration, audio threshold or decode timeout")
     try:
         problems = verify(
-            args.media, fps, args.width, args.height, args.duration, args.min_mean_dbfs
+            args.media, fps, args.width, args.height, args.duration, args.min_mean_dbfs,
+            args.decode_timeout_seconds,
         )
     except RuntimeError as exc:
         problems = [str(exc)]

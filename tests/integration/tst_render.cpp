@@ -444,6 +444,7 @@ private slots:
         QVERIFY(job.start(original, settings));
         QVERIFY(finished.count() > 0 || finished.wait(15'000));
         QCOMPARE(job.state(), RenderJob::State::Failed);
+        QCOMPARE(job.totalFrames(), FrameCount{40}); // not the helper's false 41
         QVERIFY2(job.errorMessage().contains(QStringLiteral("output frame count")),
                  qPrintable(job.errorMessage()));
         QFile output(settings.outputPath);

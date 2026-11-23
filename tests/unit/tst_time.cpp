@@ -60,7 +60,7 @@ private slots:
         QVERIFY(larger > smaller);
         QVERIFY(smaller < larger);
         QVERIFY(!(larger == smaller));
-        QCOMPARE(larger <=> larger, std::strong_ordering::equal);
+        QVERIFY((larger <=> larger) == std::strong_ordering::equal);
 
         // Exact ordering must also reverse for negative magnitudes.
         const Rational negativeLarger(-(max - 1), max);

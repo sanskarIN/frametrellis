@@ -195,6 +195,10 @@ FtDialog {
                     objectName: "exportOutputPathField"
                     Layout.fillWidth: true
                     text: dialog.outputPath
+                    // Keep the active text edit and export settings in sync.
+                    // Clicking a non-focusable action must not export to the
+                    // previously committed filename while this field is active.
+                    onTextEdited: dialog.outputPath = text
                     onEditingFinished: dialog.outputPath = text
                     Accessible.name: qsTr("Output file")
                 }

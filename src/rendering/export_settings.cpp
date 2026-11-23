@@ -224,8 +224,12 @@ Status validateExport(const ExportSettings& settings, const Project& project,
                 .arg(offline));
     }
 
-    const QString path = settings.outputPath.trimmed();
-    if (path.isEmpty()) {
+    // Validate the same exact path that RenderJob and RenderRunner will use.
+    // Trimming here can make an invalid or relative requested filename appear
+    // absolute (or make a trailing-space extension look like ".mp4"), while
+    // the renderer subsequently writes to the untrimmed path instead.
+    const QString& path = settings.outputPath;
+    if (path.trimmed().isEmpty()) {
         return makeError(ErrorCode::InvalidArgument,
                          QStringLiteral("Choose where to save the exported file."));
     }

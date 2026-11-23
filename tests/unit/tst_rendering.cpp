@@ -420,6 +420,12 @@ private slots:
         QTest::newRow("empty path") << QString() << 20 << QStringLiteral("medium") << 192;
         QTest::newRow("relative path")
             << QStringLiteral("relative.mp4") << 20 << QStringLiteral("medium") << 192;
+        QTest::newRow("leading path whitespace")
+            << QStringLiteral(" @/out.mp4") << 20 << QStringLiteral("medium") << 192;
+        QTest::newRow("trailing extension whitespace")
+            << QStringLiteral("@/out.mp4 ") << 20 << QStringLiteral("medium") << 192;
+        QTest::newRow("whitespace only")
+            << QStringLiteral(" \t ") << 20 << QStringLiteral("medium") << 192;
         QTest::newRow("wrong suffix")
             << QStringLiteral("@/out.mov") << 20 << QStringLiteral("medium") << 192;
         QTest::newRow("missing folder")
@@ -453,6 +459,17 @@ private slots:
         const Status valid = validateExport(s, projectWithClip());
         QVERIFY(!valid);
         QVERIFY(!valid.error().message.isEmpty());
+    }
+
+    void outputFileNamesCanContainInternalSpaces()
+    {
+        // Whitespace inside a filename is legitimate on all supported OSes.
+        // Validation must not change or normalize the user's exact output.
+        ExportSettings settings = settingsFor(QStringLiteral("final reviewed edit.mp4"));
+        const QString requested = settings.outputPath;
+        const Status valid = validateExport(settings, projectWithClip());
+        QVERIFY2(valid, qPrintable(valid ? QString() : valid.error().toString()));
+        QCOMPARE(settings.outputPath, requested);
     }
 
     void rejectsProjectFileAsOutput()

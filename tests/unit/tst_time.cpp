@@ -115,7 +115,30 @@ private slots:
         QCOMPARE(*mulDiv(-7, 3, -2, Rounding::Down), std::int64_t{10});
         QCOMPARE(*mulDiv(-7, 3, -2, Rounding::Up), std::int64_t{11});
         QVERIFY(!mulDiv(minimum, 1, -1).has_value());
-        QVERIFY(!mulDiv(1, 1, minimum).has_value());
+        // Full-width divisors and numerators are now supported; the
+        // mathematically rounded result, not an intermediate, sets the range.
+        QCOMPARE(*mulDiv(1, 1, minimum, Rounding::Down), std::int64_t{-1});
+        QCOMPARE(*mulDiv(1, 1, minimum, Rounding::Up), std::int64_t{0});
+        QCOMPARE(*mulDiv(1, 1, minimum, Rounding::Nearest), std::int64_t{0});
+        QCOMPARE(*mulDiv(minimum, 1, minimum), std::int64_t{1});
+        QCOMPARE(*mulDiv(1, minimum, minimum), std::int64_t{1});
+        QCOMPARE(*mulDiv(minimum, minimum, minimum), minimum);
+        QVERIFY(!mulDiv(minimum, minimum, -1).has_value());
+
+        // Formerly, r*b overflowed even when a*b/c was representable:
+        // e.g. these coprime near-trillion ratios describe almost 1:1.
+        constexpr std::int64_t hugeNumerator = 999'983LL * 999'979;
+        constexpr std::int64_t hugeDenominator = 999'971LL * 999'959;
+        QCOMPARE(*mulDiv(100'000'000, hugeNumerator, hugeDenominator, Rounding::Down),
+                 std::int64_t{100'003'200});
+        QCOMPARE(*mulDiv(100'000'000, hugeNumerator, hugeDenominator, Rounding::Up),
+                 std::int64_t{100'003'201});
+        QCOMPARE(*mulDiv(-100'000'000, hugeNumerator, hugeDenominator, Rounding::Down),
+                 std::int64_t{-100'003'201});
+        QCOMPARE(*mulDiv(-100'000'000, hugeNumerator, hugeDenominator, Rounding::Up),
+                 std::int64_t{-100'003'200});
+        QCOMPARE(*mulDiv(maximum, maximum, maximum), maximum);
+        QVERIFY(!mulDiv(maximum, maximum, maximum - 1).has_value());
 
         // Nearest rounding must not double a remainder near INT64_MAX.
         QCOMPARE(*mulDiv(maximum - 1, 1, maximum, Rounding::Nearest), std::int64_t{1});

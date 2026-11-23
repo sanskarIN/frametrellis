@@ -4481,6 +4481,37 @@ private slots:
         QTRY_VERIFY(!dialog->property("opened").toBool());
     }
 
+    void exportDialogTracksOutputPathBeforeEditingFinishes()
+    {
+        QObject* dialog = m_window->findChild<QObject*>(QStringLiteral("exportDialog"));
+        QVERIFY(dialog);
+        QVERIFY(QMetaObject::invokeMethod(dialog, "open"));
+        QTRY_VERIFY(dialog->property("opened").toBool());
+
+        QQuickItem* path =
+            findItem(m_window->contentItem(), QStringLiteral("exportOutputPathField"));
+        QVERIFY(path);
+        const QString original = m_dir.filePath(QStringLiteral("live-path.mp4"));
+        QVERIFY(dialog->setProperty("outputPath", original));
+        QTRY_COMPARE(path->property("text").toString(), original);
+
+        path->forceActiveFocus();
+        QTRY_VERIFY(path->hasActiveFocus());
+        QTest::keyClick(m_window, Qt::Key_End);
+        QTest::keyClick(m_window, Qt::Key_X);
+        // A non-focusable export button may be activated while the field is
+        // still editing. The destination used by validation and submission
+        // must already reflect what the user has typed.
+        QVERIFY(path->hasActiveFocus());
+        QTRY_COMPARE(path->property("text").toString(), original + QLatin1Char('x'));
+        QTRY_COMPARE(dialog->property("outputPath").toString(), original + QLatin1Char('x'));
+
+        QVERIFY(dialog->setProperty("outputPath", original));
+        QTRY_COMPARE(path->property("text").toString(), original);
+        QVERIFY(QMetaObject::invokeMethod(dialog, "close"));
+        QTRY_VERIFY(!dialog->property("opened").toBool());
+    }
+
     void exportDialogValidatesAndExports()
     {
         QObject* dialog = m_window->findChild<QObject*>(QStringLiteral("exportDialog"));

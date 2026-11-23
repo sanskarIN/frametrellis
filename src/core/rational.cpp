@@ -243,6 +243,11 @@ std::optional<Rational> Rational::fromString(const QString& text)
 
 std::strong_ordering operator<=>(const Rational& a, const Rational& b)
 {
+    // All invalid Rational values normalise to 0/0. Place them before
+    // valid numbers so ordering stays consistent with operator==.
+    if (!a.isValid() || !b.isValid()) {
+        return a.isValid() <=> b.isValid();
+    }
     // Valid Rational values have positive denominators. Keep the fast path
     // for ordinary timeline and frame-rate values, whose cross-products fit.
     std::int64_t lhs = 0;

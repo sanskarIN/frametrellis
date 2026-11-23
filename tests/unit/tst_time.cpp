@@ -75,6 +75,15 @@ private slots:
         // a large cross-product on any supported compiler.
         QVERIFY(Rational(max, max - 1) > Rational(1, 1));
         QVERIFY(Rational(-max, max - 1) < Rational(-1, 1));
+
+        // Invalid values have a normalised 0/0 representation and must not
+        // compare equal to a valid zero. Keep ordering compatible with ==.
+        const Rational invalid(1, 0);
+        QVERIFY(!invalid.isValid());
+        QVERIFY(invalid < Rational(0, 1));
+        QVERIFY(invalid < larger);
+        QVERIFY(invalid == Rational());
+        QVERIFY((invalid <=> Rational()) == std::strong_ordering::equal);
     }
 
     void rationalParsing_data()

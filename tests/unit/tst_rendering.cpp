@@ -288,6 +288,42 @@ private slots:
         QVERIFY(validateExport(settings, project));
     }
 
+    void matchProjectFrameRateObeysExportLimits()
+    {
+        ProjectSettings project;
+        ExportSettings settings;
+        settings.frameRate = QStringLiteral("match");
+
+        // Matching the project is still an export choice, subject to the
+        // same documented 1..240 fps bounds as an explicit override.
+        project.frameRate = FrameRate::integer(240);
+        const auto upper = outputFrameRate(settings, project);
+        QVERIFY(upper);
+        QCOMPARE(*upper, FrameRate::integer(240));
+
+        project.frameRate = FrameRate::integer(241);
+        const auto above = outputFrameRate(settings, project);
+        QVERIFY(!above);
+        QCOMPARE(above.error().code, ErrorCode::OutOfRange);
+
+        // Low positive project rates are permitted by FrameRate::create(),
+        // but would make an invalid MP4 export.
+        project.frameRate = *FrameRate::create(1, 2);
+        const auto below = outputFrameRate(settings, project);
+        QVERIFY(!below);
+        QCOMPARE(below.error().code, ErrorCode::OutOfRange);
+
+        project.frameRate = FrameRate::integer(1);
+        const auto lower = outputFrameRate(settings, project);
+        QVERIFY(lower);
+        QCOMPARE(*lower, FrameRate::integer(1));
+
+        settings.frameRate = QStringLiteral("241");
+        QVERIFY(!outputFrameRate(settings, project));
+        settings.frameRate = QStringLiteral("240");
+        QCOMPARE(*outputFrameRate(settings, project), FrameRate::integer(240));
+    }
+
     void rangeBoundsPreserveProjectFramesAndExactOutputFps()
     {
         const FrameRate projectRate = FrameRate::integer(25);

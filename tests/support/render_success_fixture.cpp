@@ -49,6 +49,9 @@ int main(int argc, char* argv[])
         const int reportedTotal = wrongTotal ? 41 : 40;
         std::printf("@ft {\"event\":\"started\",\"encoder\":\"synthetic-fixture\",\"total\":%d}\n",
                     reportedTotal);
+        if (wrongTotal) {
+            std::puts(R"(@ft {"event":"progress","frame":41,"total":41})");
+        }
     }
     auto emitFinished = [](const QJsonObject& event) {
         const QByteArray line =

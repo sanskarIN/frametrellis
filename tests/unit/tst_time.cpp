@@ -270,6 +270,29 @@ private slots:
         QVERIFY(timecode::parse(QStringLiteral("00:10:00;00"), ntsc).has_value());
     }
 
+    void dropFrameSeparatorMustPrecedeTheFrameField()
+    {
+        // An early semicolon used to be treated as a global drop-frame flag,
+        // so malformed HH;MM:SS:FF was silently accepted as HH:MM:SS;FF.
+        for (const auto& [num, den] : {std::pair{30000, 1001}, std::pair{60000, 1001}}) {
+            const FrameRate rate = *FrameRate::create(num, den);
+            QCOMPARE(*timecode::parse(QStringLiteral("00:10:00;00"), rate),
+                     FrameCount{num == 30000 ? 17'982 : 35'964});
+            for (const QString& invalid : {
+                     QStringLiteral("00;10:00:00"), QStringLiteral("00:10;00:00"),
+                     QStringLiteral("00:10;00.00"), QStringLiteral("00:10:00;00;00"),
+                     QStringLiteral("00:10:00;00:00")}) {
+                QVERIFY2(!timecode::parse(invalid, rate).has_value(), qPrintable(invalid));
+            }
+        }
+
+        // The ordinary non-drop-frame notation must not gain a drop-frame flag.
+        const FrameRate pal = FrameRate::integer(25);
+        QVERIFY(!timecode::parse(QStringLiteral("00:10:00;00"), pal));
+        QCOMPARE(*timecode::parse(QStringLiteral("00:10:00:00"), pal),
+                 FrameCount{15'000});
+    }
+
     void dropFrameRoundTripIsExact()
     {
         for (const auto& [num, den] : {std::pair{30000, 1001}, std::pair{60000, 1001}}) {

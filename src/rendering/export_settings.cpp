@@ -77,13 +77,16 @@ QStringList speedPresets()
 Result<FrameRate> outputFrameRate(const ExportSettings& settings, const ProjectSettings& project)
 {
     const QString text = settings.frameRate.trimmed();
+    std::optional<FrameRate> rate;
     if (text == QLatin1String("match")) {
-        return project.frameRate;
+        rate = project.frameRate;
+    } else if (const std::optional<Rational> value = Rational::fromString(text)) {
+        rate = FrameRate::create(value->numerator(), value->denominator());
     }
-    const std::optional<Rational> value = Rational::fromString(text);
-    const std::optional<FrameRate> rate =
-        value ? FrameRate::create(value->numerator(), value->denominator()) : std::nullopt;
-    if (!rate || rate->toDouble() < 1.0 || rate->toDouble() > 240.0) {
+    // Normally ProjectSettings::validate already enforces 1..240 fps, but
+    // callers may still pass unsanitized in-memory settings here. Match-project
+    // exports must obey the same bounds as an explicit FPS override.
+    if (!rate || !rate->isValid() || rate->toDouble() < 1.0 || rate->toDouble() > 240.0) {
         return makeError(ErrorCode::OutOfRange,
                          QStringLiteral("Export frame rate must be from 1 to 240 fps (for "
                                         "example 24, 29.97 or 30000/1001)."));

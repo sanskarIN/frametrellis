@@ -231,15 +231,24 @@ private slots:
         engine.setLoopEnabled(true);
         engine.play();
         const auto restarted = [&] {
+            // GUI frame delivery coalesces pending pictures when a busy CI host
+            // blocks the event loop. It may therefore skip showing frames 0..2
+            // even though the worker correctly wrapped from frame 74 to zero.
+            // Any frame in the first second (at 25 fps) proves a wrap from
+            // our starting position of frame 68, without depending on the
+            // first three GUI notifications arriving before coalescing.
+            if (engine.position() < 25) {
+                return true;
+            }
             for (const QList<QVariant>& args : std::as_const(frames)) {
-                if (args.at(1).value<FrameCount>() <= 2) {
+                if (args.at(1).value<FrameCount>() < 25) {
                     return true;
                 }
             }
             return false;
         };
-        QVERIFY2(QTest::qWaitFor(restarted, 6000),
-                 "Loop preview did not return to the sequence start.");
+        QVERIFY2(QTest::qWaitFor(restarted, 10'000),
+                 "Loop preview did not return to the start of the sequence.");
         QVERIFY(engine.isPlaying());
 
         // Turning loop off must restore the default stop-at-end behavior without

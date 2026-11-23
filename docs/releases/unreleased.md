@@ -1,35 +1,40 @@
 # Development history and unreleased changes
 
-**Latest stable: [FrameTrellis v1.5.0](https://github.com/sanskarIN/frametrellis/releases/tag/v1.5.0),
-published on 16 November 2026.** Its shipped features, limitations and
-platform distribution are described in [v1.5.0.md](v1.5.0.md).
-The integrated PR list below is a **historical development log** written
-before v1.5.0 publication, not a current list of unreleased functionality.
-Statements comparing features with v1.4.0 are retained as historical context.
-They do not override the published v1.5.0 notes.
+**Latest stable: [FrameTrellis v1.5.1](https://github.com/sanskarIN/frametrellis/releases/tag/v1.5.1), published on 20 November 2026.**
+Its public Windows x64 five-file asset set and Linux/macOS source-build
+scope are described in [the published v1.5.1 notes](v1.5.1.md).
+The original v1.5.1 tag and assets are immutable.
 
-## Post-v1.5.0 maintenance candidate
+## Post-v1.5.1 development — proposed v1.5.2 maintenance
 
-The **v1.5.1 release candidate** includes overflow-safe duration verification
-[#296](https://github.com/sanskarIN/frametrellis/pull/296), bounded Linux
-package-mirror retries [#298](https://github.com/sanskarIN/frametrellis/pull/298),
-exact integer playback transport [#299](https://github.com/sanskarIN/frametrellis/pull/299),
-renderer progress safety [#302](https://github.com/sanskarIN/frametrellis/pull/302),
-invalid resolution input protection [#303](https://github.com/sanskarIN/frametrellis/pull/303)
-and the repaired export dialog [#304](https://github.com/sanskarIN/frametrellis/pull/304).
-See the [candidate release notes](v1.5.1.md) and
-[unresolved acceptance gates](v1.5.1-preflight.md).
-These changes are not included in the v1.5.0 published binaries; the 1.5.1
-candidate is not itself a published release.
+- Merged, *not in the published v1.5.1 binaries*: exact rational
+  comparisons and wide timebase conversion [#310](https://github.com/sanskarIN/frametrellis/pull/310)
+  / [#312](https://github.com/sanskarIN/frametrellis/pull/312).
+- Merged: export FPS input validation, renderer lifecycle validation and
+  false-success protection [#308](https://github.com/sanskarIN/frametrellis/pull/308),
+  [#309](https://github.com/sanskarIN/frametrellis/pull/309) and
+  [#313](https://github.com/sanskarIN/frametrellis/pull/313).
+- Merged: export-path text-field synchronization [#311](https://github.com/sanskarIN/frametrellis/pull/311);
+  stricter SMPTE drop-frame parsing [#314](https://github.com/sanskarIN/frametrellis/pull/314);
+  playback-loop CI regression reliability [#316](https://github.com/sanskarIN/frametrellis/pull/316).
+- Proposed, **not merged** as of this update: exact export-path
+  validation [#315](https://github.com/sanskarIN/frametrellis/pull/315),
+  pending native macOS test verification.
 
-## Future work after v1.5.0
+See the [v1.5.2 candidate notes](v1.5.2.md), the
+[release preflight](v1.5.2-preflight.md), and [tracker #317](https://github.com/sanskarIN/frametrellis/issues/317).
+No v1.5.2 version bump, release/tag, production installer or publication
+approval follows from these notes. The native Windows long-export and
+Windows 11 ARM intermittent issues remain open for real-device investigation.
 
-Priorities include verified proxy generation, audio metering, long-timeline
-performance profiling, crash root-cause investigation and production
-Linux/macOS packaging. See the
-[professional-editor assessment](../development/pro-editor-assessment.md)
-and [roadmap](../roadmap.md). No additional features are claimed as released
-until their actual tag and packages are verified.
+## Historic v1.5.1 maintenance
+
+v1.5.1 shipped improvements including safer duration verification,
+bounded package-mirror retries, integer playback transport, renderer
+progress validation, invalid resolution input protection and corrected
+export-dialog layout. See [v1.5.1.md](v1.5.1.md).
+The historical development lists below may refer to pre-v1.5.0 status;
+they do **not** override the actually published stable versions.
 
 ## Historical post-v1.4.0 development changes (check v1.5.0 release notes)
 

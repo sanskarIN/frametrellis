@@ -337,8 +337,8 @@ void RenderJob::handleEvent(const QJsonObject& event)
         // Its later progress updates will be rejected by the existing
         // expected-total check and cannot falsely reach 100%.
         m_encoder = event.value(QLatin1String("encoder")).toString();
-        qCInfo(lcRender) << "Render helper started with encoder" << m_encoder << "and"
-                         << *total << "reported output frames";
+        qCInfo(lcRender) << "Render helper started with encoder" << m_encoder << "and" << *total
+                         << "reported output frames";
         emit progressChanged();
     } else if (type == QLatin1String("progress")) {
         const auto frame = protocol::frameCount(event.value(QLatin1String("frame")));

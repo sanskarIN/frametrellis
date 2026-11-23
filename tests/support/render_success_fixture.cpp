@@ -44,13 +44,11 @@ int main(int argc, char* argv[])
         file.write("test", 4);
     }
     if (!noStart) {
-        if (wrongTotal) {
-            std::fputs("@ft {\"event\":\"started\",\"encoder\":\"synthetic-fixture\",\"total\":26}\n",
-                       stdout);
-        } else {
-            std::fputs("@ft {\"event\":\"started\",\"encoder\":\"synthetic-fixture\",\"total\":25}\n",
-                       stdout);
-        }
+        // project(25) spans 40 timeline frames; only the mismatch fixture
+        // deliberately reports a different count.
+        const int reportedTotal = wrongTotal ? 41 : 40;
+        std::printf("@ft {\"event\":\"started\",\"encoder\":\"synthetic-fixture\",\"total\":%d}\n",
+                    reportedTotal);
     }
     auto emitFinished = [](const QJsonObject& event) {
         const QByteArray line =

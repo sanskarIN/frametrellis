@@ -156,6 +156,7 @@ Status RenderJob::start(const Project& project, const ExportSettings& settings,
     m_stderrTail.clear();
     m_discardingOversizedLine = false;
     m_sawStarted = false;
+    m_startedTotalMatchesExpected = false;
     m_sawFinished = false;
     m_cancelSent = false;
     m_cancelKillIssued = false;
@@ -324,6 +325,14 @@ void RenderJob::handleEvent(const QJsonObject& event)
             return;
         }
         m_sawStarted = true;
+        // start() already calculated the exact output length from the frozen
+        // project and export FPS. Never let a child with a different total
+        // certify a successful export just by sending "finished" and exiting 0.
+        m_startedTotalMatchesExpected = *total == m_totalFrames;
+        if (!m_startedTotalMatchesExpected) {
+            qCWarning(lcRender) << "Renderer started with unexpected frame total" << *total
+                                << "(expected" << m_totalFrames << ")";
+        }
         m_encoder = event.value(QLatin1String("encoder")).toString();
         m_totalFrames = *total;
         qCInfo(lcRender) << "Render helper started with encoder" << m_encoder << "and"
@@ -360,6 +369,12 @@ void RenderJob::handleEvent(const QJsonObject& event)
         if (!m_sawStarted) {
             qCWarning(lcRender) << "Rejected renderer completion without a valid start event";
             m_errorMessage = QStringLiteral("The renderer did not confirm a valid start.");
+            return;
+        }
+        if (!m_startedTotalMatchesExpected) {
+            qCWarning(lcRender) << "Rejected renderer completion with an incorrect frame count";
+            m_errorMessage =
+                QStringLiteral("The renderer did not confirm the expected output frame count.");
             return;
         }
         // A zero-exit helper must identify the exact requested destination. An

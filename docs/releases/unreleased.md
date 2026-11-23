@@ -17,9 +17,11 @@ The original v1.5.1 tag and assets are immutable.
 - Merged: export-path text-field synchronization [#311](https://github.com/sanskarIN/frametrellis/pull/311);
   stricter SMPTE drop-frame parsing [#314](https://github.com/sanskarIN/frametrellis/pull/314);
   playback-loop CI regression reliability [#316](https://github.com/sanskarIN/frametrellis/pull/316).
-- Proposed, **not merged** as of this update: exact export-path
-  validation [#315](https://github.com/sanskarIN/frametrellis/pull/315),
-  pending native macOS test verification.
+- Merged, after all 16 latest-head PR checks passed: exact export-path
+  validation [#315](https://github.com/sanskarIN/frametrellis/pull/315).
+- Proposed, **not yet merged**: long-video independent MP4 verification
+  [#319](https://github.com/sanskarIN/frametrellis/pull/319),
+  pending its full latest-head CI gate.
 
 See the [v1.5.2 candidate notes](v1.5.2.md), the
 [release preflight](v1.5.2-preflight.md), and [tracker #317](https://github.com/sanskarIN/frametrellis/issues/317).

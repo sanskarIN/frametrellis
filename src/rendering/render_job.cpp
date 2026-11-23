@@ -333,10 +333,12 @@ void RenderJob::handleEvent(const QJsonObject& event)
             qCWarning(lcRender) << "Renderer started with unexpected frame total" << *total
                                 << "(expected" << m_totalFrames << ")";
         }
+        // Keep our validated total, not the child's contradictory value.
+        // Its later progress updates will be rejected by the existing
+        // expected-total check and cannot falsely reach 100%.
         m_encoder = event.value(QLatin1String("encoder")).toString();
-        m_totalFrames = *total;
         qCInfo(lcRender) << "Render helper started with encoder" << m_encoder << "and"
-                         << m_totalFrames << "output frames";
+                         << *total << "reported output frames";
         emit progressChanged();
     } else if (type == QLatin1String("progress")) {
         const auto frame = protocol::frameCount(event.value(QLatin1String("frame")));

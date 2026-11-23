@@ -424,6 +424,50 @@ private slots:
         QVERIFY(partFiles().isEmpty());
     }
 
+    void rendererCannotClaimSuccessWithIncorrectFrameTotal()
+    {
+        // This 25-fps fixture spans 40 timeline frames. A helper that claims
+        // 41 frames, reports finished and exits zero must not authenticate
+        // a stale MP4 instead of a newly completed 40-frame render.
+        const Project original = project(25);
+        ExportSettings settings;
+        settings.outputPath = m_dir.filePath(QStringLiteral("fixture-wrong-total-success.mp4"));
+        settings.speedPreset = QStringLiteral("ultrafast");
+        {
+            QFile previous(settings.outputPath);
+            QVERIFY(previous.open(QIODevice::WriteOnly));
+            QCOMPARE(previous.write("previous-good"), qint64{13});
+        }
+
+        RenderJob job(QStringLiteral(FT_SUCCESS_RENDER_HELPER));
+        QSignalSpy finished(&job, &RenderJob::finished);
+        QVERIFY(job.start(original, settings));
+        QVERIFY(finished.count() > 0 || finished.wait(15'000));
+        QCOMPARE(job.state(), RenderJob::State::Failed);
+        QCOMPARE(job.totalFrames(), FrameCount{40}); // not the helper's false 41
+        QCOMPARE(job.framesDone(), FrameCount{0});   // reject contradictory progress
+        QVERIFY2(job.errorMessage().contains(QStringLiteral("output frame count")),
+                 qPrintable(job.errorMessage()));
+        QFile output(settings.outputPath);
+        QVERIFY(output.open(QIODevice::ReadOnly));
+        QCOMPARE(output.readAll(), QByteArrayLiteral("previous-good"));
+        output.close();
+        QVERIFY(partFiles().isEmpty());
+
+        // Reuse the same job for a valid helper afterward. The failed start
+        // total must not poison a later export or its completion state.
+        finished.clear();
+        settings.outputPath = m_dir.filePath(QStringLiteral("fixture-nonempty-success.mp4"));
+        QVERIFY(job.start(original, settings));
+        QVERIFY(finished.count() > 0 || finished.wait(15'000));
+        QCOMPARE(job.state(), RenderJob::State::Succeeded);
+        QCOMPARE(job.framesDone(), FrameCount{40});
+        QFile retry(settings.outputPath);
+        QVERIFY(retry.open(QIODevice::ReadOnly));
+        QCOMPARE(retry.readAll(), QByteArrayLiteral("test"));
+        QVERIFY(partFiles().isEmpty());
+    }
+
     void rendererMustConfirmExactOutputPathBeforeReportingSuccess()
     {
         // A synthetic helper may exit zero after writing an MP4 but report
@@ -539,9 +583,9 @@ private slots:
         QCOMPARE(job.state(), RenderJob::State::Failed);
         QCOMPARE(job.encoder(), QStringLiteral("flood-fixture"));
         QCOMPARE(job.framesDone(), FrameCount{40});
-        QCOMPARE(job.totalFrames(), FrameCount{100});
+        QCOMPARE(job.totalFrames(), FrameCount{40});
         QCOMPARE(reported, (QList<FrameCount>{0, 20, 40}));
-        QCOMPARE(reportedTotals, (QList<FrameCount>{100, 100, 100}));
+        QCOMPARE(reportedTotals, (QList<FrameCount>{40, 40, 40}));
         QVERIFY2(job.errorDetail().contains(QStringLiteral("0x0000002b")),
                  qPrintable(job.errorDetail()));
         QVERIFY(!QFile::exists(settings.outputPath));

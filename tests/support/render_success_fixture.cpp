@@ -29,6 +29,7 @@ int main(int argc, char* argv[])
     const bool contradictoryPath =
         output.find("fixture-contradictory-success") != std::string::npos;
     const bool noStart = output.find("fixture-no-start-success") != std::string::npos;
+    const bool wrongTotal = output.find("fixture-wrong-total-success") != std::string::npos;
     if (output.find("fixture-empty-success") != std::string::npos) {
         std::ofstream file(output, std::ios::binary);
         if (!file) {
@@ -43,8 +44,14 @@ int main(int argc, char* argv[])
         file.write("test", 4);
     }
     if (!noStart) {
-        std::fputs("@ft {\"event\":\"started\",\"encoder\":\"synthetic-fixture\",\"total\":25}\n",
-                   stdout);
+        // project(25) spans 40 timeline frames; only the mismatch fixture
+        // deliberately reports a different count.
+        const int reportedTotal = wrongTotal ? 41 : 40;
+        std::printf("@ft {\"event\":\"started\",\"encoder\":\"synthetic-fixture\",\"total\":%d}\n",
+                    reportedTotal);
+        if (wrongTotal) {
+            std::puts(R"(@ft {"event":"progress","frame":41,"total":41})");
+        }
     }
     auto emitFinished = [](const QJsonObject& event) {
         const QByteArray line =

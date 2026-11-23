@@ -28,21 +28,24 @@ int main(int argc, char* argv[])
     const bool relativePath = output.find("fixture-relative-success") != std::string::npos;
     const bool contradictoryPath =
         output.find("fixture-contradictory-success") != std::string::npos;
+    const bool noStart = output.find("fixture-no-start-success") != std::string::npos;
     if (output.find("fixture-empty-success") != std::string::npos) {
         std::ofstream file(output, std::ios::binary);
         if (!file) {
             return 2;
         }
     } else if (output.find("fixture-nonempty-success") != std::string::npos || missingPath ||
-               mismatchedPath || relativePath || contradictoryPath) {
+               mismatchedPath || relativePath || contradictoryPath || noStart) {
         std::ofstream file(output, std::ios::binary);
         if (!file) {
             return 2;
         }
         file.write("test", 4);
     }
-    std::fputs("@ft {\"event\":\"started\",\"encoder\":\"synthetic-fixture\",\"total\":25}\n",
-               stdout);
+    if (!noStart) {
+        std::fputs("@ft {\"event\":\"started\",\"encoder\":\"synthetic-fixture\",\"total\":25}\n",
+                   stdout);
+    }
     auto emitFinished = [](const QJsonObject& event) {
         const QByteArray line =
             QByteArrayLiteral("@ft ") + QJsonDocument(event).toJson(QJsonDocument::Compact) + '\n';

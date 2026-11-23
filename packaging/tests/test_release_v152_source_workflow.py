@@ -29,7 +29,6 @@ class V152ReleaseSafetyTests(unittest.TestCase):
         self.assertNotIn("FrameTrellis-1.5.1-SOURCE-BUILD-OWNER-APPROVED", source)
         self.assertNotIn("workflow_dispatch:", source)
         self.assertIn("head -n 20", source)
-        self.assertIn("NOT RELEASED", (ROOT / "docs/releases/v1.5.2.md").read_text().upper())
 
     def test_sha_artifacts_checksum_and_exact_five_assets(self):
         source = SOURCE.read_text(encoding="utf-8")
@@ -78,8 +77,17 @@ class V152ReleaseSafetyTests(unittest.TestCase):
         # A release-docs-only PR cannot silently change the published program
         # version or make the candidate's draft release notes uploadable.
         cmake = (ROOT / "CMakeLists.txt").read_text(encoding="utf-8")
-        self.assertIn("VERSION 1.5.1", cmake)
+        notes = ROOT / "docs/releases/v1.5.2.md"
+        self.assertTrue(notes.is_file())
         self.assertTrue((ROOT / "docs/releases/v1.5.2-preflight.md").is_file())
+        if "VERSION 1.5.1" in cmake:
+            # This PR does not bump CMake. Its notes must remain clearly draft
+            # until a separate release candidate is qualified.
+            self.assertIn("NOT PUBLISHED", notes.read_text(encoding="utf-8").upper())
+        else:
+            # A later release-version PR may remove the draft warning only
+            # after deliberately changing the CMake version.
+            self.assertIn("VERSION 1.5.2", cmake)
 
 
 if __name__ == "__main__":

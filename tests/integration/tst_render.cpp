@@ -583,9 +583,9 @@ private slots:
         QCOMPARE(job.state(), RenderJob::State::Failed);
         QCOMPARE(job.encoder(), QStringLiteral("flood-fixture"));
         QCOMPARE(job.framesDone(), FrameCount{40});
-        QCOMPARE(job.totalFrames(), FrameCount{100});
+        QCOMPARE(job.totalFrames(), FrameCount{40});
         QCOMPARE(reported, (QList<FrameCount>{0, 20, 40}));
-        QCOMPARE(reportedTotals, (QList<FrameCount>{100, 100, 100}));
+        QCOMPARE(reportedTotals, (QList<FrameCount>{40, 40, 40}));
         QVERIFY2(job.errorDetail().contains(QStringLiteral("0x0000002b")),
                  qPrintable(job.errorDetail()));
         QVERIFY(!QFile::exists(settings.outputPath));

@@ -83,9 +83,9 @@ Result<FrameRate> outputFrameRate(const ExportSettings& settings, const ProjectS
     } else if (const std::optional<Rational> value = Rational::fromString(text)) {
         rate = FrameRate::create(value->numerator(), value->denominator());
     }
-    // Project timelines may support rates outside the encoder's documented
-    // 1..240 fps range. Matching the project must obey the same export limits
-    // as an explicit FPS override, rather than silently bypassing validation.
+    // Normally ProjectSettings::validate already enforces 1..240 fps, but
+    // callers may still pass unsanitized in-memory settings here. Match-project
+    // exports must obey the same bounds as an explicit FPS override.
     if (!rate || !rate->isValid() || rate->toDouble() < 1.0 || rate->toDouble() > 240.0) {
         return makeError(ErrorCode::OutOfRange,
                          QStringLiteral("Export frame rate must be from 1 to 240 fps (for "

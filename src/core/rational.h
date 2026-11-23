@@ -13,9 +13,10 @@ namespace ft {
 /// Rounding policy for integer conversions between time bases.
 enum class Rounding { Down, Nearest, Up };
 
-/// Computes a * b / c without intermediate overflow for the value ranges used by the editor
-/// (|b| and |c| below 2^31). Returns std::nullopt for zero divisors, unrepresentable
-/// results, or extreme negative operands that cannot be safely sign-normalised.
+/// Computes a * b / c using an exact unsigned 128-bit intermediate (implemented
+/// portably with two 64-bit words, including on MSVC). Returns std::nullopt only
+/// for a zero divisor or a rounded result that cannot fit in signed 64 bits.
+/// Down=floor, Up=ceil and Nearest rounds half values away from zero.
 std::optional<std::int64_t> mulDiv(std::int64_t a, std::int64_t b, std::int64_t c,
                                    Rounding rounding = Rounding::Down);
 

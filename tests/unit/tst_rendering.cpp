@@ -288,6 +288,31 @@ private slots:
         QVERIFY(validateExport(settings, project));
     }
 
+    void largeCoprimeFpsConversionsKeepExactFrameBounds()
+    {
+        // Both rates are valid and almost one frame per second, but their
+        // uncancelled cross-products are near a trillion. Multiplying those
+        // factors by 100 million project frames overflows signed int64 even
+        // though the final converted frame count is only about 100 million.
+        const auto sourceRate = FrameRate::create(999'983, 999'979);
+        const auto destinationRate = FrameRate::create(999'971, 999'959);
+        QVERIFY(sourceRate.has_value());
+        QVERIFY(destinationRate.has_value());
+        const auto converted = outputFrameCount(100'000'000, *sourceRate, *destinationRate);
+        QVERIFY(converted);
+        QCOMPARE(*converted, FrameCount{100'000'801});
+
+        ExportSettings settings;
+        settings.rangeStartFrame = 25'000'000;
+        settings.rangeEndFrame = 100'000'000;
+        const auto bounds =
+            resolveExportFrameBounds(settings, 100'000'000, *sourceRate, *destinationRate);
+        QVERIFY(bounds);
+        QCOMPARE(bounds->outputStart, FrameCount{25'000'201});
+        QCOMPARE(bounds->outputEnd, FrameCount{100'000'801});
+        QCOMPARE(bounds->outputLength(), FrameCount{75'000'600});
+    }
+
     void matchProjectFrameRateObeysExportLimits()
     {
         ProjectSettings project;

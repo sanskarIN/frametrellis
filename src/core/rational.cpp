@@ -33,21 +33,6 @@ bool mulOverflows(std::int64_t a, std::int64_t b, std::int64_t* out)
 #endif
 }
 
-bool addOverflows(std::int64_t a, std::int64_t b, std::int64_t* out)
-{
-#if defined(__GNUC__) || defined(__clang__)
-    return __builtin_add_overflow(a, b, out);
-#else
-    const auto maxValue = std::numeric_limits<std::int64_t>::max();
-    const auto minValue = std::numeric_limits<std::int64_t>::min();
-    if ((b > 0 && a > maxValue - b) || (b < 0 && a < minValue - b)) {
-        return true;
-    }
-    *out = a + b;
-    return false;
-#endif
-}
-
 // std::abs(INT64_MIN) and std::gcd(INT64_MIN, ...) are not defined for signed int64_t.
 // Unsigned subtraction computes the magnitude without overflowing a signed operand.
 std::uint64_t unsignedMagnitude(std::int64_t value)
@@ -90,6 +75,32 @@ std::strong_ordering compareUnsignedFractions(std::uint64_t aNum, std::uint64_t 
     }
 }
 
+/*
+ * Compute a full unsigned 64-by-64 product as two 64-bit words. Splitting
+ * operands into 32-bit halves avoids compiler-specific __int128 (MSVC), and
+ * every intermediate stays within uint64_t.
+ */
+struct WideProduct
+{
+    std::uint64_t high = 0;
+    std::uint64_t low = 0;
+};
+
+WideProduct multiplyUnsigned(std::uint64_t a, std::uint64_t b)
+{
+    constexpr std::uint64_t mask = 0xffff'ffff;
+    const std::uint64_t a0 = a & mask;
+    const std::uint64_t a1 = a >> 32;
+    const std::uint64_t b0 = b & mask;
+    const std::uint64_t b1 = b >> 32;
+    const std::uint64_t p0 = a0 * b0;
+    const std::uint64_t p1 = a1 * b0;
+    const std::uint64_t p2 = a0 * b1;
+    const std::uint64_t p3 = a1 * b1;
+    const std::uint64_t middle = (p0 >> 32) + (p1 & mask) + (p2 & mask);
+    return {p3 + (p1 >> 32) + (p2 >> 32) + (middle >> 32), (p0 & mask) | (middle << 32)};
+}
+
 } // namespace
 
 std::optional<std::int64_t> mulDiv(std::int64_t a, std::int64_t b, std::int64_t c,
@@ -98,55 +109,65 @@ std::optional<std::int64_t> mulDiv(std::int64_t a, std::int64_t b, std::int64_t 
     if (c == 0) {
         return std::nullopt;
     }
-    if (c < 0) {
-        // Flip the multiplier rather than a: a may be INT64_MIN and cannot be negated.
-        // INT64_MIN divisors and multipliers cannot be sign-normalised in int64_t.
-        if (c == std::numeric_limits<std::int64_t>::min() ||
-            b == std::numeric_limits<std::int64_t>::min()) {
-            return std::nullopt;
-        }
-        b = -b;
-        c = -c;
-    }
-    // Split a into quotient and remainder by c so that the partial products stay small:
-    // a*b/c = q*b + r*b/c with |r| < c.
-    const std::int64_t q = a / c;
-    const std::int64_t r = a % c;
-    std::int64_t whole = 0;
-    std::int64_t partial = 0;
-    if (mulOverflows(q, b, &whole) || mulOverflows(r, b, &partial)) {
+    const bool negative = ((a < 0) != (b < 0)) != (c < 0);
+    const std::uint64_t divisor = unsignedMagnitude(c);
+    const WideProduct product = multiplyUnsigned(unsignedMagnitude(a), unsignedMagnitude(b));
+
+    // If the high word already contains a full divisor, the quotient needs
+    // more than 64 bits, so its signed result cannot be represented.
+    if (product.high >= divisor) {
         return std::nullopt;
     }
-    std::int64_t fracQuotient = partial / c;
-    const std::int64_t fracRemainder = partial % c;
-    if (fracRemainder != 0) {
+
+    std::uint64_t quotient = 0;
+    std::uint64_t remainder = product.high;
+    if (product.high == 0) {
+        // Fast path for the overwhelming majority of timeline conversions.
+        quotient = product.low / divisor;
+        remainder = product.low % divisor;
+    } else {
+        // Divide high:low by a 64-bit divisor, one low-word bit at a time.
+        // The high word is initially < divisor. A shifted remainder can
+        // temporarily carry a 65th bit; unsigned subtraction then wraps to
+        // the mathematically exact remainder without signed overflow.
+        for (int bit = 63; bit >= 0; --bit) {
+            const bool carry = (remainder >> 63) != 0;
+            remainder = (remainder << 1) | ((product.low >> bit) & 1u);
+            if (carry || remainder >= divisor) {
+                remainder -= divisor;
+                quotient |= std::uint64_t{1} << bit;
+            }
+        }
+    }
+
+    // Down=floor, Up=ceil; Nearest rounds ties away from zero. Compare the
+    // remainder with ceil(divisor/2) to avoid overflow from doubling it.
+    bool roundAwayFromZero = false;
+    if (remainder != 0) {
         switch (rounding) {
         case Rounding::Down:
-            if (fracRemainder < 0) {
-                --fracQuotient;
-            }
+            roundAwayFromZero = negative;
             break;
         case Rounding::Up:
-            if (fracRemainder > 0) {
-                ++fracQuotient;
-            }
+            roundAwayFromZero = !negative;
             break;
-        case Rounding::Nearest: {
-            // Compare against ceil(c / 2) rather than doubling the remainder; doubling
-            // can overflow for large positive divisors even when the result fits.
-            const std::int64_t magnitude = fracRemainder < 0 ? -fracRemainder : fracRemainder;
-            if (magnitude >= c / 2 + c % 2) {
-                fracQuotient += fracRemainder < 0 ? -1 : 1;
-            }
+        case Rounding::Nearest:
+            roundAwayFromZero = remainder >= divisor / 2 + divisor % 2;
             break;
-        }
         }
     }
-    std::int64_t result = 0;
-    if (addOverflows(whole, fracQuotient, &result)) {
+
+    const std::uint64_t maxMagnitude =
+        static_cast<std::uint64_t>(std::numeric_limits<std::int64_t>::max()) + (negative ? 1u : 0u);
+    if (quotient > maxMagnitude - (roundAwayFromZero ? 1u : 0u)) {
         return std::nullopt;
     }
-    return result;
+    quotient += roundAwayFromZero ? 1u : 0u;
+    if (negative && quotient == maxMagnitude) {
+        return std::numeric_limits<std::int64_t>::min();
+    }
+    const auto signedQuotient = static_cast<std::int64_t>(quotient);
+    return negative ? -signedQuotient : signedQuotient;
 }
 
 Rational::Rational(std::int64_t numerator, std::int64_t denominator)

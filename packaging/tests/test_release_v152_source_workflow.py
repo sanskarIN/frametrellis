@@ -34,7 +34,7 @@ class V152ReleaseSafetyTests(unittest.TestCase):
     def test_sha_artifacts_checksum_and_exact_five_assets(self):
         source = SOURCE.read_text(encoding="utf-8")
         for token in (
-            '[["$tag_sha" == "$main_sha"]]'.replace('[["', '[[ "').replace('" ]]', '" ]]'),
+            '[[ "$tag_sha" == "$main_sha" ]]',
             'head_sha == $sha',
             'head_branch == "main"',
             "ci.yml desktop-platforms.yml package-windows.yml",
@@ -42,11 +42,11 @@ class V152ReleaseSafetyTests(unittest.TestCase):
             "packaging/verify_release_assets.py --version 1.5.2",
             "sha256sum --check SHA256SUMS.txt",
             "packaging/verify_published_windows_v15.py",
-            '[["$existing" == "0"]]'.replace('[["', '[[ "').replace('" ]]', '" ]]'),
+            '[[ "$existing" == "0" ]]',
         ):
             with self.subTest(token=token):
                 self.assertIn(token, source)
-        names = set(re.findall(r"FrameTrellis-1\\.5\\.2-windows-x64[.\\-][\\w.\\-]+", source))
+        names = set(re.findall(r"FrameTrellis-1\.5\.2-windows-x64[.\-][\w.\-]+", source))
         self.assertEqual(names, {
             "FrameTrellis-1.5.2-windows-x64-setup.exe",
             "FrameTrellis-1.5.2-windows-x64.zip",

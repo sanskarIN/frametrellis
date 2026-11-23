@@ -278,10 +278,10 @@ private slots:
             const FrameRate rate = *FrameRate::create(num, den);
             QCOMPARE(*timecode::parse(QStringLiteral("00:10:00;00"), rate),
                      FrameCount{num == 30000 ? 17'982 : 35'964});
-            for (const QString& invalid : {
-                     QStringLiteral("00;10:00:00"), QStringLiteral("00:10;00:00"),
-                     QStringLiteral("00:10;00.00"), QStringLiteral("00:10:00;00;00"),
-                     QStringLiteral("00:10:00;00:00")}) {
+            for (const QString& invalid :
+                 {QStringLiteral("00;10:00:00"), QStringLiteral("00:10;00:00"),
+                  QStringLiteral("00:10;00.00"), QStringLiteral("00:10:00;00;00"),
+                  QStringLiteral("00:10:00;00:00")}) {
                 QVERIFY2(!timecode::parse(invalid, rate).has_value(), qPrintable(invalid));
             }
         }
@@ -289,8 +289,7 @@ private slots:
         // The ordinary non-drop-frame notation must not gain a drop-frame flag.
         const FrameRate pal = FrameRate::integer(25);
         QVERIFY(!timecode::parse(QStringLiteral("00:10:00;00"), pal));
-        QCOMPARE(*timecode::parse(QStringLiteral("00:10:00:00"), pal),
-                 FrameCount{15'000});
+        QCOMPARE(*timecode::parse(QStringLiteral("00:10:00:00"), pal), FrameCount{15'000});
     }
 
     void dropFrameRoundTripIsExact()

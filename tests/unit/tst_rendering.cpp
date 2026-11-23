@@ -299,7 +299,7 @@ private slots:
         QVERIFY(sourceRate.has_value());
         QVERIFY(destinationRate.has_value());
         const auto converted = outputFrameCount(100'000'000, *sourceRate, *destinationRate);
-        QVERIFY(converted.has_value());
+        QVERIFY(converted);
         QCOMPARE(*converted, FrameCount{100'000'801});
 
         ExportSettings settings;
@@ -307,7 +307,7 @@ private slots:
         settings.rangeEndFrame = 100'000'000;
         const auto bounds =
             resolveExportFrameBounds(settings, 100'000'000, *sourceRate, *destinationRate);
-        QVERIFY(bounds.has_value());
+        QVERIFY(bounds);
         QCOMPARE(bounds->outputStart, FrameCount{25'000'201});
         QCOMPARE(bounds->outputEnd, FrameCount{100'000'801});
         QCOMPARE(bounds->outputLength(), FrameCount{75'000'600});

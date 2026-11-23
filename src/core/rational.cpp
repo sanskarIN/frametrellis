@@ -41,7 +41,6 @@ std::uint64_t unsignedMagnitude(std::int64_t value)
     return value < 0 ? std::uint64_t{0} - bits : bits;
 }
 
-
 /*
  * Compute a full unsigned 64-by-64 product as two 64-bit words. Splitting
  * operands into 32-bit halves avoids compiler-specific __int128 (MSVC), and
@@ -65,8 +64,7 @@ WideProduct multiplyUnsigned(std::uint64_t a, std::uint64_t b)
     const std::uint64_t p2 = a0 * b1;
     const std::uint64_t p3 = a1 * b1;
     const std::uint64_t middle = (p0 >> 32) + (p1 & mask) + (p2 & mask);
-    return {p3 + (p1 >> 32) + (p2 >> 32) + (middle >> 32),
-            (p0 & mask) | (middle << 32)};
+    return {p3 + (p1 >> 32) + (p2 >> 32) + (middle >> 32), (p0 & mask) | (middle << 32)};
 }
 
 } // namespace

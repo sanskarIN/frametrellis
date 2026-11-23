@@ -103,6 +103,14 @@ private slots:
         // A negative divisor must not negate INT64_MIN (undefined behavior).
         const auto minimum = std::numeric_limits<std::int64_t>::min();
         const auto maximum = std::numeric_limits<std::int64_t>::max();
+        // MSVC uses the portable checked-multiply fallback. INT64_MIN is
+        // representable and must not be mistaken for an overflow.
+        QCOMPARE(*mulDiv(minimum, 1, 1), minimum);
+        QCOMPARE(*mulDiv(1, minimum, 1), minimum);
+        QCOMPARE(*mulDiv(minimum / 2, 2, 1), minimum);
+        QCOMPARE(*mulDiv(minimum, 2, 2), minimum);
+        // The immediately more-negative product does not fit.
+        QVERIFY(!mulDiv(minimum, 2, 1).has_value());
         QCOMPARE(*mulDiv(minimum, 1, -2), std::int64_t{1} << 62);
         QCOMPARE(*mulDiv(-7, 3, -2, Rounding::Down), std::int64_t{10});
         QCOMPARE(*mulDiv(-7, 3, -2, Rounding::Up), std::int64_t{11});

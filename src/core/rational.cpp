@@ -71,8 +71,7 @@ std::strong_ordering compareUnsignedFractions(std::uint64_t aNum, std::uint64_t 
         const auto bWhole = bNum / bDen;
         if (aWhole != bWhole) {
             const bool less = aWhole < bWhole;
-            return less != reversed ? std::strong_ordering::less
-                                    : std::strong_ordering::greater;
+            return less != reversed ? std::strong_ordering::less : std::strong_ordering::greater;
         }
         const auto aRest = aNum % aDen;
         const auto bRest = bNum % bDen;
@@ -81,8 +80,7 @@ std::strong_ordering compareUnsignedFractions(std::uint64_t aNum, std::uint64_t 
                 return std::strong_ordering::equal;
             }
             const bool less = aRest == 0;
-            return less != reversed ? std::strong_ordering::less
-                                    : std::strong_ordering::greater;
+            return less != reversed ? std::strong_ordering::less : std::strong_ordering::greater;
         }
         aNum = aDen;
         aDen = aRest;
@@ -261,10 +259,9 @@ std::strong_ordering operator<=>(const Rational& a, const Rational& b)
     if ((a.m_num < 0) != (b.m_num < 0)) {
         return a.m_num < 0 ? std::strong_ordering::less : std::strong_ordering::greater;
     }
-    const auto result = compareUnsignedFractions(unsignedMagnitude(a.m_num),
-                                                  static_cast<std::uint64_t>(a.m_den),
-                                                  unsignedMagnitude(b.m_num),
-                                                  static_cast<std::uint64_t>(b.m_den));
+    const auto result =
+        compareUnsignedFractions(unsignedMagnitude(a.m_num), static_cast<std::uint64_t>(a.m_den),
+                                 unsignedMagnitude(b.m_num), static_cast<std::uint64_t>(b.m_den));
     if (a.m_num < 0) {
         if (result == std::strong_ordering::less) {
             return std::strong_ordering::greater;

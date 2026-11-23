@@ -36,7 +36,7 @@ int main(int argc, char* argv[])
             return 2;
         }
     } else if (output.find("fixture-nonempty-success") != std::string::npos || missingPath ||
-               mismatchedPath || relativePath || contradictoryPath || noStart || wrongTotal) {
+               mismatchedPath || relativePath || contradictoryPath || noStart) {
         std::ofstream file(output, std::ios::binary);
         if (!file) {
             return 2;

@@ -449,6 +449,20 @@ private slots:
         QFile output(settings.outputPath);
         QVERIFY(output.open(QIODevice::ReadOnly));
         QCOMPARE(output.readAll(), QByteArrayLiteral("previous-good"));
+        output.close();
+        QVERIFY(partFiles().isEmpty());
+
+        // Reuse the same job for a valid helper afterward. The failed start
+        // total must not poison a later export or its completion state.
+        finished.clear();
+        settings.outputPath = m_dir.filePath(QStringLiteral("fixture-nonempty-success.mp4"));
+        QVERIFY(job.start(original, settings));
+        QVERIFY(finished.count() > 0 || finished.wait(15'000));
+        QCOMPARE(job.state(), RenderJob::State::Succeeded);
+        QCOMPARE(job.framesDone(), FrameCount{40});
+        QFile retry(settings.outputPath);
+        QVERIFY(retry.open(QIODevice::ReadOnly));
+        QCOMPARE(retry.readAll(), QByteArrayLiteral("test"));
         QVERIFY(partFiles().isEmpty());
     }
 

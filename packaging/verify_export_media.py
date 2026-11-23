@@ -80,9 +80,10 @@ def probe_problems(
         actual_duration = float(container.get("duration"))
     except (ValueError, TypeError):
         actual_duration = float("nan")
-    # For extended renders, a 10% window could mask several missing seconds.
-    # Allow a bounded 2% container rounding/encoder tail, minimum 200 ms.
-    tolerance = max(0.2, duration * 0.02)
+    # A percentage-only tolerance could accept a 30-minute output that ends
+    # 30+ seconds early. Allow codec/container rounding but never more than
+    # two seconds of missing or extra footage on a long physical export.
+    tolerance = min(2.0, max(0.2, duration * 0.02))
     if not math.isfinite(actual_duration) or abs(actual_duration - duration) > tolerance:
         problems.append(
             f"container duration {actual_duration} s; expected {duration:.3f} +/- {tolerance:.3f} s"

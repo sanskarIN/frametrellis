@@ -424,6 +424,34 @@ private slots:
         QVERIFY(partFiles().isEmpty());
     }
 
+    void rendererCannotClaimSuccessWithIncorrectFrameTotal()
+    {
+        // The editor derives the expected 25 output frames from the frozen
+        // project before launching the child. A helper that claims 26 frames,
+        // reports finished and exits zero must never authenticate a stale MP4.
+        const Project original = project(25);
+        ExportSettings settings;
+        settings.outputPath = m_dir.filePath(QStringLiteral("fixture-wrong-total-success.mp4"));
+        settings.speedPreset = QStringLiteral("ultrafast");
+        {
+            QFile previous(settings.outputPath);
+            QVERIFY(previous.open(QIODevice::WriteOnly));
+            QCOMPARE(previous.write("previous-good"), qint64{13});
+        }
+
+        RenderJob job(QStringLiteral(FT_SUCCESS_RENDER_HELPER));
+        QSignalSpy finished(&job, &RenderJob::finished);
+        QVERIFY(job.start(original, settings));
+        QVERIFY(finished.count() > 0 || finished.wait(15'000));
+        QCOMPARE(job.state(), RenderJob::State::Failed);
+        QVERIFY2(job.errorMessage().contains(QStringLiteral("output frame count")),
+                 qPrintable(job.errorMessage()));
+        QFile output(settings.outputPath);
+        QVERIFY(output.open(QIODevice::ReadOnly));
+        QCOMPARE(output.readAll(), QByteArrayLiteral("previous-good"));
+        QVERIFY(partFiles().isEmpty());
+    }
+
     void rendererMustConfirmExactOutputPathBeforeReportingSuccess()
     {
         // A synthetic helper may exit zero after writing an MP4 but report

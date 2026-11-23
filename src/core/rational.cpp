@@ -56,6 +56,40 @@ std::uint64_t unsignedMagnitude(std::int64_t value)
     return value < 0 ? std::uint64_t{0} - bits : bits;
 }
 
+/*
+ * Compare nonnegative rational magnitudes without cross-products or floating
+ * point. At each step the integer parts are compared, then reciprocal
+ * fractional parts reverse the comparison. The denominators remain nonzero,
+ * and Euclid's algorithm guarantees termination for finite rational inputs.
+ */
+std::strong_ordering compareUnsignedFractions(std::uint64_t aNum, std::uint64_t aDen,
+                                              std::uint64_t bNum, std::uint64_t bDen)
+{
+    bool reversed = false;
+    for (;;) {
+        const auto aWhole = aNum / aDen;
+        const auto bWhole = bNum / bDen;
+        if (aWhole != bWhole) {
+            const bool less = aWhole < bWhole;
+            return less != reversed ? std::strong_ordering::less : std::strong_ordering::greater;
+        }
+        const auto aRest = aNum % aDen;
+        const auto bRest = bNum % bDen;
+        if (aRest == 0 || bRest == 0) {
+            if (aRest == bRest) {
+                return std::strong_ordering::equal;
+            }
+            const bool less = aRest == 0;
+            return less != reversed ? std::strong_ordering::less : std::strong_ordering::greater;
+        }
+        aNum = aDen;
+        aDen = aRest;
+        bNum = bDen;
+        bDen = bRest;
+        reversed = !reversed;
+    }
+}
+
 } // namespace
 
 std::optional<std::int64_t> mulDiv(std::int64_t a, std::int64_t b, std::int64_t c,
@@ -207,22 +241,36 @@ std::optional<Rational> Rational::fromString(const QString& text)
 
 std::strong_ordering operator<=>(const Rational& a, const Rational& b)
 {
-    // Exact cross multiplication (denominators are positive). Fall back to extended precision only
-    // if the products cannot be represented, which does not happen for realistic frame rates.
+    // All invalid Rational values normalise to 0/0. Place them before
+    // valid numbers so ordering stays consistent with operator==.
+    if (!a.isValid() || !b.isValid()) {
+        return a.isValid() <=> b.isValid();
+    }
+    // Valid Rational values have positive denominators. Keep the fast path
+    // for ordinary timeline and frame-rate values, whose cross-products fit.
     std::int64_t lhs = 0;
     std::int64_t rhs = 0;
     if (!mulOverflows(a.m_num, b.m_den, &lhs) && !mulOverflows(b.m_num, a.m_den, &rhs)) {
         return lhs <=> rhs;
     }
-    const auto lhsWide = static_cast<long double>(a.m_num) * static_cast<long double>(b.m_den);
-    const auto rhsWide = static_cast<long double>(b.m_num) * static_cast<long double>(a.m_den);
-    if (lhsWide < rhsWide) {
-        return std::strong_ordering::less;
+    // long double is only double precision on MSVC, and neither long double
+    // nor double can distinguish fractions differing by 1 in a ~2^126
+    // cross-product. Compare signed magnitudes exactly instead.
+    if ((a.m_num < 0) != (b.m_num < 0)) {
+        return a.m_num < 0 ? std::strong_ordering::less : std::strong_ordering::greater;
     }
-    if (lhsWide > rhsWide) {
-        return std::strong_ordering::greater;
+    const auto result =
+        compareUnsignedFractions(unsignedMagnitude(a.m_num), static_cast<std::uint64_t>(a.m_den),
+                                 unsignedMagnitude(b.m_num), static_cast<std::uint64_t>(b.m_den));
+    if (a.m_num < 0) {
+        if (result == std::strong_ordering::less) {
+            return std::strong_ordering::greater;
+        }
+        if (result == std::strong_ordering::greater) {
+            return std::strong_ordering::less;
+        }
     }
-    return std::strong_ordering::equal;
+    return result;
 }
 
 } // namespace ft

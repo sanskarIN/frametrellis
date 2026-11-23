@@ -400,6 +400,30 @@ private slots:
         }
     }
 
+    void rendererCannotClaimSuccessWithoutAStartEvent()
+    {
+        // A helper may write a nonempty destination and exit zero without
+        // ever confirming the expected render lifecycle. Treat that protocol
+        // violation as a failure, not as a completed export.
+        const Project original = project(25);
+        ExportSettings settings;
+        settings.outputPath = m_dir.filePath(QStringLiteral("fixture-no-start-success.mp4"));
+        settings.speedPreset = QStringLiteral("ultrafast");
+        RenderJob job(QStringLiteral(FT_SUCCESS_RENDER_HELPER));
+        QSignalSpy finished(&job, &RenderJob::finished);
+        QVERIFY(job.start(original, settings));
+        QVERIFY(finished.count() > 0 || finished.wait(15'000));
+        QCOMPARE(job.state(), RenderJob::State::Failed);
+        QVERIFY2(job.errorMessage().contains(QStringLiteral("valid start")),
+                 qPrintable(job.errorMessage()));
+        // Do not destroy an existing user's output just because a helper
+        // reported a broken completion event.
+        QFile output(settings.outputPath);
+        QVERIFY(output.open(QIODevice::ReadOnly));
+        QCOMPARE(output.readAll(), QByteArrayLiteral("test"));
+        QVERIFY(partFiles().isEmpty());
+    }
+
     void rendererMustConfirmExactOutputPathBeforeReportingSuccess()
     {
         // A synthetic helper may exit zero after writing an MP4 but report

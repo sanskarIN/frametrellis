@@ -354,6 +354,14 @@ void RenderJob::handleEvent(const QJsonObject& event)
         }
         emit progressChanged();
     } else if (type == QLatin1String("finished")) {
+        // A zero-exit helper cannot certify a completed export without ever
+        // reporting a valid start. Otherwise a stale, nonempty destination
+        // could be mistaken for a newly rendered file.
+        if (!m_sawStarted) {
+            qCWarning(lcRender) << "Rejected renderer completion without a valid start event";
+            m_errorMessage = QStringLiteral("The renderer did not confirm a valid start.");
+            return;
+        }
         // A zero-exit helper must identify the exact requested destination. An
         // unrelated or malformed finished event cannot certify a stale MP4.
         const QString reportedPath = event.value(QLatin1String("output")).toString();

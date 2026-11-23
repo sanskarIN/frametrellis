@@ -4498,7 +4498,7 @@ private slots:
         path->forceActiveFocus();
         QTRY_VERIFY(path->hasActiveFocus());
         QTest::keyClick(m_window, Qt::Key_End);
-        QTest::keyClicks(m_window, QStringLiteral("x"));
+        QTest::keyClick(m_window, Qt::Key_X);
         // A non-focusable export button may be activated while the field is
         // still editing. The destination used by validation and submission
         // must already reflect what the user has typed.

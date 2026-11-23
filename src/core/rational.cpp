@@ -158,8 +158,7 @@ std::optional<std::int64_t> mulDiv(std::int64_t a, std::int64_t b, std::int64_t 
     }
 
     const std::uint64_t maxMagnitude =
-        static_cast<std::uint64_t>(std::numeric_limits<std::int64_t>::max()) +
-        (negative ? 1u : 0u);
+        static_cast<std::uint64_t>(std::numeric_limits<std::int64_t>::max()) + (negative ? 1u : 0u);
     if (quotient > maxMagnitude - (roundAwayFromZero ? 1u : 0u)) {
         return std::nullopt;
     }

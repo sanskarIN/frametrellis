@@ -107,6 +107,17 @@ std::optional<FrameCount> parse(const QString& text, const FrameRate& rate)
     if (dropLabel && !rate.supportsDropFrame()) {
         return std::nullopt;
     }
+    if (dropLabel) {
+        // SMPTE drop-frame uses exactly one semicolon, separating the last
+        // field (frames) from the preceding clock fields. Treating a semicolon
+        // in an earlier field as drop-frame silently parses a different label.
+        const qsizetype separator = input.indexOf(QLatin1Char(';'));
+        if (separator != input.lastIndexOf(QLatin1Char(';')) ||
+            input.indexOf(QLatin1Char(':'), separator + 1) >= 0 ||
+            input.indexOf(QLatin1Char('.'), separator + 1) >= 0) {
+            return std::nullopt;
+        }
+    }
     QString normalised = input;
     normalised.replace(QLatin1Char(';'), QLatin1Char(':'));
     normalised.replace(QLatin1Char('.'), QLatin1Char(':'));

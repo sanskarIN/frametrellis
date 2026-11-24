@@ -65,6 +65,16 @@ class V152ReleaseSafetyTests(unittest.TestCase):
             "ci.yml desktop-platforms.yml package-windows.yml website.yml",
             source,
         )
+        # Limit the GitHub API's 100-result scan to protected main push
+        # runs, rather than letting busy PR check traffic evict the
+        # qualifying frozen-SHA run from the response.
+        self.assertIn(
+            "runs?branch=main&event=push&status=success&per_page=100",
+            source,
+        )
+        self.assertIn("head_sha == $sha", source)
+        self.assertIn('head_branch == "main"', source)
+        self.assertIn('and .event == "push"', source)
         self.assertRegex(website, r"(?m)^  push:\n    branches: \[main\]$")
         self.assertIn(
             "node web/build.mjs --release-json release.json --verify-downloads",

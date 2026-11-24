@@ -65,8 +65,15 @@ QString FrameRate::displayName() const
     if (denominator() == 1) {
         return QStringLiteral("%1 fps").arg(numerator());
     }
-    return QStringLiteral("%1 fps").arg(
-        QString::number(toDouble(), 'f', 3).remove(QRegularExpression(QStringLiteral("0+$"))));
+    // Familiar NTSC display aliases remain compact (29.97 rather than
+    // 29.97003); other validated fractional rates use more decimal places
+    // so an explicit custom export rate such as 29.9701 is not shown as 29.97.
+    const bool ntscAlias = denominator() == 1001 &&
+                           (numerator() == 24000 || numerator() == 30000 || numerator() == 48000 ||
+                            numerator() == 60000 || numerator() == 120000 || numerator() == 240000);
+    QString label = QString::number(toDouble(), 'f', ntscAlias ? 3 : 6);
+    label.remove(QRegularExpression(QStringLiteral("0+$")));
+    return QStringLiteral("%1 fps").arg(label);
 }
 
 std::optional<std::int64_t> FrameRate::framesToMicroseconds(FrameCount frames) const

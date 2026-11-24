@@ -269,6 +269,11 @@ private slots:
         QCOMPARE(*outputFrameRate(settings, project.settings()), ntsc);
         settings.frameRate = QStringLiteral("29.97");
         QCOMPARE(*outputFrameRate(settings, project.settings()), ntsc);
+        // Nearby and more precise custom FPS values must not become 29.97 NTSC.
+        settings.frameRate = QStringLiteral("29.974");
+        QCOMPARE(*outputFrameRate(settings, project.settings()), *FrameRate::create(14987, 500));
+        settings.frameRate = QStringLiteral("29.9701");
+        QCOMPARE(*outputFrameRate(settings, project.settings()), *FrameRate::create(299701, 10000));
         QCOMPARE(*outputFrameCount(50, FrameRate::integer(25), ntsc), FrameCount{60});
         QCOMPARE(*outputFrameCount(50, FrameRate::integer(25), twentyFour), FrameCount{48});
         QCOMPARE(*outputFrameCount(1, ntsc, ntsc), FrameCount{1});

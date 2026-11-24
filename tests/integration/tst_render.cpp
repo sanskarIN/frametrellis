@@ -520,9 +520,12 @@ private slots:
             QCOMPARE(job.framesDone(), FrameCount{0});
             QCOMPARE(job.totalFrames(), FrameCount{40});
             const bool firstError = mode == QStringLiteral("error-then-empty");
-            QCOMPARE(job.errorMessage(), firstError
-                                             ? QStringLiteral("Synthetic first failure")
-                                             : QStringLiteral("The renderer reported an unspecified error."));
+            if (firstError) {
+                QCOMPARE(job.errorMessage(), QStringLiteral("Synthetic first failure"));
+            } else {
+                QCOMPARE(job.errorMessage(),
+                         QStringLiteral("The renderer reported an unspecified error."));
+            }
             QVERIFY2(job.errorDetail().contains(QStringLiteral("0x00000000")),
                      qPrintable(job.errorDetail()));
             QVERIFY2(job.errorDetail().contains(QStringLiteral("FT_SYNTHETIC_FINAL_STDERR")),

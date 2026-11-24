@@ -5,7 +5,9 @@
 #include <QImage>
 #include <QSize>
 
+#include <cstddef>
 #include <cstdint>
+#include <limits>
 #include <vector>
 
 namespace Mlt {
@@ -15,7 +17,8 @@ class Producer;
 
 namespace ft::engine {
 
-/// Renders the frame's picture as RGBA8888 at the requested size. Returns a null image on failure.
+/// Renders a frame as RGBA8888. Invalid dimensions, decoder output or allocation failure
+/// return a null image without copying into an invalid buffer.
 QImage frameToImage(Mlt::Frame& frame, QSize size);
 
 /// Seeks the producer and renders one picture.
@@ -28,11 +31,19 @@ struct AudioBlock
     int frequency = 0;
     [[nodiscard]] int sampleFrames() const
     {
-        return channels > 0 ? static_cast<int>(samples.size()) / channels : 0;
+        if (channels <= 0) {
+            return 0;
+        }
+        const auto frames = samples.size() / static_cast<std::size_t>(channels);
+        return frames <= static_cast<std::size_t>(std::numeric_limits<int>::max())
+                   ? static_cast<int>(frames)
+                   : 0;
     }
 };
 
 /// Renders the audio belonging to one video frame at the given position.
+/// Invalid requests return an empty block; invalid decoder output yields bounded silence
+/// using the requested sample count to preserve the playback clock.
 AudioBlock frameToAudio(Mlt::Frame& frame, double fps, int frequency, int channels,
                         std::int64_t position);
 

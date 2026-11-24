@@ -297,6 +297,59 @@ private slots:
         QVERIFY(isCloseTo(averageColor(*first), Qt::red));
     }
 
+    void frameConversionRejectsInvalidNativeBufferRequests()
+    {
+        QList<Id> ids;
+        Project project = projectWith({m_media.video}, &ids);
+        QCOMPARE(ids.size(), qsizetype{1});
+        const Id track = project.timeline().tracks()[0].id;
+        QVERIFY(project.timeline().insertClip(track, clipOf(ids.front(), 0, 0, 40),
+                                              project.sourceLookup()));
+        auto profile = engine::createProfile(160, 90, FrameRate::integer(25));
+        engine::TimelineGraphBuilder builder(*profile);
+        const auto graph = builder.build(project);
+        QVERIFY(graph);
+        graph->tractor->seek(5);
+        std::unique_ptr<Mlt::Frame> frame(graph->tractor->get_frame());
+        QVERIFY(frame && frame->is_valid());
+
+        const int largest = std::numeric_limits<int>::max();
+        for (const QSize size :
+             {QSize(), QSize(0, 90), QSize(-1, 90), QSize(160, 0), QSize(largest, 90),
+              QSize(160, largest), QSize(kMaxFrameDimension + 1, 90)}) {
+            QVERIFY(engine::frameToImage(*frame, size).isNull());
+            QVERIFY(engine::grabFrame(*graph->tractor, 5, size).isNull());
+        }
+        QVERIFY(engine::grabFrame(*graph->tractor, -1, QSize(160, 90)).isNull());
+
+        const auto invalidAudio = [&](double fps, int frequency, int channels,
+                                      FrameCount framePos) {
+            const auto audio = engine::frameToAudio(*frame, fps, frequency, channels, framePos);
+            QVERIFY(audio.samples.empty());
+            QCOMPARE(audio.sampleFrames(), 0);
+        };
+        for (double fps : {std::numeric_limits<double>::quiet_NaN(),
+                           std::numeric_limits<double>::infinity(), -1.0, 0.0, 0.5, 1001.0}) {
+            invalidAudio(fps, 48000, 2, 5);
+        }
+        for (int frequency : {-1, 0, 384001, largest}) {
+            invalidAudio(25.0, frequency, 2, 5);
+        }
+        for (int channels : {-1, 0, 9, largest}) {
+            invalidAudio(25.0, 48000, channels, 5);
+        }
+        invalidAudio(25.0, 48000, 2, -1);
+        invalidAudio(25.0, 48000, 2, std::numeric_limits<FrameCount>::max());
+
+        // Invalid requests must not poison a subsequent normal frame.
+        QCOMPARE(engine::frameToImage(*frame, QSize(160, 90)).size(), QSize(160, 90));
+        const auto audio = engine::frameToAudio(*frame, 25.0, 48000, 2, 5);
+        QCOMPARE(audio.frequency, 48000);
+        QCOMPARE(audio.channels, 2);
+        QCOMPARE(audio.sampleFrames(), 1920);
+        QVERIFY(peakLevel(audio.samples) > 0);
+    }
+
     void sourceFramePreviewMatchesProjectRateAndRejectsOutOfRange()
     {
         Result<MediaInfo> info = media::probeMedia(m_media.video);

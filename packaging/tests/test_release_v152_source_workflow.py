@@ -11,6 +11,7 @@ SOURCE = ROOT / ".github/workflows/release-assets-v152-source.yml"
 PREPARE = ROOT / ".github/workflows/release.yml"
 LEGACY = ROOT / ".github/workflows/release-assets.yml"
 PAGES = ROOT / ".github/workflows/pages.yml"
+WINDOWS = ROOT / ".github/workflows/package-windows.yml"
 PREVIOUS = ROOT / ".github/workflows/release-assets-v151-source.yml"
 WEBSITE = ROOT / ".github/workflows/website.yml"
 RELEASE_VERSION = ROOT / "packaging/release_version.py"
@@ -19,6 +20,21 @@ NAME = "Attach approved v1.5.2 Windows assets (source builds on Linux and macOS)
 
 
 class V152ReleaseSafetyTests(unittest.TestCase):
+    def test_direct_windows_and_release_reuse_have_distinct_concurrency(self):
+        # A protected-main push can start both direct Windows verification
+        # and a release.yml rehearsal using the same reusable Windows workflow.
+        # GitHub allows only one running and one pending run per group,
+        # so include the caller workflow name to avoid an untested main SHA.
+        windows = WINDOWS.read_text(encoding="utf-8")
+        self.assertIn("  workflow_call:", windows)
+        self.assertIn("  push:", windows)
+        self.assertIn("    branches: [main]", windows)
+        self.assertIn(
+            "group: package-windows-${{ github.workflow }}-",
+            windows,
+        )
+        self.assertIn("cancel-in-progress: ${{ github.event_name == 'pull_request' }}", windows)
+
     def test_exact_version_tag_and_separate_owner_marker(self):
         source = SOURCE.read_text(encoding="utf-8")
         self.assertIn("tag_name == 'v1.5.2'", source)

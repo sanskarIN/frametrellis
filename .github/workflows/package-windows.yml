@@ -15,7 +15,12 @@ permissions:
   contents: read
 
 concurrency:
-  group: package-windows-${{ github.event.pull_request.number || github.ref }}-${{ github.event_name }}
+  # The reusable Windows build is invoked by the manual release preparation
+  # AND independently by a main push. Both can share the same ref/event,
+  # but GitHub limits each concurrency group to one running/one pending run.
+  # Include the *caller workflow name* (GitHub exposes it as github.workflow)
+  # so the release rehearsal cannot evict the direct protected-main verifier.
+  group: package-windows-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}-${{ github.event_name }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:

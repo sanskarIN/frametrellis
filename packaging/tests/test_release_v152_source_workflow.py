@@ -65,7 +65,7 @@ class V152ReleaseSafetyTests(unittest.TestCase):
             "ci.yml desktop-platforms.yml package-windows.yml website.yml",
             source,
         )
-        self.assertRegex(website, r"(?m)^  push:\\n    branches: \\[main\\]$")
+        self.assertRegex(website, r"(?m)^  push:\n    branches: \[main\]$")
         self.assertIn(
             "node web/build.mjs --release-json release.json --verify-downloads",
             website,

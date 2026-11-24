@@ -3,6 +3,9 @@
 
 #include "media/waveform.h"
 
+#include <QDir>
+#include <QFile>
+#include <QTemporaryDir>
 #include <QTest>
 
 #include <cmath>
@@ -132,6 +135,97 @@ private slots:
         QVERIFY(isTransparent(media::renderWaveform(data, inf, inf, size, color, nan)));
         // Rejected draw requests never mutate the cached waveform peaks.
         QCOMPARE(data.peaks, (std::vector<std::uint8_t>{0, 64, 128, 255, 128, 64, 0}));
+    }
+
+    void cancelledRequestDoesNotInitializeOrOpenDecoder()
+    {
+        MediaInfo info;
+        info.kind = MediaKind::Audio;
+        info.hasAudio = true;
+        info.durationUs = 2'000'000;
+        const std::atomic<bool> cancel{true};
+        const auto result =
+            media::computeWaveform(QStringLiteral("does-not-exist.wav"), info, 100, &cancel);
+        QVERIFY(!result);
+        QCOMPARE(result.error().code, ErrorCode::Cancelled);
+    }
+
+    void oversizedWaveformImagesAreRejectedBeforeAllocation()
+    {
+        media::WaveformData data;
+        data.binsPerSecond = 100;
+        data.peaks = {10, 100, 255};
+        for (const QSize invalid : {QSize(8193, 32), QSize(128, 513),
+                                    QSize(std::numeric_limits<int>::max(), 32),
+                                    QSize(128, std::numeric_limits<int>::max())}) {
+            QVERIFY(media::renderWaveform(data, 0.0, 0.03, invalid, Qt::white).isNull());
+        }
+        const QImage valid =
+            media::renderWaveform(data, 0.0, 0.03, QSize(8192, 32), Qt::white);
+        QCOMPARE(valid.size(), QSize(8192, 32));
+    }
+
+    void cacheRejectsInvalidKeysAndResolutionWithoutWritingOutsideDirectory()
+    {
+        QTemporaryDir temp;
+        QVERIFY(temp.isValid());
+        const QString cachePath = temp.filePath(QStringLiteral("cache"));
+        const media::WaveformCache cache(cachePath);
+        media::WaveformData data;
+        data.binsPerSecond = 100;
+        data.peaks = {0, 128, 255};
+
+        const QString outside = temp.filePath(QStringLiteral("outside.ftwf"));
+        QFile original(outside);
+        QVERIFY(original.open(QIODevice::WriteOnly));
+        QCOMPARE(original.write("precious"), qint64{8});
+        original.close();
+        for (const QString& invalid : {QString(), QStringLiteral("../outside"),
+                                      temp.filePath(QStringLiteral("outside")),
+                                      QString(40, QLatin1Char('G')),
+                                      QString(39, QLatin1Char('a'))}) {
+            QVERIFY(!cache.store(invalid, data));
+            QVERIFY(!cache.load(invalid));
+        }
+        QVERIFY(original.open(QIODevice::ReadOnly));
+        QCOMPARE(original.readAll(), QByteArrayLiteral("precious"));
+        original.close();
+        QVERIFY(QDir(cachePath).entryList(QDir::Files).isEmpty());
+
+        const QString key = QString(40, QLatin1Char('a'));
+        QVERIFY(cache.store(key, data));
+        QCOMPARE(cache.load(key), std::optional<media::WaveformData>(data));
+        for (int resolution : {0, -1, 1001, std::numeric_limits<int>::max()}) {
+            media::WaveformData invalid = data;
+            invalid.binsPerSecond = resolution;
+            QVERIFY(!cache.store(key, invalid));
+            QCOMPARE(cache.load(key), std::optional<media::WaveformData>(data));
+        }
+    }
+
+    void cacheIdentityIncludesAudioDecodeParameters()
+    {
+        QTemporaryDir temp;
+        QVERIFY(temp.isValid());
+        const media::WaveformCache cache(temp.path());
+        const QString path = temp.filePath(QStringLiteral("source.wav"));
+        MediaInfo info;
+        info.kind = MediaKind::Audio;
+        info.durationUs = 2'000'000;
+        info.audioChannels = 2;
+        info.audioSampleRate = 48'000;
+        const QString original = cache.keyFor(path, info);
+        QCOMPARE(original.size(), 40);
+        QCOMPARE(cache.keyFor(path, info), original);
+        MediaInfo changed = info;
+        changed.audioChannels = 1;
+        QVERIFY(cache.keyFor(path, changed) != original);
+        changed = info;
+        changed.audioSampleRate = 44'100;
+        QVERIFY(cache.keyFor(path, changed) != original);
+        changed = info;
+        changed.kind = MediaKind::Video;
+        QVERIFY(cache.keyFor(path, changed) != original);
     }
 
     void validDurationUsesNormalEngineAvailabilityCheck()

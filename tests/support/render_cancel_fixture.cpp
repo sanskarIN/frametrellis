@@ -44,7 +44,9 @@ int main(int argc, char** argv)
     if (errorAfterCancel) {
         // Report an actionable error, then use the nominal cancellation code.
         // The explicit error must remain visible to the editor.
-        std::puts(R"(@ft {"event":"error","message":"Synthetic render failure before cancellation","detail":"FT_SIMULATED_CANCEL_ERROR"})");
+        std::puts(
+            R"(@ft {"event":"error","message":"Synthetic render failure before cancellation",)"
+            R"("detail":"FT_SIMULATED_CANCEL_ERROR"})");
         std::fflush(stdout);
         return 3;
     }

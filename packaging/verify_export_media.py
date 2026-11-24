@@ -119,6 +119,29 @@ def mean_volume_dbfs(ffmpeg_output: str) -> float | None:
         return None
 
 
+def completed_video_frame_count(ffmpeg_progress: str) -> int | None:
+    """Return the final decoded frame count only after FFmpeg reports completion.
+
+    -vsync 0 below prevents the null muxer from duplicating or dropping frames
+    while we count the actual video frames present in the MP4.
+    """
+    count: int | None = None
+    completed = False
+    for line in ffmpeg_progress.splitlines():
+        key, separator, value = line.partition("=")
+        if not separator:
+            continue
+        if key.strip() == "frame":
+            value = value.strip()
+            if not value.isascii() or not value.isdecimal():
+                return None
+            count = int(value)
+            completed = False
+        elif key.strip() == "progress":
+            completed = value.strip() == "end"
+    return count if completed else None
+
+
 def run_command(arguments: list[str], timeout: int = 60) -> subprocess.CompletedProcess[str]:
     try:
         return subprocess.run(
@@ -163,10 +186,23 @@ def verify(
     # being silently accepted as a successful complete decode.
     video = run_command([
         "ffmpeg", "-hide_banner", "-nostdin", "-xerror", "-v", "error",
-        "-i", str(media), "-map", "0:v:0", "-an", "-f", "null", "-",
+        "-i", str(media), "-map", "0:v:0", "-an",
+        "-vsync", "0", "-progress", "pipe:1", "-f", "null", "-",
     ], timeout=decode_timeout_seconds)
     if video.returncode:
         problems.append(f"FFmpeg could not decode video: {video.stderr.strip()[-400:]}")
+    else:
+        decoded = completed_video_frame_count(video.stdout)
+        if decoded is None:
+            problems.append("FFmpeg did not report a completed video frame count")
+        else:
+            expected_frames = fps * Fraction(str(duration))
+            # A CFR export can round its last fractional frame boundary.
+            if abs(Fraction(decoded) - expected_frames) > 2:
+                problems.append(
+                    f"decoded video frame count {decoded}; expected "
+                    f"{expected_frames} frames at {fps} FPS over {duration:g} s"
+                )
 
     # Independently decode audio samples and prove that the encoded AAC is not
     # complete silence. -inf dBFS and missing volumedetect summaries both fail.

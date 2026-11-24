@@ -38,6 +38,21 @@ def safe_archive_name(name: str) -> bool:
     )
 
 
+def safe_windows_archive_name(name: str) -> bool:
+    """Reject paths that Windows cannot extract without changing their identity."""
+    if not safe_archive_name(name):
+        return False
+    reserved = {"CON", "PRN", "AUX", "NUL", "CONIN$", "CONOUT$"}
+    reserved.update(f"{prefix}{number}" for prefix in ("COM", "LPT")
+                    for number in "123456789¹²³")
+    for part in name.rstrip("/").split("/"):
+        if (not part or part in {".", ".."} or part.endswith((" ", "."))
+                or any(ord(char) < 32 or char in '<>:"|?*' for char in part)
+                or part.split(".", 1)[0].upper() in reserved):
+            return False
+    return True
+
+
 def verify(directory: Path, version: str) -> list[str]:
     """Raise ValueError for mismatched assets or structurally unsafe archives."""
     if not VERSION.fullmatch(version):
@@ -55,8 +70,8 @@ def verify(directory: Path, version: str) -> list[str]:
         )
 
     manifest = directory / "SHA256SUMS.txt"
-    if manifest.is_symlink():
-        raise ValueError("Checksum manifest must not be a symbolic link")
+    if manifest.is_symlink() or not manifest.is_file():
+        raise ValueError("Checksum manifest must be a regular file, not a symbolic link")
     checksum_lines = manifest.read_text(encoding="utf-8").splitlines()
     checksums: dict[str, str] = {}
     for line in checksum_lines:
@@ -94,11 +109,21 @@ def verify(directory: Path, version: str) -> list[str]:
         normalized_names = [name.rstrip("/").casefold() for name in names]
         if len(normalized_names) != len(set(normalized_names)):
             raise ValueError("Portable ZIP contains case-insensitive duplicate entries")
+        file_names = {item.filename.casefold() for item in entries if not item.is_dir()}
         for item in entries:
-            if not safe_archive_name(item.filename):
+            if not safe_windows_archive_name(item.filename):
                 raise ValueError(f"Unsafe portable ZIP entry: {item.filename}")
-            if stat.S_ISLNK(item.external_attr >> 16):
+            mode = stat.S_IFMT(item.external_attr >> 16)
+            if mode == stat.S_IFLNK:
                 raise ValueError(f"Portable ZIP contains a symlink: {item.filename}")
+            if mode not in (0, stat.S_IFDIR if item.is_dir() else stat.S_IFREG):
+                raise ValueError(f"Portable ZIP contains a special file: {item.filename}")
+            path = PurePosixPath(item.filename)
+            if any(str(parent).casefold() in file_names for parent in path.parents):
+                raise ValueError(f"Portable ZIP has a file/directory conflict: {item.filename}")
+            if (not item.is_dir() and path.name.casefold() in
+                    {"frametrellis.exe", "frametrellis-render.exe"} and item.file_size == 0):
+                raise ValueError(f"Portable ZIP contains an empty executable: {item.filename}")
         # The GUI starts the render process using its adjacent helper executable.
         # Checking only for the GUI lets a structurally valid ZIP pass even though
         # exporting every MP4 would fail after installation.

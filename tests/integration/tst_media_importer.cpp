@@ -181,8 +181,7 @@ private slots:
         int notifications = 0;
         {
             Importer importer;
-            connect(&importer, &Importer::pendingCountChanged, this,
-                    [&](int) { ++notifications; });
+            connect(&importer, &Importer::pendingCountChanged, this, [&](int) { ++notifications; });
             importer.import({QStringLiteral("abandoned.wav")});
             QCOMPARE(notifications, 1);
         }

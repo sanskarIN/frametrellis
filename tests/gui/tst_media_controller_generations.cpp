@@ -155,8 +155,8 @@ private slots:
         missing.info.hasVideo = true;
         missing.info.width = 32;
         missing.info.height = 18;
-        QVERIFY(f.project.execute(
-            std::make_unique<AddMediaCommand>(std::vector<MediaAsset>{missing})));
+        QVERIFY(
+            f.project.execute(std::make_unique<AddMediaCommand>(std::vector<MediaAsset>{missing})));
         QSignalSpy errors(&f.media, &Controller::importProblems);
         bool sawStart = false;
         bool replaced = false;

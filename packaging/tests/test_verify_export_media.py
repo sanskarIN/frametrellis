@@ -204,7 +204,9 @@ class IndependentExportVerifierTests(unittest.TestCase):
                 self.assertEqual(run.call_args_list[1].args[0][0], "ffmpeg")
                 self.assertIn("-xerror", run.call_args_list[1].args[0])
                 self.assertIn("-xerror", run.call_args_list[2].args[0])
-                self.assertIn("sample_rate,channels,duration:format=", run.call_args_list[0].args[0][run.call_args_list[0].args[0].index("-show_entries") + 1])
+                probe_args = run.call_args_list[0].args[0]
+                entries = probe_args[probe_args.index("-show_entries") + 1]
+                self.assertIn("sample_rate,channels,duration:format=", entries)
                 self.assertEqual(run.call_args_list[1].kwargs["timeout"], 60)
                 self.assertEqual(run.call_args_list[2].kwargs["timeout"], 60)
 

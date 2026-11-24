@@ -1,9 +1,9 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 """Independently inspect a rendered MP4 with FFprobe and decode it with FFmpeg.
 
-Full-file video and audio decoding of 30+ minute physical test footage may
-take more than the short 60-second CI default. Use --decode-timeout-seconds
-to set a bounded per-stream limit; only a full successful decode passes.
+FFprobe counts actually decoded picture frames; FFmpeg independently decodes
+video and audio. Long physical test footage may exceed the 60-second CI default.
+Use --decode-timeout-seconds to bound each independent full decode.
 
 This is a release *regression gate*: FrameTrellis's own media probe cannot
 substitute for a second implementation checking the output bitstream. Tests
@@ -119,6 +119,29 @@ def mean_volume_dbfs(ffmpeg_output: str) -> float | None:
         return None
 
 
+def decoded_video_frame_count(probe: object) -> int | None:
+    """Read an FFprobe decoded-frame count, not metadata or muxer progress.
+
+    -count_frames decodes the input streams; it cannot manufacture frame counts
+    through output-frame duplication or synchronisation.
+    """
+    if not isinstance(probe, dict):
+        return None
+    streams = probe.get("streams")
+    if not isinstance(streams, list):
+        return None
+    videos = [stream for stream in streams
+              if isinstance(stream, dict) and stream.get("codec_type") == "video"]
+    if len(videos) != 1:
+        return None
+    raw = videos[0].get("nb_read_frames")
+    if (not isinstance(raw, str) or not raw.isascii()
+            or not raw.isdecimal() or len(raw) > 18):
+        return None
+    count = int(raw)
+    return count if count > 0 else None
+
+
 def run_command(arguments: list[str], timeout: int = 60) -> subprocess.CompletedProcess[str]:
     try:
         return subprocess.run(
@@ -142,12 +165,12 @@ def verify(
     if not media.is_file() or media.stat().st_size < 1024:
         return ["rendered media is missing or too small"]
     probe = run_command([
-        "ffprobe", "-v", "error", "-i", str(media),
+        "ffprobe", "-v", "error", "-count_frames", "-i", str(media),
         "-show_entries",
         "stream=codec_type,codec_name,width,height,avg_frame_rate,r_frame_rate,"
-        "sample_rate,channels,duration:format=format_name,duration",
+        "sample_rate,channels,duration,nb_read_frames:format=format_name,duration",
         "-of", "json",
-    ])
+    ], timeout=decode_timeout_seconds)
     if probe.returncode:
         return [f"FFprobe could not read the MP4: {probe.stderr.strip()[-400:]}"]
     try:
@@ -157,10 +180,21 @@ def verify(
     problems.extend(probe_problems(info, fps, width, height, duration))
     if problems:
         return problems
+    decoded = decoded_video_frame_count(info)
+    if decoded is None:
+        problems.append("FFprobe did not report a valid decoded video frame count")
+    else:
+        expected_frames = fps * Fraction(str(duration))
+        # A CFR export can round its last fractional frame boundary.
+        if abs(Fraction(decoded) - expected_frames) > 2:
+            problems.append(
+                f"decoded video frame count {decoded}; expected "
+                f"{expected_frames} frames at {fps} FPS over {duration:g} s"
+            )
 
-    # This decodes the actual video, catching corrupt packets that headers
-    # alone cannot find. -xerror prevents recoverable decoder errors from
-    # being silently accepted as a successful complete decode.
+    # Independently decode all video packets with FFmpeg and -xerror, catching
+    # corrupt bitstreams even if the preceding FFprobe frame count completed.
+    # Do not request -vsync / -fps_mode: some codec builds omit these options.
     video = run_command([
         "ffmpeg", "-hide_banner", "-nostdin", "-xerror", "-v", "error",
         "-i", str(media), "-map", "0:v:0", "-an", "-f", "null", "-",
@@ -198,7 +232,7 @@ def main() -> int:
     parser.add_argument(
         "--decode-timeout-seconds", type=int, default=60,
         help=(
-            "timeout for each full FFmpeg stream decode "
+            "timeout for FFprobe frame counting and each full FFmpeg stream decode "
             "(60 for CI; up to 7200 for long physical exports)"
         ),
     )

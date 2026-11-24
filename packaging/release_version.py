@@ -93,6 +93,20 @@ def require_v151_source_build_assets(release: ReleaseVersion) -> None:
         )
 
 
+
+def require_v152_source_build_assets(release: ReleaseVersion) -> None:
+    """Allow the separate five-file Windows+source-build route for v1.5.2 only.
+
+    The exact opt-in guards asset naming and scope, NOT publication approval.
+    A distinct owner marker, same-SHA checks and physical QA remain required.
+    """
+    if release.prerelease or release.tag != "v1.5.2":
+        raise ValueError(
+            "The v1.5.2 source-build distribution scope is permitted only "
+            "for stable v1.5.2; a separate owner approval is required."
+        )
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--tag", required=True)
@@ -116,6 +130,13 @@ def main() -> None:
             "source-build scope for stable v1.5.1 only."
         ),
     )
+    policies.add_argument(
+        "--v152-source-build-assets", action="store_true",
+        help=(
+            "Explicit five-asset Windows binary + Linux/macOS "
+            "source-build scope for stable v1.5.2 only."
+        ),
+    )
     args = parser.parse_args()
     try:
         release = resolve_release_version(args.tag, args.project_version)
@@ -125,6 +146,8 @@ def main() -> None:
             require_v15_source_build_assets(release)
         if args.v151_source_build_assets:
             require_v151_source_build_assets(release)
+        if args.v152_source_build_assets:
+            require_v152_source_build_assets(release)
     except ValueError as exc:
         parser.error(str(exc))
     print(f"tag={release.tag}")

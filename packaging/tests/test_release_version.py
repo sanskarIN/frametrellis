@@ -18,6 +18,7 @@ from release_version import (  # noqa: E402
     require_windows_only_assets,
     require_v15_source_build_assets,
     require_v151_source_build_assets,
+    require_v152_source_build_assets,
     resolve_release_version,
 )
 
@@ -128,6 +129,48 @@ class ReleaseVersionTests(unittest.TestCase):
             capture_output=True, text=True, check=False,
         )
         self.assertNotEqual(conflicting.returncode, 0)
+
+    def test_v152_requires_separate_exact_scope_and_no_prerelease(self):
+        exact = resolve_release_version("v1.5.2", "1.5.2")
+        require_v152_source_build_assets(exact)
+        for tag, version in (
+            ("v1.5.0", "1.5.0"),
+            ("v1.5.1", "1.5.1"),
+            ("v1.5.2-rc.1", "1.5.2"),
+            ("v1.5.3", "1.5.3"),
+            ("v2.0.0", "2.0.0"),
+        ):
+            with self.subTest(tag=tag), self.assertRaises(ValueError):
+                require_v152_source_build_assets(
+                    resolve_release_version(tag, version)
+                )
+        passed = subprocess.run(
+            [
+                sys.executable, str(SOURCE), "--tag", "v1.5.2",
+                "--project-version", "1.5.2", "--v152-source-build-assets",
+            ],
+            capture_output=True, text=True, check=True,
+        )
+        self.assertIn("package_version=1.5.2", passed.stdout)
+        for wrong_tag in ("v1.5.1", "v1.5.2-rc.1", "v1.5.3"):
+            rejected = subprocess.run(
+                [
+                    sys.executable, str(SOURCE), "--tag", wrong_tag,
+                    "--project-version", wrong_tag[1:].split("-")[0],
+                    "--v152-source-build-assets",
+                ],
+                capture_output=True, text=True, check=False,
+            )
+            self.assertNotEqual(rejected.returncode, 0)
+        incompatible = subprocess.run(
+            [
+                sys.executable, str(SOURCE), "--tag", "v1.5.2",
+                "--project-version", "1.5.2",
+                "--v151-source-build-assets", "--v152-source-build-assets",
+            ],
+            capture_output=True, text=True, check=False,
+        )
+        self.assertNotEqual(incompatible.returncode, 0)
 
     def test_source_build_cli_requires_explicit_scope(self):
         accepted = subprocess.run(

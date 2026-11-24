@@ -1,6 +1,10 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 """Independently inspect a rendered MP4 with FFprobe and decode it with FFmpeg.
 
+Full-file video and audio decoding of 30+ minute physical test footage may
+take more than the short 60-second CI default. Use --decode-timeout-seconds
+to set a bounded per-stream limit; only a full successful decode passes.
+
 This is a release *regression gate*: FrameTrellis's own media probe cannot
 substitute for a second implementation checking the output bitstream. Tests
 use synthetic, locally generated media only; they never upload user footage.
@@ -76,13 +80,31 @@ def probe_problems(
         actual_duration = float(container.get("duration"))
     except (ValueError, TypeError):
         actual_duration = float("nan")
-    # For extended renders, a 10% window could mask several missing seconds.
-    # Allow a bounded 2% container rounding/encoder tail, minimum 200 ms.
-    tolerance = max(0.2, duration * 0.02)
+    # A percentage-only tolerance could accept a 30-minute output that ends
+    # 30+ seconds early. Allow codec/container rounding but never more than
+    # two seconds of missing or extra footage on a long physical export.
+    tolerance = min(2.0, max(0.2, duration * 0.02))
     if not math.isfinite(actual_duration) or abs(actual_duration - duration) > tolerance:
         problems.append(
             f"container duration {actual_duration} s; expected {duration:.3f} +/- {tolerance:.3f} s"
         )
+    # The container duration can be set by the longer stream even when the
+    # other stream terminates early. MP4 stream durations must independently
+    # agree with the requested render length.
+    for name, matching in (("video", videos), ("audio", audios)):
+        if len(matching) != 1:
+            continue
+        try:
+            stream_duration = float(matching[0].get("duration"))
+        except (ValueError, TypeError, OverflowError):
+            stream_duration = float("nan")
+        if not math.isfinite(stream_duration) or stream_duration <= 0 or (
+            abs(stream_duration - duration) > tolerance
+        ):
+            problems.append(
+                f"{name} stream duration {stream_duration} s; "
+                f"expected {duration:.3f} +/- {tolerance:.3f} s"
+            )
     return problems
 
 
@@ -114,6 +136,7 @@ def verify(
     height: int,
     duration: float,
     min_mean_dbfs: float,
+    decode_timeout_seconds: int = 60,
 ) -> list[str]:
     problems: list[str] = []
     if not media.is_file() or media.stat().st_size < 1024:
@@ -122,7 +145,7 @@ def verify(
         "ffprobe", "-v", "error", "-i", str(media),
         "-show_entries",
         "stream=codec_type,codec_name,width,height,avg_frame_rate,r_frame_rate,"
-        "sample_rate,channels:format=format_name,duration",
+        "sample_rate,channels,duration:format=format_name,duration",
         "-of", "json",
     ])
     if probe.returncode:
@@ -136,21 +159,22 @@ def verify(
         return problems
 
     # This decodes the actual video, catching corrupt packets that headers
-    # alone cannot find. It never writes output or accesses a network URL.
+    # alone cannot find. -xerror prevents recoverable decoder errors from
+    # being silently accepted as a successful complete decode.
     video = run_command([
-        "ffmpeg", "-hide_banner", "-nostdin", "-v", "error",
+        "ffmpeg", "-hide_banner", "-nostdin", "-xerror", "-v", "error",
         "-i", str(media), "-map", "0:v:0", "-an", "-f", "null", "-",
-    ])
+    ], timeout=decode_timeout_seconds)
     if video.returncode:
         problems.append(f"FFmpeg could not decode video: {video.stderr.strip()[-400:]}")
 
     # Independently decode audio samples and prove that the encoded AAC is not
     # complete silence. -inf dBFS and missing volumedetect summaries both fail.
     audio = run_command([
-        "ffmpeg", "-hide_banner", "-nostdin", "-v", "info",
+        "ffmpeg", "-hide_banner", "-nostdin", "-xerror", "-v", "info",
         "-i", str(media), "-map", "0:a:0", "-vn",
         "-af", "volumedetect", "-f", "null", "-",
-    ])
+    ], timeout=decode_timeout_seconds)
     if audio.returncode:
         problems.append(f"FFmpeg could not decode audio: {audio.stderr.strip()[-400:]}")
     else:
@@ -171,15 +195,25 @@ def main() -> int:
     parser.add_argument("--height", type=int, default=360)
     parser.add_argument("--duration", type=float, default=2.0, help="seconds")
     parser.add_argument("--min-mean-dbfs", type=float, default=-60.0)
+    parser.add_argument(
+        "--decode-timeout-seconds", type=int, default=60,
+        help=(
+            "timeout for each full FFmpeg stream decode "
+            "(60 for CI; up to 7200 for long physical exports)"
+        ),
+    )
     args = parser.parse_args()
     fps = parse_rate(args.fps)
     if fps is None or args.width <= 0 or args.height <= 0 or (
         not math.isfinite(args.duration) or args.duration <= 0
-    ) or not math.isfinite(args.min_mean_dbfs):
-        parser.error("invalid expected FPS, dimensions, duration or audio threshold")
+    ) or not math.isfinite(args.min_mean_dbfs) or not 10 <= args.decode_timeout_seconds <= 7200:
+        parser.error(
+            "invalid expected FPS, dimensions, duration, audio threshold or decode timeout"
+        )
     try:
         problems = verify(
-            args.media, fps, args.width, args.height, args.duration, args.min_mean_dbfs
+            args.media, fps, args.width, args.height, args.duration, args.min_mean_dbfs,
+            args.decode_timeout_seconds,
         )
     except RuntimeError as exc:
         problems = [str(exc)]

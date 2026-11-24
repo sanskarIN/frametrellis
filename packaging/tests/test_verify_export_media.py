@@ -28,12 +28,14 @@ def synthetic_probe() -> dict:
                 "height": 360,
                 "avg_frame_rate": "25/1",
                 "r_frame_rate": "25/1",
+                "duration": "2.0",
             },
             {
                 "codec_type": "audio",
                 "codec_name": "aac",
                 "sample_rate": "48000",
                 "channels": 2,
+                "duration": "2.04",
             },
         ],
         "format": {
@@ -115,7 +117,52 @@ class IndependentExportVerifierTests(unittest.TestCase):
         self.assertTrue(any("container duration" in message for message in
                             checker.probe_problems(info, Fraction(25), 640, 360, 60.0)))
         info["format"]["duration"] = "59.5"
+        for stream in info["streams"]:
+            stream["duration"] = "60.0"
         self.assertEqual(checker.probe_problems(info, Fraction(25), 640, 360, 60.0), [])
+
+    def test_thirty_minute_render_cannot_hide_missing_seconds(self):
+        info = synthetic_probe()
+        for stream in info["streams"]:
+            stream["duration"] = "1800.0"
+        # A plain 2% window would allow a 36-second truncation at 30 minutes.
+        for short_duration in ("1797.0", "1803.0"):
+            info["format"]["duration"] = short_duration
+            problems = checker.probe_problems(info, Fraction(25), 640, 360, 1800.0)
+            self.assertTrue(any("container duration" in p for p in problems))
+        for close_duration in ("1799.0", "1801.0"):
+            info["format"]["duration"] = close_duration
+            self.assertEqual(
+                checker.probe_problems(info, Fraction(25), 640, 360, 1800.0), []
+            )
+
+    def test_complete_container_cannot_hide_truncated_stream(self):
+        for index, name in ((0, "video"), (1, "audio")):
+            for stream_duration in ("1797.0", "1803.0", "nan", "inf", "N/A", "0", None):
+                with self.subTest(stream=name, duration=stream_duration):
+                    info = synthetic_probe()
+                    info["format"]["duration"] = "1800.0"
+                    for stream in info["streams"]:
+                        stream["duration"] = "1800.0"
+                    info["streams"][index]["duration"] = stream_duration
+                    problems = checker.probe_problems(
+                        info, Fraction(25), 640, 360, 1800.0
+                    )
+                    self.assertTrue(
+                        any(f"{name} stream duration" in p for p in problems),
+                        problems,
+                    )
+
+    def test_stream_duration_allows_normal_encoder_rounding(self):
+        info = synthetic_probe()
+        info["streams"][0]["duration"] = "1.96"
+        info["streams"][1]["duration"] = "2.08"
+        self.assertEqual(self.inspect(info), [])
+
+    def test_missing_stream_duration_fails_closed(self):
+        info = synthetic_probe()
+        del info["streams"][1]["duration"]
+        self.assertTrue(any("audio stream duration" in p for p in self.inspect(info)))
 
     def test_missing_json_metadata_rejected(self):
         self.assertTrue(self.inspect(None))
@@ -155,6 +202,53 @@ class IndependentExportVerifierTests(unittest.TestCase):
                 self.assertEqual(checker.verify(media, Fraction(25), 640, 360, 2.0, -60), [])
                 self.assertEqual(run.call_count, 3)
                 self.assertEqual(run.call_args_list[1].args[0][0], "ffmpeg")
+                self.assertIn("-xerror", run.call_args_list[1].args[0])
+                self.assertIn("-xerror", run.call_args_list[2].args[0])
+                probe_args = run.call_args_list[0].args[0]
+                entries = probe_args[probe_args.index("-show_entries") + 1]
+                self.assertIn("sample_rate,channels,duration:format=", entries)
+                self.assertEqual(run.call_args_list[1].kwargs["timeout"], 60)
+                self.assertEqual(run.call_args_list[2].kwargs["timeout"], 60)
+
+    def test_long_decode_timeout_is_passed_to_both_ffmpeg_streams(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            media = Path(tmp) / "long-review.mp4"
+            media.write_bytes(b"x" * 2048)
+            reports = [
+                subprocess.CompletedProcess([], 0, stdout=json.dumps(synthetic_probe()), stderr=""),
+                subprocess.CompletedProcess([], 0, stdout="", stderr=""),
+                subprocess.CompletedProcess([], 0, stdout="", stderr="mean_volume: -22.0 dB"),
+            ]
+            with mock.patch.object(checker, "run_command", side_effect=reports) as run:
+                self.assertEqual(
+                    checker.verify(media, Fraction(25), 640, 360, 2.0, -60, 7200), []
+                )
+                self.assertEqual(run.call_count, 3)
+                # FFprobe still gets its short safe default. The two complete
+                # stream decodes can use the explicit physical-QA budget.
+                self.assertNotIn("timeout", run.call_args_list[0].kwargs)
+                self.assertEqual(run.call_args_list[1].kwargs["timeout"], 7200)
+                self.assertEqual(run.call_args_list[2].kwargs["timeout"], 7200)
+
+    def test_cli_decode_timeout_default_and_bounds(self):
+        with mock.patch.object(checker, "verify", return_value=[]) as verify:
+            with mock.patch("sys.argv", ["verify_export_media.py", "synthetic.mp4"]):
+                self.assertEqual(checker.main(), 0)
+                self.assertEqual(verify.call_args.args[-1], 60)
+            for seconds in (10, 1800, 7200):
+                with mock.patch("sys.argv", [
+                    "verify_export_media.py", "synthetic.mp4",
+                    "--decode-timeout-seconds", str(seconds),
+                ]):
+                    self.assertEqual(checker.main(), 0)
+                    self.assertEqual(verify.call_args.args[-1], seconds)
+            for seconds in (0, 9, 7201):
+                with mock.patch("sys.argv", [
+                    "verify_export_media.py", "synthetic.mp4",
+                    "--decode-timeout-seconds", str(seconds),
+                ]), self.assertRaises(SystemExit) as exited:
+                    checker.main()
+                self.assertEqual(exited.exception.code, 2)
 
     def test_silent_audio_rejected_even_when_probe_has_aac(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -183,6 +277,23 @@ class IndependentExportVerifierTests(unittest.TestCase):
             ]
             with mock.patch.object(checker, "run_command", side_effect=reports):
                 self.assertTrue(any("decode video" in p for p in checker.verify(
+                    media, Fraction(25), 640, 360, 2.0, -60
+                )))
+
+
+    def test_corrupt_audio_fails_even_with_non_silent_volume(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            media = Path(tmp) / "sample.mp4"
+            media.write_bytes(b"x" * 2048)
+            reports = [
+                subprocess.CompletedProcess([], 0, stdout=json.dumps(synthetic_probe()), stderr=""),
+                subprocess.CompletedProcess([], 0, stdout="", stderr=""),
+                subprocess.CompletedProcess(
+                    [], 1, stdout="", stderr="AAC decode error\nmean_volume: -18.0 dB"
+                ),
+            ]
+            with mock.patch.object(checker, "run_command", side_effect=reports):
+                self.assertTrue(any("decode audio" in p for p in checker.verify(
                     media, Fraction(25), 640, 360, 2.0, -60
                 )))
 

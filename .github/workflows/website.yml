@@ -5,6 +5,11 @@
 name: Website
 
 on:
+  # A stable candidate can include only C++ changes. Check the site after
+  # EVERY protected-main push so the owner-gated release can require a
+  # successful website verification on the exact frozen source SHA.
+  push:
+    branches: [main]
   pull_request:
     paths:
       - "web/**"

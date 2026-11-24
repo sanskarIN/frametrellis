@@ -29,6 +29,7 @@ def synthetic_probe() -> dict:
                 "avg_frame_rate": "25/1",
                 "r_frame_rate": "25/1",
                 "duration": "2.0",
+                "nb_read_frames": "50",
             },
             {
                 "codec_type": "audio",
@@ -179,30 +180,24 @@ class IndependentExportVerifierTests(unittest.TestCase):
         )
         self.assertIsNone(checker.mean_volume_dbfs("no volume"))
 
-    def test_video_frame_progress_must_finish_with_a_valid_count(self):
-        self.assertEqual(
-            checker.completed_video_frame_count(
-                "frame=48\nprogress=continue\nframe=50\nprogress=end\n"
-            ),
-            50,
-        )
-        for output in (
-            "", "frame=50\n", "frame=fifty\nprogress=end\n",
-            "frame=50\nprogress=continue\n",
-            "progress=end\n", "frame=50\nprogress=end\nframe=51\n",
-        ):
-            with self.subTest(output=output):
-                self.assertIsNone(checker.completed_video_frame_count(output))
+    def test_probe_decoded_count_must_be_unambiguous(self):
+        self.assertEqual(checker.decoded_video_frame_count(synthetic_probe()), 50)
+        for value in ("", "N/A", None, "-1", "0", "5.5", "50x", 50, "9" * 200):
+            with self.subTest(value=value):
+                info = synthetic_probe()
+                info["streams"][0]["nb_read_frames"] = value
+                self.assertIsNone(checker.decoded_video_frame_count(info))
+        self.assertIsNone(checker.decoded_video_frame_count({"streams": []}))
 
     def test_video_frame_count_catches_missing_picture_despite_valid_durations(self):
         with tempfile.TemporaryDirectory() as tmp:
             media = Path(tmp) / "short-picture.mp4"
             media.write_bytes(b"x" * 2048)
+            info = synthetic_probe()
+            info["streams"][0]["nb_read_frames"] = "10"
             reports = [
-                subprocess.CompletedProcess([], 0, stdout=json.dumps(synthetic_probe()), stderr=""),
-                subprocess.CompletedProcess(
-                    [], 0, stdout="frame=10\nprogress=end\n", stderr=""
-                ),
+                subprocess.CompletedProcess([], 0, stdout=json.dumps(info), stderr=""),
+                subprocess.CompletedProcess([], 0, stdout="", stderr=""),
                 subprocess.CompletedProcess([], 0, stdout="", stderr="mean_volume: -18.0 dB"),
             ]
             with mock.patch.object(checker, "run_command", side_effect=reports) as run:
@@ -210,17 +205,33 @@ class IndependentExportVerifierTests(unittest.TestCase):
                 self.assertTrue(any("decoded video frame count 10" in p for p in problems))
                 self.assertEqual(run.call_count, 3)
 
+    def test_missing_decoded_frame_count_fails_closed(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            media = Path(tmp) / "uncounted.mp4"
+            media.write_bytes(b"x" * 2048)
+            info = synthetic_probe()
+            del info["streams"][0]["nb_read_frames"]
+            reports = [
+                subprocess.CompletedProcess([], 0, stdout=json.dumps(info), stderr=""),
+                subprocess.CompletedProcess([], 0, stdout="", stderr=""),
+                subprocess.CompletedProcess([], 0, stdout="", stderr="mean_volume: -18.0 dB"),
+            ]
+            with mock.patch.object(checker, "run_command", side_effect=reports):
+                problems = checker.verify(media, Fraction(25), 640, 360, 2.0, -60)
+                self.assertTrue(any("valid decoded video frame count" in p for p in problems))
+
     def test_fractional_fps_allows_normal_frame_boundary_rounding(self):
         info = synthetic_probe()
         info["streams"][0]["avg_frame_rate"] = "30000/1001"
         info["streams"][0]["r_frame_rate"] = "30000/1001"
+        info["streams"][0]["nb_read_frames"] = "59"
         with tempfile.TemporaryDirectory() as tmp:
             media = Path(tmp) / "fractional.mp4"
             media.write_bytes(b"x" * 2048)
             reports = [
                 subprocess.CompletedProcess([], 0, stdout=json.dumps(info), stderr=""),
                 subprocess.CompletedProcess(
-                    [], 0, stdout="frame=59\nprogress=end\n", stderr=""
+                    [], 0, stdout="", stderr=""
                 ),
                 subprocess.CompletedProcess([], 0, stdout="", stderr="mean_volume: -22.0 dB"),
             ]
@@ -246,7 +257,7 @@ class IndependentExportVerifierTests(unittest.TestCase):
             media.write_bytes(b"x" * 2048)
             reports = [
                 subprocess.CompletedProcess([], 0, stdout=json.dumps(synthetic_probe()), stderr=""),
-                subprocess.CompletedProcess([], 0, stdout="frame=50\nprogress=end\n", stderr=""),
+                subprocess.CompletedProcess([], 0, stdout="", stderr=""),
                 subprocess.CompletedProcess([], 0, stdout="", stderr="mean_volume: -22.0 dB"),
             ]
             with mock.patch.object(checker, "run_command", side_effect=reports) as run:
@@ -254,12 +265,14 @@ class IndependentExportVerifierTests(unittest.TestCase):
                 self.assertEqual(run.call_count, 3)
                 self.assertEqual(run.call_args_list[1].args[0][0], "ffmpeg")
                 self.assertIn("-xerror", run.call_args_list[1].args[0])
-                self.assertIn("-vsync", run.call_args_list[1].args[0])
-                self.assertIn("-progress", run.call_args_list[1].args[0])
+                self.assertNotIn("-vsync", run.call_args_list[1].args[0])
+                self.assertNotIn("-progress", run.call_args_list[1].args[0])
+                self.assertIn("-count_frames", run.call_args_list[0].args[0])
                 self.assertIn("-xerror", run.call_args_list[2].args[0])
                 probe_args = run.call_args_list[0].args[0]
                 entries = probe_args[probe_args.index("-show_entries") + 1]
-                self.assertIn("sample_rate,channels,duration:format=", entries)
+                self.assertIn("sample_rate,channels,duration,nb_read_frames:format=", entries)
+                self.assertEqual(run.call_args_list[0].kwargs["timeout"], 60)
                 self.assertEqual(run.call_args_list[1].kwargs["timeout"], 60)
                 self.assertEqual(run.call_args_list[2].kwargs["timeout"], 60)
 
@@ -269,7 +282,7 @@ class IndependentExportVerifierTests(unittest.TestCase):
             media.write_bytes(b"x" * 2048)
             reports = [
                 subprocess.CompletedProcess([], 0, stdout=json.dumps(synthetic_probe()), stderr=""),
-                subprocess.CompletedProcess([], 0, stdout="frame=50\nprogress=end\n", stderr=""),
+                subprocess.CompletedProcess([], 0, stdout="", stderr=""),
                 subprocess.CompletedProcess([], 0, stdout="", stderr="mean_volume: -22.0 dB"),
             ]
             with mock.patch.object(checker, "run_command", side_effect=reports) as run:
@@ -277,9 +290,9 @@ class IndependentExportVerifierTests(unittest.TestCase):
                     checker.verify(media, Fraction(25), 640, 360, 2.0, -60, 7200), []
                 )
                 self.assertEqual(run.call_count, 3)
-                # FFprobe still gets its short safe default. The two complete
-                # stream decodes can use the explicit physical-QA budget.
-                self.assertNotIn("timeout", run.call_args_list[0].kwargs)
+                # Frame-count probing now decodes all video, so it must receive
+                # the same long physical-QA deadline as each FFmpeg decode.
+                self.assertEqual(run.call_args_list[0].kwargs["timeout"], 7200)
                 self.assertEqual(run.call_args_list[1].kwargs["timeout"], 7200)
                 self.assertEqual(run.call_args_list[2].kwargs["timeout"], 7200)
 
@@ -309,7 +322,7 @@ class IndependentExportVerifierTests(unittest.TestCase):
             media.write_bytes(b"x" * 2048)
             reports = [
                 subprocess.CompletedProcess([], 0, stdout=json.dumps(synthetic_probe()), stderr=""),
-                subprocess.CompletedProcess([], 0, stdout="frame=50\nprogress=end\n", stderr=""),
+                subprocess.CompletedProcess([], 0, stdout="", stderr=""),
                 subprocess.CompletedProcess([], 0, stdout="", stderr="mean_volume: -inf dB"),
             ]
             with mock.patch.object(checker, "run_command", side_effect=reports):
@@ -340,7 +353,7 @@ class IndependentExportVerifierTests(unittest.TestCase):
             media.write_bytes(b"x" * 2048)
             reports = [
                 subprocess.CompletedProcess([], 0, stdout=json.dumps(synthetic_probe()), stderr=""),
-                subprocess.CompletedProcess([], 0, stdout="frame=50\nprogress=end\n", stderr=""),
+                subprocess.CompletedProcess([], 0, stdout="", stderr=""),
                 subprocess.CompletedProcess(
                     [], 1, stdout="", stderr="AAC decode error\nmean_volume: -18.0 dB"
                 ),

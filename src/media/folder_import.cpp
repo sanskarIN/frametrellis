@@ -14,7 +14,8 @@
 
 namespace ft::media {
 
-Result<FolderImportScan> discoverImportableFiles(const QString& directory, int maxFiles)
+Result<FolderImportScan> discoverImportableFiles(const QString& directory, int maxFiles,
+                                                 int maxVisitedEntries)
 {
     const QFileInfo root(directory);
     if (directory.trimmed().isEmpty() || !root.isDir() || !root.isReadable()) {
@@ -26,6 +27,12 @@ Result<FolderImportScan> discoverImportableFiles(const QString& directory, int m
                          QStringLiteral("The folder import limit must be between 1 and 5000."));
     }
 
+    if (maxVisitedEntries <= 0 || maxVisitedEntries > kMaxFolderScanEntries) {
+        return makeError(ErrorCode::OutOfRange,
+                         QStringLiteral("The folder scan entry limit must be between 1 and %1.")
+                             .arg(kMaxFolderScanEntries));
+    }
+
     QSet<QString> supported;
     for (const QString& suffix : importFileSuffixes()) {
         supported.insert(suffix.toCaseFolded());
@@ -33,20 +40,20 @@ Result<FolderImportScan> discoverImportableFiles(const QString& directory, int m
 
     FolderImportScan scan;
     QSet<QString> found;
-    // Avoid lengthy synchronous scans of unexpectedly huge directory trees.
-    constexpr int kMaxVisitedFiles = 10'000;
-    int visited = 0;
+    // The budget must cover directories and ignored entries as well as media.
+    // Otherwise a large tree of empty directories can bypass the file cap.
     QDirIterator iterator(root.absoluteFilePath(),
                           QDir::AllDirs | QDir::Files | QDir::NoDotAndDotDot | QDir::Readable,
                           QDirIterator::Subdirectories);
     while (iterator.hasNext()) {
-        const QFileInfo info(iterator.next());
-        if (!info.isFile() || info.isSymLink()) {
-            continue;
-        }
-        if (++visited > kMaxVisitedFiles) {
+        if (scan.visitedEntries >= maxVisitedEntries) {
             scan.truncated = true;
             break;
+        }
+        const QFileInfo info(iterator.next());
+        ++scan.visitedEntries;
+        if (!info.isFile() || info.isSymLink()) {
+            continue;
         }
         if (!supported.contains(info.suffix().toCaseFolded())) {
             ++scan.skippedUnsupported;

@@ -382,12 +382,18 @@ bool MediaController::relinkMissingFolder(const QString& urlOrPath)
             working = std::move(candidate);
             accepted.push_back(updated);
         }
-        if (!accepted.empty() &&
-            !m_project->execute(std::make_unique<RelinkMediaBatchCommand>(accepted))) {
-            emit importProblems(
-                QStringLiteral("Could not relink missing media"),
-                QStringLiteral("The project changed before the batch was applied."));
-            return;
+        if (!accepted.empty()) {
+            const bool applied =
+                m_project->execute(std::make_unique<RelinkMediaBatchCommand>(accepted));
+            if (!live || generation != m_folderScanGeneration) {
+                return;
+            }
+            if (!applied) {
+                emit importProblems(
+                    QStringLiteral("Could not relink missing media"),
+                    QStringLiteral("The project changed before the batch was applied."));
+                return;
+            }
         }
         const int skipped = scan->unmatched + scan->ambiguous + scan->probeFailed +
                             scan->wrongKind + scan->skippedTruncated + incompatible;

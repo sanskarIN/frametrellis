@@ -130,6 +130,44 @@ private slots:
         QCOMPARE(f.doc.undoText(), QStringLiteral("Add Clip"));
     }
 
+    void relinkRedoSurvivesRuntimeMediaRescan()
+    {
+        QTemporaryDir directory;
+        QVERIFY(directory.isValid());
+        MediaAsset original = videoAsset(QStringLiteral("original"),
+                                         directory.filePath(QStringLiteral("old.mp4")));
+        original.status = MediaStatus::Missing;
+        MediaAsset replacement = original;
+        replacement.filePath = directory.filePath(QStringLiteral("new.mp4"));
+        replacement.status = MediaStatus::Online;
+        {
+            QFile file(replacement.filePath);
+            QVERIFY(file.open(QIODevice::WriteOnly));
+            QCOMPARE(file.write("test"), qint64{4});
+        }
+        Project project = Project::createNew(QStringLiteral("Relink"), ProjectSettings{});
+        QVERIFY(project.addAsset(original));
+        ProjectDocument document(std::move(project));
+        QVERIFY(document.execute(std::make_unique<RelinkMediaBatchCommand>(
+            std::vector<MediaAsset>{replacement})));
+        QVERIFY(document.undo());
+
+        // The formerly missing original file is restored outside the editor.
+        // Rescanning changes availability, but does not alter edit history.
+        {
+            QFile file(original.filePath);
+            QVERIFY(file.open(QIODevice::WriteOnly));
+            QCOMPARE(file.write("test"), qint64{4});
+        }
+        QVERIFY(document.refreshMediaStatus().isEmpty());
+        QCOMPARE(document.project().asset(original.id)->status, MediaStatus::Online);
+        QVERIFY(document.canRedo());
+        QVERIFY(document.redo());
+        QCOMPARE(document.project().asset(original.id)->filePath, replacement.filePath);
+        QVERIFY(document.undo());
+        QCOMPARE(document.project().asset(original.id)->filePath, original.filePath);
+    }
+
     void batchStereoBalanceIsAtomicUndoableAndRejectsLockedOrNonStereoClips()
     {
         Fixture f;
@@ -1960,6 +1998,43 @@ private slots:
         QCOMPARE(f.doc.project().timeline().clip(QStringLiteral("c1"))->properties.gain, 0.6);
     }
 
+    void mergeBoundariesSurviveRejectedAndNoOpCommands()
+    {
+        Fixture f;
+        const Id clip = QStringLiteral("merge-boundary-clip");
+        QVERIFY(f.doc.execute(edits::addClip(
+            f.v1, clipOf(QStringLiteral("m1"), 0, 100, clip))));
+        ClipProperties properties;
+        properties.gain = 0.8;
+        QVERIFY(f.doc.execute(edits::setClipProperties(
+            clip, properties, QStringLiteral("Change Volume"))));
+        f.doc.breakMerge();
+
+        // Neither an unchanged initial drag event nor an invalid edit may
+        // consume the explicit boundary between two separate gestures.
+        QVERIFY(f.doc.execute(edits::setClipProperties(
+            clip, properties, QStringLiteral("Change Volume"))));
+        ClipProperties invalid = properties;
+        invalid.gain = -1.0;
+        QVERIFY(!f.doc.execute(edits::setClipProperties(
+            clip, invalid, QStringLiteral("Change Volume"))));
+        properties.gain = 0.4;
+        QVERIFY(f.doc.execute(edits::setClipProperties(
+            clip, properties, QStringLiteral("Change Volume"))));
+        properties.gain = 0.2;
+        QVERIFY(f.doc.execute(edits::setClipProperties(
+            clip, properties, QStringLiteral("Change Volume"))));
+
+        QVERIFY(f.doc.undo());
+        QCOMPARE(f.doc.project().timeline().clip(clip)->properties.gain, 0.8);
+        QVERIFY(f.doc.undo());
+        QCOMPARE(f.doc.project().timeline().clip(clip)->properties.gain, 1.0);
+        QVERIFY(f.doc.redo());
+        QCOMPARE(f.doc.project().timeline().clip(clip)->properties.gain, 0.8);
+        QVERIFY(f.doc.redo());
+        QCOMPARE(f.doc.project().timeline().clip(clip)->properties.gain, 0.2);
+    }
+
     void transitionCommandsUndoAndMerge()
     {
         Fixture f;
@@ -2220,6 +2295,53 @@ private slots:
         QCOMPARE(f.doc.project().name(), QStringLiteral("Test"));
         s.width = 7;
         QVERIFY(!f.doc.execute(std::make_unique<ProjectSettingsCommand>(s, QString())));
+    }
+
+    void projectSettingsRejectUnsavableNamesAndPreserveCleanNoOps()
+    {
+        QTemporaryDir directory;
+        QVERIFY(directory.isValid());
+        ProjectDocument document(Project::createNew(QStringLiteral("Original"), ProjectSettings{}));
+        const Project before = document.project();
+        const QString file = directory.filePath(QStringLiteral("edit.ftproj"));
+        QVERIFY(document.saveAs(file));
+
+        QSignalSpy changed(&document, &ProjectDocument::changed);
+        const ProjectSettings settings = document.project().settings();
+        QVERIFY(document.execute(std::make_unique<ProjectSettingsCommand>(
+            settings, QStringLiteral("  Original  "))));
+        QVERIFY(document.execute(std::make_unique<ProjectSettingsCommand>(settings, QString())));
+        QVERIFY(!document.canUndo());
+        QVERIFY(!document.isModified());
+        QCOMPARE(changed.count(), 0);
+
+        ProjectSettings altered = settings;
+        altered.width = 1280;
+        altered.height = 720;
+        QVERIFY(!document.execute(std::make_unique<ProjectSettingsCommand>(
+            altered, QString(121, QLatin1Char('x')))));
+        QCOMPARE(document.project(), before);
+        QVERIFY(!document.canUndo());
+        QVERIFY(!document.isModified());
+        QCOMPARE(changed.count(), 0);
+
+        const QString maximumName(120, QLatin1Char('n'));
+        QVERIFY(document.execute(std::make_unique<ProjectSettingsCommand>(
+            altered, maximumName)));
+        QVERIFY(document.project().validate());
+        QCOMPARE(document.project().name(), maximumName);
+        QVERIFY(document.undo());
+        QVERIFY(document.canRedo());
+        QVERIFY(!document.isModified());
+        QVERIFY(document.execute(std::make_unique<ProjectSettingsCommand>(
+            settings, QStringLiteral("Original"))));
+        QVERIFY(document.canRedo());
+        QVERIFY(document.redo());
+        QCOMPARE(document.project().name(), maximumName);
+        QVERIFY(document.save());
+        auto loaded = ProjectDocument::load(file);
+        QVERIFY(loaded);
+        QCOMPARE((*loaded)->project().name(), maximumName);
     }
 
     void historyLimitDropsOldestSteps()

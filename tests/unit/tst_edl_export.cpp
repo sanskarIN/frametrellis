@@ -144,8 +144,8 @@ private slots:
         VideoTransform transform;
         transform.scale = 1.5;
         transform.rotation = 15.0;
-        QVERIFY(project.timeline().setTransformKeyframe(clipId, 20, transform,
-                                                         project.sourceLookup()));
+        QVERIFY(
+            project.timeline().setTransformKeyframe(clipId, 20, transform, project.sourceLookup()));
         const Project transformBefore = project;
         result = interchange::toCmx3600(project);
         QVERIFY(!result);

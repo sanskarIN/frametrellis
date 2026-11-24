@@ -5,6 +5,7 @@
 #include <QHash>
 #include <QTest>
 
+#include <algorithm>
 #include <limits>
 
 using namespace ft;
@@ -878,6 +879,111 @@ private slots:
         tracks[0].transitions.front().id = QStringLiteral("a"); // clashes with a clip id
         corrupted.restoreTracks(tracks);
         QVERIFY(!corrupted.validate(sources));
+    }
+
+    void mutationsRejectCrossEntityIdsAtomically()
+    {
+        Timeline timeline = timelineWithCut();
+        QVERIFY(timeline.addTransition(QStringLiteral("a"), 10, testSources(),
+                                       QStringLiteral("dissolve")));
+        const Timeline original = timeline;
+        for (const Id& id : {QStringLiteral("v2"), QStringLiteral("a"),
+                             QStringLiteral("dissolve")}) {
+            QVERIFY(!timeline.insertClip(QStringLiteral("v2"),
+                                         makeClip(id, kStillAsset, 0, 0, 10), testSources()));
+            QVERIFY(!timeline.splitClip(QStringLiteral("a"), 40, id));
+            QCOMPARE(timeline, original);
+        }
+
+        Timeline plain = timelineWithCut();
+        const Timeline before = plain;
+        QVERIFY(!plain.addTransition(QStringLiteral("a"), 10, testSources(),
+                                     QStringLiteral("v2")));
+        QCOMPARE(plain, before);
+        QVERIFY(timeline.validate(testSources()));
+    }
+
+    void trackInsertionValidatesTransitionGeometry()
+    {
+        Timeline timeline = makeTimeline();
+        Track track;
+        track.id = QStringLiteral("extra");
+        track.name = QStringLiteral("Extra");
+        track.clips = {makeClip(QStringLiteral("x"), kVideoAsset, 0, 50, 100),
+                       makeClip(QStringLiteral("y"), kVideoAsset, 100, 50, 100)};
+        track.transitions = {{QStringLiteral("fade"), QStringLiteral("x"),
+                              QStringLiteral("missing"), 10}};
+        const Timeline before = timeline;
+        QVERIFY(!timeline.insertTrack(track));
+        QCOMPARE(timeline, before);
+        track.transitions.front().toClip = QStringLiteral("y");
+        track.transitions.front().duration = std::numeric_limits<FrameCount>::max();
+        QVERIFY(!timeline.insertTrack(track));
+        QCOMPARE(timeline, before);
+        track.transitions.front().duration = 10;
+        QVERIFY(timeline.insertTrack(track));
+        QVERIFY(timeline.validate(testSources()));
+    }
+
+    void neighbouringInvalidTransitionCannotOverflowDuringValidation()
+    {
+        Timeline timeline = timelineWithCut();
+        QVERIFY(timeline.insertClip(QStringLiteral("v1"),
+                                    makeClip(QStringLiteral("c"), kVideoAsset, 200, 50, 50),
+                                    testSources()));
+        QVERIFY(timeline.addTransition(QStringLiteral("a"), 10, testSources(),
+                                       QStringLiteral("ab")));
+        QVERIFY(timeline.addTransition(QStringLiteral("b"), 10, testSources(),
+                                       QStringLiteral("bc")));
+        auto tracks = timeline.tracks();
+        tracks.front().transitions.back().duration = std::numeric_limits<FrameCount>::min();
+        timeline.restoreTracks(tracks);
+        QVERIFY(!timeline.validate(testSources()));
+        tracks.front().transitions.back().duration = std::numeric_limits<FrameCount>::max();
+        timeline.restoreTracks(tracks);
+        QVERIFY(!timeline.validate(testSources()));
+    }
+
+    void rangeLookupMatchesLinearReferenceAcrossDenseTrack()
+    {
+        Timeline timeline = makeTimeline();
+        const Id trackId = QStringLiteral("v1");
+        for (int i = 0; i < 200; ++i) {
+            const FrameCount start = static_cast<FrameCount>(i) * 13;
+            QVERIFY(timeline.insertClip(
+                trackId, makeClip(QStringLiteral("clip-%1").arg(i), kStillAsset, start, 0, 7),
+                testSources()));
+        }
+        const auto& clips = timeline.track(trackId)->clips;
+        const auto check = [&](FrameCount start, FrameCount length, const Id& ignored) {
+            const bool expected = std::none_of(clips.begin(), clips.end(), [&](const Clip& c) {
+                return c.id != ignored && c.start < start + length && start < c.end();
+            });
+            QCOMPARE(timeline.isRangeFree(trackId, start, length, ignored), expected);
+        };
+        for (FrameCount start = 0; start < 2700; start += 3) {
+            for (FrameCount length : {FrameCount{1}, FrameCount{7}, FrameCount{35}}) {
+                check(start, length, {});
+                check(start, length, QStringLiteral("clip-%1").arg(start / 13));
+            }
+        }
+        QVERIFY(timeline.isRangeFree(trackId, kMaxTimelineFrames - 1, 1));
+    }
+
+    void snappingHandlesFullSignedRangeAndStableTieBreak()
+    {
+        const auto min = std::numeric_limits<FrameCount>::min();
+        const auto max = std::numeric_limits<FrameCount>::max();
+        QVERIFY(!snapToNearest(min, max, {max}));
+        QVERIFY(!snapToNearest(max, max, {min}));
+        QVERIFY(!snapToNearest(min, max, {0}));
+        QCOMPARE(*snapToNearest(min, max, {-1}), FrameCount{-1});
+        QCOMPARE(*snapToNearest(max, max, {0}), FrameCount{0});
+        QCOMPARE(*snapToNearest(0, max, {min, max}), max);
+        QCOMPARE(*snapToNearest(5, 5, {0, 10}), FrameCount{10});
+        QCOMPARE(*snapToNearest(10, 0, {0, 10}), FrameCount{10});
+        QVERIFY(!snapToNearest(5, 4, {0, 10}));
+        QVERIFY(!snapToNearest(0, -1, {0}));
     }
 
     void editPointsAndSnapping()

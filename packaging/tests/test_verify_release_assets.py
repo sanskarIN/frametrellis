@@ -135,6 +135,65 @@ class ReleaseAssetVerificationTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "Unsafe portable ZIP"):
             verifier.verify(self.root, self.VERSION)
 
+    def test_rejects_win32_unsafe_portable_names(self):
+        unsafe = (
+            "C:/outside.dll",
+            "FrameTrellis/CON",
+            "FrameTrellis/AUX.txt",
+            "FrameTrellis/COM1.dll",
+            "FrameTrellis/LPT1.txt",
+            "FrameTrellis/clip.txt.",
+            "FrameTrellis/clip.txt ",
+            "FrameTrellis/a:b.dll",
+            "FrameTrellis/foo?.dll",
+            "FrameTrellis/./plugin.dll",
+            "FrameTrellis/example\x01.dll",
+            "FrameTrellis/folder//plugin.dll",
+        )
+        for name in unsafe:
+            with self.subTest(path=name):
+                with zipfile.ZipFile(self.portable, "w") as archive:
+                    archive.writestr("FrameTrellis/frametrellis.exe", b"gui")
+                    archive.writestr("FrameTrellis/frametrellis-render.exe", b"helper")
+                    archive.writestr(name, b"unsafe")
+                self.refresh_manifest()
+                with self.assertRaisesRegex(ValueError, "Unsafe portable ZIP"):
+                    verifier.verify(self.root, self.VERSION)
+
+    def test_rejects_unicode_normalization_collision_in_portable(self):
+        with zipfile.ZipFile(self.portable, "w") as archive:
+            archive.writestr("FrameTrellis/frametrellis.exe", b"gui")
+            archive.writestr("FrameTrellis/frametrellis-render.exe", b"helper")
+            archive.writestr("FrameTrellis/café.txt", b"composed")
+            archive.writestr("FrameTrellis/cafe\u0301.txt", b"decomposed")
+        self.refresh_manifest()
+        with self.assertRaisesRegex(ValueError, "Unicode-colliding"):
+            verifier.verify(self.root, self.VERSION)
+
+    def test_rejects_normalization_collisions_in_sources_tar(self):
+        with tarfile.open(self.sources, "w") as archive:
+            for name in (
+                "pkg/FrameTrellis-1.4.0-windows-x64-sources.json",
+                "pkg/codec.src.tar.zst",
+                "pkg/CODEC.src.tar.zst",
+            ):
+                data = b"test"
+                info = tarfile.TarInfo(name)
+                info.size = len(data)
+                archive.addfile(info, io.BytesIO(data))
+        self.refresh_manifest()
+        with self.assertRaisesRegex(ValueError, "Duplicate corresponding-source"):
+            verifier.verify(self.root, self.VERSION)
+
+    def test_rejects_unsafe_drive_prefix_in_sources_tar(self):
+        with tarfile.open(self.sources, "w") as archive:
+            info = tarfile.TarInfo("C:/outside.src.tar.zst")
+            info.size = 4
+            archive.addfile(info, io.BytesIO(b"test"))
+        self.refresh_manifest()
+        with self.assertRaisesRegex(ValueError, "Unsafe corresponding-source"):
+            verifier.verify(self.root, self.VERSION)
+
     def test_rejects_wrong_spdx_version(self):
         self.spdx.write_text(
             json.dumps(

@@ -314,17 +314,17 @@ private slots:
         QVERIFY(frame && frame->is_valid());
 
         const int largest = std::numeric_limits<int>::max();
-        for (const QSize size : {QSize(), QSize(0, 90), QSize(-1, 90), QSize(160, 0),
-                                 QSize(largest, 90), QSize(160, largest),
-                                 QSize(kMaxFrameDimension + 1, 90)}) {
+        for (const QSize size :
+             {QSize(), QSize(0, 90), QSize(-1, 90), QSize(160, 0), QSize(largest, 90),
+              QSize(160, largest), QSize(kMaxFrameDimension + 1, 90)}) {
             QVERIFY(engine::frameToImage(*frame, size).isNull());
             QVERIFY(engine::grabFrame(*graph->tractor, 5, size).isNull());
         }
         QVERIFY(engine::grabFrame(*graph->tractor, -1, QSize(160, 90)).isNull());
 
-        const auto invalidAudio = [&](double fps, int frequency, int channels, FrameCount framePos) {
-            const auto audio =
-                engine::frameToAudio(*frame, fps, frequency, channels, framePos);
+        const auto invalidAudio = [&](double fps, int frequency, int channels,
+                                      FrameCount framePos) {
+            const auto audio = engine::frameToAudio(*frame, fps, frequency, channels, framePos);
             QVERIFY(audio.samples.empty());
             QCOMPARE(audio.sampleFrames(), 0);
         };

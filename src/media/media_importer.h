@@ -7,15 +7,17 @@
 #include <QObject>
 #include <QStringList>
 
+#include <atomic>
+#include <memory>
 #include <vector>
 
 namespace ft::media {
 
 /// Probes files on a background thread pool and reports the results on the owner's thread.
 ///
-/// Every batch carries a generation number; cancelAll() (called when a project is closed)
-/// increments it, so results that arrive afterwards are discarded instead of being added to the
-/// wrong project.
+/// Each project generation shares a cancellation token. cancelAll() invalidates it before
+/// notifying observers; workers stop before the next file and stale completions are discarded.
+/// Import/cancel operations and signal delivery must occur on the importer's owning thread.
 class MediaImporter : public QObject
 {
     Q_OBJECT
@@ -40,7 +42,7 @@ signals:
     void pendingCountChanged(int pending);
 
 private:
-    int m_generation = 0;
+    std::shared_ptr<std::atomic<bool>> m_cancelled = std::make_shared<std::atomic<bool>>(false);
     int m_pending = 0;
 };
 

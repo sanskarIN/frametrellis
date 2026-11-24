@@ -280,6 +280,45 @@ private slots:
         QVERIFY(partFiles().isEmpty());
     }
 
+    void repeatedShortExportsStartAtTheFirstFrame()
+    {
+        const Project original = project(8);
+        const Project copy = original;
+        // Short exports exercise startup/termination ordering repeatedly. A
+        // paused first frame must not be interpreted as a completed stream.
+        for (int attempt = 0; attempt < 4; ++attempt) {
+            ExportSettings settings;
+            settings.outputPath = m_dir.filePath(QStringLiteral("short-start-%1.mp4").arg(attempt));
+            settings.speedPreset = QStringLiteral("ultrafast");
+            settings.includeAudio = attempt % 2 == 0;
+            std::atomic<bool> cancel{false};
+            int starts = 0;
+            QList<FrameCount> progress;
+            FrameCount total = 0;
+            const Status rendered =
+                RenderRunner(original, settings)
+                    .run(
+                        cancel,
+                        [&](const QString&, FrameCount count) {
+                            ++starts;
+                            total = count;
+                        },
+                        [&](const RenderRunner::Progress& value) { progress.append(value.frame); });
+            QVERIFY2(rendered, qPrintable(rendered ? QString() : rendered.error().toString()));
+            QCOMPARE(starts, 1);
+            QCOMPARE(total, original.timeline().duration());
+            QVERIFY(!progress.isEmpty());
+            QCOMPARE(progress.last(), total);
+            QVERIFY(std::is_sorted(progress.begin(), progress.end()));
+            const auto info = media::probeMedia(settings.outputPath);
+            QVERIFY(info);
+            QCOMPARE(info->hasAudio, settings.includeAudio);
+            QVERIFY(isCloseTo(averageColor(frameOf(settings.outputPath, 0)), Qt::green));
+            QVERIFY(partFiles().isEmpty());
+            QCOMPARE(original, copy);
+        }
+    }
+
     void exportFpsConvertsFramesWithoutSpeedingUpAudioOrChangingProject()
     {
         const FrameRate sourceRate = FrameRate::integer(25);

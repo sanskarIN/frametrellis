@@ -67,6 +67,49 @@ private slots:
         QCOMPARE(root.entryList(QStringList{QStringLiteral("*.wav")}, QDir::Files).size(), 4);
     }
 
+    void directoryEntriesConsumeTheScanBudget()
+    {
+        QTemporaryDir temp;
+        QVERIFY(temp.isValid());
+        const QDir root(temp.path());
+        for (int index = 0; index < 7; ++index) {
+            QVERIFY(root.mkdir(QStringLiteral("empty%1").arg(index)));
+        }
+        const auto limited = media::discoverImportableFiles(temp.path(), 500, 3);
+        QVERIFY(limited);
+        QVERIFY(limited->truncated);
+        QCOMPARE(limited->visitedEntries, 3);
+        QVERIFY(limited->files.isEmpty());
+        QCOMPARE(limited->skippedUnsupported, 0);
+
+        const auto exact = media::discoverImportableFiles(temp.path(), 500, 7);
+        QVERIFY(exact);
+        QVERIFY(!exact->truncated);
+        QCOMPARE(exact->visitedEntries, 7);
+        QVERIFY(exact->files.isEmpty());
+    }
+
+    void mixedEntriesAreCountedBeforeFiltering()
+    {
+        QTemporaryDir temp;
+        QVERIFY(temp.isValid());
+        const QDir root(temp.path());
+        QVERIFY(root.mkdir(QStringLiteral("nested")));
+        writeFile(root.filePath(QStringLiteral("nested/clip.mp4")));
+        writeFile(root.filePath(QStringLiteral("notes.txt")));
+        const auto exact = media::discoverImportableFiles(temp.path(), 500, 3);
+        QVERIFY(exact);
+        QVERIFY(!exact->truncated);
+        QCOMPARE(exact->visitedEntries, 3);
+        QCOMPARE(exact->files, QStringList{root.filePath(QStringLiteral("nested/clip.mp4"))});
+        QCOMPARE(exact->skippedUnsupported, 1);
+
+        const auto limited = media::discoverImportableFiles(temp.path(), 500, 2);
+        QVERIFY(limited);
+        QVERIFY(limited->truncated);
+        QCOMPARE(limited->visitedEntries, 2);
+    }
+
     void rejectsInvalidLocationAndFileLimits()
     {
         QTemporaryDir temp;
@@ -75,6 +118,10 @@ private slots:
         QVERIFY(!media::discoverImportableFiles(temp.filePath(QStringLiteral("missing"))));
         QVERIFY(!media::discoverImportableFiles(temp.path(), 0));
         QVERIFY(!media::discoverImportableFiles(temp.path(), 5001));
+        QVERIFY(!media::discoverImportableFiles(temp.path(), 500, 0));
+        QVERIFY(!media::discoverImportableFiles(temp.path(), 500, -1));
+        QVERIFY(!media::discoverImportableFiles(temp.path(), 500,
+                                                media::kMaxFolderScanEntries + 1));
     }
 
     void doesNotFollowSymbolicFileLinks()

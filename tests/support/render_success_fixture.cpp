@@ -30,6 +30,8 @@ int main(int argc, char* argv[])
         output.find("fixture-contradictory-success") != std::string::npos;
     const bool noStart = output.find("fixture-no-start-success") != std::string::npos;
     const bool wrongTotal = output.find("fixture-wrong-total-success") != std::string::npos;
+    const bool errorThenEmpty = output.find("fixture-error-then-empty") != std::string::npos;
+    const bool emptyError = output.find("fixture-empty-error") != std::string::npos;
     if (output.find("fixture-empty-success") != std::string::npos) {
         std::ofstream file(output, std::ios::binary);
         if (!file) {
@@ -51,7 +53,19 @@ int main(int argc, char* argv[])
                     reportedTotal);
         if (wrongTotal) {
             std::puts(R"(@ft {"event":"progress","frame":41,"total":41})");
+            // Even progress with the expected total cannot authenticate a
+            // render whose initial total contradicted the frozen project.
+            std::puts(R"(@ft {"event":"progress","frame":40,"total":40})");
         }
+    }
+    if (errorThenEmpty) {
+        std::puts(R"(@ft {"event":"error","message":"Synthetic first failure","detail":"first diagnostic"})");
+    }
+    if (errorThenEmpty || emptyError) {
+        std::puts(R"(@ft {"event":"error","message":"   ","detail":""})");
+        std::puts(R"(@ft {"event":"progress","frame":40,"total":40})");
+        std::fputs("FT_SYNTHETIC_FINAL_STDERR\n", stderr);
+        std::fflush(stderr);
     }
     auto emitFinished = [](const QJsonObject& event) {
         const QByteArray line =

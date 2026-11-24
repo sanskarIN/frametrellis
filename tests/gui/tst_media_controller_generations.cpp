@@ -143,6 +143,41 @@ private slots:
         QVERIFY(f.project.project().media().empty());
     }
 
+    void replacementDuringRelinkCompletionSuppressesOldErrors()
+    {
+        Fixture f;
+        MediaAsset missing;
+        missing.id = createId();
+        missing.filePath = m_settings.filePath(QStringLiteral("unavailable.png"));
+        missing.name = QStringLiteral("Unavailable");
+        missing.status = MediaStatus::Missing;
+        missing.info.kind = MediaKind::Image;
+        missing.info.hasVideo = true;
+        missing.info.width = 32;
+        missing.info.height = 18;
+        QVERIFY(f.project.execute(
+            std::make_unique<AddMediaCommand>(std::vector<MediaAsset>{missing})));
+        QSignalSpy errors(&f.media, &Controller::importProblems);
+        bool sawStart = false;
+        bool replaced = false;
+        connect(&f.media, &Controller::importingChanged, this, [&] {
+            if (f.media.importing()) {
+                sawStart = true;
+            } else if (sawStart && !replaced) {
+                replaced = true;
+                QVERIFY(f.project.newProject(0, QStringLiteral("Unrelated document")));
+            }
+        });
+
+        QVERIFY(f.media.relinkMissingFolder(m_settings.filePath(QStringLiteral("missing"))));
+        QTRY_VERIFY_WITH_TIMEOUT(replaced, 10'000);
+        drainWorkers();
+        QCOMPARE(errors.count(), 0);
+        QVERIFY(!f.media.importing());
+        QVERIFY(f.project.project().media().empty());
+        QVERIFY(!f.project.canUndo());
+    }
+
     void freshScanAfterReplacementIsNotClearedByOldCancellation()
     {
         Fixture f;

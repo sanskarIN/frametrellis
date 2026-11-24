@@ -155,13 +155,12 @@ private slots:
         media::WaveformData data;
         data.binsPerSecond = 100;
         data.peaks = {10, 100, 255};
-        for (const QSize invalid : {QSize(8193, 32), QSize(128, 513),
-                                    QSize(std::numeric_limits<int>::max(), 32),
-                                    QSize(128, std::numeric_limits<int>::max())}) {
+        for (const QSize invalid :
+             {QSize(8193, 32), QSize(128, 513), QSize(std::numeric_limits<int>::max(), 32),
+              QSize(128, std::numeric_limits<int>::max())}) {
             QVERIFY(media::renderWaveform(data, 0.0, 0.03, invalid, Qt::white).isNull());
         }
-        const QImage valid =
-            media::renderWaveform(data, 0.0, 0.03, QSize(8192, 32), Qt::white);
+        const QImage valid = media::renderWaveform(data, 0.0, 0.03, QSize(8192, 32), Qt::white);
         QCOMPARE(valid.size(), QSize(8192, 32));
     }
 
@@ -180,10 +179,9 @@ private slots:
         QVERIFY(original.open(QIODevice::WriteOnly));
         QCOMPARE(original.write("precious"), qint64{8});
         original.close();
-        for (const QString& invalid : {QString(), QStringLiteral("../outside"),
-                                      temp.filePath(QStringLiteral("outside")),
-                                      QString(40, QLatin1Char('G')),
-                                      QString(39, QLatin1Char('a'))}) {
+        for (const QString& invalid :
+             {QString(), QStringLiteral("../outside"), temp.filePath(QStringLiteral("outside")),
+              QString(40, QLatin1Char('G')), QString(39, QLatin1Char('a'))}) {
             QVERIFY(!cache.store(invalid, data));
             QVERIFY(!cache.load(invalid));
         }

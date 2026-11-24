@@ -120,8 +120,8 @@ private slots:
         QVERIFY(!media::discoverImportableFiles(temp.path(), 5001));
         QVERIFY(!media::discoverImportableFiles(temp.path(), 500, 0));
         QVERIFY(!media::discoverImportableFiles(temp.path(), 500, -1));
-        QVERIFY(!media::discoverImportableFiles(temp.path(), 500,
-                                                media::kMaxFolderScanEntries + 1));
+        QVERIFY(
+            !media::discoverImportableFiles(temp.path(), 500, media::kMaxFolderScanEntries + 1));
     }
 
     void doesNotFollowSymbolicFileLinks()

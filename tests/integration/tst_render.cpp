@@ -639,6 +639,54 @@ private slots:
         QVERIFY(partFiles().isEmpty());
     }
 
+    void unexpectedHelperCancellationIsReportedAsFailure()
+    {
+        ExportSettings settings;
+        settings.outputPath = m_dir.filePath(QStringLiteral("unexpected-cancel.mp4"));
+        // A previous output must remain untouched even if the helper returns
+        // the reserved cancellation exit code without a user cancel request.
+        QFile existing(settings.outputPath);
+        QVERIFY(existing.open(QIODevice::WriteOnly));
+        QCOMPARE(existing.write("preserve", 8), qint64{8});
+        existing.close();
+
+        RenderJob job(QStringLiteral(FT_CANCEL_RENDER_HELPER));
+        QSignalSpy finished(&job, &RenderJob::finished);
+        QVERIFY(job.start(project(25), settings));
+        QVERIFY(finished.count() > 0 || finished.wait(15'000));
+        QCOMPARE(job.state(), RenderJob::State::Failed);
+        QVERIFY2(job.errorDetail().contains(QStringLiteral("0x00000003")),
+                 qPrintable(job.errorDetail()));
+        QVERIFY(existing.open(QIODevice::ReadOnly));
+        QCOMPARE(existing.readAll(), QByteArray("preserve"));
+        existing.close();
+        QVERIFY(partFiles().isEmpty());
+    }
+
+    void explicitRenderErrorSurvivesCancelledExitCode()
+    {
+        ExportSettings settings;
+        settings.outputPath = m_dir.filePath(QStringLiteral("error-after-cancel.mp4"));
+        RenderJob job(QStringLiteral(FT_CANCEL_RENDER_HELPER));
+        QSignalSpy finished(&job, &RenderJob::finished);
+        QObject::connect(&job, &RenderJob::stateChanged, &job, [&job](RenderJob::State state) {
+            if (state == RenderJob::State::Running) {
+                job.cancel();
+            }
+        });
+        QVERIFY(job.start(project(25), settings));
+        QVERIFY(finished.count() > 0 || finished.wait(15'000));
+        QCOMPARE(job.state(), RenderJob::State::Failed);
+        QCOMPARE(job.errorMessage(),
+                 QStringLiteral("Synthetic render failure before cancellation"));
+        QVERIFY2(job.errorDetail().contains(QStringLiteral("FT_SIMULATED_CANCEL_ERROR")),
+                 qPrintable(job.errorDetail()));
+        QVERIFY2(job.errorDetail().contains(QStringLiteral("0x00000003")),
+                 qPrintable(job.errorDetail()));
+        QVERIFY(!QFile::exists(settings.outputPath));
+        QVERIFY(partFiles().isEmpty());
+    }
+
     void cancellationWatchdogKillIsReportedAsCancelled()
     {
         ExportSettings settings;

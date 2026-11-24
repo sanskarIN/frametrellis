@@ -210,6 +210,11 @@ private slots:
         QVERIFY(!FrameRate::create(25, 1)->supportsDropFrame());
         QCOMPARE(FrameRate::create(30000, 1001)->displayName(), QStringLiteral("29.97 fps"));
         QCOMPARE(FrameRate::create(25, 1)->displayName(), QStringLiteral("25 fps"));
+        QCOMPARE(FrameRate::create(24000, 1001)->displayName(), QStringLiteral("23.976 fps"));
+        QCOMPARE(FrameRate::create(60000, 1001)->displayName(), QStringLiteral("59.94 fps"));
+        QCOMPARE(FrameRate::create(14987, 500)->displayName(), QStringLiteral("29.974 fps"));
+        QCOMPARE(FrameRate::create(299701, 10000)->displayName(), QStringLiteral("29.9701 fps"));
+        QCOMPARE(FrameRate::create(1, 1000000)->displayName(), QStringLiteral("0.000001 fps"));
     }
 
     void frameTimeConversions()

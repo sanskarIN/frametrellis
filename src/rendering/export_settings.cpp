@@ -6,9 +6,10 @@
 
 #include <QDir>
 #include <QFileInfo>
+#include <QHash>
 #include <QStorageInfo>
 
-#include <cmath>
+#include <algorithm>
 #include <numeric>
 
 namespace ft::rendering {
@@ -152,27 +153,36 @@ Result<ExportFrameBounds> resolveExportFrameBounds(const ExportSettings& setting
 
 QSize outputSize(const ExportSettings& settings, const ProjectSettings& project)
 {
-    // Callers may supply project settings from an unsanitized in-memory
-    // project. Reject invalid dimensions before dividing by width or
-    // narrowing a rounded floating-point dimension to int.
+    // The preview/UI can call this independently of validateExport(). Reject
+    // malformed settings before arithmetic or the no-upscale shortcut.
     if (project.width < kMinFrameDimension || project.height < kMinFrameDimension ||
-        project.width > kMaxFrameDimension || project.height > kMaxFrameDimension) {
+        project.width > kMaxFrameDimension || project.height > kMaxFrameDimension ||
+        project.width % 2 != 0 || project.height % 2 != 0 || settings.shortSide < 0 ||
+        settings.shortSide > kMaxFrameDimension || settings.customWidth < 0 ||
+        settings.customWidth > kMaxFrameDimension ||
+        (settings.customWidth != 0 &&
+         (settings.customWidth < kMinFrameDimension || settings.customWidth % 2 != 0))) {
         return {};
     }
+
+    // Round an exact positive rational dimension to the nearest even pixel
+    // (ties upward). All inputs have been bounded, so the int64 product and
+    // the resulting int are representable even at the most extreme aspect
+    // ratio. Keep oversized derived sizes visible for validateExport().
+    const auto scaledEven = [](int dimension, int target, int reference) {
+        const auto product = static_cast<std::int64_t>(dimension) * target;
+        const auto rounded = 2 * ((product + reference) / (2 * reference));
+        return std::max(2, static_cast<int>(rounded));
+    };
     // A nonzero width overrides the preset's short-side sizing for this export
     // only. Keep the original aspect ratio and round the derived height to even
     // pixels, as required by H.264's yuv420p encoder. Validation checks bounds.
     if (settings.customWidth != 0) {
-        if (settings.customWidth < 0 || settings.customWidth > kMaxFrameDimension) {
-            return {};
-        }
         if (settings.avoidUpscaling && settings.customWidth >= project.width) {
             return {project.width, project.height};
         }
-        const double height =
-            static_cast<double>(project.height) * settings.customWidth / project.width;
-        const int evenHeight = std::max(2, static_cast<int>(std::lround(height / 2.0)) * 2);
-        return {settings.customWidth, evenHeight};
+        return {settings.customWidth,
+                scaledEven(project.height, settings.customWidth, project.width)};
     }
     if (settings.shortSide <= 0) {
         return {project.width, project.height};
@@ -181,9 +191,8 @@ QSize outputSize(const ExportSettings& settings, const ProjectSettings& project)
     if (settings.avoidUpscaling && settings.shortSide >= shortSide) {
         return {project.width, project.height};
     }
-    const double scale = static_cast<double>(settings.shortSide) / shortSide;
-    auto even = [](double v) { return std::max(2, static_cast<int>(std::lround(v / 2.0)) * 2); };
-    return {even(project.width * scale), even(project.height * scale)};
+    return {scaledEven(project.width, settings.shortSide, shortSide),
+            scaledEven(project.height, settings.shortSide, shortSide)};
 }
 
 Status validateExport(const ExportSettings& settings, const Project& project,
@@ -208,10 +217,22 @@ Status validateExport(const ExportSettings& settings, const Project& project,
         return bounds.error();
     }
     int offline = 0;
+    // Reused clips commonly reference the same source. Check each referenced
+    // asset once instead of repeating the filesystem query for every clip.
+    // A directory at a former media path is not usable source media.
+    QHash<Id, bool> availableByAsset;
     for (const Track& track : project.timeline().tracks()) {
         for (const Clip& clip : track.clips) {
-            const MediaAsset* asset = project.asset(clip.assetId);
-            if (!asset || !QFileInfo::exists(asset->filePath)) {
+            auto available = availableByAsset.constFind(clip.assetId);
+            if (available == availableByAsset.cend()) {
+                const MediaAsset* asset = project.asset(clip.assetId);
+                const QFileInfo source(asset ? asset->filePath : QString());
+                const bool usable = asset && source.isFile() && source.isReadable();
+                availableByAsset.insert(clip.assetId, usable);
+                if (!usable) {
+                    ++offline;
+                }
+            } else if (!available.value()) {
                 ++offline;
             }
         }

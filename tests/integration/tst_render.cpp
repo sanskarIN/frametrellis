@@ -288,21 +288,22 @@ private slots:
         // paused first frame must not be interpreted as a completed stream.
         for (int attempt = 0; attempt < 4; ++attempt) {
             ExportSettings settings;
-            settings.outputPath =
-                m_dir.filePath(QStringLiteral("short-start-%1.mp4").arg(attempt));
+            settings.outputPath = m_dir.filePath(QStringLiteral("short-start-%1.mp4").arg(attempt));
             settings.speedPreset = QStringLiteral("ultrafast");
             settings.includeAudio = attempt % 2 == 0;
             std::atomic<bool> cancel{false};
             int starts = 0;
             QList<FrameCount> progress;
             FrameCount total = 0;
-            const Status rendered = RenderRunner(original, settings).run(
-                cancel,
-                [&](const QString&, FrameCount count) {
-                    ++starts;
-                    total = count;
-                },
-                [&](const RenderRunner::Progress& value) { progress.append(value.frame); });
+            const Status rendered =
+                RenderRunner(original, settings)
+                    .run(
+                        cancel,
+                        [&](const QString&, FrameCount count) {
+                            ++starts;
+                            total = count;
+                        },
+                        [&](const RenderRunner::Progress& value) { progress.append(value.frame); });
             QVERIFY2(rendered, qPrintable(rendered ? QString() : rendered.error().toString()));
             QCOMPARE(starts, 1);
             QCOMPARE(total, original.timeline().duration());

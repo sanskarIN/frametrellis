@@ -249,14 +249,40 @@ std::optional<Rational> Rational::fromString(const QString& text)
     if (!ok || !std::isfinite(value) || value <= 0.0 || value > 1.0e6) {
         return std::nullopt;
     }
-    // Recognise the NTSC family (x * 1000/1001) which cannot be written exactly in decimal.
+    // The standard decimal display aliases (23.976, 29.97, 59.94, etc.)
+    // designate exact NTSC rates. Do not snap neighbouring custom FPS values:
+    // a tolerance here turns e.g. 29.974 into 30000/1001 without warning.
     for (const std::int64_t base : {24, 30, 48, 60, 120, 240}) {
         const double ntsc = static_cast<double>(base) * 1000.0 / 1001.0;
-        if (std::abs(value - ntsc) < 0.006) {
+        const int digits = (base == 24 || base == 48) ? 3 : 2;
+        if (value == QString::number(ntsc, 'f', digits).toDouble()) {
             return Rational(base * 1000, 1001);
         }
     }
-    // Otherwise keep three decimal places of precision.
+
+    // Preserve up to six explicit decimal places exactly. Rounding all input
+    // to three places silently changes valid custom export frame rates.
+    const qsizetype dot = trimmed.indexOf(QLatin1Char('.'));
+    if (dot >= 0 && dot == trimmed.lastIndexOf(QLatin1Char('.'))) {
+        const QString wholeText = trimmed.left(dot);
+        const QString fractionText = trimmed.mid(dot + 1);
+        bool wholeOk = false;
+        bool fractionOk = false;
+        const qlonglong whole = wholeText.toLongLong(&wholeOk);
+        const qlonglong fraction = fractionText.toLongLong(&fractionOk);
+        if (wholeOk && fractionOk && whole >= 0 && fraction >= 0) {
+            if (fractionText.size() > 6) {
+                return std::nullopt; // reject input we cannot represent at stated precision
+            }
+            std::int64_t scale = 1;
+            for (qsizetype i = 0; i < fractionText.size(); ++i) {
+                scale *= 10;
+            }
+            return Rational(whole * scale + fraction, scale);
+        }
+    }
+
+    // Keep historical scientific-notation support for existing callers.
     return Rational(static_cast<std::int64_t>(std::llround(value * 1000.0)), 1000);
 }
 

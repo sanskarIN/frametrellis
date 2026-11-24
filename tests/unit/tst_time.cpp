@@ -97,6 +97,16 @@ private slots:
         QTest::newRow("film decimal") << QStringLiteral("23.976") << qint64(24000) << qint64(1001);
         QTest::newRow("59.94") << QStringLiteral("59.94") << qint64(60000) << qint64(1001);
         QTest::newRow("plain decimal") << QStringLiteral("12.5") << qint64(25) << qint64(2);
+        QTest::newRow("ntsc trailing zeros")
+            << QStringLiteral("29.9700") << qint64(30000) << qint64(1001);
+        QTest::newRow("neighbouring custom rate")
+            << QStringLiteral("29.974") << qint64(14987) << qint64(500);
+        QTest::newRow("four-place custom rate")
+            << QStringLiteral("29.9701") << qint64(299701) << qint64(10000);
+        QTest::newRow("six-place decimal")
+            << QStringLiteral("0.000001") << qint64(1) << qint64(1000000);
+        QTest::newRow("near film rate")
+            << QStringLiteral("23.981") << qint64(23981) << qint64(1000);
     }
 
     void rationalParsing()
@@ -117,6 +127,8 @@ private slots:
         QVERIFY(!Rational::fromString(QStringLiteral("1/0")));
         QVERIFY(!Rational::fromString(QStringLiteral("1/2/3")));
         QVERIFY(!Rational::fromString(QStringLiteral("-5.5")));
+        // Never round away a precision digit that the user explicitly entered.
+        QVERIFY(!Rational::fromString(QStringLiteral("29.9700012")));
         // Fraction parsing must not report an unrepresentable Rational as a valid result.
         QVERIFY(!Rational::fromString(QStringLiteral("1/-9223372036854775808")));
         QVERIFY(!Rational::fromString(QStringLiteral("-9223372036854775808/-1")));

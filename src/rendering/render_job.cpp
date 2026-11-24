@@ -102,8 +102,12 @@ void RenderJob::setState(State state)
 
 void RenderJob::fail(const QString& message, const QString& detail)
 {
+    // Keep the first actionable failure message, but always retain the final
+    // process diagnostics (including exit status and bounded stderr).
     if (m_errorMessage.isEmpty()) {
         m_errorMessage = message;
+    }
+    if (!detail.isEmpty()) {
         m_errorDetail = detail;
     }
     setState(State::Failed);
@@ -346,7 +350,8 @@ void RenderJob::handleEvent(const QJsonObject& event)
         // Once started, the render has a fixed output frame count. Native
         // helper bugs must not make progress jump backward or rewrite that
         // count halfway through an export (which also distorts the ETA).
-        if (!m_sawStarted || m_sawFinished || !frame || !total || *total == 0 || *frame > *total ||
+        if (!m_sawStarted || !m_startedTotalMatchesExpected || m_sawFinished ||
+            !m_errorMessage.isEmpty() || !frame || !total || *total == 0 || *frame > *total ||
             *total != m_totalFrames || *frame < m_framesDone) {
             qCWarning(lcRender) << "Ignored out-of-order or invalid renderer progress counts";
             return;
@@ -368,6 +373,11 @@ void RenderJob::handleEvent(const QJsonObject& event)
         // A zero-exit helper cannot certify a completed export without ever
         // reporting a valid start. Otherwise a stale, nonempty destination
         // could be mistaken for a newly rendered file.
+        // Once the helper has reported an error or a contradictory completion,
+        // later events cannot restore a successful state or fabricate 100%.
+        if (!m_errorMessage.isEmpty()) {
+            return;
+        }
         if (!m_sawStarted) {
             qCWarning(lcRender) << "Rejected renderer completion without a valid start event";
             m_errorMessage = QStringLiteral("The renderer did not confirm a valid start.");
@@ -399,8 +409,16 @@ void RenderJob::handleEvent(const QJsonObject& event)
         m_framesDone = m_totalFrames;
         emit progressChanged();
     } else if (type == QLatin1String("error")) {
-        m_errorMessage = event.value(QLatin1String("message")).toString();
-        m_errorDetail = event.value(QLatin1String("detail")).toString();
+        // An explicit error event is terminal evidence even if its message is
+        // malformed or empty. Preserve the first error and do not let a later
+        // empty event erase it before an apparently successful exit.
+        if (m_errorMessage.isEmpty()) {
+            const QString message = event.value(QLatin1String("message")).toString().trimmed();
+            m_errorMessage = message.isEmpty()
+                                 ? QStringLiteral("The renderer reported an unspecified error.")
+                                 : message;
+            m_errorDetail = event.value(QLatin1String("detail")).toString();
+        }
     }
 }
 

@@ -496,6 +496,62 @@ private slots:
         }
     }
 
+    void rendererErrorsCannotBeErasedByLaterProtocolEvents()
+    {
+        const Project original = project(25);
+        RenderJob job(QStringLiteral(FT_SUCCESS_RENDER_HELPER));
+        QSignalSpy finished(&job, &RenderJob::finished);
+        ExportSettings settings;
+        settings.speedPreset = QStringLiteral("ultrafast");
+
+        for (const QString& mode :
+             {QStringLiteral("error-then-empty"), QStringLiteral("empty-error")}) {
+            finished.clear();
+            settings.outputPath = m_dir.filePath(QStringLiteral("fixture-%1.mp4").arg(mode));
+            {
+                QFile previous(settings.outputPath);
+                QVERIFY(previous.open(QIODevice::WriteOnly));
+                QCOMPARE(previous.write("previous-good"), qint64{13});
+            }
+
+            QVERIFY(job.start(original, settings));
+            QVERIFY(finished.count() > 0 || finished.wait(15'000));
+            QCOMPARE(job.state(), RenderJob::State::Failed);
+            QCOMPARE(job.framesDone(), FrameCount{0});
+            QCOMPARE(job.totalFrames(), FrameCount{40});
+            const bool firstError = mode == QStringLiteral("error-then-empty");
+            if (firstError) {
+                QCOMPARE(job.errorMessage(), QStringLiteral("Synthetic first failure"));
+            } else {
+                QCOMPARE(job.errorMessage(),
+                         QStringLiteral("The renderer reported an unspecified error."));
+            }
+            QVERIFY2(job.errorDetail().contains(QStringLiteral("0x00000000")),
+                     qPrintable(job.errorDetail()));
+            QVERIFY2(job.errorDetail().contains(QStringLiteral("FT_SYNTHETIC_FINAL_STDERR")),
+                     qPrintable(job.errorDetail()));
+            if (firstError) {
+                QVERIFY2(job.errorDetail().contains(QStringLiteral("first diagnostic")),
+                         qPrintable(job.errorDetail()));
+            }
+            QFile previous(settings.outputPath);
+            QVERIFY(previous.open(QIODevice::ReadOnly));
+            QCOMPARE(previous.readAll(), QByteArrayLiteral("previous-good"));
+            QVERIFY(partFiles().isEmpty());
+        }
+
+        // A new attempt must clear the latched error and complete normally.
+        finished.clear();
+        settings.outputPath = m_dir.filePath(QStringLiteral("fixture-nonempty-success.mp4"));
+        QVERIFY(job.start(original, settings));
+        QVERIFY(finished.count() > 0 || finished.wait(15'000));
+        QCOMPARE(job.state(), RenderJob::State::Succeeded);
+        QVERIFY(job.errorMessage().isEmpty());
+        QVERIFY(job.errorDetail().isEmpty());
+        QCOMPARE(job.framesDone(), FrameCount{40});
+        QVERIFY(partFiles().isEmpty());
+    }
+
     void cancelBeforeProcessStartedStillReachesHelper()
     {
         const Project original = project(25);

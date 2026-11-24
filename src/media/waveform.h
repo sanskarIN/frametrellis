@@ -42,12 +42,14 @@ Result<WaveformData> computeWaveform(const QString& filePath, const MediaInfo& i
 
 /// Draws the part of a waveform between @p startSeconds and @p startSeconds + @p seconds as a
 /// mirrored outline filling @p size. @p gain scales the levels (clip volume); levels above full
-/// scale are clipped. Returns a transparent image when there is nothing to draw.
+/// scale are clipped. Returns a transparent image when there is nothing to draw,
+/// or a null image for dimensions above 8192 x 512 or allocation failure.
 QImage renderWaveform(const WaveformData& data, double startSeconds, double seconds, QSize size,
                       const QColor& color, double gain = 1.0);
 
-/// Stores computed waveforms on disk, keyed by file path, size and modification time, so each
-/// file is decoded only once.
+/// Stores computed waveforms on disk, keyed by source identity and decode metadata.
+/// Only lowercase SHA-1 hex keys returned by keyFor() are accepted; malformed
+/// entries are cache misses and are never read or written outside this directory.
 class WaveformCache
 {
 public:

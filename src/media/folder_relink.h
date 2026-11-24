@@ -28,8 +28,8 @@ struct FolderRelinkScan
 
 /// Find replacement media for missing assets, recursively, on a worker thread.
 /// Does not follow directory or file symlinks; caps discovery at 500 supported
-/// files and 10,000 visited files. Duplicate filenames in either direction
-/// remain ambiguous; a new path is never guessed or chosen by directory order.
+/// files and 10,000 enumerated entries (including directories). Duplicate filenames
+/// in either direction remain ambiguous; a new path is never guessed or chosen by directory order.
 Result<FolderRelinkScan> discoverRelinkCandidates(const QString& directory,
                                                   const std::vector<MediaAsset>& missingAssets);
 

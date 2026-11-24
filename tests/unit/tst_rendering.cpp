@@ -498,8 +498,7 @@ private slots:
         project.width = 8192;
         project.height = 16;
         ExportSettings settings;
-        for (const int invalid : {-1, kMaxFrameDimension + 1,
-                                  std::numeric_limits<int>::max()}) {
+        for (const int invalid : {-1, kMaxFrameDimension + 1, std::numeric_limits<int>::max()}) {
             settings.shortSide = invalid;
             for (const bool avoidUpscaling : {false, true}) {
                 settings.avoidUpscaling = avoidUpscaling;
@@ -507,8 +506,8 @@ private slots:
             }
         }
         settings.shortSide = 0;
-        for (const int invalid : {-1, 1, 15, 17, kMaxFrameDimension + 1,
-                                  std::numeric_limits<int>::max()}) {
+        for (const int invalid :
+             {-1, 1, 15, 17, kMaxFrameDimension + 1, std::numeric_limits<int>::max()}) {
             settings.customWidth = invalid;
             for (const bool avoidUpscaling : {false, true}) {
                 settings.avoidUpscaling = avoidUpscaling;

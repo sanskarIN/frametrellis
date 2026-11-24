@@ -278,16 +278,33 @@ Result<ChangeSet> RelinkMediaBatchCommand::redo(Project& project)
     Project working = project;
     std::vector<MediaAsset> originals;
     QSet<Id> ids;
-    for (const MediaAsset& updated : m_after) {
+    for (size_t i = 0; i < m_after.size(); ++i) {
+        const MediaAsset& updated = m_after[i];
         if (ids.contains(updated.id)) {
             return makeError(ErrorCode::InvalidArgument,
                              QStringLiteral("The same media reference was relinked twice."));
         }
         ids.insert(updated.id);
         const MediaAsset* old = project.asset(updated.id);
-        if (!old || old->status != MediaStatus::Missing || updated.status != MediaStatus::Online) {
+        if (!old || updated.status != MediaStatus::Online) {
             return makeError(ErrorCode::InvalidArgument,
                              QStringLiteral("A replacement media reference is invalid."));
+        }
+        if (!m_applied) {
+            if (old->status != MediaStatus::Missing) {
+                return makeError(ErrorCode::InvalidArgument,
+                                 QStringLiteral("A replacement media reference is invalid."));
+            }
+        } else {
+            // A media rescan is not an undoable edit. The original file may
+            // reappear after undo, but redo must still restore the recorded
+            // relink when all persistent asset fields are unchanged.
+            MediaAsset persistent = *old;
+            persistent.status = m_before[i].status;
+            if (persistent != m_before[i]) {
+                return makeError(ErrorCode::Conflict,
+                                 QStringLiteral("The original media reference changed."));
+            }
         }
         originals.push_back(*old);
         if (const Status replaced = working.replaceAsset(updated); !replaced) {
@@ -343,11 +360,21 @@ Result<ChangeSet> ProjectSettingsCommand::redo(Project& project)
 {
     m_oldSettings = project.settings();
     m_oldName = project.name();
+    const QString trimmed = m_name.trimmed();
+    const QString nextName = trimmed.isEmpty() ? m_oldName : trimmed;
+    // Match Project::validate(): an edit must not create a document that
+    // cannot subsequently be saved or reopened.
+    if (nextName.trimmed().isEmpty() || nextName.size() > 120) {
+        return makeError(ErrorCode::InvalidArgument,
+                         QStringLiteral("The project name must contain 1 to 120 characters."));
+    }
     if (const Status applied = project.setSettings(m_settings); !applied) {
         return applied.error();
     }
-    const QString trimmed = m_name.trimmed();
-    project.setName(trimmed.isEmpty() ? m_oldName : trimmed);
+    if (m_settings == m_oldSettings && nextName == m_oldName) {
+        return ChangeSet{};
+    }
+    project.setName(nextName);
     ChangeSet changes;
     changes.settings = true;
     return changes;

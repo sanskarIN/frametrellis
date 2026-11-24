@@ -6,6 +6,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <cstdint>
 
 namespace ft {
 
@@ -150,9 +151,16 @@ bool Timeline::isRangeFree(const Id& trackId, FrameCount start, FrameCount durat
         return false;
     }
     const FrameCount end = start + duration;
-    return std::none_of(t->clips.begin(), t->clips.end(), [&](const Clip& c) {
-        return c.id != ignoreClipId && c.start < end && start < c.end();
-    });
+    // Sorted, non-overlapping clips also have strictly increasing end
+    // frames. Skip all clips ending at or before the requested start.
+    auto it = std::upper_bound(t->clips.begin(), t->clips.end(), start,
+                               [](FrameCount frame, const Clip& c) { return frame < c.end(); });
+    for (; it != t->clips.end() && it->start < end; ++it) {
+        if (it->id != ignoreClipId) {
+            return false;
+        }
+    }
+    return true;
 }
 
 std::vector<FrameCount> Timeline::editPoints(const Id& excludeClipId) const
@@ -291,6 +299,12 @@ Status Timeline::checkTransition(const Track& t, const Transition& tr, const Sou
     for (const Transition& other : t.transitions) {
         if (other.id == tr.id) {
             continue;
+        }
+        // During validation a later transition may not yet have been checked.
+        // Bound its duration before any arithmetic with before()/after().
+        if (other.duration < kMinTransitionFrames || other.duration > kMaxTimelineFrames) {
+            return makeError(ErrorCode::OutOfRange,
+                             QStringLiteral("A neighbouring transition has an invalid duration."));
         }
         if (other.fromClip == tr.fromClip || other.toClip == tr.toClip) {
             return makeError(ErrorCode::Conflict,
@@ -466,6 +480,15 @@ Status Timeline::insertTrack(Track t, int index)
         }
         incomingIds.insert(tr.id);
     }
+    // A track may arrive with a complete clip/transition arrangement (for
+    // example via undo). Validate geometry even when media handles are not
+    // available to this track-only API.
+    for (const Transition& tr : t.transitions) {
+        if (const Status checked = checkTransition(t, tr, nullptr); !checked) {
+            return checked;
+        }
+    }
+    sortTransitions(t);
     if (index < 0 || index > trackCount()) {
         index = trackCount();
     }
@@ -557,9 +580,9 @@ Status Timeline::insertClip(const Id& trackId, Clip c, const SourceLookup& sourc
     if (c.id.isEmpty()) {
         c.id = createId();
     }
-    if (findClip(c.id)) {
+    if (findClip(c.id) || trackIndex(c.id) >= 0 || transition(c.id)) {
         return makeError(ErrorCode::Conflict,
-                         QStringLiteral("A clip with this id already exists."));
+                         QStringLiteral("This timeline id is already in use."));
     }
     if (const Status shape = checkClipShape(c); !shape) {
         return shape;
@@ -900,7 +923,8 @@ Result<Id> Timeline::splitClip(const Id& clipId, FrameCount frame, const Id& new
                          QStringLiteral("Place the playhead inside the clip to split it."));
     }
     const Id rightId = newClipId.isEmpty() ? createId() : newClipId;
-    if (!isValidId(rightId) || findClip(rightId)) {
+    if (!isValidId(rightId) || findClip(rightId) || trackIndex(rightId) >= 0 ||
+        transition(rightId)) {
         return makeError(ErrorCode::InvalidArgument, QStringLiteral("The new clip id is invalid."));
     }
     Clip right = left;
@@ -1202,7 +1226,7 @@ Result<Id> Timeline::addTransition(const Id& fromClipId, FrameCount duration,
     tr.fromClip = t.clips[index].id;
     tr.toClip = t.clips[index + 1].id;
     tr.duration = duration;
-    if (!isValidId(tr.id) || transition(tr.id) || findClip(tr.id)) {
+    if (!isValidId(tr.id) || transition(tr.id) || findClip(tr.id) || trackIndex(tr.id) >= 0) {
         return makeError(ErrorCode::InvalidArgument,
                          QStringLiteral("The transition id is invalid."));
     }
@@ -1325,10 +1349,15 @@ std::optional<FrameCount> snapToNearest(FrameCount candidate, FrameCount toleran
     }
     const auto it = std::lower_bound(targets.begin(), targets.end(), candidate);
     std::optional<FrameCount> best;
-    FrameCount bestDistance = tolerance + 1;
+    // Unsigned subtraction after ordering represents the full distance
+    // between any two signed frame values, including INT64_MIN/MAX.
+    // Avoid tolerance+1, which overflows for the maximum valid tolerance.
+    std::uint64_t bestDistance = static_cast<std::uint64_t>(tolerance);
     auto consider = [&](FrameCount value) {
-        const FrameCount distance = value > candidate ? value - candidate : candidate - value;
-        if (distance < bestDistance) {
+        const auto high = static_cast<std::uint64_t>(std::max(value, candidate));
+        const auto low = static_cast<std::uint64_t>(std::min(value, candidate));
+        const std::uint64_t distance = high - low;
+        if (distance <= bestDistance && (!best || distance < bestDistance)) {
             bestDistance = distance;
             best = value;
         }

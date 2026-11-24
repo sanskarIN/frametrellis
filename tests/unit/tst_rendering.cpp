@@ -492,6 +492,75 @@ private slots:
         QCOMPARE(status.error().code, ErrorCode::Media);
     }
 
+    void exportSizeRejectsMalformedInputsBeforeScaling()
+    {
+        ProjectSettings project;
+        project.width = 8192;
+        project.height = 16;
+        ExportSettings settings;
+        for (const int invalid : {-1, kMaxFrameDimension + 1,
+                                  std::numeric_limits<int>::max()}) {
+            settings.shortSide = invalid;
+            for (const bool avoidUpscaling : {false, true}) {
+                settings.avoidUpscaling = avoidUpscaling;
+                QCOMPARE(outputSize(settings, project), QSize());
+            }
+        }
+        settings.shortSide = 0;
+        for (const int invalid : {-1, 1, 15, 17, kMaxFrameDimension + 1,
+                                  std::numeric_limits<int>::max()}) {
+            settings.customWidth = invalid;
+            for (const bool avoidUpscaling : {false, true}) {
+                settings.avoidUpscaling = avoidUpscaling;
+                QCOMPARE(outputSize(settings, project), QSize());
+            }
+        }
+        settings.customWidth = 0;
+        settings.avoidUpscaling = false;
+        project.width = 1921;
+        QCOMPARE(outputSize(settings, project), QSize());
+        project.width = 1920;
+        project.height = 1081;
+        settings.shortSide = 720;
+        QCOMPARE(outputSize(settings, project), QSize());
+    }
+
+    void exportSizeUsesExactEvenPixelRounding()
+    {
+        ProjectSettings project;
+        project.width = 2000;
+        project.height = 1000;
+        ExportSettings settings;
+        settings.customWidth = 1002;
+        // An exact 501-pixel height rounds upward to 502, not 500.
+        QCOMPARE(outputSize(settings, project), QSize(1002, 502));
+        settings.customWidth = 998;
+        QCOMPARE(outputSize(settings, project), QSize(998, 500));
+
+        settings.customWidth = 0;
+        project.width = 8192;
+        project.height = 16;
+        settings.shortSide = kMaxFrameDimension;
+        QCOMPARE(outputSize(settings, project), QSize(4194304, 8192));
+        settings.avoidUpscaling = true;
+        QCOMPARE(outputSize(settings, project), QSize(8192, 16));
+    }
+
+    void directoryCannotStandInForReferencedMedia()
+    {
+        Project project = projectWithClip();
+        MediaAsset moved = *project.asset(QStringLiteral("m1"));
+        const QString directoryName = QStringLiteral("directory-source.mp4");
+        QVERIFY(QDir(m_dir.path()).mkpath(directoryName));
+        moved.filePath = m_dir.filePath(directoryName);
+        QVERIFY(project.replaceAsset(moved));
+
+        const Status result = validateExport(settingsFor(QStringLiteral("out.mp4")), project);
+        QVERIFY(!result);
+        QCOMPARE(result.error().code, ErrorCode::Media);
+        QVERIFY(result.error().message.contains(QStringLiteral("offline")));
+    }
+
     void outputSizes()
     {
         ProjectSettings hd;

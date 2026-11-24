@@ -71,8 +71,13 @@ jobs:
         run: |
           set -euo pipefail
           # Require clean-host Windows verifier runs as well as CI/native builds.
-          for workflow in ci.yml desktop-platforms.yml package-windows.yml; do
-            gh api "repos/$GITHUB_REPOSITORY/actions/workflows/$workflow/runs?status=success&per_page=100" > workflow-runs.json
+          # Include the website's independent verification on the same SHA.
+          # It runs for every main push, including C++-only changes.
+          for workflow in ci.yml desktop-platforms.yml package-windows.yml website.yml; do
+            # Restrict GitHub API results to actual main pushes; recent
+            # successful PR checks must not evict the candidate run
+            # from the first page when the repository is busy.
+            gh api "repos/$GITHUB_REPOSITORY/actions/workflows/$workflow/runs?branch=main&event=push&status=success&per_page=100" > workflow-runs.json
             jq -e --arg sha "$FROZEN_SHA" '
               any(.workflow_runs[];
                 .head_sha == $sha

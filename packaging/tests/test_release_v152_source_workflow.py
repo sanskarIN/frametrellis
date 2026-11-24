@@ -12,6 +12,7 @@ PREPARE = ROOT / ".github/workflows/release.yml"
 LEGACY = ROOT / ".github/workflows/release-assets.yml"
 PAGES = ROOT / ".github/workflows/pages.yml"
 PREVIOUS = ROOT / ".github/workflows/release-assets-v151-source.yml"
+WEBSITE = ROOT / ".github/workflows/website.yml"
 RELEASE_VERSION = ROOT / "packaging/release_version.py"
 MARKER = "FrameTrellis-1.5.2-SOURCE-BUILD-OWNER-APPROVED"
 NAME = "Attach approved v1.5.2 Windows assets (source builds on Linux and macOS)"
@@ -36,7 +37,7 @@ class V152ReleaseSafetyTests(unittest.TestCase):
             '[[ "$tag_sha" == "$main_sha" ]]',
             'head_sha == $sha',
             'head_branch == "main"',
-            "ci.yml desktop-platforms.yml package-windows.yml",
+            "ci.yml desktop-platforms.yml package-windows.yml website.yml",
             "actions/download-artifact@v7",
             "packaging/verify_release_assets.py --version 1.5.2",
             "sha256sum --check SHA256SUMS.txt",
@@ -52,6 +53,36 @@ class V152ReleaseSafetyTests(unittest.TestCase):
             "FrameTrellis-1.5.2-windows-x64.spdx.json",
             "FrameTrellis-1.5.2-windows-x64-third-party-sources.tar",
         })
+
+    def test_website_build_is_a_successful_exact_main_sha_release_gate(self):
+        # The uploader's jq check also requires head_branch == main,
+        # event == push and a completed/success result on the frozen SHA.
+        # Without an unconditional main-push website trigger, a C++-only
+        # release candidate could never meet this requirement.
+        source = SOURCE.read_text(encoding="utf-8")
+        website = WEBSITE.read_text(encoding="utf-8")
+        self.assertIn(
+            "ci.yml desktop-platforms.yml package-windows.yml website.yml",
+            source,
+        )
+        # Limit the GitHub API's 100-result scan to protected main push
+        # runs, rather than letting busy PR check traffic evict the
+        # qualifying frozen-SHA run from the response.
+        self.assertIn(
+            "runs?branch=main&event=push&status=success&per_page=100",
+            source,
+        )
+        self.assertIn("head_sha == $sha", source)
+        self.assertIn('head_branch == "main"', source)
+        self.assertIn('and .event == "push"', source)
+        self.assertRegex(website, r"(?m)^  push:\n    branches: \[main\]$")
+        self.assertIn(
+            "node web/build.mjs --release-json release.json --verify-downloads",
+            website,
+        )
+        self.assertIn("node --test web/tests/*.test.mjs", website)
+        self.assertIn("contents: read", website)
+        self.assertNotIn("contents: write", website)
 
     def test_no_legacy_collision_or_automated_publication(self):
         source = SOURCE.read_text(encoding="utf-8")

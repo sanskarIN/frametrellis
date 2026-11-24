@@ -103,9 +103,8 @@ AudioBlock frameToAudio(Mlt::Frame& frame, double fps, int frequency, int channe
     const auto* pcm = static_cast<const std::int16_t*>(
         frame.get_audio(format, actualFrequency, actualChannels, samples));
     const auto requestedChannels = static_cast<size_t>(channels);
-    if (!pcm || format != mlt_audio_s16 || samples <= 0 ||
-        samples > kMaxAudioFrequency || actualChannels <= 0 ||
-        actualChannels > kMaxDecodedAudioChannels || actualFrequency <= 0 ||
+    if (!pcm || format != mlt_audio_s16 || samples <= 0 || samples > kMaxAudioFrequency ||
+        actualChannels <= 0 || actualChannels > kMaxDecodedAudioChannels || actualFrequency <= 0 ||
         actualFrequency > kMaxAudioFrequency) {
         // Preserve the playback clock with a bounded silent block. Never
         // allocate from an invalid sample count returned by the decoder.

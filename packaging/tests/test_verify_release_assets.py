@@ -135,6 +135,50 @@ class ReleaseAssetVerificationTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "Unsafe portable ZIP"):
             verifier.verify(self.root, self.VERSION)
 
+    def test_rejects_windows_incompatible_zip_paths(self):
+        for name in ("FrameTrellis/CON.txt", "FrameTrellis/name.",
+                     "FrameTrellis/name ", "FrameTrellis/./alias",
+                     "FrameTrellis/invalid:name", "C:/outside.txt"):
+            with self.subTest(name=name):
+                with zipfile.ZipFile(self.portable, "w") as archive:
+                    archive.writestr("FrameTrellis/frametrellis.exe", b"gui")
+                    archive.writestr("FrameTrellis/frametrellis-render.exe", b"helper")
+                    archive.writestr(name, b"unexpected")
+                self.refresh_manifest()
+                with self.assertRaisesRegex(ValueError, "Unsafe portable ZIP"):
+                    verifier.verify(self.root, self.VERSION)
+
+    def test_rejects_file_directory_conflict(self):
+        with zipfile.ZipFile(self.portable, "w") as archive:
+            archive.writestr("FrameTrellis/frametrellis.exe", b"gui")
+            archive.writestr("FrameTrellis/frametrellis-render.exe", b"helper")
+            archive.writestr("FrameTrellis/plugins", b"file")
+            archive.writestr("FrameTrellis/PLUGINS/module.dll", b"module")
+        self.refresh_manifest()
+        with self.assertRaisesRegex(ValueError, "file/directory conflict"):
+            verifier.verify(self.root, self.VERSION)
+
+    def test_rejects_empty_render_helper(self):
+        with zipfile.ZipFile(self.portable, "w") as archive:
+            archive.writestr("FrameTrellis/frametrellis.exe", b"gui")
+            archive.writestr("FrameTrellis/frametrellis-render.exe", b"")
+        self.refresh_manifest()
+        with self.assertRaisesRegex(ValueError, "empty executable"):
+            verifier.verify(self.root, self.VERSION)
+
+    def test_accepts_normal_windows_directory_and_plugin(self):
+        with zipfile.ZipFile(self.portable, "a") as archive:
+            archive.writestr("FrameTrellis/plugins/", b"")
+            archive.writestr("FrameTrellis/plugins/Audio filter.dll", b"plugin")
+        self.refresh_manifest()
+        self.assertEqual(len(verifier.verify(self.root, self.VERSION)), 4)
+
+    def test_rejects_non_file_manifest(self):
+        self.manifest.unlink()
+        self.manifest.mkdir()
+        with self.assertRaisesRegex(ValueError, "regular file"):
+            verifier.verify(self.root, self.VERSION)
+
     def test_rejects_wrong_spdx_version(self):
         self.spdx.write_text(
             json.dumps(

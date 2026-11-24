@@ -1,4 +1,11 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
+# Reentrant project replacement must invalidate file imports and folder scans.
+ft_add_test(tst_media_controller_generations SOURCES tst_media_controller_generations.cpp
+    LIBS ft_ui LABELS gui)
+set_tests_properties(tst_media_controller_generations PROPERTIES
+    ENVIRONMENT "QT_QPA_PLATFORM=offscreen;QT_QUICK_BACKEND=software"
+    TIMEOUT 60)
+
 ft_add_test(tst_gui SOURCES tst_gui.cpp LIBS ft_ui ft_uiplugin ft_test_fixtures LABELS gui)
 target_compile_definitions(tst_gui PRIVATE FT_RENDER_HELPER="$<TARGET_FILE:frametrellis-render>")
 add_dependencies(tst_gui frametrellis-render)

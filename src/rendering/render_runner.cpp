@@ -299,9 +299,13 @@ Status RenderRunner::run(const std::atomic<bool>& cancelRequested, const Started
     consumer->set("terminate_on_pause", 1);
     consumer->set("in", 0);
     consumer->set("out", static_cast<int>(total - 1));
-    consumer->connect(*encodingProducer);
-    tractor->set_speed(0);
-    encodingProducer->set_speed(0);
+    const int connected = consumer->connect(*encodingProducer);
+    if (connected != 0) {
+        consumer.reset();
+        QFile::remove(partPath);
+        return makeError(ErrorCode::Engine, QStringLiteral("Could not connect the encoder."),
+                         QStringLiteral("MLT connect returned %1.").arg(connected));
+    }
     encodingProducer->seek(0);
 
     qCInfo(lcRender) << "Rendering" << total << "frames from" << bounds->projectStart << "to"
@@ -316,15 +320,22 @@ Status RenderRunner::run(const std::atomic<bool>& cancelRequested, const Started
         QFile::remove(partPath);
         return makeError(ErrorCode::Cancelled, QStringLiteral("The export was cancelled."));
     }
-    if (consumer->start() != 0) {
+    // avformat runs on a native worker after start(). With terminate_on_pause
+    // enabled, a paused first frame can look like end-of-stream. Complete all
+    // producer transport setup before starting that worker, not concurrently.
+    tractor->set_speed(1);
+    if (encodingProducer != tractor.get()) {
+        encodingProducer->set_speed(1);
+    }
+    const int startResult = consumer->start();
+    if (startResult != 0) {
         // Release any open FFmpeg file handle before trying to remove its output,
         // particularly important for failed encoder startup on Windows.
         consumer.reset();
         QFile::remove(partPath);
-        return makeError(ErrorCode::Engine, QStringLiteral("The encoder could not be started."));
+        return makeError(ErrorCode::Engine, QStringLiteral("The encoder could not be started."),
+                         QStringLiteral("MLT start returned %1.").arg(startResult));
     }
-    tractor->set_speed(1);
-    encodingProducer->set_speed(1);
 
     bool cancelled = false;
     FrameCount lastReported = -1;
@@ -340,7 +351,8 @@ Status RenderRunner::run(const std::atomic<bool>& cancelRequested, const Started
             progress(Progress{position, total});
         }
     }
-    consumer->stop();
+    const FrameCount stoppedPosition = consumer->position();
+    const int stopResult = consumer->stop();
     consumer->purge();
     consumer.reset();      // release FFmpeg/MLT references and output handles first
     rangePlaylist.reset(); // release cut before the full timeline/fps chain it references
@@ -364,7 +376,12 @@ Status RenderRunner::run(const std::atomic<bool>& cancelRequested, const Started
     Result<MediaInfo> written =
         part.exists() && part.size() > 0
             ? media::probeMedia(partPath)
-            : Result<MediaInfo>(makeError(ErrorCode::Io, QStringLiteral("no output")));
+            : Result<MediaInfo>(makeError(
+                  ErrorCode::Io, QStringLiteral("The encoder did not produce a nonempty MP4."),
+                  QStringLiteral("MLT stopped at frame %1 of %2; stop returned %3.")
+                      .arg(stoppedPosition)
+                      .arg(total)
+                      .arg(stopResult)));
     const auto expectedUs =
         projectSettings.frameRate.framesToMicroseconds(bounds->projectLength()).value_or(0);
     const auto toleranceUs = exportRate.framesToMicroseconds(3).value_or(0) + 50'000;

@@ -10,8 +10,9 @@ namespace ft::interchange {
 /// Builds a cut-only CMX3600 picture EDL using exact project frames.
 ///
 /// The interchange format cannot encode multiple active video layers, transitions,
-/// speed changes or picture effects. Unsupported edits fail rather than being
-/// silently discarded. Audio is intentionally outside this picture-only export.
+/// speed changes, picture effects, animation or burned-in captions. Unsupported
+/// edits and unknown or mismatched source rates fail instead of being silently
+/// discarded. Audio and sidecar captions are outside this picture-only export.
 [[nodiscard]] Result<QString> toCmx3600(const Project& project);
 
 } // namespace ft::interchange

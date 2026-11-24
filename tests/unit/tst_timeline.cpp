@@ -887,18 +887,17 @@ private slots:
         QVERIFY(timeline.addTransition(QStringLiteral("a"), 10, testSources(),
                                        QStringLiteral("dissolve")));
         const Timeline original = timeline;
-        for (const Id& id : {QStringLiteral("v2"), QStringLiteral("a"),
-                             QStringLiteral("dissolve")}) {
-            QVERIFY(!timeline.insertClip(QStringLiteral("v2"),
-                                         makeClip(id, kStillAsset, 0, 0, 10), testSources()));
+        for (const Id& id :
+             {QStringLiteral("v2"), QStringLiteral("a"), QStringLiteral("dissolve")}) {
+            QVERIFY(!timeline.insertClip(QStringLiteral("v2"), makeClip(id, kStillAsset, 0, 0, 10),
+                                         testSources()));
             QVERIFY(!timeline.splitClip(QStringLiteral("a"), 40, id));
             QCOMPARE(timeline, original);
         }
 
         Timeline plain = timelineWithCut();
         const Timeline before = plain;
-        QVERIFY(!plain.addTransition(QStringLiteral("a"), 10, testSources(),
-                                     QStringLiteral("v2")));
+        QVERIFY(!plain.addTransition(QStringLiteral("a"), 10, testSources(), QStringLiteral("v2")));
         QCOMPARE(plain, before);
         QVERIFY(timeline.validate(testSources()));
     }
@@ -911,8 +910,8 @@ private slots:
         track.name = QStringLiteral("Extra");
         track.clips = {makeClip(QStringLiteral("x"), kVideoAsset, 0, 50, 100),
                        makeClip(QStringLiteral("y"), kVideoAsset, 100, 50, 100)};
-        track.transitions = {{QStringLiteral("fade"), QStringLiteral("x"),
-                              QStringLiteral("missing"), 10}};
+        track.transitions = {
+            {QStringLiteral("fade"), QStringLiteral("x"), QStringLiteral("missing"), 10}};
         const Timeline before = timeline;
         QVERIFY(!timeline.insertTrack(track));
         QCOMPARE(timeline, before);
@@ -931,10 +930,10 @@ private slots:
         QVERIFY(timeline.insertClip(QStringLiteral("v1"),
                                     makeClip(QStringLiteral("c"), kVideoAsset, 200, 50, 50),
                                     testSources()));
-        QVERIFY(timeline.addTransition(QStringLiteral("a"), 10, testSources(),
-                                       QStringLiteral("ab")));
-        QVERIFY(timeline.addTransition(QStringLiteral("b"), 10, testSources(),
-                                       QStringLiteral("bc")));
+        QVERIFY(
+            timeline.addTransition(QStringLiteral("a"), 10, testSources(), QStringLiteral("ab")));
+        QVERIFY(
+            timeline.addTransition(QStringLiteral("b"), 10, testSources(), QStringLiteral("bc")));
         auto tracks = timeline.tracks();
         tracks.front().transitions.back().duration = std::numeric_limits<FrameCount>::min();
         timeline.restoreTracks(tracks);

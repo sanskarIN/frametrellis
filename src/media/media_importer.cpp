@@ -6,7 +6,10 @@
 #include "media/media_probe.h"
 
 #include <QFutureWatcher>
+#include <QPointer>
 #include <QtConcurrent/QtConcurrentRun>
+
+#include <limits>
 
 namespace ft::media {
 
@@ -19,12 +22,14 @@ MediaImporter::MediaImporter(QObject* parent)
 
 MediaImporter::~MediaImporter()
 {
-    cancelAll();
+    // Do not emit pendingCountChanged from a partially destroyed object.
+    m_cancelled->store(true);
 }
 
 void MediaImporter::cancelAll()
 {
-    ++m_generation;
+    m_cancelled->store(true);
+    m_cancelled = std::make_shared<std::atomic<bool>>(false);
     if (m_pending != 0) {
         m_pending = 0;
         emit pendingCountChanged(0);
@@ -36,33 +41,58 @@ void MediaImporter::import(const QStringList& filePaths)
     if (filePaths.isEmpty()) {
         return;
     }
+    if (filePaths.size() > std::numeric_limits<int>::max() - m_pending) {
+        qCWarning(lcMedia) << "Import request exceeds pending file-count range";
+        return;
+    }
     struct Batch
     {
         std::vector<MediaAsset> assets;
         QList<Failure> failures;
     };
-    const int generation = m_generation;
+    const auto cancelled = m_cancelled;
     const int count = static_cast<int>(filePaths.size());
     m_pending += count;
+    const QPointer<MediaImporter> owner(this);
     emit pendingCountChanged(m_pending);
 
-    // The watcher is a child of the importer: if the importer is destroyed first, the result is
-    // simply dropped. Shutdown waits for the global thread pool before closing MLT.
+    // A synchronous observer may close the project during pendingCountChanged.
+    // In that case, do not even submit work to the global pool.
+    if (!owner || cancelled->load()) {
+        return;
+    }
+
+    // The watcher is a child of the importer. Workers own only paths and the
+    // cancellation token; neither outlives or accesses the GUI document.
     auto* watcher = new QFutureWatcher<Batch>(this);
-    connect(watcher, &QFutureWatcherBase::finished, this, [this, watcher, generation, count] {
-        const Batch batch = watcher->result();
+    connect(watcher, &QFutureWatcherBase::finished, this, [this, watcher, cancelled, count] {
         watcher->deleteLater();
-        if (generation != m_generation) {
-            return; // the project changed while probing
+        if (cancelled->load()) {
+            return;
         }
-        m_pending = std::max(0, m_pending - count);
+        const Batch batch = watcher->result();
+        m_pending -= count;
+        const QPointer<MediaImporter> live(this);
         emit pendingCountChanged(m_pending);
+        // The signal above may itself replace the project or destroy the
+        // importer. Check again before delivering a batch to the document.
+        if (!live || cancelled->load()) {
+            return;
+        }
         emit finished(batch.assets, batch.failures);
     });
-    watcher->setFuture(QtConcurrent::run([filePaths] {
+    watcher->setFuture(QtConcurrent::run([filePaths, cancelled] {
         Batch batch;
         for (const QString& path : filePaths) {
+            if (cancelled->load()) {
+                return Batch{};
+            }
             Result<MediaAsset> asset = createAsset(path);
+            // An in-flight native probe cannot be interrupted here, but
+            // its result must not be retained after the generation ends.
+            if (cancelled->load()) {
+                return Batch{};
+            }
             if (asset) {
                 batch.assets.push_back(std::move(asset).value());
             } else {

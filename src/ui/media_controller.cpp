@@ -19,11 +19,13 @@
 #include <QFutureWatcher>
 #include <QGuiApplication>
 #include <QLocale>
+#include <QPointer>
 #include <QSaveFile>
 #include <QUrl>
 #include <QtConcurrent/QtConcurrentRun>
 
 #include <algorithm>
+#include <utility>
 
 namespace ft::ui {
 
@@ -37,11 +39,15 @@ MediaController::MediaController(ProjectController* project,
     connect(&m_importer, &media::MediaImporter::pendingCountChanged, this,
             &MediaController::importingChanged);
     connect(m_project, &ProjectController::documentReplaced, this, [this] {
-        m_importer.cancelAll();
-        // Do not import results from a scan started for the previous project.
+        // Invalidate both kinds of work before any observer is notified.
+        // A synchronous observer may immediately start a scan for the new project.
+        ++m_projectGeneration;
         ++m_folderScanGeneration;
-        if (m_folderScanActive) {
-            m_folderScanActive = false;
+        const bool hadScan = std::exchange(m_folderScanActive, false);
+        const bool hadPending = m_importer.pendingCount() > 0;
+        const QPointer<MediaController> owner(this);
+        m_importer.cancelAll();
+        if (owner && hadScan && !hadPending) {
             emit importingChanged();
         }
     });
@@ -71,6 +77,8 @@ void MediaController::refresh()
 
 void MediaController::importFiles(const QVariantList& urls)
 {
+    const auto projectGeneration = m_projectGeneration;
+    const QPointer<MediaController> owner(this);
     QStringList paths;
     for (const QVariant& value : urls) {
         const QString text =
@@ -95,9 +103,14 @@ void MediaController::importFiles(const QVariantList& urls)
                 ? QStringLiteral("That file is already in the media bin.")
                 : QStringLiteral("%1 files are already in the media bin.").arg(duplicates));
     }
+    if (!owner || projectGeneration != m_projectGeneration) {
+        return;
+    }
     if (!fresh.isEmpty()) {
         emit statusMessage(QStringLiteral("Importing %1 file(s)…").arg(fresh.size()));
-        m_importer.import(fresh);
+        if (owner && projectGeneration == m_projectGeneration) {
+            m_importer.import(fresh);
+        }
     }
 }
 
@@ -110,23 +123,34 @@ bool MediaController::importFolder(const QString& urlOrPath)
     }
 
     const QString directory = ProjectController::localPath(urlOrPath);
-    const int generation = ++m_folderScanGeneration;
+    const auto generation = ++m_folderScanGeneration;
+    const QPointer<MediaController> owner(this);
     m_folderScanActive = true;
     emit importingChanged();
+    if (!owner || generation != m_folderScanGeneration) {
+        return false;
+    }
     emit statusMessage(QStringLiteral("Scanning media folder in the background…"));
+    if (!owner || generation != m_folderScanGeneration) {
+        return false;
+    }
 
     // The worker receives only a path, never the controller or live project.
     // The watcher delivers the result on the GUI thread and is owned by this controller.
     auto* watcher = new QFutureWatcher<Result<media::FolderImportScan>>(this);
     connect(watcher, &QFutureWatcherBase::finished, this, [this, watcher, generation] {
-        const Result<media::FolderImportScan> scan = watcher->result();
         watcher->deleteLater();
         if (generation != m_folderScanGeneration) {
             return; // project replaced while discovery was running
         }
 
+        const Result<media::FolderImportScan> scan = watcher->result();
+        const QPointer<MediaController> live(this);
         m_folderScanActive = false;
         emit importingChanged();
+        if (!live || generation != m_folderScanGeneration) {
+            return;
+        }
         if (!scan) {
             emit importProblems(QStringLiteral("Could not import the folder"),
                                 scan.error().message);
@@ -144,7 +168,7 @@ bool MediaController::importFolder(const QString& urlOrPath)
             paths.append(path);
         }
         importFiles(paths); // Existing duplicate detection and background media probing.
-        if (scan->truncated) {
+        if (live && generation == m_folderScanGeneration && scan->truncated) {
             emit statusMessage(
                 QStringLiteral("Folder scan limit reached: only %1 candidates were processed.")
                     .arg(scan->files.size()));
@@ -158,6 +182,8 @@ bool MediaController::importFolder(const QString& urlOrPath)
 void MediaController::onImported(const std::vector<MediaAsset>& assets,
                                  const QList<media::MediaImporter::Failure>& failures)
 {
+    const auto generation = m_projectGeneration;
+    const QPointer<MediaController> owner(this);
     std::vector<MediaAsset> fresh;
     for (const MediaAsset& asset : assets) {
         // Another import may have added the same file while this batch was probing.
@@ -168,9 +194,18 @@ void MediaController::onImported(const std::vector<MediaAsset>& assets,
     if (!fresh.empty()) {
         const int count = static_cast<int>(fresh.size());
         if (m_project->execute(std::make_unique<AddMediaCommand>(std::move(fresh)))) {
+            if (!owner || generation != m_projectGeneration) {
+                return;
+            }
             emit imported(count);
+            if (!owner || generation != m_projectGeneration) {
+                return;
+            }
             emit statusMessage(QStringLiteral("Imported %1 file(s).").arg(count));
         }
+    }
+    if (!owner || generation != m_projectGeneration) {
+        return;
     }
     if (!failures.isEmpty()) {
         QStringList lines;
@@ -292,20 +327,31 @@ bool MediaController::relinkMissingFolder(const QString& urlOrPath)
     }
 
     const QString directory = ProjectController::localPath(urlOrPath);
-    const int generation = ++m_folderScanGeneration;
+    const auto generation = ++m_folderScanGeneration;
+    const QPointer<MediaController> owner(this);
     m_folderScanActive = true;
     emit importingChanged();
+    if (!owner || generation != m_folderScanGeneration) {
+        return false;
+    }
     emit statusMessage(QStringLiteral("Searching for missing media in the background…"));
+    if (!owner || generation != m_folderScanGeneration) {
+        return false;
+    }
 
     auto* watcher = new QFutureWatcher<Result<media::FolderRelinkScan>>(this);
     connect(watcher, &QFutureWatcherBase::finished, this, [this, watcher, generation, missing] {
-        const Result<media::FolderRelinkScan> scan = watcher->result();
         watcher->deleteLater();
         if (generation != m_folderScanGeneration) {
             return; // project was replaced; never mutate an unrelated document
         }
+        const Result<media::FolderRelinkScan> scan = watcher->result();
+        const QPointer<MediaController> live(this);
         m_folderScanActive = false;
         emit importingChanged();
+        if (!live || generation != m_folderScanGeneration) {
+            return;
+        }
         if (!scan) {
             emit importProblems(QStringLiteral("Could not search for missing media"),
                                 scan.error().message);
@@ -336,12 +382,18 @@ bool MediaController::relinkMissingFolder(const QString& urlOrPath)
             working = std::move(candidate);
             accepted.push_back(updated);
         }
-        if (!accepted.empty() &&
-            !m_project->execute(std::make_unique<RelinkMediaBatchCommand>(accepted))) {
-            emit importProblems(
-                QStringLiteral("Could not relink missing media"),
-                QStringLiteral("The project changed before the batch was applied."));
-            return;
+        if (!accepted.empty()) {
+            const bool applied =
+                m_project->execute(std::make_unique<RelinkMediaBatchCommand>(accepted));
+            if (!live || generation != m_folderScanGeneration) {
+                return;
+            }
+            if (!applied) {
+                emit importProblems(
+                    QStringLiteral("Could not relink missing media"),
+                    QStringLiteral("The project changed before the batch was applied."));
+                return;
+            }
         }
         const int skipped = scan->unmatched + scan->ambiguous + scan->probeFailed +
                             scan->wrongKind + scan->skippedTruncated + incompatible;

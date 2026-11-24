@@ -85,7 +85,8 @@ private:
     std::shared_ptr<ThumbnailRegistry> m_registry;
     MediaBinModel m_model;
     media::MediaImporter m_importer;
-    int m_folderScanGeneration = 0;
+    quint64 m_projectGeneration = 0;
+    quint64 m_folderScanGeneration = 0;
     bool m_folderScanActive = false;
 };
 

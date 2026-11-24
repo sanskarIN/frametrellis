@@ -178,6 +178,18 @@ jobs:
           } > release-assets.md
           { cat "docs/releases/v${VERSION%%-*}.md"; echo; cat release-assets.md; } > release-notes.md
           cat release-notes.md
+      - name: Independently verify offline stable candidate before artifact upload
+        if: env.RELEASE_VERSION == '1.5.2'
+        run: |
+          set -euo pipefail
+          python3 packaging/verify_release_assets.py --version "$VERSION" --directory release
+          (cd release && sha256sum --check SHA256SUMS.txt)
+          test -s release-notes.md
+          test -f "docs/releases/v$VERSION.md"
+          # The assembled notes must begin with the reviewed source notes.
+          # They are extended with download details, never substituted.
+          python3 -c 'import pathlib,sys; source=pathlib.Path(sys.argv[1]).read_bytes(); result=pathlib.Path("release-notes.md").read_bytes(); sys.exit(0 if source and result.startswith(source) else 1)' "docs/releases/v$VERSION.md"
+
       - name: Save complete verified files for owner-published GitHub release
         uses: actions/upload-artifact@v6
         with:

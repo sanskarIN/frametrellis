@@ -78,6 +78,14 @@ Result<QString> toCmx3600(const Project& project)
             QStringLiteral("CMX3600 supports cuts only; remove video dissolves first."));
     }
 
+    // Burned-in captions are composited into the actual picture. A cut-only
+    // EDL cannot represent them, even if all underlying clips are neutral.
+    if (project.subtitles().burnIn && !project.subtitles().cues.empty()) {
+        return makeError(
+            ErrorCode::InvalidArgument,
+            QStringLiteral("CMX3600 cannot describe burned-in subtitles; export them separately."));
+    }
+
     QStringList rows{QStringLiteral("TITLE: %1").arg(cleanComment(project.name())),
                      rate.supportsDropFrame() ? QStringLiteral("FCM: DROP FRAME")
                                               : QStringLiteral("FCM: NON-DROP FRAME"),
@@ -106,16 +114,23 @@ Result<QString> toCmx3600(const Project& project)
                 ErrorCode::InvalidArgument,
                 QStringLiteral("CMX3600 requires video media for every picture clip."));
         }
-        if (media->info.frameRate.isPositive() && !(media->info.frameRate == rate.rational())) {
+        // Unknown source rates cannot establish exact source-frame timecodes.
+        if (!media->info.frameRate.isPositive()) {
+            return makeError(
+                ErrorCode::InvalidArgument,
+                QStringLiteral("CMX3600 requires a known source frame rate for every clip."));
+        }
+        if (!(media->info.frameRate == rate.rational())) {
             return makeError(
                 ErrorCode::InvalidArgument,
                 QStringLiteral("CMX3600 requires source and project frame rates to match."));
         }
         if (!clip.properties.video.isNeutral() || clip.properties.fadeIn > 0 ||
-            clip.properties.fadeOut > 0) {
+            clip.properties.fadeOut > 0 || !clip.opacityKeyframes.empty() ||
+            !clip.transformKeyframes.empty()) {
             return makeError(
                 ErrorCode::InvalidArgument,
-                QStringLiteral("CMX3600 cannot describe picture adjustments or fades."));
+                QStringLiteral("CMX3600 cannot describe picture adjustments, fades or keyframes."));
         }
 
         if (cursor < clip.start) {

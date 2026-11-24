@@ -31,8 +31,24 @@ namespace {
 // to keep memory use low.
 constexpr int kReadRate = 10;
 constexpr quint32 kMagic = 0x46545746; // "FTWF"
-constexpr quint32 kFormatVersion = 1;
+constexpr quint32 kFormatVersion = 2;
 constexpr quint32 kMaxBins = 50'000'000; // more than 100 hours at the default resolution
+
+// Only accept keys produced by keyFor(). Never interpret a caller-supplied
+// string as a filesystem path, even if it has a valid cache suffix.
+bool validCacheKey(const QString& key)
+{
+    if (key.size() != 40) {
+        return false;
+    }
+    for (const QChar c : key) {
+        if (!(c >= QLatin1Char('0') && c <= QLatin1Char('9')) &&
+            !(c >= QLatin1Char('a') && c <= QLatin1Char('f'))) {
+            return false;
+        }
+    }
+    return true;
+}
 
 std::uint8_t toLevel(int peak)
 {
@@ -51,22 +67,17 @@ Result<WaveformData> computeWaveform(const QString& filePath, const MediaInfo& i
         return makeError(ErrorCode::InvalidArgument,
                          QStringLiteral("The waveform resolution is out of range."));
     }
-    // Untrusted media metadata can contain negative, zero or extreme
-    // durations. Validate the values BEFORE casting floating-point lengths to
-    // size_t/int, which is undefined if the value cannot be represented. Also
-    // avoid opening a decoder for a request we will inevitably reject.
-    const double seconds = static_cast<double>(info.durationUs) / 1e6;
-    const double bins = std::ceil(seconds * static_cast<double>(binsPerSecond));
-    const double decodedFrames = std::ceil(seconds * kReadRate);
-    if (info.durationUs <= 0 || !std::isfinite(bins) || bins < 1.0 ||
-        bins > static_cast<double>(kMaxBins) || !std::isfinite(decodedFrames) ||
-        decodedFrames < 1.0 ||
-        decodedFrames > static_cast<double>(std::numeric_limits<int>::max())) {
+    // Compute exact ceiling lengths before any allocation or native decoder
+    // calls. Floating-point rounding can create a spurious bin at boundaries.
+    const auto bins = mulDiv(info.durationUs, binsPerSecond, 1'000'000, Rounding::Up);
+    const auto decodedFrames = mulDiv(info.durationUs, kReadRate, 1'000'000, Rounding::Up);
+    if (info.durationUs <= 0 || !bins || *bins < 1 || *bins > kMaxBins || !decodedFrames ||
+        *decodedFrames < 1 || *decodedFrames >= std::numeric_limits<int>::max()) {
         return makeError(ErrorCode::Media,
                          QStringLiteral("The length of the sound cannot be determined."));
     }
-    const auto expectedBins = static_cast<std::size_t>(bins);
-    const auto expectedFrames = static_cast<int>(decodedFrames);
+    const auto expectedBins = static_cast<std::size_t>(*bins);
+    const auto expectedFrames = static_cast<int>(*decodedFrames);
     // A corrupted probe may claim an absurd input rate (up to INT_MAX). At
     // one tenth of a second per decoder request, trusting it can allocate
     // hundreds of millions of PCM samples before a single waveform bin.
@@ -75,6 +86,9 @@ Result<WaveformData> computeWaveform(const QString& filePath, const MediaInfo& i
     if (info.audioSampleRate > kMaxWaveformSampleRate) {
         return makeError(ErrorCode::Media,
                          QStringLiteral("The audio sample rate is out of range."));
+    }
+    if (cancel && cancel->load()) {
+        return makeError(ErrorCode::Cancelled, QStringLiteral("Cancelled."));
     }
     if (!engine::MltRuntime::isInitialized()) {
         return makeError(ErrorCode::Engine, QStringLiteral("The media engine is not initialised."));
@@ -87,7 +101,9 @@ Result<WaveformData> computeWaveform(const QString& filePath, const MediaInfo& i
     }
     const int frequency = info.audioSampleRate > 0 ? info.audioSampleRate : 48000;
     const int channels = std::clamp(info.audioChannels, 1, 8);
-    const int frames = std::max(producer->get_length(), expectedFrames);
+    // At most one extra decoder frame can cover sample-clock rounding. A
+    // corrupt native length must not cause an unbounded loop on empty blocks.
+    const int frames = std::clamp(producer->get_length(), expectedFrames, expectedFrames + 1);
 
     WaveformData data;
     data.binsPerSecond = binsPerSecond;
@@ -109,10 +125,14 @@ Result<WaveformData> computeWaveform(const QString& filePath, const MediaInfo& i
         const int count = block.sampleFrames();
         for (int s = 0; s < count; ++s, ++sampleIndex) {
             const auto target = static_cast<std::size_t>(sampleIndex * binsPerSecond / frequency);
-            while (bin < target) {
+            const auto boundedTarget = std::min(target, expectedBins);
+            while (bin < boundedTarget) {
                 data.peaks.push_back(toLevel(binPeak));
                 binPeak = 0;
                 ++bin;
+            }
+            if (bin == expectedBins) {
+                break; // do not decode padding beyond the final valid bin
             }
             for (int c = 0; c < block.channels; ++c) {
                 const int value = block.samples[static_cast<std::size_t>(s) *
@@ -121,6 +141,9 @@ Result<WaveformData> computeWaveform(const QString& filePath, const MediaInfo& i
                 binPeak = std::max(binPeak, std::abs(value));
             }
         }
+    }
+    if (cancel && cancel->load()) {
+        return makeError(ErrorCode::Cancelled, QStringLiteral("Cancelled."));
     }
     if (data.peaks.size() < expectedBins) {
         data.peaks.push_back(toLevel(binPeak));
@@ -132,13 +155,21 @@ Result<WaveformData> computeWaveform(const QString& filePath, const MediaInfo& i
 QImage renderWaveform(const WaveformData& data, double startSeconds, double seconds, QSize size,
                       const QColor& color, double gain)
 {
+    // Apply the same bounds as the QML provider before allocating an image.
+    // Public C++ callers must not bypass the UI's memory limit.
+    if (size.width() > 8192 || size.height() > 512) {
+        return {};
+    }
     QImage image(size.expandedTo(QSize(1, 1)), QImage::Format_ARGB32_Premultiplied);
+    if (image.isNull()) {
+        return {};
+    }
     image.fill(Qt::transparent);
     // Requests originate in QML and can carry invalid float values. Reject
     // them before flooring a bin index or converting one to size_t.
-    if (data.isEmpty() || size.isEmpty() || !std::isfinite(startSeconds) ||
-        !std::isfinite(seconds) || !std::isfinite(gain) || startSeconds < 0.0 || seconds <= 0.0 ||
-        gain < 0.0) {
+    if (data.isEmpty() || data.binsPerSecond > 1000 || data.peaks.size() > kMaxBins ||
+        size.isEmpty() || !std::isfinite(startSeconds) || !std::isfinite(seconds) ||
+        !std::isfinite(gain) || startSeconds < 0.0 || seconds <= 0.0 || gain < 0.0) {
         return image;
     }
     // Media durations use signed 64-bit microseconds. A drawing window
@@ -190,19 +221,29 @@ QString WaveformCache::defaultDirectory()
 QString WaveformCache::keyFor(const QString& filePath, const MediaInfo& info) const
 {
     const QFileInfo file(filePath);
-    const QString key = QStringLiteral("v%1|%2|%3|%4|%5")
+    const QString key = QStringLiteral("v%1|%2|%3|%4|%5|%6|%7|%8")
                             .arg(kFormatVersion)
                             .arg(canonicalMediaKey(filePath))
                             .arg(file.size())
                             .arg(file.lastModified().toMSecsSinceEpoch())
-                            .arg(info.durationUs);
+                            .arg(info.durationUs)
+                            .arg(info.audioSampleRate)
+                            .arg(info.audioChannels)
+                            .arg(mediaKindToString(info.kind));
     return QString::fromLatin1(
         QCryptographicHash::hash(key.toUtf8(), QCryptographicHash::Sha1).toHex());
 }
 
 std::optional<WaveformData> WaveformCache::load(const QString& key) const
 {
-    QFile file(QDir(m_directory).filePath(key + QStringLiteral(".ftwf")));
+    if (!validCacheKey(key)) {
+        return std::nullopt;
+    }
+    const QFileInfo cached(QDir(m_directory).filePath(key + QStringLiteral(".ftwf")));
+    if (!cached.isFile() || cached.isSymLink()) {
+        return std::nullopt;
+    }
+    QFile file(cached.absoluteFilePath());
     if (!file.open(QIODevice::ReadOnly)) {
         return std::nullopt;
     }
@@ -213,7 +254,7 @@ std::optional<WaveformData> WaveformCache::load(const QString& key) const
     quint32 count = 0;
     in >> magic >> version >> binsPerSecond >> count;
     if (in.status() != QDataStream::Ok || magic != kMagic || version != kFormatVersion ||
-        binsPerSecond == 0 || binsPerSecond > 1000 || count > kMaxBins ||
+        binsPerSecond == 0 || binsPerSecond > 1000 || count == 0 || count > kMaxBins ||
         file.size() != static_cast<qint64>(count) + 16) {
         return std::nullopt; // damaged or from another version: compute again
     }
@@ -229,19 +270,28 @@ std::optional<WaveformData> WaveformCache::load(const QString& key) const
 
 bool WaveformCache::store(const QString& key, const WaveformData& data) const
 {
-    if (data.isEmpty() || data.peaks.size() > kMaxBins) {
+    if (!validCacheKey(key) || data.isEmpty() || data.binsPerSecond > 1000 ||
+        data.peaks.size() > kMaxBins) {
         return false;
     }
-    QSaveFile file(QDir(m_directory).filePath(key + QStringLiteral(".ftwf")));
+    const QFileInfo cached(QDir(m_directory).filePath(key + QStringLiteral(".ftwf")));
+    if (cached.isSymLink() || (cached.exists() && !cached.isFile())) {
+        return false;
+    }
+    QSaveFile file(cached.absoluteFilePath());
     if (!file.open(QIODevice::WriteOnly)) {
         return false;
     }
     QDataStream out(&file);
     out << kMagic << kFormatVersion << static_cast<quint32>(data.binsPerSecond)
         << static_cast<quint32>(data.peaks.size());
-    out.writeRawData(reinterpret_cast<const char*>(data.peaks.data()),
-                     static_cast<int>(data.peaks.size()));
-    return out.status() == QDataStream::Ok && file.commit();
+    const auto count = static_cast<int>(data.peaks.size());
+    if (out.writeRawData(reinterpret_cast<const char*>(data.peaks.data()), count) != count ||
+        out.status() != QDataStream::Ok) {
+        file.cancelWriting();
+        return false;
+    }
+    return file.commit();
 }
 
 } // namespace ft::media

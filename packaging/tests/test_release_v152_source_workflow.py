@@ -73,6 +73,27 @@ class V152ReleaseSafetyTests(unittest.TestCase):
             self.assertNotIn(forbidden, source)
         self.assertIn("release:\n    types: [published]", source)
 
+    def test_offline_bundle_is_verified_before_upload(self):
+        prepare = PREPARE.read_text(encoding="utf-8")
+        verify = prepare.index("name: Independently verify offline stable candidate")
+        upload = prepare.index("name: Save complete verified files")
+        self.assertLess(verify, upload)
+        step = prepare[verify:upload]
+        for token in (
+            "env.RELEASE_VERSION == '1.5.2'",
+            "set -euo pipefail",
+            'packaging/verify_release_assets.py --version "$VERSION" --directory release',
+            "sha256sum --check SHA256SUMS.txt",
+            "test -s release-notes.md",
+            "result.startswith(source)",
+        ):
+            with self.subTest(token=token):
+                self.assertIn(token, step)
+        self.assertNotIn("continue-on-error", step)
+        self.assertNotIn("|| true", step)
+        self.assertIn("name: manual-release-assets", prepare[upload:])
+        self.assertNotIn("contents: write", prepare)
+
     def test_draft_and_version_bump_are_separately_gated(self):
         # A release-docs-only PR cannot silently change the published program
         # version or make the candidate's draft release notes uploadable.

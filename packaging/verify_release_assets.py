@@ -29,33 +29,30 @@ SUFFIXES = (
 
 
 def safe_archive_name(name: str) -> bool:
-    """Reject absolute, dot-segment, repeated-separator and drive/ADS archive paths."""
-    if (not name or name.startswith("/") or "\\" in name or ":" in name
-            or name.endswith("//")):
+    """Reject ambiguous archive paths before filesystem extraction."""
+    if not name or name.startswith("/") or "\\" in name or ":" in name:
         return False
     parts = (name[:-1] if name.endswith("/") else name).split("/")
     return all(part not in ("", ".", "..") for part in parts)
 
 
-WINDOWS_RESERVED_NAMES = re.compile(
-    r"^(?:CON|PRN|AUX|NUL|COM[1-9¹²³]|LPT[1-9¹²³])$", re.IGNORECASE
-)
-
-
-def safe_windows_zip_name(name: str) -> bool:
-    """Reject Win32 device names, trailing dots/spaces and invalid characters."""
+def safe_windows_archive_name(name: str) -> bool:
+    """Reject paths that Windows cannot extract without changing their identity."""
     if not safe_archive_name(name):
         return False
+    reserved = {"CON", "PRN", "AUX", "NUL", "CONIN$", "CONOUT$"}
+    reserved.update(f"{prefix}{number}" for prefix in ("COM", "LPT")
+                    for number in "123456789¹²³")
     for part in name.rstrip("/").split("/"):
-        if (part.rstrip(" .") != part
-                or any(ord(char) < 32 or char in '<>"|?*' for char in part)
-                or WINDOWS_RESERVED_NAMES.fullmatch(part.split(".", 1)[0])):
+        if (not part or part in {".", ".."} or part.endswith((" ", "."))
+                or any(ord(char) < 32 or char in '<>:"|?*' for char in part)
+                or part.split(".", 1)[0].upper() in reserved):
             return False
     return True
 
 
 def normalized_archive_name(name: str) -> str:
-    """Normalize names that collide on ordinary Windows filesystems."""
+    """Detect filesystem-equivalent Unicode and case-insensitive names."""
     return unicodedata.normalize("NFC", name.rstrip("/")).casefold()
 
 
@@ -81,7 +78,7 @@ def verify(directory: Path, version: str) -> list[str]:
         raise ValueError("Release notes must be a nonempty regular file when supplied")
     manifest = directory / "SHA256SUMS.txt"
     if manifest.is_symlink() or not manifest.is_file():
-        raise ValueError("Checksum manifest must be a regular file")
+        raise ValueError("Checksum manifest must be a regular file, not a symbolic link")
     checksum_lines = manifest.read_text(encoding="utf-8").splitlines()
     checksums: dict[str, str] = {}
     for line in checksum_lines:
@@ -121,11 +118,23 @@ def verify(directory: Path, version: str) -> list[str]:
             raise ValueError(
                 "Portable ZIP contains case-insensitive duplicate or Unicode-colliding entries"
             )
+        file_names = {normalized_archive_name(item.filename)
+                      for item in entries if not item.is_dir()}
         for item in entries:
-            if not safe_windows_zip_name(item.filename):
+            if not safe_windows_archive_name(item.filename):
                 raise ValueError(f"Unsafe portable ZIP entry: {item.filename}")
-            if stat.S_ISLNK(item.external_attr >> 16):
+            mode = stat.S_IFMT(item.external_attr >> 16)
+            if mode == stat.S_IFLNK:
                 raise ValueError(f"Portable ZIP contains a symlink: {item.filename}")
+            if mode not in (0, stat.S_IFDIR if item.is_dir() else stat.S_IFREG):
+                raise ValueError(f"Portable ZIP contains a special file: {item.filename}")
+            path = PurePosixPath(item.filename)
+            if any(normalized_archive_name(str(parent)) in file_names
+                   for parent in path.parents):
+                raise ValueError(f"Portable ZIP has a file/directory conflict: {item.filename}")
+            if (not item.is_dir() and path.name.casefold() in
+                    {"frametrellis.exe", "frametrellis-render.exe"} and item.file_size == 0):
+                raise ValueError(f"Portable ZIP contains an empty executable: {item.filename}")
         # The GUI starts the render process using its adjacent helper executable.
         # Checking only for the GUI lets a structurally valid ZIP pass even though
         # exporting every MP4 would fail after installation.
@@ -171,8 +180,8 @@ def verify(directory: Path, version: str) -> list[str]:
             normalized = normalized_archive_name(item.name)
             if normalized in normalized_tar_names:
                 raise ValueError(f"Duplicate corresponding-source TAR member: {item.name}")
-            files_in_tar.add(item.name)
             normalized_tar_names.add(normalized)
+            files_in_tar.add(item.name)
     if not any(name.endswith("-sources.json") for name in files_in_tar):
         raise ValueError("Corresponding-source TAR missing package inventory")
     if not any(name.endswith(".src.tar.zst") for name in files_in_tar):

@@ -18,8 +18,6 @@ Result<ChangeSet> CommandHistory::execute(std::unique_ptr<EditCommand> command, 
         return makeError(ErrorCode::InvalidArgument, QStringLiteral("No command to execute."));
     }
     Result<ChangeSet> result = command->redo(project);
-    const bool blocked = m_mergeBlocked;
-    m_mergeBlocked = false;
     if (!result) {
         qCInfo(lcEditing) << "Edit rejected:" << command->text() << result.error().toString();
         return result;
@@ -27,6 +25,12 @@ Result<ChangeSet> CommandHistory::execute(std::unique_ptr<EditCommand> command, 
     if (result->isEmpty()) {
         return result;
     }
+
+    // Failed and no-op edits must not consume an explicit merge boundary.
+    // The next recorded edit (for example the first nonzero slider movement)
+    // still starts a new undo step.
+    const bool blocked = m_mergeBlocked;
+    m_mergeBlocked = false;
 
     // Executing a new command discards everything that could have been redone.
     m_commands.erase(m_commands.begin() + m_index, m_commands.end());

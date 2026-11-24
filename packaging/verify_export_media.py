@@ -88,6 +88,23 @@ def probe_problems(
         problems.append(
             f"container duration {actual_duration} s; expected {duration:.3f} +/- {tolerance:.3f} s"
         )
+    # The container duration can be set by the longer stream even when the
+    # other stream terminates early. MP4 stream durations must independently
+    # agree with the requested render length.
+    for name, matching in (("video", videos), ("audio", audios)):
+        if len(matching) != 1:
+            continue
+        try:
+            stream_duration = float(matching[0].get("duration"))
+        except (ValueError, TypeError, OverflowError):
+            stream_duration = float("nan")
+        if not math.isfinite(stream_duration) or stream_duration <= 0 or (
+            abs(stream_duration - duration) > tolerance
+        ):
+            problems.append(
+                f"{name} stream duration {stream_duration} s; "
+                f"expected {duration:.3f} +/- {tolerance:.3f} s"
+            )
     return problems
 
 
@@ -128,7 +145,7 @@ def verify(
         "ffprobe", "-v", "error", "-i", str(media),
         "-show_entries",
         "stream=codec_type,codec_name,width,height,avg_frame_rate,r_frame_rate,"
-        "sample_rate,channels:format=format_name,duration",
+        "sample_rate,channels,duration:format=format_name,duration",
         "-of", "json",
     ])
     if probe.returncode:
@@ -142,9 +159,10 @@ def verify(
         return problems
 
     # This decodes the actual video, catching corrupt packets that headers
-    # alone cannot find. It never writes output or accesses a network URL.
+    # alone cannot find. -xerror prevents recoverable decoder errors from
+    # being silently accepted as a successful complete decode.
     video = run_command([
-        "ffmpeg", "-hide_banner", "-nostdin", "-v", "error",
+        "ffmpeg", "-hide_banner", "-nostdin", "-xerror", "-v", "error",
         "-i", str(media), "-map", "0:v:0", "-an", "-f", "null", "-",
     ], timeout=decode_timeout_seconds)
     if video.returncode:
@@ -153,7 +171,7 @@ def verify(
     # Independently decode audio samples and prove that the encoded AAC is not
     # complete silence. -inf dBFS and missing volumedetect summaries both fail.
     audio = run_command([
-        "ffmpeg", "-hide_banner", "-nostdin", "-v", "info",
+        "ffmpeg", "-hide_banner", "-nostdin", "-xerror", "-v", "info",
         "-i", str(media), "-map", "0:a:0", "-vn",
         "-af", "volumedetect", "-f", "null", "-",
     ], timeout=decode_timeout_seconds)

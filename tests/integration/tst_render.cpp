@@ -504,8 +504,8 @@ private slots:
         ExportSettings settings;
         settings.speedPreset = QStringLiteral("ultrafast");
 
-        for (const QString& mode : {QStringLiteral("error-then-empty"),
-                                    QStringLiteral("empty-error")}) {
+        for (const QString& mode :
+             {QStringLiteral("error-then-empty"), QStringLiteral("empty-error")}) {
             finished.clear();
             settings.outputPath = m_dir.filePath(QStringLiteral("fixture-%1.mp4").arg(mode));
             {

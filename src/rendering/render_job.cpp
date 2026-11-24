@@ -474,16 +474,14 @@ void RenderJob::onProcessFinished(int exitCode, QProcess::ExitStatus status)
                  output.isFile() ? QStringLiteral("The final MP4 file is empty.")
                                  : QStringLiteral("The final MP4 file is missing."));
         }
-    } else if ((status == QProcess::NormalExit && exitCode == protocol::Cancelled) ||
-               (m_state == State::Cancelling && m_cancelKillIssued &&
-                status == QProcess::CrashExit)) {
-        // A cancellation request alone does not make an unexpected nonzero
-        // exit successful. Preserve the failure and its exit code for triage.
-        // Only a cooperative cancellation exit or our own watchdog kill
-        // counts as Cancelled.
-        if (m_state != State::Cancelling) {
-            setState(State::Cancelling);
-        }
+    } else if (m_state == State::Cancelling && m_errorMessage.isEmpty() &&
+               ((status == QProcess::NormalExit && exitCode == protocol::Cancelled) ||
+                (m_cancelKillIssued && status == QProcess::CrashExit))) {
+        // A Cancelled exit is only authoritative after the editor requested it.
+        // An unsolicited exit 3 is a renderer failure, and a helper's explicit
+        // error event takes precedence even if it later exits with code 3.
+        // Only a clean cooperative cancellation or our watchdog kill qualifies.
+        // Preserve actionable error messages and native exit codes otherwise.
         // The process has exited. Clean up this job's partial MP4 even when the helper
         // could not execute its own cancellation cleanup.
         removeOwnedPartialOutput();

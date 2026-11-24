@@ -15,6 +15,7 @@ import re
 import stat
 import tarfile
 import zipfile
+import unicodedata
 from pathlib import Path, PurePosixPath
 
 VERSION = re.compile(r"^[0-9]+\.[0-9]+\.[0-9]+$")
@@ -28,14 +29,11 @@ SUFFIXES = (
 
 
 def safe_archive_name(name: str) -> bool:
-    path = PurePosixPath(name)
-    return (
-        bool(name)
-        and "\\" not in name
-        and not path.is_absolute()
-        and ".." not in path.parts
-        and not any(part == "" for part in name.split("/")[:-1])
-    )
+    """Reject ambiguous archive paths before filesystem extraction."""
+    if not name or name.startswith("/") or "\\" in name or ":" in name:
+        return False
+    parts = (name[:-1] if name.endswith("/") else name).split("/")
+    return all(part not in ("", ".", "..") for part in parts)
 
 
 def safe_windows_archive_name(name: str) -> bool:
@@ -53,12 +51,17 @@ def safe_windows_archive_name(name: str) -> bool:
     return True
 
 
+def normalized_archive_name(name: str) -> str:
+    """Detect filesystem-equivalent Unicode and case-insensitive names."""
+    return unicodedata.normalize("NFC", name.rstrip("/")).casefold()
+
+
 def verify(directory: Path, version: str) -> list[str]:
     """Raise ValueError for mismatched assets or structurally unsafe archives."""
     if not VERSION.fullmatch(version):
         raise ValueError(f"Invalid numeric project version: {version!r}")
-    if not directory.is_dir():
-        raise ValueError(f"Release asset directory does not exist: {directory}")
+    if directory.is_symlink() or not directory.is_dir():
+        raise ValueError(f"Release asset directory must be a real directory: {directory}")
     payloads = {f"FrameTrellis-{version}-{suffix}" for suffix in SUFFIXES}
     required = payloads | {"SHA256SUMS.txt"}
     found = {item.name for item in directory.iterdir()}
@@ -69,6 +72,10 @@ def verify(directory: Path, version: str) -> list[str]:
             f"Release assets mismatch: missing={sorted(missing)}, unexpected={sorted(unexpected)}"
         )
 
+    notes = directory / "release-notes.md"
+    if notes.is_symlink() or (notes.exists() and
+                              (not notes.is_file() or notes.stat().st_size == 0)):
+        raise ValueError("Release notes must be a nonempty regular file when supplied")
     manifest = directory / "SHA256SUMS.txt"
     if manifest.is_symlink() or not manifest.is_file():
         raise ValueError("Checksum manifest must be a regular file, not a symbolic link")
@@ -106,10 +113,13 @@ def verify(directory: Path, version: str) -> list[str]:
             raise ValueError("Portable ZIP contains duplicate entry names")
         # Windows normally extracts into a case-insensitive filesystem. Distinct ZIP
         # members differing only by case must not silently overwrite each other.
-        normalized_names = [name.rstrip("/").casefold() for name in names]
+        normalized_names = [normalized_archive_name(name) for name in names]
         if len(normalized_names) != len(set(normalized_names)):
-            raise ValueError("Portable ZIP contains case-insensitive duplicate entries")
-        file_names = {item.filename.casefold() for item in entries if not item.is_dir()}
+            raise ValueError(
+                "Portable ZIP contains case-insensitive duplicate or Unicode-colliding entries"
+            )
+        file_names = {normalized_archive_name(item.filename)
+                      for item in entries if not item.is_dir()}
         for item in entries:
             if not safe_windows_archive_name(item.filename):
                 raise ValueError(f"Unsafe portable ZIP entry: {item.filename}")
@@ -119,7 +129,8 @@ def verify(directory: Path, version: str) -> list[str]:
             if mode not in (0, stat.S_IFDIR if item.is_dir() else stat.S_IFREG):
                 raise ValueError(f"Portable ZIP contains a special file: {item.filename}")
             path = PurePosixPath(item.filename)
-            if any(str(parent).casefold() in file_names for parent in path.parents):
+            if any(normalized_archive_name(str(parent)) in file_names
+                   for parent in path.parents):
                 raise ValueError(f"Portable ZIP has a file/directory conflict: {item.filename}")
             if (not item.is_dir() and path.name.casefold() in
                     {"frametrellis.exe", "frametrellis-render.exe"} and item.file_size == 0):
@@ -157,6 +168,7 @@ def verify(directory: Path, version: str) -> list[str]:
 
     sources = directory / f"FrameTrellis-{version}-windows-x64-third-party-sources.tar"
     files_in_tar: set[str] = set()
+    normalized_tar_names: set[str] = set()
     with tarfile.open(sources, mode="r:") as archive:
         for item in archive:
             if not safe_archive_name(item.name):
@@ -165,8 +177,10 @@ def verify(directory: Path, version: str) -> list[str]:
                 raise ValueError(
                     f"Corresponding-source TAR contains a link or special file: {item.name}"
                 )
-            if item.name in files_in_tar:
+            normalized = normalized_archive_name(item.name)
+            if normalized in normalized_tar_names:
                 raise ValueError(f"Duplicate corresponding-source TAR member: {item.name}")
+            normalized_tar_names.add(normalized)
             files_in_tar.add(item.name)
     if not any(name.endswith("-sources.json") for name in files_in_tar):
         raise ValueError("Corresponding-source TAR missing package inventory")

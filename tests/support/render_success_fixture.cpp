@@ -59,7 +59,8 @@ int main(int argc, char* argv[])
         }
     }
     if (errorThenEmpty) {
-        std::puts(R"(@ft {"event":"error","message":"Synthetic first failure","detail":"first diagnostic"})");
+        std::puts(
+            R"(@ft {"event":"error","message":"Synthetic first failure","detail":"first diagnostic"})");
     }
     if (errorThenEmpty || emptyError) {
         std::puts(R"(@ft {"event":"error","message":"   ","detail":""})");

@@ -122,6 +122,83 @@ private slots:
         QVERIFY(!interchange::toCmx3600(project));
     }
 
+    void rejectsUnsupportedPictureAnimationWithoutLosingEdits()
+    {
+        Project project = makeProject();
+        QVERIFY(project.addAsset(makeAsset(project)));
+        const Id track = project.timeline().tracks().front().id;
+        const Id clipId = QStringLiteral("animated");
+        QVERIFY(project.timeline().insertClip(track, makeClip(clipId, 0, 0, 40),
+                                              project.sourceLookup()));
+        QVERIFY(interchange::toCmx3600(project));
+
+        QVERIFY(project.timeline().setOpacityKeyframe(clipId, 0, 0.5, project.sourceLookup()));
+        const Project opacityBefore = project;
+        auto result = interchange::toCmx3600(project);
+        QVERIFY(!result);
+        QVERIFY(result.error().message.contains(QStringLiteral("keyframes")));
+        QCOMPARE(project, opacityBefore);
+
+        QVERIFY(project.timeline().clearOpacityKeyframes(clipId));
+        QVERIFY(interchange::toCmx3600(project));
+        VideoTransform transform;
+        transform.scale = 1.5;
+        transform.rotation = 15.0;
+        QVERIFY(project.timeline().setTransformKeyframe(clipId, 20, transform,
+                                                         project.sourceLookup()));
+        const Project transformBefore = project;
+        result = interchange::toCmx3600(project);
+        QVERIFY(!result);
+        QVERIFY(result.error().message.contains(QStringLiteral("keyframes")));
+        QCOMPARE(project, transformBefore);
+        QVERIFY(project.timeline().clearTransformKeyframes(clipId));
+        QVERIFY(interchange::toCmx3600(project));
+    }
+
+    void rejectsBurnedCaptionsButAllowsSidecarCaptions()
+    {
+        Project project = makeProject();
+        QVERIFY(project.addAsset(makeAsset(project)));
+        const Id track = project.timeline().tracks().front().id;
+        QVERIFY(project.timeline().insertClip(track, makeClip(QStringLiteral("picture"), 0, 0, 60),
+                                              project.sourceLookup()));
+        SubtitleTrack captions;
+        captions.cues.push_back({QStringLiteral("caption"), 0, 1000, QStringLiteral("Opening")});
+        captions.burnIn = true;
+        QVERIFY(project.setSubtitles(captions));
+        const Project before = project;
+        const auto result = interchange::toCmx3600(project);
+        QVERIFY(!result);
+        QVERIFY(result.error().message.contains(QStringLiteral("burned-in subtitles")));
+        QCOMPARE(project, before);
+
+        captions.burnIn = false;
+        QVERIFY(project.setSubtitles(captions));
+        const Project sidecarBefore = project;
+        QVERIFY(interchange::toCmx3600(project));
+        QCOMPARE(project, sidecarBefore);
+    }
+
+    void rejectsUnknownSourceRateRatherThanGuessingTimecodes()
+    {
+        Project project = makeProject();
+        MediaAsset media = makeAsset(project);
+        media.info.frameRate = {};
+        QVERIFY(project.addAsset(media));
+        QVERIFY(project.timeline().insertClip(project.timeline().tracks().front().id,
+                                              makeClip(QStringLiteral("a"), 0, 10, 60),
+                                              project.sourceLookup()));
+        const Project before = project;
+        auto result = interchange::toCmx3600(project);
+        QVERIFY(!result);
+        QVERIFY(result.error().message.contains(QStringLiteral("known source frame rate")));
+        QCOMPARE(project, before);
+
+        media.info.frameRate = project.settings().frameRate.rational();
+        QVERIFY(project.replaceAsset(media));
+        QVERIFY(interchange::toCmx3600(project));
+    }
+
     void rejectsEmptySequencesAndUnsupportedRates()
     {
         Project empty = makeProject();

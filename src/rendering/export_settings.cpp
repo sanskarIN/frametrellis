@@ -171,7 +171,7 @@ QSize outputSize(const ExportSettings& settings, const ProjectSettings& project)
     // ratio. Keep oversized derived sizes visible for validateExport().
     const auto scaledEven = [](int dimension, int target, int reference) {
         const auto product = static_cast<std::int64_t>(dimension) * target;
-        const auto rounded = 2 * ((product + reference) / (2 * reference));
+        const auto rounded = 2 * ((product + reference) / (std::int64_t{2} * reference));
         return std::max(2, static_cast<int>(rounded));
     };
     // A nonzero width overrides the preset's short-side sizing for this export

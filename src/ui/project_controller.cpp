@@ -5,6 +5,7 @@
 #include "core/logging.h"
 #include "core/timecode.h"
 #include "project/project_checkpoints.h"
+#include "project/project_diff.h"
 #include "project/project_serializer.h"
 
 #include <QDir>
@@ -243,6 +244,24 @@ bool ProjectController::createCheckpoint(const QString& label)
     }
     emit statusMessage(QStringLiteral("Created checkpoint: %1.").arg(saved->label));
     return true;
+}
+
+QVariantMap ProjectController::compareCheckpoint(const QString& projectId,
+                                                 const QString& checkpointId) const
+{
+    if (projectId != project().id()) {
+        return {{QStringLiteral("error"), QStringLiteral("The current project has changed.")}};
+    }
+    const auto previous =
+        checkpoints::Store(checkpointDirectory()).restore(projectId, checkpointId);
+    if (!previous) {
+        return {{QStringLiteral("error"), previous.error().toString()}};
+    }
+    const auto report = project_diff::compare(*previous, project());
+    if (!report) {
+        return {{QStringLiteral("error"), report.error().toString()}};
+    }
+    return project_diff::toJson(*report).toVariantMap();
 }
 
 bool ProjectController::restoreCheckpoint(const QString& projectId, const QString& checkpointId)

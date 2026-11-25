@@ -314,8 +314,12 @@ Result<Report> build(const Project& project)
         // A marker at the exclusive end is a valid sequence boundary.
         if (marker.frame > report.duration) {
             ++report.markersBeyondEnd;
-            addFinding(report, Finding{FindingKind::MarkerBeyondEnd, {marker.frame, marker.frame},
-                                       marker.label, marker.id, {}, false});
+            addFinding(report, Finding{FindingKind::MarkerBeyondEnd,
+                                       {marker.frame, marker.frame},
+                                       marker.label,
+                                       marker.id,
+                                       {},
+                                       false});
         }
     }
 
@@ -328,21 +332,22 @@ Result<Report> build(const Project& project)
         }
         const Range range{*start, *end};
         const bool seekable = *start < report.duration;
-        const QString subject =
-            QStringLiteral("%1 – %2").arg(formatSubtitleTime(cue.startMs),
-                                          formatSubtitleTime(cue.endMs));
+        const QString subject = QStringLiteral("%1 – %2").arg(formatSubtitleTime(cue.startMs),
+                                                              formatSubtitleTime(cue.endMs));
         if (*start >= report.duration || *end > report.duration) {
             ++report.subtitlesBeyondEnd;
-            addFinding(report, Finding{FindingKind::SubtitleBeyondEnd, range, subject, cue.id,
-                                       {}, seekable});
+            addFinding(
+                report,
+                Finding{FindingKind::SubtitleBeyondEnd, range, subject, cue.id, {}, seekable});
         }
         // At a low frame rate, two millisecond boundaries can round to the same
         // first sampled frame. Such a cue may be valid for sidecar export but
         // cannot appear on the sequence's sampled preview.
         if (*start >= std::min(*end, report.duration)) {
             ++report.subtitlesWithoutSample;
-            addFinding(report, Finding{FindingKind::SubtitleWithoutSample, range, subject, cue.id,
-                                       {}, seekable});
+            addFinding(
+                report,
+                Finding{FindingKind::SubtitleWithoutSample, range, subject, cue.id, {}, seekable});
         }
     }
 
@@ -468,11 +473,10 @@ QByteArray toHtml(const Report& report)
                   true);
         html += QStringLiteral("</thead><tbody>");
         for (const Finding& finding : report.findings) {
-            appendRow(html,
-                      {findingTitle(finding.kind), finding.subject,
-                       timecode::format(finding.range.start, report.rate),
-                       timecode::format(finding.range.end, report.rate),
-                       frameText(finding.range.start), frameText(finding.range.end)});
+            appendRow(html, {findingTitle(finding.kind), finding.subject,
+                             timecode::format(finding.range.start, report.rate),
+                             timecode::format(finding.range.end, report.rate),
+                             frameText(finding.range.start), frameText(finding.range.end)});
         }
         html += QStringLiteral("</tbody></table></div>");
     }
@@ -510,7 +514,8 @@ Status save(const Project& project, const QString& path, const QString& projectF
                                  : QJsonDocument(toJson(*report)).toJson(QJsonDocument::Indented);
     QSaveFile output(path);
     if (!output.open(QIODevice::WriteOnly)) {
-        return makeError(ErrorCode::Io, QStringLiteral("Could not open timeline review destination."),
+        return makeError(ErrorCode::Io,
+                         QStringLiteral("Could not open timeline review destination."),
                          output.errorString());
     }
     if (output.write(bytes) != bytes.size()) {

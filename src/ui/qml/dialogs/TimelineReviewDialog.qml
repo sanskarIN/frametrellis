@@ -72,6 +72,7 @@ FtDialog {
     }
 
     component MetricTile: Rectangle {
+        id: tile
         required property string caption
         required property string value
         property color valueColor: Theme.text
@@ -87,7 +88,7 @@ FtDialog {
             spacing: Theme.spacingXs
             Text {
                 Layout.fillWidth: true
-                text: parent.parent.caption
+                text: tile.caption
                 color: Theme.textMuted
                 font.pixelSize: Theme.fontSizeSmall
                 elide: Text.ElideRight
@@ -95,8 +96,8 @@ FtDialog {
             }
             Text {
                 Layout.fillWidth: true
-                text: parent.parent.value
-                color: parent.parent.valueColor
+                text: tile.value
+                color: tile.valueColor
                 font.pixelSize: Theme.fontSizeLarge
                 font.weight: Font.DemiBold
                 elide: Text.ElideRight

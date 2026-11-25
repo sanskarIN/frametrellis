@@ -19,6 +19,7 @@ upgrading: projects using newer v2–v6 formats may not open in the older v1.3.1
 - [Subtitles](#subtitles)
 - [Playback](#playback)
 - [Exporting](#exporting)
+- [Timeline review and reports (development)](timeline-review.md)
 - [Exporting an edit decision list](#exporting-a-picture-edit-decision-list)
 - [Faster export profiles](faster-export.md)
 - [Missing media and recovery](#missing-media-and-recovery)

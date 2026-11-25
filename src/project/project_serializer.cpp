@@ -776,8 +776,9 @@ Status saveToFile(const Project& project, const QString& filePath)
     const QString directory = info.absolutePath();
     const QByteArray bytes = toBytes(project, directory);
     if (bytes.size() > kMaxDocumentBytes) {
-        return makeError(ErrorCode::OutOfRange,
-                         QStringLiteral("The project is too large to save in the supported format."));
+        return makeError(
+            ErrorCode::OutOfRange,
+            QStringLiteral("The project is too large to save in the supported format."));
     }
     QSaveFile file(info.absoluteFilePath());
     if (!file.open(QIODevice::WriteOnly)) {

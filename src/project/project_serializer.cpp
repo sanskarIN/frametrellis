@@ -764,13 +764,26 @@ Status saveToFile(const Project& project, const QString& filePath)
                              asset.filePath);
         }
     }
+    // Use the same field limits and rational checks as the reader. In-memory
+    // callers can otherwise save probe metadata that cannot be loaded again.
+    for (const MediaAsset& asset : project.media()) {
+        Reader reader(QStringLiteral("$.project.media[%1].info").arg(asset.id));
+        (void)readMediaInfo(reader, mediaInfoToJson(asset.info));
+        if (reader.failed()) {
+            return reader.error();
+        }
+    }
     const QString directory = info.absolutePath();
+    const QByteArray bytes = toBytes(project, directory);
+    if (bytes.size() > kMaxDocumentBytes) {
+        return makeError(ErrorCode::OutOfRange,
+                         QStringLiteral("The project is too large to save in the supported format."));
+    }
     QSaveFile file(info.absoluteFilePath());
     if (!file.open(QIODevice::WriteOnly)) {
         return makeError(ErrorCode::Io, QStringLiteral("Could not write the project file."),
                          QStringLiteral("%1: %2").arg(filePath, file.errorString()));
     }
-    const QByteArray bytes = toBytes(project, directory);
     if (file.write(bytes) != bytes.size()) {
         const QString reason = file.errorString();
         file.cancelWriting();
@@ -794,6 +807,11 @@ Result<Project> loadFromFile(const QString& filePath)
         return makeError(ErrorCode::NotFound, QStringLiteral("The project file does not exist."),
                          filePath);
     }
+    // Avoid opening directories, pipes or device nodes as project documents.
+    if (!QFileInfo(filePath).isFile()) {
+        return makeError(ErrorCode::InvalidDocument,
+                         QStringLiteral("The project path is not a regular file."), filePath);
+    }
     if (file.size() > kMaxDocumentBytes) {
         return makeError(ErrorCode::InvalidDocument,
                          QStringLiteral("The project file is too large."), filePath);
@@ -803,6 +821,10 @@ Result<Project> loadFromFile(const QString& filePath)
                          QStringLiteral("%1: %2").arg(filePath, file.errorString()));
     }
     const QByteArray data = file.read(kMaxDocumentBytes + 1);
+    if (file.error() != QFileDevice::NoError) {
+        return makeError(ErrorCode::Io, QStringLiteral("The project file could not be read."),
+                         file.errorString());
+    }
     Result<Project> project = fromBytes(data, QFileInfo(filePath).absolutePath());
     if (!project) {
         qCWarning(lcProject) << "Failed to load" << filePath << project.error().toString();

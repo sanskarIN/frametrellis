@@ -14,7 +14,7 @@ namespace ft::checkpoints {
 
 inline constexpr int kMaxCheckpointsPerProject = 100;
 inline constexpr int kMaxCheckpointLabelLength = 120;
-inline constexpr qint64 kMaxHeaderBytes = 16 * 1024;
+inline constexpr qint64 kMaxHeaderBytes = 16LL * 1024;
 inline constexpr int kMaxHistoryScan = 1000;
 
 struct Entry
@@ -47,7 +47,7 @@ struct History
 class Store
 {
 public:
-    explicit Store(QString root);
+    explicit Store(const QString& root);
 
     [[nodiscard]] const QString& root() const { return m_root; }
 
@@ -59,8 +59,7 @@ public:
 
 private:
     [[nodiscard]] Result<QString> projectDirectory(const Id& projectId, bool create) const;
-    [[nodiscard]] Result<QString> checkpointPath(const Id& projectId,
-                                                const Id& checkpointId) const;
+    [[nodiscard]] Result<QString> checkpointPath(const Id& projectId, const Id& checkpointId) const;
     QString m_root;
 };
 

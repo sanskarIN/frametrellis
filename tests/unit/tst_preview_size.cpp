@@ -52,8 +52,8 @@ private slots:
     void scaledFramesStayPositiveAndInsideEveryBound()
     {
         const int extreme = std::numeric_limits<int>::max();
-        const QSize sources[] = {QSize(1920, 1080), QSize(100, 101), QSize(1, 5000),
-                                 QSize(5000, 1), QSize(extreme, extreme - 1)};
+        const QSize sources[] = {QSize(1920, 1080), QSize(100, 101), QSize(1, 5000), QSize(5000, 1),
+                                 QSize(extreme, extreme - 1)};
         const QSize limits[] = {QSize(1, 1), QSize(2, 3), QSize(81, 79), QSize(1920, 1080),
                                 QSize(extreme, extreme)};
         for (const QSize source : sources) {

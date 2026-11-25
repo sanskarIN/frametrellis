@@ -67,6 +67,18 @@ private slots:
         QCOMPARE(first.value(QStringLiteral("originalPath")).toString(), original);
 
         QVERIFY(controller.renameProject(QStringLiteral("Second unsaved version")));
+        const Project current = controller.project();
+        const QString currentUndo = controller.undoText();
+        const QVariantMap difference = controller.compareCheckpoint(projectId, checkpointId);
+        QCOMPARE(difference.value(QStringLiteral("schemaVersion")).toInt(), 1);
+        QCOMPARE(difference.value(QStringLiteral("totalChanges")).toInt(), 1);
+        QCOMPARE(difference.value(QStringLiteral("previousName")).toString(),
+                 QStringLiteral("First unsaved version"));
+        QCOMPARE(difference.value(QStringLiteral("currentName")).toString(),
+                 QStringLiteral("Second unsaved version"));
+        QCOMPARE(controller.project(), current);
+        QCOMPARE(controller.undoText(), currentUndo);
+        QVERIFY(controller.isModified());
         QSignalSpy replaced(&controller, &ui::ProjectController::documentReplaced);
         QVERIFY(controller.restoreCheckpoint(projectId, checkpointId));
         QCOMPARE(replaced.size(), 1);

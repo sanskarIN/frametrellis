@@ -52,7 +52,9 @@ private slots:
         QVERIFY(controller.recoverAutosave());
         QVERIFY(controller.isModified());
         QVERIFY(QFileInfo(renamed).isFile());
-        QCOMPARE(project_format::loadFromFile(renamed)->id(), lostEdit.id());
+        const auto preserved = project_format::loadFromFile(renamed);
+        QVERIFY(preserved);
+        QCOMPARE(preserved->id(), lostEdit.id());
 
         QVERIFY(QDir().rmdir(canonical));
         const QString saved = m_dir.filePath(QStringLiteral("renamed-recovered.ftproj"));

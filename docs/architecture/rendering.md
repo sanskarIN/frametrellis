@@ -70,6 +70,31 @@ Succeeded, Failed, Cancelled ─► Starting (retry)
 7. Atomically replaces the destination (`rename` / `MoveFileExW`). An existing file is never
    touched unless the export succeeded.
 
+### Export reliability and diagnostics
+
+The renderer exclusively reserves its private temporary output before creating the
+avformat consumer. Existing files, directories and dangling symbolic links cannot
+be used as temporary output. The publication step refuses missing, empty or
+symbolic-link partials, nonregular destinations and paths in different directories.
+These checks protect against accidental collisions; they are not a sandbox against
+another process deliberately modifying files in the output directory.
+
+The editor distinguishes the OS process starting from a valid renderer start
+message. When all output frames have been reported but the helper has not exited,
+the dialog indicates finalization and verification instead of implying that the
+file is ready. After 60 seconds without an advancing frame or a valid start, the
+progress text describes the delay and offers cancellation. Duplicate progress
+messages do not restart that timer. This is informational: slow media and long
+encodes are not automatically killed. The existing cancellation watchdog remains
+responsible for a helper that refuses to stop.
+
+Failure diagnostics include the last accepted frame count, elapsed time, encoder,
+valid-start and completion status, together with the existing bounded stderr tail.
+An empty encoder output additionally reports the selected canvas, FPS and audio
+option. These diagnostics help investigate startup/encoder faults without claiming
+that all native failures have been resolved.
+
+
 Cancellation: the job writes `cancel` to the helper's stdin (the helper also stops when stdin is
 closed, for example because the editor crashed, and on SIGINT/SIGTERM). The helper stops the
 consumer and deletes the partial file. If it does not exit within the grace period it is killed.

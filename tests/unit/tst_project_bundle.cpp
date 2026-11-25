@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // SPDX-FileCopyrightText: 2026 Sanskar and FrameTrellis contributors
 #include "project/project_bundle.h"
-
 #include "project/project_serializer.h"
 
 #include <QDir>
@@ -51,15 +50,16 @@ bool addClip(Project& project, const Id& assetId, FrameCount start)
     clip.assetId = assetId;
     clip.start = start;
     clip.duration = 25;
-    return project.timeline().insertClip(project.timeline().tracks().front().id, clip,
-                                         project.sourceLookup())
+    return project.timeline()
+        .insertClip(project.timeline().tracks().front().id, clip, project.sourceLookup())
         .ok();
 }
 
 bool noStaging(const QString& parent)
 {
     return QDir(parent)
-        .entryList({QStringLiteral(".ft-bundle-*")}, QDir::Dirs | QDir::Hidden | QDir::NoDotAndDotDot)
+        .entryList({QStringLiteral(".ft-bundle-*")},
+                   QDir::Dirs | QDir::Hidden | QDir::NoDotAndDotDot)
         .isEmpty();
 }
 
@@ -137,8 +137,8 @@ private slots:
                             QDir(second).filePath(QStringLiteral("manifest.json"))));
         const auto initial = project_format::loadFromFile(first->projectFile);
         QVERIFY(initial);
-        const QString relative = QDir(first->directory).relativeFilePath(
-            initial->media().front().filePath);
+        const QString relative =
+            QDir(first->directory).relativeFilePath(initial->media().front().filePath);
         QVERIFY(QFile::copy(initial->media().front().filePath, QDir(second).filePath(relative)));
         const auto copied =
             project_format::loadFromFile(QDir(second).filePath(QStringLiteral("project.ftproj")));
@@ -179,8 +179,8 @@ private slots:
         QVERIFY(QFile::copy(bundle->projectFile,
                             QDir(relocated).filePath(QStringLiteral("project.ftproj"))));
         QVERIFY(QFile::copy(edited.media().front().filePath, QDir(relocated).filePath(relative)));
-        const auto loaded =
-            project_format::loadFromFile(QDir(relocated).filePath(QStringLiteral("project.ftproj")));
+        const auto loaded = project_format::loadFromFile(
+            QDir(relocated).filePath(QStringLiteral("project.ftproj")));
         QVERIFY(loaded);
         QCOMPARE(loaded->name(), edited.name());
         QCOMPARE(loaded->media().front().filePath, QDir(relocated).filePath(relative));
@@ -225,8 +225,8 @@ private slots:
         QVERIFY(write(source, "used"));
         Project project = Project::createNew(QStringLiteral("Used only"), {});
         QVERIFY(project.addAsset(image(QStringLiteral("used"), source)));
-        QVERIFY(project.addAsset(image(QStringLiteral("unused"),
-                                       dir.filePath(QStringLiteral("missing.png")))));
+        QVERIFY(project.addAsset(
+            image(QStringLiteral("unused"), dir.filePath(QStringLiteral("missing.png")))));
         QVERIFY(addClip(project, QStringLiteral("used"), 0));
         const auto all = plan(project);
         QVERIFY(!all);

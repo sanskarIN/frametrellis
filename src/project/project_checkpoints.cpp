@@ -4,6 +4,7 @@
 
 #include "project/project_serializer.h"
 
+#include <QCryptographicHash>
 #include <QDir>
 #include <QDirIterator>
 #include <QFile>
@@ -59,6 +60,19 @@ Status checkDirectory(const QString& path, bool create)
     return {};
 }
 
+bool validDigest(const QByteArray& digest)
+{
+    return digest.size() == 64 &&
+           std::all_of(digest.cbegin(), digest.cend(), [](char c) {
+               return (c >= '0' && c <= '9') || (c >= 'a' && c <= 'f');
+           });
+}
+
+QByteArray payloadDigest(const QByteArray& bytes)
+{
+    return QCryptographicHash::hash(bytes, QCryptographicHash::Sha256).toHex();
+}
+
 Error invalidHeader(const QString& detail)
 {
     return makeError(ErrorCode::InvalidDocument,
@@ -102,10 +116,12 @@ Result<Entry> readHeader(QFile& file, const Id& expectedProject, const Id& expec
         return invalidHeader(QStringLiteral("Invalid original project path field."));
     }
     entry.originalPath = originalPath.toString();
+    entry.payloadSha256 = header.value(QStringLiteral("payloadSha256")).toString().toLatin1();
     if (entry.id != expectedCheckpoint || entry.projectId != expectedProject ||
         !isValidId(entry.id) || !isValidId(entry.projectId) || !validLabel(entry.label) ||
         entry.projectName.trimmed().isEmpty() || entry.projectName.size() > 120 ||
-        !entry.createdAt.isValid() || !validOriginalPath(entry.originalPath)) {
+        !entry.createdAt.isValid() || !validOriginalPath(entry.originalPath) ||
+        !validDigest(entry.payloadSha256)) {
         return invalidHeader(QStringLiteral("Identity, name, timestamp or path check failed."));
     }
     entry.createdAt = entry.createdAt.toUTC();
@@ -124,6 +140,7 @@ QByteArray encodeHeader(const Entry& entry)
         {QStringLiteral("projectName"), entry.projectName},
         {QStringLiteral("originalPath"), entry.originalPath},
         {QStringLiteral("createdAtUtc"), entry.createdAt.toUTC().toString(Qt::ISODateWithMs)},
+        {QStringLiteral("payloadSha256"), QString::fromLatin1(entry.payloadSha256)},
     };
     return QJsonDocument(header).toJson(QJsonDocument::Compact) + '\n';
 }
@@ -284,6 +301,7 @@ Result<Entry> Store::create(const Project& project, const QString& label,
     entry.projectName = roundTrip->name();
     entry.originalPath = originalPath;
     entry.createdAt = QDateTime::currentDateTimeUtc();
+    entry.payloadSha256 = payloadDigest(payload);
     const QString path = QDir(*directory).filePath(entry.id + QLatin1String(kSuffix));
     const QFileInfo destination(path);
     if (destination.exists() || destination.isSymLink() || project.assetByPath(path) ||
@@ -345,6 +363,14 @@ Result<Project> Store::restore(const Id& projectId, const Id& checkpointId) cons
     if (file.error() != QFileDevice::NoError) {
         return makeError(ErrorCode::Io, QStringLiteral("Could not read the checkpoint."),
                          file.errorString());
+    }
+    if (payload.size() > project_format::kMaxDocumentBytes) {
+        return makeError(ErrorCode::InvalidDocument,
+                         QStringLiteral("The checkpoint project payload is too large."));
+    }
+    if (payloadDigest(payload) != header->payloadSha256) {
+        return makeError(ErrorCode::InvalidDocument,
+                         QStringLiteral("The checkpoint project payload failed its integrity check."));
     }
     auto project = project_format::fromBytes(payload);
     if (!project) {

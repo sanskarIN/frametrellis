@@ -76,6 +76,8 @@ public:
     /// Manual immutable snapshots for the current project's stable ID.
     Q_INVOKABLE QVariantMap checkpointHistory() const;
     Q_INVOKABLE bool createCheckpoint(const QString& label);
+    Q_INVOKABLE QVariantMap compareCheckpoint(const QString& projectId,
+                                              const QString& checkpointId) const;
     /// Opens a checkpoint as unsaved work. The caller guards current unsaved edits.
     Q_INVOKABLE bool restoreCheckpoint(const QString& projectId, const QString& checkpointId);
     Q_INVOKABLE bool removeCheckpoint(const QString& projectId, const QString& checkpointId);

@@ -100,9 +100,7 @@ private slots:
         QVERIFY(controller.checkpointHistory().value(QStringLiteral("entries")).toList().isEmpty());
         QVERIFY(QFileInfo(original).isFile());
         QVERIFY(QFileInfo(output).isFile());
-        QVERIFY(QDir(QDir(ui::ProjectController::checkpointDirectory()).filePath(projectId))
-                    .rmdir(QStringLiteral(".")) ||
-                QDir(ui::ProjectController::checkpointDirectory()).rmdir(projectId));
+        QVERIFY(QDir(ui::ProjectController::checkpointDirectory()).rmdir(projectId));
     }
 
     void staleProjectSelectionsCannotModifyAnotherHistory()

@@ -227,6 +227,7 @@ FtDialog {
                         model: dialog.filteredFindings
                         ScrollBar.vertical: ScrollBar {}
                         delegate: Rectangle {
+                            id: findingDelegate
                             required property var modelData
                             width: ListView.view.width
                             height: Math.max(60, findingRow.implicitHeight + 16)
@@ -241,8 +242,8 @@ FtDialog {
                                     spacing: Theme.spacingXs
                                     Text {
                                         Layout.fillWidth: true
-                                        text: modelData.title || ""
-                                        color: modelData.code === "unavailable-media" ? Theme.danger : Theme.text
+                                        text: findingDelegate.modelData.title || ""
+                                        color: findingDelegate.modelData.code === "unavailable-media" ? Theme.danger : Theme.text
                                         font.weight: Font.DemiBold
                                         font.pixelSize: Theme.fontSize
                                         textFormat: Text.PlainText
@@ -250,7 +251,7 @@ FtDialog {
                                     }
                                     Text {
                                         Layout.fillWidth: true
-                                        text: modelData.subject || qsTr("Sequence")
+                                        text: findingDelegate.modelData.subject || qsTr("Sequence")
                                         color: Theme.textMuted
                                         font.pixelSize: Theme.fontSizeSmall
                                         textFormat: Text.PlainText
@@ -259,9 +260,9 @@ FtDialog {
                                     Text {
                                         Layout.fillWidth: true
                                         text: qsTr("%1 → %2 (exclusive) · %3 frames")
-                                            .arg(modelData.startTimecode || "")
-                                            .arg(modelData.endTimecodeExclusive || "")
-                                            .arg(modelData.durationFrames || 0)
+                                            .arg(findingDelegate.modelData.startTimecode || "")
+                                            .arg(findingDelegate.modelData.endTimecodeExclusive || "")
+                                            .arg(findingDelegate.modelData.durationFrames || 0)
                                         color: Theme.textFaint
                                         font.family: Theme.monoFamily
                                         font.pixelSize: Theme.fontSizeSmall
@@ -271,9 +272,9 @@ FtDialog {
                                 }
                                 FtButton {
                                     text: qsTr("Go to")
-                                    enabled: modelData.canSeek === true
-                                    Accessible.name: qsTr("Go to finding at %1").arg(modelData.startTimecode)
-                                    onClicked: dialog.seekToFinding(modelData)
+                                    enabled: findingDelegate.modelData.canSeek === true
+                                    Accessible.name: qsTr("Go to finding at %1").arg(findingDelegate.modelData.startTimecode)
+                                    onClicked: dialog.seekToFinding(findingDelegate.modelData)
                                 }
                             }
                         }
@@ -308,6 +309,7 @@ FtDialog {
                     model: dialog.tracks
                     ScrollBar.vertical: ScrollBar {}
                     delegate: Rectangle {
+                        id: trackDelegate
                         required property var modelData
                         width: ListView.view.width
                         height: trackRow.implicitHeight + 20
@@ -321,8 +323,8 @@ FtDialog {
                             spacing: Theme.spacingXs
                             Text {
                                 Layout.fillWidth: true
-                                text: qsTr("%1 · %2").arg(modelData.name || "")
-                                    .arg(modelData.kind === "audio" ? qsTr("Audio") : qsTr("Video"))
+                                text: qsTr("%1 · %2").arg(trackDelegate.modelData.name || "")
+                                    .arg(trackDelegate.modelData.kind === "audio" ? qsTr("Audio") : qsTr("Video"))
                                 color: Theme.text
                                 font.weight: Font.DemiBold
                                 font.pixelSize: Theme.fontSize
@@ -332,10 +334,10 @@ FtDialog {
                             Text {
                                 Layout.fillWidth: true
                                 text: qsTr("%1 clips · %2 transitions · %3 unavailable clips")
-                                    .arg(modelData.clips || 0)
-                                    .arg(modelData.transitions || 0)
-                                    .arg(modelData.unavailableClips || 0)
-                                color: modelData.unavailableClips ? Theme.danger : Theme.textMuted
+                                    .arg(trackDelegate.modelData.clips || 0)
+                                    .arg(trackDelegate.modelData.transitions || 0)
+                                    .arg(trackDelegate.modelData.unavailableClips || 0)
+                                color: trackDelegate.modelData.unavailableClips ? Theme.danger : Theme.textMuted
                                 font.pixelSize: Theme.fontSizeSmall
                                 textFormat: Text.PlainText
                                 elide: Text.ElideRight
@@ -343,9 +345,9 @@ FtDialog {
                             Text {
                                 Layout.fillWidth: true
                                 text: qsTr("Occupied %1 · Picture %2 · Audio %3 frames")
-                                    .arg(modelData.occupiedFrames || 0)
-                                    .arg(modelData.pictureFrames || 0)
-                                    .arg(modelData.audioFrames || 0)
+                                    .arg(trackDelegate.modelData.occupiedFrames || 0)
+                                    .arg(trackDelegate.modelData.pictureFrames || 0)
+                                    .arg(trackDelegate.modelData.audioFrames || 0)
                                 color: Theme.textMuted
                                 font.pixelSize: Theme.fontSizeSmall
                                 textFormat: Text.PlainText
@@ -353,10 +355,10 @@ FtDialog {
                             }
                             Text {
                                 Layout.fillWidth: true
-                                visible: modelData.hidden || modelData.muted || modelData.locked
-                                text: [modelData.hidden ? qsTr("Hidden") : "",
-                                       modelData.muted ? qsTr("Muted") : "",
-                                       modelData.locked ? qsTr("Locked") : ""]
+                                visible: trackDelegate.modelData.hidden || trackDelegate.modelData.muted || trackDelegate.modelData.locked
+                                text: [trackDelegate.modelData.hidden ? qsTr("Hidden") : "",
+                                       trackDelegate.modelData.muted ? qsTr("Muted") : "",
+                                       trackDelegate.modelData.locked ? qsTr("Locked") : ""]
                                       .filter(v => v.length).join(" · ")
                                 color: Theme.warning
                                 font.pixelSize: Theme.fontSizeSmall

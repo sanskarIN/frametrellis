@@ -275,6 +275,87 @@ private slots:
         QVERIFY(!json.contains("private new caption"));
     }
 
+    void reportsAutomationChangesAsOneStableClipChange()
+    {
+        QTemporaryDir dir;
+        QVERIFY(dir.isValid());
+        Project previous = Project::createNew(QStringLiteral("Automation"), {});
+        const auto source =
+            asset(QStringLiteral("av"), dir.filePath(QStringLiteral("av.mp4")));
+        QVERIFY(previous.addAsset(source));
+        const Id track = previous.timeline().tracks()[0].id;
+        const Id clipId = QStringLiteral("animated");
+        QVERIFY(previous.timeline().insertClip(track, clip(clipId, source.id, 0, 30, 10),
+                                               previous.sourceLookup()));
+        Project current = previous;
+        const auto lookup = current.sourceLookup();
+        QVERIFY(current.timeline().setAudioKeyframe(clipId, 15, -6.0, lookup));
+        QVERIFY(current.timeline().setOpacityKeyframe(clipId, 20, 0.5, lookup));
+        VideoTransform transform;
+        transform.x = 0.1;
+        transform.scale = 1.25;
+        QVERIFY(current.timeline().setTransformKeyframe(clipId, 25, transform, lookup));
+        ClipProperties properties = current.timeline().clip(clipId)->properties;
+        properties.balance = -0.25;
+        properties.fadeIn = 3;
+        properties.fadeOut = 4;
+        QVERIFY(current.timeline().setClipProperties(clipId, properties));
+
+        const auto report = compare(previous, current);
+        QVERIFY(report);
+        QCOMPARE(report->totalChanges, 1);
+        QCOMPARE(counts(*report, Category::Clip).changed, 1);
+        const auto* entry = detail(*report, Category::Clip, clipId);
+        QVERIFY(entry);
+        const QStringList expected{QStringLiteral("Stereo balance"), QStringLiteral("Fades"),
+                                   QStringLiteral("Volume keyframes"),
+                                   QStringLiteral("Opacity keyframes"),
+                                   QStringLiteral("Transform keyframes")};
+        QCOMPARE(entry->fields, expected);
+
+        const auto reversed = compare(current, previous);
+        QVERIFY(reversed);
+        QCOMPARE(reversed->totalChanges, 1);
+        const auto* reverse = detail(*reversed, Category::Clip, clipId);
+        QVERIFY(reverse);
+        QCOMPARE(reverse->fields, expected);
+    }
+
+    void trackOrderingAndFlagsAreReportedWithoutChangingChildClips()
+    {
+        QTemporaryDir dir;
+        QVERIFY(dir.isValid());
+        Project previous = Project::createNew(QStringLiteral("Track order"), {});
+        const auto source = asset(QStringLiteral("source"),
+                                  dir.filePath(QStringLiteral("source.mp4")));
+        QVERIFY(previous.addAsset(source));
+        const Id first = previous.timeline().tracks()[0].id;
+        const Id second = previous.timeline().tracks()[1].id;
+        QVERIFY(previous.timeline().insertClip(
+            first, clip(QStringLiteral("clip"), source.id, 0, 30), previous.sourceLookup()));
+        Project current = previous;
+        QVERIFY(current.timeline().moveTrack(first, 1));
+        QVERIFY(current.timeline().setTrackHidden(first, true));
+        QVERIFY(current.timeline().setTrackMuted(first, true));
+        QVERIFY(current.timeline().setTrackLocked(second, true));
+
+        const auto report = compare(previous, current);
+        QVERIFY(report);
+        QCOMPARE(report->totalChanges, 2);
+        QCOMPARE(counts(*report, Category::Track).changed, 2);
+        QCOMPARE(counts(*report, Category::Clip).unchanged, 1);
+        const auto* a = detail(*report, Category::Track, first);
+        const auto* b = detail(*report, Category::Track, second);
+        QVERIFY(a);
+        QVERIFY(b);
+        QVERIFY(a->fields.contains(QStringLiteral("Track order")));
+        QVERIFY(a->fields.contains(QStringLiteral("Picture visibility")));
+        QVERIFY(a->fields.contains(QStringLiteral("Audio mute")));
+        QVERIFY(b->fields.contains(QStringLiteral("Track order")));
+        QVERIFY(b->fields.contains(QStringLiteral("Edit lock")));
+        QVERIFY(!detail(*report, Category::Clip, QStringLiteral("clip")));
+    }
+
     void boundsDetailsWhileKeepingCompleteCategoryCounts()
     {
         QTemporaryDir dir;

@@ -155,8 +155,8 @@ private slots:
         for (const QString& key :
              {QStringLiteral("includeAudio"), QStringLiteral("avoidUpscaling")}) {
             for (const QVariant& invalid :
-                 {QVariant(QStringLiteral("maybe")), QVariant(QStringLiteral("false")),
-                  QVariant(0), QVariant(1), QVariant()}) {
+                 {QVariant(QStringLiteral("maybe")), QVariant(QStringLiteral("false")), QVariant(0),
+                  QVariant(1), QVariant()}) {
                 settings = validSettings;
                 settings[key] = invalid;
                 QVERIFY(!exporter.validate(settings).isEmpty());

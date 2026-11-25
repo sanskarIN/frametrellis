@@ -43,3 +43,10 @@ target_compile_definitions(tst_export_autosave PRIVATE
     FT_CANCEL_RENDER_HELPER="$<TARGET_FILE:ft_render_cancel_fixture>")
 add_dependencies(tst_export_autosave frametrellis-render ft_render_cancel_fixture)
 set_tests_properties(tst_export_autosave PROPERTIES TIMEOUT 120)
+
+# Portable copy operations run on immutable snapshots in a worker.
+ft_add_test(tst_project_bundle_controller SOURCES tst_project_bundle_controller.cpp
+    LIBS ft_ui LABELS gui)
+set_tests_properties(tst_project_bundle_controller PROPERTIES
+    ENVIRONMENT "QT_QPA_PLATFORM=offscreen;QT_QUICK_BACKEND=software"
+    TIMEOUT 60)

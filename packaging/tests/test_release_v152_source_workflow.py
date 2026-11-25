@@ -155,7 +155,9 @@ class V152ReleaseSafetyTests(unittest.TestCase):
         else:
             # A later release-version PR may remove the draft warning only
             # after deliberately changing the CMake version.
-            self.assertIn("VERSION 1.5.2", cmake)
+            match = re.search(r"project\(FrameTrellis\s+VERSION\s+(\d+\.\d+\.\d+)", cmake)
+            self.assertIsNotNone(match)
+            self.assertGreaterEqual(tuple(map(int, match.group(1).split("."))), (1, 5, 2))
 
 
 if __name__ == "__main__":

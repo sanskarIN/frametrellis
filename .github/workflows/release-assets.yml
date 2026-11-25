@@ -19,8 +19,8 @@ concurrency:
 jobs:
   attach:
     name: Verify and attach release assets
-    # v1.5.0, v1.5.1 and v1.5.2 have separate owner-gated uploaders.
-    if: ${{ !github.event.release.prerelease && !github.event.release.draft && github.event.release.tag_name != 'v1.5.0' && github.event.release.tag_name != 'v1.5.1' && github.event.release.tag_name != 'v1.5.2' }}
+    # v1.5.0 through v1.5.3 have separate owner-gated uploaders.
+    if: ${{ !github.event.release.prerelease && !github.event.release.draft && github.event.release.tag_name != 'v1.5.0' && github.event.release.tag_name != 'v1.5.1' && github.event.release.tag_name != 'v1.5.2' && github.event.release.tag_name != 'v1.5.3' }}
     runs-on: ubuntu-24.04
     timeout-minutes: 90
     env:

@@ -361,6 +361,60 @@ private slots:
         QVERIFY(!exporter.busy());
     }
 
+    void exportStatusDistinguishesPreparingAndFinalizing()
+    {
+        ProjectSettings profile;
+        profile.width = 320;
+        profile.height = 180;
+        profile.frameRate = FrameRate::integer(25);
+        Project base = Project::createNew(QStringLiteral("Export phases"), profile);
+        const auto asset = media::createAsset(testing::makeStill(
+            m_dir.path(), QStringLiteral("phases.png"), Qt::green, QSize(320, 180)));
+        QVERIFY(asset);
+        QVERIFY(base.addAsset(*asset));
+        Clip clip;
+        clip.id = createId();
+        clip.assetId = asset->id;
+        clip.duration = 40;
+        QVERIFY(
+            base.timeline().insertClip(base.timeline().tracks()[0].id, clip, base.sourceLookup()));
+        const QString path = m_dir.filePath(QStringLiteral("phases.ftproj"));
+        QVERIFY(project_format::saveToFile(base, path));
+        ui::ProjectController project;
+        QVERIFY(project.openProject(path));
+        ui::ExportController exporter(&project, QStringLiteral(FT_CANCEL_RENDER_HELPER));
+        QVariantMap settings{
+            {QStringLiteral("presetId"), QStringLiteral("match")},
+            {QStringLiteral("outputPath"), m_dir.filePath(QStringLiteral("preparing-only.mp4"))},
+            {QStringLiteral("includeAudio"), false}};
+        QSignalSpy finished(&exporter, &ui::ExportController::finished);
+        QVERIFY(exporter.start(settings));
+        QTRY_COMPARE(exporter.state(), QStringLiteral("running"));
+        QVERIFY(exporter.progressText().contains(QStringLiteral("Preparing media and encoder")));
+        QCOMPARE(exporter.progress(), 0.0);
+        exporter.cancel();
+        QTRY_COMPARE_WITH_TIMEOUT(finished.size(), 1, 15'000);
+        QCOMPARE(exporter.state(), QStringLiteral("cancelled"));
+        QVERIFY(!QFileInfo::exists(settings.value(QStringLiteral("outputPath")).toString()));
+
+        exporter.reset();
+        finished.clear();
+        settings[QStringLiteral("outputPath")] =
+            m_dir.filePath(QStringLiteral("quiet-finalizing.mp4"));
+        QVERIFY(exporter.start(settings));
+        QTRY_VERIFY_WITH_TIMEOUT(
+            exporter.progressText().contains(QStringLiteral("Finalizing and verifying MP4")),
+            5000);
+        QVERIFY(exporter.busy());
+        QCOMPARE(exporter.progress(), 1.0);
+        QVERIFY(!QFileInfo::exists(settings.value(QStringLiteral("outputPath")).toString()));
+        exporter.cancel();
+        QTRY_COMPARE_WITH_TIMEOUT(finished.size(), 1, 15'000);
+        QCOMPARE(exporter.state(), QStringLiteral("cancelled"));
+        QCOMPARE(project.project(), base);
+        QVERIFY(!project.isModified());
+    }
+
     void cleanupTestCase() { engine::MltRuntime::shutdown(); }
 };
 

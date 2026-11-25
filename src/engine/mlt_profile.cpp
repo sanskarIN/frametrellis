@@ -2,6 +2,8 @@
 // SPDX-FileCopyrightText: 2026 Sanskar and FrameTrellis contributors
 #include "engine/mlt_profile.h"
 
+#include "project/project_settings.h"
+
 #include <mlt++/Mlt.h>
 
 #include <algorithm>
@@ -38,7 +40,7 @@ QSize fitPreviewSize(QSize frameSize, QSize maxSize)
 {
     // Cap even callers that omit a display limit: this size eventually reaches
     // native decoders, and a malformed media header can report huge dimensions.
-    const QSize decoderLimit(8192, 8192);
+    const QSize decoderLimit(kMaxFrameDimension, kMaxFrameDimension);
     const QSize limit = maxSize.isEmpty() ? decoderLimit : maxSize.boundedTo(decoderLimit);
     if (frameSize.isEmpty()) {
         return QSize(2, 2).boundedTo(limit);

@@ -259,7 +259,8 @@ Result<Plan> plan(const Project& project, Options options, const Cancel& cancell
             continue;
         }
         const QFileInfo info(asset.filePath);
-        if (!info.isAbsolute() || !info.isFile() || !info.isReadable()) {
+        if (!info.isAbsolute() || !info.isFile() || !info.isReadable() ||
+            info.canonicalFilePath().isEmpty()) {
             return makeError(ErrorCode::NotFound, QStringLiteral("Source media is unavailable."),
                              asset.name);
         }
@@ -299,12 +300,13 @@ Result<Bundle> create(const Project& project, const QString& destination, Option
         return cancellation();
     }
     const QFileInfo target(destination);
-    if (destination.trimmed().isEmpty() || !target.isAbsolute() ||
+    if (destination.trimmed().isEmpty() || QDir::cleanPath(destination) != destination ||
+        !target.isAbsolute() ||
         target.fileName().isEmpty() || target.exists() || target.isSymLink()) {
         return makeError(ErrorCode::Conflict,
                          QStringLiteral("Choose a new, nonexistent bundle folder."));
     }
-    const QDir parent(target.absolutePath());
+    QDir parent(target.absolutePath());
     if (!parent.exists()) {
         return makeError(ErrorCode::NotFound, QStringLiteral("Bundle parent folder does not exist."));
     }

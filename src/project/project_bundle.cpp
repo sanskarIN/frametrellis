@@ -99,8 +99,7 @@ bool regularFile(const QFileInfo& info)
 
 bool sameFingerprint(const QFileInfo& info, const File& file)
 {
-    return info.isFile() && info.size() == file.bytes &&
-           info.lastModified() == file.modified;
+    return info.isFile() && info.size() == file.bytes && info.lastModified() == file.modified;
 }
 
 Status writeBytes(const QString& path, const QByteArray& data)
@@ -161,8 +160,8 @@ Result<QByteArray> copyFile(const File& file, const QString& target, const Cance
     }
     if (!input.read(1).isEmpty() || input.error() != QFileDevice::NoError || !output.flush() ||
         !sameFingerprint(QFileInfo(file.sourcePath), file)) {
-        return makeError(ErrorCode::Conflict,
-                         QStringLiteral("Source changed or copying failed."), file.sourcePath);
+        return makeError(ErrorCode::Conflict, QStringLiteral("Source changed or copying failed."),
+                         file.sourcePath);
     }
     output.close();
     if (output.error() != QFileDevice::NoError || QFileInfo(target).size() != file.bytes) {
@@ -196,11 +195,10 @@ Result<QByteArray> hashFile(const QString& path, qint64 expected, const Cancel& 
         remaining -= bytes.size();
     }
     const QFileInfo after(path);
-    if (!input.read(1).isEmpty() || input.error() != QFileDevice::NoError ||
-        !regularFile(after) || after.size() != expected ||
-        after.lastModified() != before.lastModified()) {
-        return makeError(ErrorCode::Conflict, QStringLiteral("Bundle file changed during verification."),
-                         path);
+    if (!input.read(1).isEmpty() || input.error() != QFileDevice::NoError || !regularFile(after) ||
+        after.size() != expected || after.lastModified() != before.lastModified()) {
+        return makeError(ErrorCode::Conflict,
+                         QStringLiteral("Bundle file changed during verification."), path);
     }
     return digest.result().toHex();
 }
@@ -266,9 +264,9 @@ Result<Plan> plan(const Project& project, Options options, const Cancel& cancell
                              asset.name);
         }
         const bool sizeChanged = asset.info.fileSize > 0 && asset.info.fileSize != info.size();
-        const bool timeChanged = asset.info.lastModified.isValid() &&
-                                 asset.info.lastModified.toSecsSinceEpoch() !=
-                                     info.lastModified().toSecsSinceEpoch();
+        const bool timeChanged =
+            asset.info.lastModified.isValid() &&
+            asset.info.lastModified.toSecsSinceEpoch() != info.lastModified().toSecsSinceEpoch();
         if (sizeChanged || timeChanged) {
             return makeError(ErrorCode::Conflict,
                              QStringLiteral("Source media changed since import. Relink it first."),
@@ -278,10 +276,10 @@ Result<Plan> plan(const Project& project, Options options, const Cancel& cancell
             result.bytes > std::numeric_limits<qint64>::max() - info.size()) {
             return makeError(ErrorCode::OutOfRange, QStringLiteral("Bundle size is out of range."));
         }
-        result.files.push_back(File{asset.id, info.canonicalFilePath(),
-                                    mediaName(static_cast<int>(result.files.size()) + 1,
-                                              asset.filePath),
-                                    info.size(), info.lastModified()});
+        result.files.push_back(
+            File{asset.id, info.canonicalFilePath(),
+                 mediaName(static_cast<int>(result.files.size()) + 1, asset.filePath), info.size(),
+                 info.lastModified()});
         result.bytes += info.size();
     }
     return result;
@@ -302,14 +300,15 @@ Result<Bundle> create(const Project& project, const QString& destination, Option
     }
     const QFileInfo target(destination);
     if (destination.trimmed().isEmpty() || QDir::cleanPath(destination) != destination ||
-        !target.isAbsolute() ||
-        target.fileName().isEmpty() || target.exists() || target.isSymLink()) {
+        !target.isAbsolute() || target.fileName().isEmpty() || target.exists() ||
+        target.isSymLink()) {
         return makeError(ErrorCode::Conflict,
                          QStringLiteral("Choose a new, nonexistent bundle folder."));
     }
     QDir parent(target.absolutePath());
     if (!parent.exists()) {
-        return makeError(ErrorCode::NotFound, QStringLiteral("Bundle parent folder does not exist."));
+        return makeError(ErrorCode::NotFound,
+                         QStringLiteral("Bundle parent folder does not exist."));
     }
     QLockFile lock(parent.filePath(QStringLiteral(".frametrellis-bundle.lock")));
     if (!lock.tryLock(0)) {
@@ -332,7 +331,8 @@ Result<Bundle> create(const Project& project, const QString& destination, Option
     }
     QTemporaryDir staging(parent.filePath(QStringLiteral(".ft-bundle-XXXXXX")));
     if (!staging.isValid()) {
-        return ioError(QStringLiteral("Could not create bundle staging folder."), staging.errorString());
+        return ioError(QStringLiteral("Could not create bundle staging folder."),
+                       staging.errorString());
     }
     const QDir stage(staging.path());
     if (!stage.mkdir(QStringLiteral("media"))) {
@@ -391,8 +391,10 @@ Result<Bundle> create(const Project& project, const QString& destination, Option
     // while the original remains on disk, opens its own media. The ordinary
     // serializer continues to support existing absolute-path projects.
     const QJsonObject document = project_format::toJson(copy, stage.absolutePath());
-    const QJsonArray media =
-        document.value(QStringLiteral("project")).toObject().value(QStringLiteral("media")).toArray();
+    const QJsonArray media = document.value(QStringLiteral("project"))
+                                 .toObject()
+                                 .value(QStringLiteral("media"))
+                                 .toArray();
     for (const auto& value : media) {
         if (!safeMediaPath(value.toObject().value(QStringLiteral("path")).toString())) {
             return makeError(ErrorCode::Internal, QStringLiteral("Invalid generated bundle path."));
@@ -413,7 +415,8 @@ Result<Bundle> create(const Project& project, const QString& destination, Option
         {QStringLiteral("format"), QLatin1String(kFormat)},
         {QStringLiteral("version"), 1},
         {QStringLiteral("projectId"), copy.id()},
-        {QStringLiteral("project"), record(QLatin1String(kProjectFile), projectBytes.size(), projectSha)},
+        {QStringLiteral("project"),
+         record(QLatin1String(kProjectFile), projectBytes.size(), projectSha)},
         {QStringLiteral("files"), manifestFiles},
         {QStringLiteral("usedOnly"), options.usedOnly},
     };
@@ -434,8 +437,9 @@ Result<Bundle> create(const Project& project, const QString& destination, Option
     const QFileInfo finalTarget(destination);
     if (finalTarget.exists() || finalTarget.isSymLink() ||
         !parent.rename(QFileInfo(staging.path()).fileName(), target.fileName())) {
-        return ioError(QStringLiteral("Could not publish bundle. The destination may already exist."),
-                       destination);
+        return ioError(
+            QStringLiteral("Could not publish bundle. The destination may already exist."),
+            destination);
     }
     staging.setAutoRemove(false);
     const QString directory = target.absoluteFilePath();
@@ -448,8 +452,8 @@ Result<Verification> verify(const QString& directory, const Cancel& cancelled)
     const QFileInfo root(directory);
     const QDir dir(directory);
     const QFileInfo mediaDir(dir.filePath(QStringLiteral("media")));
-    if (!root.isAbsolute() || !root.isDir() || root.isSymLink() ||
-        !mediaDir.isDir() || mediaDir.isSymLink()) {
+    if (!root.isAbsolute() || !root.isDir() || root.isSymLink() || !mediaDir.isDir() ||
+        mediaDir.isSymLink()) {
         return makeError(ErrorCode::InvalidArgument, QStringLiteral("Invalid bundle directory."));
     }
     const auto bytes = readBounded(dir.filePath(QLatin1String(kManifest)), kMaxManifestBytes);
@@ -458,7 +462,8 @@ Result<Verification> verify(const QString& directory, const Cancel& cancelled)
     }
     const auto doc = QJsonDocument::fromJson(*bytes);
     const auto manifest = doc.object();
-    if (!doc.isObject() || manifest.value(QStringLiteral("format")).toString() != QLatin1String(kFormat) ||
+    if (!doc.isObject() ||
+        manifest.value(QStringLiteral("format")).toString() != QLatin1String(kFormat) ||
         manifest.value(QStringLiteral("version")).toDouble() != 1 ||
         !isValidId(manifest.value(QStringLiteral("projectId")).toString()) ||
         !manifest.value(QStringLiteral("files")).isArray() ||
@@ -479,11 +484,11 @@ Result<Verification> verify(const QString& directory, const Cancel& cancelled)
         const auto entry = value.toObject();
         const QString path = entry.value(QStringLiteral("path")).toString();
         const Id id = entry.value(QStringLiteral("assetId")).toString();
-        if (!value.isObject() || !safeMediaPath(path) || paths.contains(path) ||
-            !isValidId(id) || ids.contains(id) ||
-            !validDigest(entry.value(QStringLiteral("sha256")).toString()) ||
+        if (!value.isObject() || !safeMediaPath(path) || paths.contains(path) || !isValidId(id) ||
+            ids.contains(id) || !validDigest(entry.value(QStringLiteral("sha256")).toString()) ||
             !byteCount(entry.value(QStringLiteral("bytes")))) {
-            return makeError(ErrorCode::InvalidDocument, QStringLiteral("Invalid bundle media entry."));
+            return makeError(ErrorCode::InvalidDocument,
+                             QStringLiteral("Invalid bundle media entry."));
         }
         paths.insert(path);
         ids.insert(id, path);
@@ -493,7 +498,8 @@ Result<Verification> verify(const QString& directory, const Cancel& cancelled)
     if (project.value(QStringLiteral("path")).toString() != QLatin1String(kProjectFile) ||
         !projectSize || *projectSize > project_format::kMaxDocumentBytes ||
         !validDigest(project.value(QStringLiteral("sha256")).toString())) {
-        return makeError(ErrorCode::InvalidDocument, QStringLiteral("Invalid bundle project entry."));
+        return makeError(ErrorCode::InvalidDocument,
+                         QStringLiteral("Invalid bundle project entry."));
     }
     Verification result;
     const auto check = [&](const QJsonObject& entry) -> Result<bool> {
@@ -503,8 +509,8 @@ Result<Verification> verify(const QString& directory, const Cancel& cancelled)
         if (!sha && sha.error().code == ErrorCode::Cancelled) {
             return sha.error();
         }
-        const bool matches = sha && QString::fromLatin1(*sha) ==
-                                        entry.value(QStringLiteral("sha256")).toString();
+        const bool matches =
+            sha && QString::fromLatin1(*sha) == entry.value(QStringLiteral("sha256")).toString();
         if (!matches) {
             result.problems.append(path);
         }
@@ -531,10 +537,8 @@ Result<Verification> verify(const QString& directory, const Cancel& cancelled)
             return makeError(ErrorCode::Conflict,
                              QStringLiteral("Project changed during bundle verification."));
         }
-        const auto body = QJsonDocument::fromJson(*original)
-                              .object()
-                              .value(QStringLiteral("project"))
-                              .toObject();
+        const auto body =
+            QJsonDocument::fromJson(*original).object().value(QStringLiteral("project")).toObject();
         const auto assets = body.value(QStringLiteral("media")).toArray();
         if (body.value(QStringLiteral("id")).toString() !=
                 manifest.value(QStringLiteral("projectId")).toString() ||

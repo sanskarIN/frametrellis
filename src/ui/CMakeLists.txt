@@ -29,6 +29,7 @@ qt_add_qml_module(ft_ui
         qml/dialogs/AboutDialog.qml
         qml/dialogs/ConfirmDialog.qml
         qml/dialogs/CheckpointDialog.qml
+        qml/dialogs/CheckpointCompareDialog.qml
         qml/dialogs/ExportDialog.qml
         qml/dialogs/FtDialog.qml
         qml/dialogs/GoToTimecodeDialog.qml

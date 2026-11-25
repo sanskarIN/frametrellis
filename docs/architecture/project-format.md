@@ -4,9 +4,9 @@ A project is a UTF-8 JSON document. The **v2 development format** adds optional
 sequence-level markers; this abridged example shows that shape. The **v3 development
 format** additionally preserves clip volume automation. **v4** adds opacity curves,
 **v5** adds position/scale/rotation curves, **v6** adds sequence subtitles,
-and **v7** adds optional per-clip two-channel stereo balance. The current
-development reader supports v1 through v7; older stable builds may reject a
-v7 file.
+**v7** adds optional per-clip two-channel stereo balance, and **v8** adds
+an opt-in portable media path policy. The development reader supports v1 through v8;
+older stable builds reject formats above their supported version.
 
 ```json
 {
@@ -141,9 +141,18 @@ v7 file.
   Older readers refuse unsupported versions rather than losing automation.
   Nonempty audio curves before v3, opacity curves before v4, and transform curves
   before v5 are rejected as inconsistent.
-* `relativePath` is relative to the folder containing the project file. When `path` does not
-  exist but the relative location does, the relative one is used (projects can be moved
-  together with their media).
+* `relativePath` is relative to the folder containing the project file. For legacy projects,
+  when `path` does not exist but the relative location does, the relative one is used
+  (projects can be moved together with their media).
+* Format **v8** supports `project.relativeMediaPaths: true`. This preference forces v8
+  on save, independent of other automation. Contained source files are written with a
+  project-relative primary `path`, resolved against the document directory rather than
+  the process working directory. A relative primary path must stay lexically inside
+  that directory; an absent directory or a parent traversal is rejected. External
+  sources retain their absolute primary path. Snapshots serialized without a document
+  directory also retain absolute paths. The v1–v7 reader path refuses the preference
+  field rather than silently changing path semantics. Ordinary projects without the
+  preference continue to use their minimum required format.
 * Unknown fields are ignored, so newer minor additions do not break older readers of the same
   version. A document with a **higher** `version` is refused with a clear message.
 

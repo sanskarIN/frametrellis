@@ -325,6 +325,11 @@ QJsonObject toJson(const Project& project, const QString& projectDir)
             // that cannot be reopened. The original absolute path is retained.
             if (relative.size() <= kMaxMediaPathLength) {
                 o[QLatin1String("relativePath")] = relative;
+                if (project.relativeMediaPaths() && QDir::isRelativePath(relative) &&
+                    relative != QLatin1String(".") && relative != QLatin1String("..") &&
+                    !relative.startsWith(QLatin1String("../"))) {
+                    o[QLatin1String("path")] = relative;
+                }
             }
         }
         o[QLatin1String("info")] = mediaInfoToJson(a.info);
@@ -364,6 +369,9 @@ QJsonObject toJson(const Project& project, const QString& projectDir)
     body[QLatin1String("id")] = project.id();
     body[QLatin1String("name")] = project.name();
     body[QLatin1String("created")] = project.created().toUTC().toString(Qt::ISODate);
+    if (project.relativeMediaPaths()) {
+        body[QLatin1String("relativeMediaPaths")] = true;
+    }
     body[QLatin1String("settings")] = settings;
     body[QLatin1String("media")] = media;
     body[QLatin1String("tracks")] = tracks;
@@ -451,6 +459,7 @@ Result<Project> fromJson(const QJsonObject& document, const QString& projectDir)
     project.setId(r.id(body, "id"));
     const QString name = r.string(body, "name", false, 256).trimmed();
     project.setName(name.isEmpty() ? QStringLiteral("Untitled") : name);
+    project.setRelativeMediaPaths(r.boolean(body, "relativeMediaPaths", false));
     const QString created = r.string(body, "created", false, 64);
     if (!created.isEmpty()) {
         project.setCreated(QDateTime::fromString(created, Qt::ISODate));
@@ -495,6 +504,14 @@ Result<Project> fromJson(const QJsonObject& document, const QString& projectDir)
         asset.id = mr.id(o, "id");
         const QString path = mr.string(o, "path", true, kMaxMediaPathLength);
         const QString relative = mr.string(o, "relativePath", false, kMaxMediaPathLength);
+        if (project.relativeMediaPaths() && QDir::isRelativePath(path)) {
+            const QString clean = QDir::cleanPath(QDir::fromNativeSeparators(path));
+            if (projectDir.isEmpty() || clean == QLatin1String(".") ||
+                clean == QLatin1String("..") || clean.startsWith(QLatin1String("../"))) {
+                mr.fail(QStringLiteral("path"),
+                        QStringLiteral("portable media needs a contained project-relative path"));
+            }
+        }
         asset.name = mr.string(o, "name", false, kMaxMediaNameLength);
         Reader ir(mr.path() + QStringLiteral(".info"));
         asset.info = readMediaInfo(ir, mr.object(o, "info"));

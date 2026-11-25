@@ -25,9 +25,9 @@ FtDialog {
         { code: "changed", title: qsTr("Changed") }
     ]
     readonly property var filteredDetails: {
-        const category = categoryBox.currentIndex >= 0
+        const category = categoryBox.currentIndex >= 0 && categoryBox.currentIndex < categoryOptions.length
             ? categoryOptions[categoryBox.currentIndex].code : ""
-        const action = actionBox.currentIndex >= 0
+        const action = actionBox.currentIndex >= 0 && actionBox.currentIndex < actionOptions.length
             ? actionOptions[actionBox.currentIndex].code : ""
         const rows = []
         for (let i = 0; i < details.length; ++i) {

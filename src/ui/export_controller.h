@@ -102,6 +102,7 @@ private:
     std::optional<Project> m_batchSnapshot;
     QString m_batchProjectFile;
     int m_batchCompleted = 0;
+    bool m_singleFinishing = false;
     bool m_batchActive = false;
     bool m_batchCancelRequested = false;
     QString m_batchState = QStringLiteral("idle");

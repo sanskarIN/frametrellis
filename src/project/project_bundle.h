@@ -4,6 +4,8 @@
 
 #include "project/project.h"
 
+#include <QStringList>
+
 #include <functional>
 #include <vector>
 

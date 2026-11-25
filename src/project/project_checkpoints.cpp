@@ -159,8 +159,8 @@ Error lockError(const QString& path)
 
 } // namespace
 
-Store::Store(QString root)
-    : m_root(root.trimmed().isEmpty() ? QString() : QDir::cleanPath(std::move(root)))
+Store::Store(const QString& root)
+    : m_root(root.trimmed().isEmpty() ? QString() : QDir::cleanPath(root))
 {}
 
 Result<QString> Store::projectDirectory(const Id& projectId, bool create) const

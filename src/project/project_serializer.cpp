@@ -281,6 +281,11 @@ QString resolveMediaPath(const QString& storedPath, const QString& relativePath,
                          const QString& projectDir)
 {
     QString absolute = QDir::cleanPath(QDir::fromNativeSeparators(storedPath));
+    // Relative primary paths describe portable projects. Resolve them against
+    // the document folder, never the process's current working directory.
+    if (QDir::isRelativePath(absolute) && !projectDir.isEmpty()) {
+        return QDir::cleanPath(QDir(projectDir).absoluteFilePath(absolute));
+    }
     if (QFileInfo::exists(absolute) || relativePath.isEmpty() || projectDir.isEmpty()) {
         return absolute;
     }

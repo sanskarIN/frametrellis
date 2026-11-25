@@ -88,6 +88,13 @@ messages do not restart that timer. This is informational: slow media and long
 encodes are not automatically killed. The existing cancellation watchdog remains
 responsible for a helper that refuses to stop.
 
+The single-export controller owns the active job before it emits its initial
+Starting state. An immediate Cancel therefore reaches the current job, including
+before the process has a writable stdin pipe. Terminal notifications are deferred
+until the job's signal stack unwinds, so a completion handler can reset or retry
+without destroying an executing RenderJob. A pending terminal notification keeps
+the controller busy until it is delivered.
+
 Failure diagnostics include the last accepted frame count, elapsed time, encoder,
 valid-start and completion status, together with the existing bounded stderr tail.
 An empty encoder output additionally reports the selected canvas, FPS and audio

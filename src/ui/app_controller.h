@@ -6,6 +6,7 @@
 #include "ui/export_controller.h"
 #include "ui/media_controller.h"
 #include "ui/playback_controller.h"
+#include "ui/project_bundle_controller.h"
 #include "ui/project_controller.h"
 #include "ui/subtitle_controller.h"
 #include "ui/thumbnail_provider.h"
@@ -31,6 +32,7 @@ class AppController : public QObject
     QML_ELEMENT
     QML_UNCREATABLE("Provided by the application")
     Q_PROPERTY(ft::ui::ProjectController* project READ project CONSTANT)
+    Q_PROPERTY(ft::ui::ProjectBundleController* bundles READ bundles CONSTANT)
     Q_PROPERTY(ft::ui::MediaController* media READ media CONSTANT)
     Q_PROPERTY(ft::ui::TimelineController* timeline READ timeline CONSTANT)
     Q_PROPERTY(ft::ui::SubtitleController* subtitles READ subtitles CONSTANT)
@@ -52,6 +54,7 @@ public:
     ~AppController() override;
 
     [[nodiscard]] ProjectController* project() const { return m_project.get(); }
+    [[nodiscard]] ProjectBundleController* bundles() const { return m_bundles.get(); }
     [[nodiscard]] MediaController* media() const { return m_media.get(); }
     [[nodiscard]] TimelineController* timeline() const { return m_timeline.get(); }
     [[nodiscard]] SubtitleController* subtitles() const { return m_subtitles.get(); }
@@ -109,6 +112,7 @@ private:
     std::unique_ptr<TimelineController> m_timeline;
     std::unique_ptr<SubtitleController> m_subtitles;
     std::unique_ptr<ExportController> m_exporter;
+    std::unique_ptr<ProjectBundleController> m_bundles;
 };
 
 } // namespace ft::ui

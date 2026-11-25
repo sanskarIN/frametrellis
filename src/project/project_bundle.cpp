@@ -28,7 +28,8 @@ constexpr auto kProjectFile = "project.ftproj";
 constexpr auto kManifest = "manifest.json";
 constexpr qint64 kChunkSize = 1024LL * 1024;
 constexpr qint64 kMaxManifestBytes = 16LL * 1024 * 1024;
-constexpr qint64 kMaxExactJsonInteger = 9007199254740991LL;
+// The project reader bounds persisted MediaInfo::fileSize to 2^52 bytes.
+constexpr qint64 kMaxStoredMediaBytes = qint64{1} << 52;
 
 bool stopped(const Cancel& cancelled)
 {
@@ -264,15 +265,21 @@ Result<Plan> plan(const Project& project, Options options, const Cancel& cancell
                              asset.name);
         }
         const bool sizeChanged = asset.info.fileSize > 0 && asset.info.fileSize != info.size();
+        const QDateTime imported = asset.info.lastModified;
+        const QDateTime actual = info.lastModified();
+        // Old projects persisted only seconds. Match the media-audit policy:
+        // compare exact milliseconds whenever the stored value has them.
         const bool timeChanged =
-            asset.info.lastModified.isValid() &&
-            asset.info.lastModified.toSecsSinceEpoch() != info.lastModified().toSecsSinceEpoch();
+            imported.isValid() &&
+            (imported.time().msec() == 0
+                 ? actual.toSecsSinceEpoch() != imported.toSecsSinceEpoch()
+                 : actual.toMSecsSinceEpoch() != imported.toMSecsSinceEpoch());
         if (sizeChanged || timeChanged) {
             return makeError(ErrorCode::Conflict,
                              QStringLiteral("Source media changed since import. Relink it first."),
                              asset.name);
         }
-        if (info.size() < 0 || info.size() > kMaxExactJsonInteger ||
+        if (info.size() < 0 || info.size() > kMaxStoredMediaBytes ||
             result.bytes > std::numeric_limits<qint64>::max() - info.size()) {
             return makeError(ErrorCode::OutOfRange, QStringLiteral("Bundle size is out of range."));
         }

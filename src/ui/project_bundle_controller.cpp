@@ -91,9 +91,7 @@ bool ProjectBundleController::start(Work work, const QString& operation)
     m_result.clear();
     m_progress.clear();
     const auto state = m_work;
-    m_watcher.setFuture(QtConcurrent::run([state, work = std::move(work)] {
-        return work(state);
-    }));
+    m_watcher.setFuture(QtConcurrent::run([state, work = std::move(work)] { return work(state); }));
     m_timer.start();
     emit stateChanged();
     poll();
@@ -107,8 +105,7 @@ bool ProjectBundleController::createBundle(const QString& parentPath, const QStr
         return false;
     }
     const QString path = ProjectController::localPath(parentPath);
-    if (!validFolderName(folderName) || !QFileInfo(path).isAbsolute() ||
-        !QFileInfo(path).isDir()) {
+    if (!validFolderName(folderName) || !QFileInfo(path).isAbsolute() || !QFileInfo(path).isDir()) {
         return reject(QStringLiteral("Choose an existing parent folder and a new folder name "
                                      "using 1–80 letters, digits, hyphens or underscores."));
     }
@@ -120,8 +117,8 @@ bool ProjectBundleController::createBundle(const QString& parentPath, const QStr
     // The worker owns a value snapshot and never refers to live QObjects.
     const Project snapshot = m_project->project();
     return start(
-        [snapshot, destination, usedOnly](const std::shared_ptr<WorkState>& state)
-            -> Result<QVariantMap> {
+        [snapshot, destination,
+         usedOnly](const std::shared_ptr<WorkState>& state) -> Result<QVariantMap> {
             const auto bundle = project_bundle::create(
                 snapshot, destination, project_bundle::Options{usedOnly},
                 [state] { return state->cancelled.load(); },
@@ -196,8 +193,8 @@ void ProjectBundleController::poll()
         progress.totalBytes > 0
             ? static_cast<double>(progress.bytesCopied) / static_cast<double>(progress.totalBytes)
             : (progress.totalFiles > 0 ? static_cast<double>(progress.filesCompleted) /
-                                            static_cast<double>(progress.totalFiles)
-                                      : 0.0);
+                                             static_cast<double>(progress.totalFiles)
+                                       : 0.0);
     const QVariantMap next{
         {QStringLiteral("operation"), m_operation},
         {QStringLiteral("phase"), phaseName(progress.phase)},

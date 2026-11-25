@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // SPDX-FileCopyrightText: 2026 Sanskar and FrameTrellis contributors
 #include "project/project_checkpoints.h"
-
 #include "project/project_serializer.h"
 
 #include <QCryptographicHash>
@@ -51,8 +50,8 @@ bool changeHeader(const QString& path, const QString& field, const QJsonValue& v
     }
     QJsonObject header = doc.object();
     header[field] = value;
-    return writeBytes(path, QJsonDocument(header).toJson(QJsonDocument::Compact) +
-                                bytes.mid(newline));
+    return writeBytes(path,
+                      QJsonDocument(header).toJson(QJsonDocument::Compact) + bytes.mid(newline));
 }
 
 Project sampleProject(const QString& path)
@@ -137,13 +136,14 @@ private slots:
         QCOMPARE(first->originalPath, original);
         QVERIFY(first->createdAt.isValid());
         QVERIFY(first->bytes > 0);
-        QCOMPARE(first->payloadSha256, QCryptographicHash::hash(oldPayload, QCryptographicHash::Sha256).toHex());
+        QCOMPARE(first->payloadSha256,
+                 QCryptographicHash::hash(oldPayload, QCryptographicHash::Sha256).toHex());
         QVERIFY(QFileInfo(snapshotPath(store, project.id(), first->id)).isFile());
 
         project.setName(QStringLiteral("After edits"));
         QVERIFY(project.timeline().moveClip(QStringLiteral("first-clip"),
-                                           project.timeline().tracks()[0].id, 25,
-                                           project.sourceLookup()));
+                                            project.timeline().tracks()[0].id, 25,
+                                            project.sourceLookup()));
         const auto second = store.create(project, QStringLiteral("After edits"), original);
         QVERIFY(second);
         QVERIFY(second->id != first->id);
@@ -351,10 +351,10 @@ private slots:
         const QByteArray payload = project_format::toBytes(second);
         QVERIFY(writeBytes(path, bytes.left(newline + 1) + payload));
         // Update the digest to exercise identity validation independently.
-        QVERIFY(changeHeader(path, QStringLiteral("payloadSha256"),
-                             QString::fromLatin1(QCryptographicHash::hash(
-                                                     payload, QCryptographicHash::Sha256)
-                                                     .toHex())));
+        QVERIFY(changeHeader(
+            path, QStringLiteral("payloadSha256"),
+            QString::fromLatin1(
+                QCryptographicHash::hash(payload, QCryptographicHash::Sha256).toHex())));
         const auto restored = store.restore(first.id(), saved->id);
         QVERIFY(!restored);
         QCOMPARE(restored.error().code, ErrorCode::InvalidDocument);
@@ -466,8 +466,8 @@ private slots:
         const auto saved = store.create(project, QStringLiteral("Version"));
         QVERIFY(saved);
         const QString path = snapshotPath(store, project.id(), saved->id);
-        QLockFile lock(QDir(QFileInfo(path).absolutePath())
-                           .filePath(QStringLiteral(".checkpoint.lock")));
+        QLockFile lock(
+            QDir(QFileInfo(path).absolutePath()).filePath(QStringLiteral(".checkpoint.lock")));
         QVERIFY(lock.tryLock(0));
         const auto concurrent = store.create(project, QStringLiteral("Another"));
         QVERIFY(!concurrent);
@@ -494,7 +494,8 @@ private slots:
         const QByteArray firstBytes = readBytes(firstPath);
         const qsizetype newline = firstBytes.indexOf('\n');
         QVERIFY(newline > 0);
-        const QJsonObject originalHeader = QJsonDocument::fromJson(firstBytes.left(newline)).object();
+        const QJsonObject originalHeader =
+            QJsonDocument::fromJson(firstBytes.left(newline)).object();
         for (int i = 1; i < kMaxCheckpointsPerProject; ++i) {
             const Id id = QStringLiteral("fixture-%1").arg(i);
             QJsonObject header = originalHeader;

@@ -169,7 +169,13 @@ private slots:
         QVERIFY(project_format::saveToFile(edited, bundle->projectFile));
         const QJsonObject doc = QJsonDocument::fromJson(read(bundle->projectFile)).object();
         const auto body = doc.value(QStringLiteral("project")).toObject();
+        QCOMPARE(doc.value(QStringLiteral("version")).toInt(), 8);
         QVERIFY(body.value(QStringLiteral("relativeMediaPaths")).toBool());
+        QJsonObject downgraded = doc;
+        downgraded[QStringLiteral("version")] = 7;
+        const auto unsupported = project_format::fromJson(downgraded, bundle->directory);
+        QVERIFY(!unsupported);
+        QCOMPARE(unsupported.error().code, ErrorCode::InvalidDocument);
         const auto media = body.value(QStringLiteral("media")).toArray().first().toObject();
         const QString relative = media.value(QStringLiteral("path")).toString();
         QVERIFY(QDir::isRelativePath(relative));
@@ -267,6 +273,60 @@ private slots:
         QVERIFY(!missing);
         QCOMPARE(missing.error().code, ErrorCode::NotFound);
         QVERIFY(!QFileInfo::exists(output));
+    }
+
+    void rejectsSameSecondFingerprintChangesButAcceptsLegacyTimestamp()
+    {
+        QTemporaryDir dir;
+        QVERIFY(dir.isValid());
+        const QString source = dir.filePath(QStringLiteral("source.png"));
+        QVERIFY(write(source, "original"));
+        const QFileInfo info(source);
+        const QDateTime actual = info.lastModified();
+        QVERIFY(actual.isValid());
+        Project project = Project::createNew(QStringLiteral("Fingerprint"), {});
+        auto asset = image(QStringLiteral("a"), source);
+        asset.info.fileSize = info.size();
+        // A stored millisecond difference should be detected even when the
+        // filesystem and the source agree on the whole-second timestamp.
+        asset.info.lastModified = actual.addMSecs(actual.time().msec() == 999 ? -1 : 1);
+        QCOMPARE(asset.info.lastModified.toSecsSinceEpoch(), actual.toSecsSinceEpoch());
+        QVERIFY(project.addAsset(asset));
+        const auto changed = plan(project);
+        QVERIFY(!changed);
+        QCOMPARE(changed.error().code, ErrorCode::Conflict);
+
+        // Legacy timestamps have no subsecond precision and must remain usable.
+        asset.info.lastModified = actual.addMSecs(-actual.time().msec());
+        QVERIFY(project.replaceAsset(asset));
+        const auto legacy = plan(project);
+        QVERIFY(legacy);
+        QCOMPARE(legacy->files.size(), size_t{1});
+        const auto copied = create(project, dir.filePath(QStringLiteral("legacy")));
+        QVERIFY(copied);
+        QCOMPARE(read(source), QByteArray("original"));
+    }
+
+    void detectsSourceMutationDuringCopyAndCleansStaging()
+    {
+        QTemporaryDir dir;
+        QVERIFY(dir.isValid());
+        const QString source = dir.filePath(QStringLiteral("source.png"));
+        QVERIFY(write(source, QByteArray(3 * 1024 * 1024, 'a')));
+        Project project = Project::createNew(QStringLiteral("Changing source"), {});
+        QVERIFY(project.addAsset(image(QStringLiteral("a"), source)));
+        bool changed = false;
+        const QString target = dir.filePath(QStringLiteral("bundle"));
+        const auto result = create(project, target, {}, {}, [&](const Progress& progress) {
+            if (progress.bytesCopied > 0 && !changed) {
+                changed = write(source, QByteArray("modified"));
+            }
+        });
+        QVERIFY(changed);
+        QVERIFY(!result);
+        QVERIFY(!QFileInfo::exists(target));
+        QVERIFY(noStaging(dir.path()));
+        QCOMPARE(read(source), QByteArray("modified"));
     }
 
     void cancellationDuringCopyRemovesTemporaryFiles()

@@ -4,6 +4,7 @@
 
 #include "project/project.h"
 
+#include <QByteArray>
 #include <QDateTime>
 #include <QString>
 
@@ -24,6 +25,7 @@ struct Entry
     QString projectName;
     QString originalPath;
     QDateTime createdAt;
+    QByteArray payloadSha256; ///< lowercase hexadecimal SHA-256 of the exact project bytes
     qint64 bytes = 0;
     bool readable = true; ///< valid header; the project payload is checked on restore
     QString error;

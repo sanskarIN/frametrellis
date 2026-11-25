@@ -386,8 +386,29 @@ bool ProjectController::writeAutosave(const QString& originalPath)
         qCWarning(lcUi) << "Autosave failed:" << saved.error().toString();
         return false;
     }
+    QString sourcePath = m_document->filePath();
+    if (sourcePath.isEmpty()) {
+        sourcePath = originalPath;
+    }
+    if (sourcePath.isEmpty()) {
+        // A later timer save of a recovered document must not erase its
+        // original location from the already-written recovery metadata.
+        const QFileInfo existing(autosavePath() + QStringLiteral(".json"));
+        QFile previous(existing.absoluteFilePath());
+        constexpr qint64 kMaxMetadataBytes = 64 * 1024;
+        if (existing.isFile() && !existing.isSymLink() && existing.size() <= kMaxMetadataBytes &&
+            previous.open(QIODevice::ReadOnly)) {
+            const QByteArray bytes = previous.read(kMaxMetadataBytes + 1);
+            if (bytes.size() <= kMaxMetadataBytes) {
+                sourcePath = QJsonDocument::fromJson(bytes)
+                                 .object()
+                                 .value(QStringLiteral("originalPath"))
+                                 .toString();
+            }
+        }
+    }
     QJsonObject meta{
-        {QStringLiteral("originalPath"), originalPath.isEmpty() ? m_document->filePath() : originalPath},
+        {QStringLiteral("originalPath"), sourcePath},
         {QStringLiteral("name"), project().name()},
         {QStringLiteral("savedAt"), QDateTime::currentDateTimeUtc().toString(Qt::ISODate)}};
     QSaveFile file(autosavePath() + QStringLiteral(".json"));

@@ -511,6 +511,15 @@ private slots:
             }
         }
         QVERIFY(isValidId(checkpoint));
+        QVERIFY(QMetaObject::invokeMethod(dialog, "compareSelected"));
+        QObject* comparison =
+            dialog->findChild<QObject*>(QStringLiteral("checkpointCompareDialog"));
+        QVERIFY(comparison);
+        QTRY_VERIFY(comparison->property("visible").toBool());
+        QTRY_VERIFY(comparison->property("validComparison").toBool());
+        QTest::keyClick(m_window, Qt::Key_Escape);
+        QTRY_VERIFY(!comparison->property("visible").toBool());
+        QTRY_VERIFY(dialog->property("visible").toBool());
         QTest::keyClick(m_window, Qt::Key_Escape);
         QTRY_VERIFY(!dialog->property("visible").toBool());
         QVERIFY(controller->removeCheckpoint(before.id(), checkpoint));

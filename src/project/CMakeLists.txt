@@ -6,6 +6,7 @@ add_library(ft_project STATIC
     edl_export.cpp edl_export.h
     project.cpp project.h
     project_checkpoints.cpp project_checkpoints.h
+    project_diff.cpp project_diff.h
     project_serializer.cpp project_serializer.h
     project_settings.cpp project_settings.h
     subtitles.cpp subtitles.h

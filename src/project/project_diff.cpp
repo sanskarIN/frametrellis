@@ -98,8 +98,8 @@ void addSingleton(Report& report, Category category, const QString& label, QStri
         ++countsFor(report, category).unchanged;
         return;
     }
-    addChange(report, Detail{category, Action::Changed, {}, label, std::move(fields), before,
-                             after});
+    addChange(report,
+              Detail{category, Action::Changed, {}, label, std::move(fields), before, after});
 }
 
 void field(QStringList& fields, bool changed, const QString& name)
@@ -128,11 +128,11 @@ void compareItems(Report& report, Category category, const QHash<Id, Item>& prev
         const auto old = previous.constFind(id);
         const auto now = current.constFind(id);
         if (old == previous.cend()) {
-            addChange(report, Detail{category, Action::Added, id, label(*now), {}, {},
-                                     display(*now)});
+            addChange(report,
+                      Detail{category, Action::Added, id, label(*now), {}, {}, display(*now)});
         } else if (now == current.cend()) {
-            addChange(report, Detail{category, Action::Removed, id, label(*old), {},
-                                     display(*old), {}});
+            addChange(report,
+                      Detail{category, Action::Removed, id, label(*old), {}, display(*old), {}});
         } else {
             QStringList fields = changedFields(*old, *now);
             if (fields.isEmpty()) {
@@ -148,8 +148,7 @@ void compareItems(Report& report, Category category, const QHash<Id, Item>& prev
 QStringList settingsFields(const ProjectSettings& old, const ProjectSettings& now)
 {
     QStringList fields;
-    field(fields, old.width != now.width || old.height != now.height,
-          QStringLiteral("Resolution"));
+    field(fields, old.width != now.width || old.height != now.height, QStringLiteral("Resolution"));
     field(fields, old.frameRate != now.frameRate, QStringLiteral("Frame rate"));
     field(fields, old.sampleRate != now.sampleRate, QStringLiteral("Audio sample rate"));
     field(fields, old.audioChannels != now.audioChannels, QStringLiteral("Audio channels"));
@@ -171,8 +170,9 @@ QStringList mediaFields(const MediaAsset* old, const MediaAsset* now)
     field(fields, a.frameRate != b.frameRate, QStringLiteral("Native frame rate"));
     field(fields, a.audioChannels != b.audioChannels || a.audioSampleRate != b.audioSampleRate,
           QStringLiteral("Audio format"));
-    field(fields, a.container != b.container || a.videoCodec != b.videoCodec ||
-                      a.audioCodec != b.audioCodec,
+    field(fields,
+          a.container != b.container || a.videoCodec != b.videoCodec ||
+              a.audioCodec != b.audioCodec,
           QStringLiteral("Container or codec"));
     field(fields, a.fileSize != b.fileSize || a.lastModified != b.lastModified,
           QStringLiteral("Stored file fingerprint"));
@@ -218,13 +218,15 @@ QStringList clipFields(const ClipEntry& old, const ClipEntry& now)
     field(fields, a.properties.gain != b.properties.gain, QStringLiteral("Audio gain"));
     field(fields, a.properties.balance != b.properties.balance, QStringLiteral("Stereo balance"));
     field(fields, a.properties.muted != b.properties.muted, QStringLiteral("Clip mute"));
-    field(fields, a.properties.fadeIn != b.properties.fadeIn ||
-                      a.properties.fadeOut != b.properties.fadeOut,
+    field(fields,
+          a.properties.fadeIn != b.properties.fadeIn ||
+              a.properties.fadeOut != b.properties.fadeOut,
           QStringLiteral("Fades"));
     field(fields, a.properties.video != b.properties.video, QStringLiteral("Picture adjustments"));
     field(fields, a.audioKeyframes != b.audioKeyframes, QStringLiteral("Volume keyframes"));
     field(fields, a.opacityKeyframes != b.opacityKeyframes, QStringLiteral("Opacity keyframes"));
-    field(fields, a.transformKeyframes != b.transformKeyframes, QStringLiteral("Transform keyframes"));
+    field(fields, a.transformKeyframes != b.transformKeyframes,
+          QStringLiteral("Transform keyframes"));
     return fields;
 }
 
@@ -247,8 +249,9 @@ QStringList transitionFields(const TransitionEntry& old, const TransitionEntry& 
 {
     QStringList fields;
     field(fields, old.track->id != now.track->id, QStringLiteral("Track"));
-    field(fields, old.transition->fromClip != now.transition->fromClip ||
-                      old.transition->toClip != now.transition->toClip,
+    field(fields,
+          old.transition->fromClip != now.transition->fromClip ||
+              old.transition->toClip != now.transition->toClip,
           QStringLiteral("Cut endpoints"));
     field(fields, old.transition->duration != now.transition->duration, QStringLiteral("Duration"));
     return fields;
@@ -407,18 +410,22 @@ Result<Report> compare(const Project& previous, const Project& current)
 
     const Index old = indexProject(previous);
     const Index now = indexProject(current);
-    compareItems(report, Category::Media, old.media, now.media, mediaFields,
-                 [](const MediaAsset* asset) { return asset->name; }, mediaDisplay);
-    compareItems(report, Category::Track, old.tracks, now.tracks, trackFields,
-                 [](const TrackEntry& entry) { return entry.track->name; }, trackDisplay);
+    compareItems(
+        report, Category::Media, old.media, now.media, mediaFields,
+        [](const MediaAsset* asset) { return asset->name; }, mediaDisplay);
+    compareItems(
+        report, Category::Track, old.tracks, now.tracks, trackFields,
+        [](const TrackEntry& entry) { return entry.track->name; }, trackDisplay);
     compareItems(report, Category::Clip, old.clips, now.clips, clipFields, clipLabel, clipDisplay);
-    compareItems(report, Category::Transition, old.transitions, now.transitions, transitionFields,
-                 [](const TransitionEntry&) { return QStringLiteral("Transition"); },
-                 transitionDisplay);
-    compareItems(report, Category::Marker, old.markers, now.markers, markerFields,
-                 [](const TimelineMarker* marker) { return marker->label; }, markerDisplay);
-    compareItems(report, Category::Subtitle, old.subtitles, now.subtitles, subtitleFields,
-                 [](const SubtitleCue*) { return QStringLiteral("Subtitle cue"); }, subtitleDisplay);
+    compareItems(
+        report, Category::Transition, old.transitions, now.transitions, transitionFields,
+        [](const TransitionEntry&) { return QStringLiteral("Transition"); }, transitionDisplay);
+    compareItems(
+        report, Category::Marker, old.markers, now.markers, markerFields,
+        [](const TimelineMarker* marker) { return marker->label; }, markerDisplay);
+    compareItems(
+        report, Category::Subtitle, old.subtitles, now.subtitles, subtitleFields,
+        [](const SubtitleCue*) { return QStringLiteral("Subtitle cue"); }, subtitleDisplay);
 
     const auto& a = previous.subtitles();
     const auto& b = current.subtitles();

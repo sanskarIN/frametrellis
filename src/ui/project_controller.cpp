@@ -77,9 +77,11 @@ QString ProjectController::autosavePath() const
     return QDir(autosaveDirectory()).filePath(project().id() + QStringLiteral(".ftproj"));
 }
 
-void ProjectController::adopt(std::unique_ptr<ProjectDocument> document)
+void ProjectController::adopt(std::unique_ptr<ProjectDocument> document,
+                              bool preserveMatchingAutosave)
 {
-    if (m_document) {
+    if (m_document &&
+        (!preserveMatchingAutosave || m_document->project().id() != document->project().id())) {
         removeOwnAutosave();
     }
     m_document = std::move(document);
@@ -368,16 +370,24 @@ void ProjectController::clearRecentProjects()
 
 void ProjectController::autosave()
 {
+    (void)writeAutosave();
+}
+
+bool ProjectController::writeAutosave(const QString& originalPath)
+{
     if (!m_document || !m_document->isModified()) {
-        return;
+        return false;
     }
-    QDir().mkpath(autosaveDirectory());
+    if (!QDir().mkpath(autosaveDirectory())) {
+        qCWarning(lcUi) << "Could not create autosave directory";
+        return false;
+    }
     if (const Status saved = m_document->saveCopy(autosavePath()); !saved) {
         qCWarning(lcUi) << "Autosave failed:" << saved.error().toString();
-        return;
+        return false;
     }
     QJsonObject meta{
-        {QStringLiteral("originalPath"), m_document->filePath()},
+        {QStringLiteral("originalPath"), originalPath.isEmpty() ? m_document->filePath() : originalPath},
         {QStringLiteral("name"), project().name()},
         {QStringLiteral("savedAt"), QDateTime::currentDateTimeUtc().toString(Qt::ISODate)}};
     QSaveFile file(autosavePath() + QStringLiteral(".json"));
@@ -386,6 +396,7 @@ void ProjectController::autosave()
         file.commit();
     }
     qCDebug(lcUi) << "Autosaved to" << autosavePath();
+    return true;
 }
 
 void ProjectController::removeOwnAutosave()
@@ -404,13 +415,21 @@ void ProjectController::scanAutosaves()
     QDateTime newest;
     while (it.hasNext()) {
         const QString path = it.next();
-        if (path == autosavePath()) {
+        const QFileInfo candidate(path);
+        if (path == autosavePath() || candidate.isSymLink() || !candidate.isFile() ||
+            candidate.size() <= 0 || candidate.size() > project_format::kMaxDocumentBytes) {
             continue;
         }
-        QFile metaFile(path + QStringLiteral(".json"));
+        const QFileInfo metaInfo(path + QStringLiteral(".json"));
+        QFile metaFile(metaInfo.absoluteFilePath());
         QJsonObject meta;
-        if (metaFile.open(QIODevice::ReadOnly)) {
-            meta = QJsonDocument::fromJson(metaFile.read(qint64{64} * 1024)).object();
+        constexpr qint64 kMaxMetadataBytes = 64 * 1024;
+        if (metaInfo.isFile() && !metaInfo.isSymLink() && metaInfo.size() <= kMaxMetadataBytes &&
+            metaFile.open(QIODevice::ReadOnly)) {
+            const QByteArray bytes = metaFile.read(kMaxMetadataBytes + 1);
+            if (bytes.size() <= kMaxMetadataBytes) {
+                meta = QJsonDocument::fromJson(bytes).object();
+            }
         }
         const QDateTime savedAt = QFileInfo(path).lastModified();
         if (!newest.isValid() || savedAt > newest) {
@@ -442,16 +461,17 @@ bool ProjectController::recoverAutosave()
     auto document = std::make_unique<ProjectDocument>(std::move(project).value());
     document->refreshMediaStatus();
     document->markModified();
-    adopt(std::move(document));
+    const QString originalPath = m_recovery.value(QStringLiteral("originalPath")).toString();
+    adopt(std::move(document), true);
     // A recovered document normally retains the same project ID and therefore the
     // *same* autosave path. Do not delete that file before the user saves: a second
     // crash immediately after recovery would otherwise lose the only backup.
     // saveCopy() uses QSaveFile, so an unsuccessful refresh leaves the old copy intact.
     const QString refreshedPath = autosavePath();
-    autosave();
-    // If a backup was renamed or moved, only remove it once a replacement exists.
-    if (QDir::cleanPath(refreshedPath) != QDir::cleanPath(autosaveFile) &&
-        QFileInfo::exists(refreshedPath)) {
+    const bool refreshed = writeAutosave(originalPath);
+    // A pre-existing directory or stale file at the canonical path is not
+    // evidence of successful replacement. Preserve the source on failure.
+    if (refreshed && QDir::cleanPath(refreshedPath) != QDir::cleanPath(autosaveFile)) {
         QFile::remove(autosaveFile);
         QFile::remove(autosaveFile + QStringLiteral(".json"));
     }

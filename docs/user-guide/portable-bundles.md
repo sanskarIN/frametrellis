@@ -41,8 +41,8 @@ A bundle folder contains:
 
 Keep the folder together when copying it to another drive or computer. Its
 project prefers contained, project-relative media paths, and the preference is
-retained on later saves. Use a FrameTrellis build with portable-bundle support.
-An earlier reader may ignore the relative-path preference.
+retained on later saves. Use a FrameTrellis build with portable-bundle support (project format v8).
+Older readers reject this version instead of resolving media incorrectly.
 
 Newly imported or relinked files outside the bundle remain external references.
 Create a new bundle to include those sources in an independent copy. The

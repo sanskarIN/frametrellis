@@ -4,6 +4,7 @@
 
 #include "project/project_serializer.h"
 
+#include <QCryptographicHash>
 #include <QDir>
 #include <QFile>
 #include <QFileInfo>
@@ -136,6 +137,7 @@ private slots:
         QCOMPARE(first->originalPath, original);
         QVERIFY(first->createdAt.isValid());
         QVERIFY(first->bytes > 0);
+        QCOMPARE(first->payloadSha256, QCryptographicHash::hash(oldPayload, QCryptographicHash::Sha256).toHex());
         QVERIFY(QFileInfo(snapshotPath(store, project.id(), first->id)).isFile());
 
         project.setName(QStringLiteral("After edits"));
@@ -304,7 +306,8 @@ private slots:
         QVERIFY(history->entries.front().readable);
         const auto restored = store.restore(project.id(), saved->id);
         QVERIFY(!restored);
-        QCOMPARE(restored.error().code, ErrorCode::Parse);
+        QCOMPARE(restored.error().code, ErrorCode::InvalidDocument);
+        QVERIFY(restored.error().message.contains(QStringLiteral("integrity")));
         QVERIFY(QFileInfo::exists(path));
     }
 
@@ -345,11 +348,90 @@ private slots:
         const QByteArray bytes = readBytes(path);
         const qsizetype newline = bytes.indexOf('\n');
         QVERIFY(newline > 0);
-        QVERIFY(writeBytes(path, bytes.left(newline + 1) + project_format::toBytes(second)));
+        const QByteArray payload = project_format::toBytes(second);
+        QVERIFY(writeBytes(path, bytes.left(newline + 1) + payload));
+        // Update the digest to exercise identity validation independently.
+        QVERIFY(changeHeader(path, QStringLiteral("payloadSha256"),
+                             QString::fromLatin1(QCryptographicHash::hash(
+                                                     payload, QCryptographicHash::Sha256)
+                                                     .toHex())));
         const auto restored = store.restore(first.id(), saved->id);
         QVERIFY(!restored);
         QCOMPARE(restored.error().code, ErrorCode::InvalidDocument);
         QVERIFY(QFileInfo::exists(path));
+    }
+
+    void rejectsValidJsonPayloadWithUnrecordedEdits()
+    {
+        QTemporaryDir dir;
+        QVERIFY(dir.isValid());
+        Store store(dir.path());
+        const Project project = Project::createNew(QStringLiteral("Original version"), {});
+        const auto saved = store.create(project, QStringLiteral("Version"));
+        QVERIFY(saved);
+        const QString path = snapshotPath(store, project.id(), saved->id);
+        const QByteArray bytes = readBytes(path);
+        const qsizetype newline = bytes.indexOf('\n');
+        QVERIFY(newline > 0);
+
+        // Preserve the project ID and name while changing the actual edit.
+        // Ordinary schema checks would accept this valid project payload.
+        Project modified = project;
+        QVERIFY(modified.timeline().renameTrack(modified.timeline().tracks()[0].id,
+                                                QStringLiteral("Unexpected change")));
+        const QByteArray different = project_format::toBytes(modified);
+        QVERIFY(project_format::fromBytes(different));
+        QVERIFY(writeBytes(path, bytes.left(newline + 1) + different));
+
+        const auto history = store.list(project.id());
+        QVERIFY(history);
+        QVERIFY(history->entries.front().readable);
+        const auto rejected = store.restore(project.id(), saved->id);
+        QVERIFY(!rejected);
+        QCOMPARE(rejected.error().code, ErrorCode::InvalidDocument);
+        QVERIFY(rejected.error().message.contains(QStringLiteral("integrity")));
+        QVERIFY(QFileInfo(path).isFile());
+
+        // Restoring the exact original bytes makes the same checkpoint usable.
+        QVERIFY(writeBytes(path, bytes));
+        const auto restored = store.restore(project.id(), saved->id);
+        QVERIFY(restored);
+        QCOMPARE(project_format::toBytes(*restored), project_format::toBytes(project));
+    }
+
+    void rejectsMalformedPayloadDigestMetadata()
+    {
+        QTemporaryDir dir;
+        QVERIFY(dir.isValid());
+        Store store(dir.path());
+        const Project project = Project::createNew(QStringLiteral("Digest validation"), {});
+        const auto saved = store.create(project, QStringLiteral("Version"));
+        QVERIFY(saved);
+        const QString path = snapshotPath(store, project.id(), saved->id);
+        const QByteArray original = readBytes(path);
+
+        const QList<QJsonValue> invalid{
+            QJsonValue(QJsonValue::Null),
+            QJsonValue(123),
+            QJsonValue(QString()),
+            QJsonValue(QString(63, QLatin1Char('a'))),
+            QJsonValue(QString(65, QLatin1Char('a'))),
+            QJsonValue(QString(64, QLatin1Char('g'))),
+            QJsonValue(QString(64, QLatin1Char('A'))),
+        };
+        for (const QJsonValue& digest : invalid) {
+            QVERIFY(writeBytes(path, original));
+            QVERIFY(changeHeader(path, QStringLiteral("payloadSha256"), digest));
+            const auto history = store.list(project.id());
+            QVERIFY(history);
+            QCOMPARE(history->entries.size(), size_t{1});
+            QVERIFY(!history->entries.front().readable);
+            const auto restored = store.restore(project.id(), saved->id);
+            QVERIFY(!restored);
+            QCOMPARE(restored.error().code, ErrorCode::InvalidDocument);
+        }
+        QVERIFY(writeBytes(path, original));
+        QVERIFY(store.restore(project.id(), saved->id));
     }
 
     void refusesOversizedAndUnterminatedHeaders()

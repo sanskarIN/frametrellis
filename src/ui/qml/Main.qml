@@ -21,6 +21,7 @@ ApplicationWindow {
                                        || unsavedDialog.visible || exportRunningDialog.visible || recoveryDialog.visible
                                        || subtitleDialog.visible || subtitleImportDialog.visible || subtitleExportDialog.visible || subtitleVttExportDialog.visible || subtitleTranscriptExportDialog.visible
                                        || previewFrameDialog.visible || clipListDialog.visible || mediaAuditCsvDialog.visible || preciseGapDialog.visible
+                                       || timelineReviewDialog.visible || timelineReviewJsonDialog.visible || timelineReviewHtmlDialog.visible
                                        || customPictureDialog.visible || mediaPanel.excerptDialogOpen
     readonly property bool editKeys: !dialogOpen
     readonly property bool sourceMode: monitorTabs.currentIndex === 1
@@ -176,6 +177,11 @@ ApplicationWindow {
             Action { text: qsTr("&Subtitles…"); shortcut: "Ctrl+Alt+S"; enabled: window.editKeys; onTriggered: subtitleDialog.open() }
             Action { text: qsTr("Copy Picture EDL (CMX3600)"); enabled: window.editKeys && !window.app.timeline.empty; onTriggered: window.app.timeline.copyPictureAsEdl() }
             Action { text: qsTr("&Export…"); shortcut: "Ctrl+E"; enabled: !window.app.timeline.empty || window.app.exporter.busy; onTriggered: exportDialog.open() }
+            Action {
+                text: qsTr("Timeline &Review…")
+                enabled: window.editKeys
+                onTriggered: timelineReviewDialog.open()
+            }
             Action {
                 text: qsTr("Export Clip List (CSV)…")
                 enabled: !window.app.timeline.empty
@@ -694,6 +700,30 @@ ApplicationWindow {
         nameFilters: [qsTr("CSV clip lists (*.csv)")]
         currentFolder: window.app.fileUrl(window.app.project.projectFolder())
         onAccepted: window.app.project.exportClipListCsv(window.app.localPath(selectedFile))
+    }
+    TimelineReviewDialog {
+        id: timelineReviewDialog
+        app: window.app
+        onExportJsonRequested: timelineReviewJsonDialog.open()
+        onExportHtmlRequested: timelineReviewHtmlDialog.open()
+    }
+    FileDialog {
+        id: timelineReviewJsonDialog
+        title: qsTr("Export timeline review as JSON")
+        fileMode: FileDialog.SaveFile
+        defaultSuffix: "json"
+        nameFilters: [qsTr("JSON reports (*.json)")]
+        currentFolder: window.app.fileUrl(window.app.project.projectFolder())
+        onAccepted: window.app.project.exportTimelineReview(window.app.localPath(selectedFile))
+    }
+    FileDialog {
+        id: timelineReviewHtmlDialog
+        title: qsTr("Export timeline review as HTML")
+        fileMode: FileDialog.SaveFile
+        defaultSuffix: "html"
+        nameFilters: [qsTr("HTML reports (*.html)")]
+        currentFolder: window.app.fileUrl(window.app.project.projectFolder())
+        onAccepted: window.app.project.exportTimelineReview(window.app.localPath(selectedFile))
     }
     FileDialog {
         id: importDialog

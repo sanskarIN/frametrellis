@@ -182,9 +182,9 @@ FtDialog {
                     required property int index
                     width: ListView.view.width
                     padding: Theme.spacingM
-                    highlighted: historyList.currentIndex === index
-                    onClicked: historyList.currentIndex = index
-                    Accessible.name: modelData.label || ""
+                    highlighted: historyList.currentIndex === versionDelegate.index
+                    onClicked: historyList.currentIndex = versionDelegate.index
+                    Accessible.name: versionDelegate.modelData.label || ""
                     background: Rectangle {
                         color: versionDelegate.highlighted ? Theme.raised
                             : versionDelegate.hovered ? Theme.hover : Theme.panelAlt
@@ -234,7 +234,7 @@ FtDialog {
         }
         Text {
             Layout.fillWidth: true
-            visible: dialog.selectedEntry && !!dialog.selectedEntry.originalPath
+            visible: !!dialog.selectedEntry && !!dialog.selectedEntry.originalPath
             text: qsTr("Original project: %1").arg(dialog.selectedEntry
                 ? dialog.selectedEntry.originalPath : "")
             color: Theme.textMuted

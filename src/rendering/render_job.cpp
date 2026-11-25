@@ -166,6 +166,7 @@ Status RenderJob::start(const Project& project, const ExportSettings& settings,
     m_cancelKillIssued = false;
     m_finalElapsed = -1;
     m_elapsed.start();
+    m_lastAdvance.start();
 
     QStringList arguments{QStringLiteral("--project"),
                           snapshot,
@@ -260,6 +261,20 @@ double RenderJob::progress() const
                       1.0);
 }
 
+qint64 RenderJob::millisecondsWithoutProgress() const
+{
+    if ((m_state != State::Starting && m_state != State::Running) || !m_lastAdvance.isValid()) {
+        return 0;
+    }
+    return m_lastAdvance.elapsed();
+}
+
+bool RenderJob::finalizing() const
+{
+    return m_state == State::Running && encodingStarted() && m_totalFrames > 0 &&
+           m_framesDone == m_totalFrames && m_errorMessage.isEmpty();
+}
+
 qint64 RenderJob::elapsedMilliseconds() const
 {
     if (m_finalElapsed >= 0) {
@@ -341,6 +356,9 @@ void RenderJob::handleEvent(const QJsonObject& event)
         // Its later progress updates will be rejected by the existing
         // expected-total check and cannot falsely reach 100%.
         m_encoder = event.value(QLatin1String("encoder")).toString();
+        if (m_startedTotalMatchesExpected) {
+            m_lastAdvance.restart();
+        }
         qCInfo(lcRender) << "Render helper started with encoder" << m_encoder << "and" << *total
                          << "reported output frames";
         emit progressChanged();
@@ -355,6 +373,9 @@ void RenderJob::handleEvent(const QJsonObject& event)
             *total != m_totalFrames || *frame < m_framesDone) {
             qCWarning(lcRender) << "Ignored out-of-order or invalid renderer progress counts";
             return;
+        }
+        if (*frame > m_framesDone) {
+            m_lastAdvance.restart();
         }
         m_framesDone = *frame;
         // Keep the last known export position in the editor's persistent log.
@@ -466,7 +487,7 @@ void RenderJob::onProcessFinished(int exitCode, QProcess::ExitStatus status)
         // the destination fails or it writes an empty file. Do not show a
         // successful editor export without the requested final output.
         const QFileInfo output(m_settings.outputPath);
-        if (output.isFile() && output.size() > 0) {
+        if (output.isFile() && !output.isSymLink() && output.size() > 0) {
             setState(State::Succeeded);
         } else {
             removeOwnedPartialOutput();
@@ -492,6 +513,14 @@ void RenderJob::onProcessFinished(int exitCode, QProcess::ExitStatus status)
                              .arg(exitCode)
                              .arg(QString::number(static_cast<quint32>(exitCode), 16)
                                       .rightJustified(8, QLatin1Char('0')));
+        detail += QStringLiteral("\nFrames: %1/%2; elapsed: %3 ms; encoder: %4; "
+                                 "valid start: %5; completion event: %6.")
+                      .arg(m_framesDone)
+                      .arg(m_totalFrames)
+                      .arg(elapsedMilliseconds())
+                      .arg(m_encoder.isEmpty() ? QStringLiteral("unknown") : m_encoder)
+                      .arg(encodingStarted() ? QStringLiteral("yes") : QStringLiteral("no"))
+                      .arg(m_sawFinished ? QStringLiteral("yes") : QStringLiteral("no"));
         if (!m_errorDetail.isEmpty()) {
             detail += QLatin1Char('\n') + m_errorDetail;
         }

@@ -77,7 +77,6 @@ struct Verification
     QStringList problems;
 };
 
-[[nodiscard]] Result<Verification> verify(const QString& directory,
-                                            const Cancel& cancelled = {});
+[[nodiscard]] Result<Verification> verify(const QString& directory, const Cancel& cancelled = {});
 
 } // namespace ft::project_bundle

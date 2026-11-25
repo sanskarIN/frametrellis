@@ -341,6 +341,7 @@ Result<Bundle> create(const Project& project, const QString& destination, Option
     Project copy = project;
     copy.setId(createId());
     copy.setCreated(QDateTime::currentDateTimeUtc());
+    copy.setRelativeMediaPaths(true);
     QSet<Id> included;
     QJsonArray manifestFiles;
     for (const File& file : prepared->files) {
@@ -388,20 +389,14 @@ Result<Bundle> create(const Project& project, const QString& destination, Option
     // A bundle uses primary relative paths so that even a COPY of a bundle,
     // while the original remains on disk, opens its own media. The ordinary
     // serializer continues to support existing absolute-path projects.
-    QJsonObject document = project_format::toJson(copy, stage.absolutePath());
-    QJsonObject body = document.value(QStringLiteral("project")).toObject();
-    QJsonArray media = body.value(QStringLiteral("media")).toArray();
-    for (qsizetype i = 0; i < media.size(); ++i) {
-        QJsonObject asset = media.at(i).toObject();
-        const QString relative = asset.value(QStringLiteral("relativePath")).toString();
-        if (!safeMediaPath(relative)) {
+    const QJsonObject document = project_format::toJson(copy, stage.absolutePath());
+    const QJsonArray media =
+        document.value(QStringLiteral("project")).toObject().value(QStringLiteral("media")).toArray();
+    for (const auto& value : media) {
+        if (!safeMediaPath(value.toObject().value(QStringLiteral("path")).toString())) {
             return makeError(ErrorCode::Internal, QStringLiteral("Invalid generated bundle path."));
         }
-        asset[QStringLiteral("path")] = relative;
-        media[i] = asset;
     }
-    body[QStringLiteral("media")] = media;
-    document[QStringLiteral("project")] = body;
     const QByteArray projectBytes = QJsonDocument(document).toJson(QJsonDocument::Indented);
     const auto reopened = project_format::fromBytes(projectBytes, stage.absolutePath());
     if (!reopened) {

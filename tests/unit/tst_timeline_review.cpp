@@ -109,10 +109,10 @@ private slots:
         const auto v2 = tracks[1].id;
         const auto a1 = tracks[2].id;
         const auto lookup = project.sourceLookup();
-        QVERIFY(project.timeline().insertClip(v1, clip("c1", source.id, 10, 20), lookup));
-        QVERIFY(project.timeline().insertClip(v1, clip("c2", source.id, 50, 10), lookup));
-        QVERIFY(project.timeline().insertClip(v2, clip("c3", source.id, 20, 30), lookup));
-        QVERIFY(project.timeline().insertClip(a1, clip("c4", sound.id, 0, 80), lookup));
+        QVERIFY(project.timeline().insertClip(v1, clip(QStringLiteral("c1"), source.id, 10, 20), lookup));
+        QVERIFY(project.timeline().insertClip(v1, clip(QStringLiteral("c2"), source.id, 50, 10), lookup));
+        QVERIFY(project.timeline().insertClip(v2, clip(QStringLiteral("c3"), source.id, 20, 30), lookup));
+        QVERIFY(project.timeline().insertClip(a1, clip(QStringLiteral("c4"), sound.id, 0, 80), lookup));
 
         const Project before = project;
         const auto report = build(project);
@@ -146,10 +146,10 @@ private slots:
         QVERIFY(project.addAsset(source));
         const auto v1 = project.timeline().tracks()[0].id;
         const auto v2 = project.timeline().tracks()[1].id;
-        auto hidden = clip("hidden", source.id, 0, 20);
-        auto muted = clip("muted", source.id, 20, 20);
+        auto hidden = clip(QStringLiteral("hidden"), source.id, 0, 20);
+        auto muted = clip(QStringLiteral("muted"), source.id, 20, 20);
         muted.properties.muted = true;
-        auto silent = clip("zero", source.id, 40, 20);
+        auto silent = clip(QStringLiteral("zero"), source.id, 40, 20);
         silent.properties.gain = 0.0;
         const auto lookup = project.sourceLookup();
         QVERIFY(project.timeline().insertClip(v1, hidden, lookup));
@@ -185,9 +185,9 @@ private slots:
         QTemporaryDir dir;
         QVERIFY(dir.isValid());
         Project project = makeProject();
-        const auto missing = asset("missing", dir.filePath(QStringLiteral("missing.mp4")));
-        const auto folder = asset("folder", dir.filePath(QStringLiteral("folder.mp4")));
-        const auto unused = asset("unused", dir.filePath(QStringLiteral("unused.mp4")));
+        const auto missing = asset(QStringLiteral("missing"), dir.filePath(QStringLiteral("missing.mp4")));
+        const auto folder = asset(QStringLiteral("folder"), dir.filePath(QStringLiteral("folder.mp4")));
+        const auto unused = asset(QStringLiteral("unused"), dir.filePath(QStringLiteral("unused.mp4")));
         QVERIFY(QDir().mkpath(folder.filePath));
         QVERIFY(project.addAsset(missing));
         QVERIFY(project.addAsset(folder));
@@ -195,9 +195,9 @@ private slots:
         const auto v1 = project.timeline().tracks()[0].id;
         const auto v2 = project.timeline().tracks()[1].id;
         const auto lookup = project.sourceLookup();
-        QVERIFY(project.timeline().insertClip(v1, clip("m1", missing.id, 0, 20), lookup));
-        QVERIFY(project.timeline().insertClip(v1, clip("m2", missing.id, 20, 20), lookup));
-        QVERIFY(project.timeline().insertClip(v2, clip("f1", folder.id, 0, 40), lookup));
+        QVERIFY(project.timeline().insertClip(v1, clip(QStringLiteral("m1"), missing.id, 0, 20), lookup));
+        QVERIFY(project.timeline().insertClip(v1, clip(QStringLiteral("m2"), missing.id, 20, 20), lookup));
+        QVERIFY(project.timeline().insertClip(v2, clip(QStringLiteral("f1"), folder.id, 0, 40), lookup));
 
         const auto report = build(project);
         QVERIFY(report);
@@ -226,18 +226,19 @@ private slots:
         QTemporaryDir dir;
         QVERIFY(dir.isValid());
         Project project = makeProject(*FrameRate::create(30000, 1001));
-        const auto still = asset("still", dir.filePath(QStringLiteral("still.png")),
+        const auto still = asset(QStringLiteral("still"), dir.filePath(QStringLiteral("still.png")),
                                  MediaKind::Image);
         QVERIFY(putFile(still.filePath));
         QVERIFY(project.addAsset(still));
         const auto track = project.timeline().tracks()[0].id;
-        QVERIFY(project.timeline().insertClip(track, clip("picture", still.id, 0, 30),
+        QVERIFY(project.timeline().insertClip(track, clip(QStringLiteral("picture"), still.id, 0, 30),
                                               project.sourceLookup()));
-        QVERIFY(project.setMarkers({{"at-end", 30, "End"}, {"outside", 31, "Outside"}}));
+        QVERIFY(project.setMarkers({{QStringLiteral("at-end"), 30, QStringLiteral("End")},
+                                    {QStringLiteral("outside"), 31, QStringLiteral("Outside")}}));
         SubtitleTrack subs;
-        subs.cues = {{"tiny", 1, 2, "Not sampled"},
-                     {"last", 980, 1001, "At end"},
-                     {"outside", 1001, 1040, "Outside"}};
+        subs.cues = {{QStringLiteral("tiny"), 1, 2, QStringLiteral("Not sampled")},
+                     {QStringLiteral("last"), 960, 1001, QStringLiteral("At end")},
+                     {QStringLiteral("outside"), 1001, 1040, QStringLiteral("Outside")}};
         QVERIFY(project.setSubtitles(subs));
 
         const auto report = build(project);
@@ -264,13 +265,13 @@ private slots:
         QTemporaryDir dir;
         QVERIFY(dir.isValid());
         Project project = makeProject();
-        const auto still = asset("still", dir.filePath(QStringLiteral("still.png")),
+        const auto still = asset(QStringLiteral("still"), dir.filePath(QStringLiteral("still.png")),
                                  MediaKind::Image);
         QVERIFY(putFile(still.filePath));
         QVERIFY(project.addAsset(still));
         const auto track = project.timeline().tracks()[0].id;
         QVERIFY(project.timeline().insertClip(
-            track, clip("last", still.id, kMaxTimelineFrames - 1, 1), project.sourceLookup()));
+            track, clip(QStringLiteral("last"), still.id, kMaxTimelineFrames - 1, 1), project.sourceLookup()));
         const auto report = build(project);
         QVERIFY(report);
         QCOMPARE(report->duration, kMaxTimelineFrames);
@@ -285,7 +286,7 @@ private slots:
         QTemporaryDir dir;
         QVERIFY(dir.isValid());
         Project project = makeProject();
-        const auto source = asset("missing", dir.filePath(QStringLiteral("missing.png")),
+        const auto source = asset(QStringLiteral("missing"), dir.filePath(QStringLiteral("missing.png")),
                                   MediaKind::Image);
         QVERIFY(project.addAsset(source));
         auto tracks = project.timeline().tracks();
@@ -320,7 +321,7 @@ private slots:
         QVERIFY(dir.isValid());
         Project project = makeProject();
         auto tracks = project.timeline().tracks();
-        tracks.front().clips.push_back(clip("invalid", "unknown", 0, 1));
+        tracks.front().clips.push_back(clip(QStringLiteral("invalid"), QStringLiteral("unknown"), 0, 1));
         project.timeline().restoreTracks(std::move(tracks));
         QVERIFY(!build(project));
         const QString target = dir.filePath(QStringLiteral("existing.html"));
@@ -337,14 +338,15 @@ private slots:
         QVERIFY(dir.isValid());
         Project project = makeProject();
         project.setName(QStringLiteral("<script>project</script>"));
-        auto source = asset("private", dir.filePath(QStringLiteral("private-source.json")));
+        auto source = asset(QStringLiteral("private"), dir.filePath(QStringLiteral("private-source.json")));
         source.name = QStringLiteral("<img src=x onerror=alert(1)>");
         QVERIFY(project.addAsset(source));
         const auto track = project.timeline().tracks()[0].id;
-        QVERIFY(project.timeline().insertClip(track, clip("missing", source.id, 0, 25),
+        QVERIFY(project.timeline().insertClip(track, clip(QStringLiteral("missing"), source.id, 0, 25),
                                               project.sourceLookup()));
         SubtitleTrack subtitles;
-        subtitles.cues = {{"private-caption", 0, 100, "confidential subtitle text"}};
+        subtitles.cues = {
+            {QStringLiteral("private-caption"), 0, 100, QStringLiteral("confidential subtitle text")}};
         QVERIFY(project.setSubtitles(subtitles));
         const Project before = project;
 
@@ -379,7 +381,7 @@ private slots:
         QTemporaryDir dir;
         QVERIFY(dir.isValid());
         Project project = makeProject();
-        auto source = asset("source", dir.filePath(QStringLiteral("source.json")));
+        auto source = asset(QStringLiteral("source"), dir.filePath(QStringLiteral("source.json")));
         QVERIFY(putFile(source.filePath));
         QVERIFY(project.addAsset(source));
         const QString projectPath = dir.filePath(QStringLiteral("project.html"));

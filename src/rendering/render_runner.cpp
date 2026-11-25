@@ -394,7 +394,8 @@ Status RenderRunner::run(const std::atomic<bool>& cancelRequested, const Started
                       .arg(size.width())
                       .arg(size.height())
                       .arg(exportRate.displayName())
-                      .arg(m_settings.includeAudio ? QStringLiteral("on") : QStringLiteral("off"))));
+                      .arg(m_settings.includeAudio ? QStringLiteral("on")
+                                                   : QStringLiteral("off"))));
     const auto expectedUs =
         projectSettings.frameRate.framesToMicroseconds(bounds->projectLength()).value_or(0);
     const auto toleranceUs = exportRate.framesToMicroseconds(3).value_or(0) + 50'000;

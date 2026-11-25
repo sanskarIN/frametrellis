@@ -29,10 +29,9 @@ Status reserveRenderedFile(const QString& partPath)
     // symlink or a file created after the QFileInfo check cannot be followed.
     if (!file.open(QIODevice::WriteOnly | QIODevice::NewOnly)) {
         const QFileInfo current(partPath);
-        return makeError(current.exists() || current.isSymLink() ? ErrorCode::Conflict
-                                                               : ErrorCode::Io,
-                         QStringLiteral("Could not reserve the temporary export file."),
-                         file.errorString());
+        return makeError(
+            current.exists() || current.isSymLink() ? ErrorCode::Conflict : ErrorCode::Io,
+            QStringLiteral("Could not reserve the temporary export file."), file.errorString());
     }
     file.close();
     return {};
@@ -43,8 +42,8 @@ Status publishRenderedFile(const QString& partPath, const QString& destinationPa
 {
     const QFileInfo part(partPath);
     const QFileInfo destination(destinationPath);
-    if (!part.isAbsolute() || !destination.isAbsolute() || !part.isFile() ||
-        part.isSymLink() || part.size() <= 0 ||
+    if (!part.isAbsolute() || !destination.isAbsolute() || !part.isFile() || part.isSymLink() ||
+        part.size() <= 0 ||
         part.absoluteDir().canonicalPath() != destination.absoluteDir().canonicalPath() ||
         part.absoluteFilePath() == destination.absoluteFilePath()) {
         return makeError(ErrorCode::InvalidArgument,

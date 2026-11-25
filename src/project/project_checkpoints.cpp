@@ -40,7 +40,7 @@ bool validLabel(const QString& label)
 bool validOriginalPath(const QString& path)
 {
     return path.isEmpty() ||
-           (path.size() <= kMaxMediaPathLength && !path.contains(QChar::Null) &&
+           (path.size() <= kMaxMediaPathLength && !path.contains(QChar(QChar::Null)) &&
             QFileInfo(path).isAbsolute());
 }
 

@@ -253,8 +253,14 @@ Result<std::int64_t> parseTimestamp(const QString& text)
 Result<QString> decodeText(const QString& source)
 {
     QString decoded;
-    decoded.reserve(source.size());
+    decoded.reserve(std::min<qsizetype>(source.size(), kMaxSubtitleTextLength));
     for (qsizetype i = 0; i < source.size(); ++i) {
+        // Each iteration emits exactly one UTF-16 code unit. Reject oversized
+        // lines during decoding, before allocating or scanning the rest.
+        if (decoded.size() >= kMaxSubtitleTextLength) {
+            return makeError(ErrorCode::OutOfRange,
+                             QStringLiteral("A cue exceeds 2000 characters."));
+        }
         const QChar current = source.at(i);
         if (current == QLatin1Char('<')) {
             return makeError(ErrorCode::InvalidDocument,
@@ -264,8 +270,14 @@ Result<QString> decodeText(const QString& source)
             decoded += current;
             continue;
         }
-        const qsizetype end = source.indexOf(QLatin1Char(';'), i + 1);
-        if (end < 0 || end - i > 12) {
+        // The accepted entity lookahead is at most 12 code units. Searching
+        // the entire remaining line for every ampersand would be quadratic.
+        const qsizetype last = i + std::min<qsizetype>(12, source.size() - i - 1);
+        qsizetype end = i + 1;
+        while (end <= last && source.at(end) != QLatin1Char(';')) {
+            ++end;
+        }
+        if (end > last) {
             // A plain ampersand in non-entity text is literal. The exporter
             // will escape it as &amp; for subsequent WebVTT round trips.
             decoded += QLatin1Char('&');

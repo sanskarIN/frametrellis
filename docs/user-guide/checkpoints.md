@@ -63,6 +63,7 @@ saving the same project under a different filename does not change its ID.
   the payload is fully checked when comparing or restoring.
 - Metadata is bounded to 16 KiB and the project payload to the normal 64 MiB
   project document limit. Writes use a single atomic replacement operation.
+  A SHA-256 digest checks the exact saved project bytes before parsing the payload.
 - The application rejects path traversal, symbolic links and nonregular
   checkpoint entries. A per-project lock coordinates creation and deletion.
 
@@ -77,7 +78,9 @@ independent copies of important project files and media.
 Version 1 uses a UTF-8 JSON metadata line terminated by a newline, followed by a
 normal UTF-8 FrameTrellis project document. The metadata includes the format
 identifier `org.frametrellis.checkpoint`, version, checkpoint ID, project ID,
-label, project display name, original project path (if known) and UTC timestamp.
+label, project display name, original project path (if known), UTC timestamp and
+lowercase hexadecimal SHA-256 payload digest. The digest detects accidental corruption;
+it is not a signature or authentication mechanism.
 
 The file is local history data, not an interchange format. Do not rename or edit
 its identifiers manually: the reader requires header and payload identity to

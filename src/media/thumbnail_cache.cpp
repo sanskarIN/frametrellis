@@ -4,8 +4,8 @@
 
 #include "core/logging.h"
 #include "engine/mlt_profile.h"
-#include "project/project_settings.h"
 #include "media/media_probe.h"
+#include "project/project_settings.h"
 
 #include <QCryptographicHash>
 #include <QDateTime>

@@ -252,7 +252,8 @@ Result<Entry> Store::create(const Project& project, const QString& label,
         return makeError(ErrorCode::OutOfRange,
                          QStringLiteral("The project is too large for a checkpoint."));
     }
-    if (const auto roundTrip = project_format::fromBytes(payload); !roundTrip) {
+    const auto roundTrip = project_format::fromBytes(payload);
+    if (!roundTrip) {
         return roundTrip.error();
     }
 
@@ -280,7 +281,7 @@ Result<Entry> Store::create(const Project& project, const QString& label,
     entry.id = createId();
     entry.projectId = project.id();
     entry.label = cleanLabel;
-    entry.projectName = project.name();
+    entry.projectName = roundTrip->name();
     entry.originalPath = originalPath;
     entry.createdAt = QDateTime::currentDateTimeUtc();
     const QString path = QDir(*directory).filePath(entry.id + QLatin1String(kSuffix));

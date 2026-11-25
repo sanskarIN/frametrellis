@@ -104,7 +104,8 @@ signals:
     void statusMessage(const QString& message);
 
 private:
-    void adopt(std::unique_ptr<ProjectDocument> document);
+    void adopt(std::unique_ptr<ProjectDocument> document, bool preserveMatchingAutosave = false);
+    [[nodiscard]] bool writeAutosave(const QString& originalPath = {});
     void addRecent(const QString& path);
     void loadRecent();
     void scanAutosaves();

@@ -49,8 +49,8 @@ private slots:
         const auto result = bundles.result();
         QVERIFY2(result.value(QStringLiteral("success")).toBool(),
                  qPrintable(result.value(QStringLiteral("message")).toString()));
-        const auto loaded = project_format::loadFromFile(
-            result.value(QStringLiteral("projectFile")).toString());
+        const auto loaded =
+            project_format::loadFromFile(result.value(QStringLiteral("projectFile")).toString());
         QVERIFY(loaded);
         QCOMPARE(loaded->name(), snapshot.name());
         QVERIFY(loaded->id() != snapshot.id());
@@ -73,9 +73,8 @@ private slots:
     {
         ui::ProjectController project;
         ui::ProjectBundleController bundles(&project);
-        for (const QString& name : {QString(), QStringLiteral("../escape"),
-                                    QStringLiteral("a/b"), QStringLiteral("NUL"),
-                                    QStringLiteral("name with spaces")}) {
+        for (const QString& name : {QString(), QStringLiteral("../escape"), QStringLiteral("a/b"),
+                                    QStringLiteral("NUL"), QStringLiteral("name with spaces")}) {
             QVERIFY(!bundles.createBundle(m_dir.path(), name, false));
             QVERIFY(!bundles.busy());
             QVERIFY(!bundles.result().value(QStringLiteral("success")).toBool());

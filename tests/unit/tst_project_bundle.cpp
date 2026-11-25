@@ -151,6 +151,72 @@ private slots:
         QVERIFY(check->problems.isEmpty());
     }
 
+    void regularSaveRetainsRelativeMediaForPortableProject()
+    {
+        QTemporaryDir dir;
+        QVERIFY(dir.isValid());
+        const QString source = dir.filePath(QStringLiteral("source.png"));
+        QVERIFY(write(source, "source"));
+        Project project = Project::createNew(QStringLiteral("Portable save"), {});
+        QVERIFY(project.addAsset(image(QStringLiteral("a"), source)));
+        const auto bundle = create(project, dir.filePath(QStringLiteral("bundle")));
+        QVERIFY(bundle);
+        const auto opened = project_format::loadFromFile(bundle->projectFile);
+        QVERIFY(opened);
+        QVERIFY(opened->relativeMediaPaths());
+        Project edited = *opened;
+        edited.setName(QStringLiteral("New name"));
+        QVERIFY(project_format::saveToFile(edited, bundle->projectFile));
+        const QJsonObject doc = QJsonDocument::fromJson(read(bundle->projectFile)).object();
+        const auto body = doc.value(QStringLiteral("project")).toObject();
+        QVERIFY(body.value(QStringLiteral("relativeMediaPaths")).toBool());
+        const auto media = body.value(QStringLiteral("media")).toArray().first().toObject();
+        const QString relative = media.value(QStringLiteral("path")).toString();
+        QVERIFY(QDir::isRelativePath(relative));
+        QVERIFY(relative.startsWith(QLatin1String("media/")));
+        const QString relocated = dir.filePath(QStringLiteral("relocated"));
+        QVERIFY(QDir().mkpath(QDir(relocated).filePath(QStringLiteral("media"))));
+        QVERIFY(QFile::copy(bundle->projectFile,
+                            QDir(relocated).filePath(QStringLiteral("project.ftproj"))));
+        QVERIFY(QFile::copy(edited.media().front().filePath, QDir(relocated).filePath(relative)));
+        const auto loaded =
+            project_format::loadFromFile(QDir(relocated).filePath(QStringLiteral("project.ftproj")));
+        QVERIFY(loaded);
+        QCOMPARE(loaded->name(), edited.name());
+        QCOMPARE(loaded->media().front().filePath, QDir(relocated).filePath(relative));
+
+        // Snapshot serialization without a directory retains absolute paths,
+        // so recovery and checkpoint files can still refer to the media.
+        const auto snapshot = project_format::fromBytes(project_format::toBytes(*loaded));
+        QVERIFY(snapshot);
+        QVERIFY(snapshot->relativeMediaPaths());
+        QCOMPARE(snapshot->media().front().filePath, loaded->media().front().filePath);
+    }
+
+    void portablePrimaryPathCannotEscapeProjectDirectory()
+    {
+        QTemporaryDir dir;
+        QVERIFY(dir.isValid());
+        const QString source = dir.filePath(QStringLiteral("source.png"));
+        QVERIFY(write(source, "source"));
+        Project project = Project::createNew(QStringLiteral("Path validation"), {});
+        QVERIFY(project.addAsset(image(QStringLiteral("a"), source)));
+        const auto bundle = create(project, dir.filePath(QStringLiteral("bundle")));
+        QVERIFY(bundle);
+        QJsonObject doc = QJsonDocument::fromJson(read(bundle->projectFile)).object();
+        const auto original = doc;
+        QVERIFY(!project_format::fromJson(original)); // requires a document directory
+        QJsonObject body = doc.value(QStringLiteral("project")).toObject();
+        QJsonArray media = body.value(QStringLiteral("media")).toArray();
+        QJsonObject entry = media.first().toObject();
+        entry[QStringLiteral("path")] = QStringLiteral("../source.png");
+        media[0] = entry;
+        body[QStringLiteral("media")] = media;
+        doc[QStringLiteral("project")] = body;
+        QVERIFY(!project_format::fromJson(doc, bundle->directory));
+        QCOMPARE(read(source), QByteArray("source"));
+    }
+
     void usedOnlyExcludesMissingUnusedMediaButKeepsTimelineAndOriginalBin()
     {
         QTemporaryDir dir;
@@ -323,6 +389,25 @@ private slots:
         QVERIFY(!invalid);
         QCOMPARE(invalid.error().code, ErrorCode::InvalidDocument);
         QCOMPARE(read(source), QByteArray("media"));
+    }
+
+    void rejectsManifestWithOmittedMediaRecord()
+    {
+        QTemporaryDir dir;
+        QVERIFY(dir.isValid());
+        const QString source = dir.filePath(QStringLiteral("source.png"));
+        QVERIFY(write(source, "source"));
+        Project project = Project::createNew(QStringLiteral("Completeness"), {});
+        QVERIFY(project.addAsset(image(QStringLiteral("a"), source)));
+        const auto bundle = create(project, dir.filePath(QStringLiteral("bundle")));
+        QVERIFY(bundle);
+        const QString path = QDir(bundle->directory).filePath(QStringLiteral("manifest.json"));
+        QJsonObject manifest = QJsonDocument::fromJson(read(path)).object();
+        manifest[QStringLiteral("files")] = QJsonArray();
+        QVERIFY(write(path, QJsonDocument(manifest).toJson()));
+        const auto incomplete = verify(bundle->directory);
+        QVERIFY(!incomplete);
+        QCOMPARE(incomplete.error().code, ErrorCode::InvalidDocument);
     }
 
     void emptyProjectCreatesValidBundle()

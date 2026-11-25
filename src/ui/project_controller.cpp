@@ -221,8 +221,8 @@ QVariantMap ProjectController::checkpointHistory() const
             {QStringLiteral("projectName"), entry.projectName},
             {QStringLiteral("originalPath"), entry.originalPath},
             {QStringLiteral("createdAt"), entry.createdAt.toUTC().toString(Qt::ISODateWithMs)},
-            {QStringLiteral("displayDate"), QLocale().toString(entry.createdAt.toLocalTime(),
-                                                               QLocale::ShortFormat)},
+            {QStringLiteral("displayDate"),
+             QLocale().toString(entry.createdAt.toLocalTime(), QLocale::ShortFormat)},
             {QStringLiteral("bytes"), entry.bytes},
             {QStringLiteral("readable"), entry.readable},
             {QStringLiteral("error"), entry.error},
@@ -296,7 +296,8 @@ bool ProjectController::removeCheckpoint(const QString& projectId, const QString
                            QStringLiteral("The current project has changed."));
         return false;
     }
-    const Status removed = checkpoints::Store(checkpointDirectory()).remove(projectId, checkpointId);
+    const Status removed =
+        checkpoints::Store(checkpointDirectory()).remove(projectId, checkpointId);
     if (!removed) {
         reportError(QStringLiteral("Could not remove checkpoint"), removed.error());
         return false;

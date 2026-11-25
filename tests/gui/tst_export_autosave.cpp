@@ -382,6 +382,8 @@ private slots:
         QVERIFY(project_format::saveToFile(base, path));
         ui::ProjectController project;
         QVERIFY(project.openProject(path));
+        const Project opened = project.project();
+        const QString undoLabel = project.undoText();
         ui::ExportController exporter(&project, QStringLiteral(FT_CANCEL_RENDER_HELPER));
         QVariantMap settings{
             {QStringLiteral("presetId"), QStringLiteral("match")},
@@ -403,15 +405,15 @@ private slots:
             m_dir.filePath(QStringLiteral("quiet-finalizing.mp4"));
         QVERIFY(exporter.start(settings));
         QTRY_VERIFY_WITH_TIMEOUT(
-            exporter.progressText().contains(QStringLiteral("Finalizing and verifying MP4")),
-            5000);
+            exporter.progressText().contains(QStringLiteral("Finalizing and verifying MP4")), 5000);
         QVERIFY(exporter.busy());
         QCOMPARE(exporter.progress(), 1.0);
         QVERIFY(!QFileInfo::exists(settings.value(QStringLiteral("outputPath")).toString()));
         exporter.cancel();
         QTRY_COMPARE_WITH_TIMEOUT(finished.size(), 1, 15'000);
         QCOMPARE(exporter.state(), QStringLiteral("cancelled"));
-        QCOMPARE(project.project(), base);
+        QCOMPARE(project.project(), opened);
+        QCOMPARE(project.undoText(), undoLabel);
         QVERIFY(!project.isModified());
     }
 

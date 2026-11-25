@@ -21,7 +21,7 @@ ApplicationWindow {
                                        || unsavedDialog.visible || exportRunningDialog.visible || recoveryDialog.visible
                                        || subtitleDialog.visible || subtitleImportDialog.visible || subtitleExportDialog.visible || subtitleVttExportDialog.visible || subtitleTranscriptExportDialog.visible
                                        || previewFrameDialog.visible || clipListDialog.visible || mediaAuditCsvDialog.visible || preciseGapDialog.visible
-                                       || customPictureDialog.visible || mediaPanel.excerptDialogOpen
+                                       || customPictureDialog.visible || mediaPanel.excerptDialogOpen || projectBundleDialog.visible
     readonly property bool editKeys: !dialogOpen
     readonly property bool sourceMode: monitorTabs.currentIndex === 1
 
@@ -94,6 +94,11 @@ ApplicationWindow {
             return
         close.accepted = false
         const quit = () => { app.prepareQuit(false); allowClose = true; window.close() }
+        if (app.bundles.busy) {
+            app.showStatus(qsTr("Finish or cancel the portable bundle operation before quitting."))
+            projectBundleDialog.open()
+            return
+        }
         if (app.exporter.busy) {
             exportRunningDialog.open()
             return
@@ -145,6 +150,7 @@ ApplicationWindow {
             Action { text: qsTr("&Save"); shortcut: StandardKey.Save; onTriggered: window.save(false) }
             Action { text: qsTr("Save &As…"); shortcut: "Ctrl+Shift+S"; onTriggered: { if (subtitleDialog.visible && !subtitleDialog.applyIfDirty()) return; saveDialog.runAfterSave = false; saveDialog.open() } }
             Action { text: qsTr("Rename &Project…"); onTriggered: renameProjectDialog.open() }
+            Action { text: qsTr("Portable Project Bundle…"); enabled: window.editKeys; onTriggered: projectBundleDialog.open() }
             MenuSeparator {}
             Action { text: qsTr("&Import Media…"); shortcut: "Ctrl+I"; onTriggered: importDialog.open() }
             Action {
@@ -622,6 +628,7 @@ ApplicationWindow {
     }
 
     // ---------- Dialogs ----------
+    ProjectBundleDialog { id: projectBundleDialog; app: window.app }
     FileDialog {
         id: openDialog
         title: qsTr("Open project")

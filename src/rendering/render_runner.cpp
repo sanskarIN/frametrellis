@@ -248,11 +248,10 @@ Status RenderRunner::run(const std::atomic<bool>& cancelRequested, const Started
     }
     const QString finalPath = QFileInfo(m_settings.outputPath).absoluteFilePath();
     const QString partPath = temporaryOutputPath(finalPath, m_temporaryToken);
-    // A command-line token is an internal per-job identifier. Never overwrite a pre-existing
-    // file even if an external caller deliberately reuses an old token.
-    if (QFileInfo::exists(partPath)) {
-        return makeError(ErrorCode::Conflict,
-                         QStringLiteral("The temporary export file already exists."));
+    // Reserve the private output exclusively, including against a dangling link.
+    // FFmpeg then writes only to the empty file owned by this render attempt.
+    if (const Status reserved = reserveRenderedFile(partPath); !reserved) {
+        return reserved;
     }
     const QByteArray partEncoded = partPath.toUtf8();
     // Keep the consumer alive only while the encoder is running. On Windows its
@@ -261,6 +260,8 @@ Status RenderRunner::run(const std::atomic<bool>& cancelRequested, const Started
     auto consumer =
         std::make_unique<Mlt::Consumer>(*encodingProfile, "avformat", partEncoded.constData());
     if (!consumer->is_valid()) {
+        consumer.reset();
+        QFile::remove(partPath);
         return makeError(ErrorCode::Engine,
                          QStringLiteral("The encoder could not be initialised."));
     }
@@ -306,7 +307,13 @@ Status RenderRunner::run(const std::atomic<bool>& cancelRequested, const Started
         return makeError(ErrorCode::Engine, QStringLiteral("Could not connect the encoder."),
                          QStringLiteral("MLT connect returned %1.").arg(connected));
     }
-    encodingProducer->seek(0);
+    const int seekResult = encodingProducer->seek(0);
+    if (seekResult != 0) {
+        consumer.reset();
+        QFile::remove(partPath);
+        return makeError(ErrorCode::Engine, QStringLiteral("Could not seek to export start."),
+                         QStringLiteral("MLT seek returned %1.").arg(seekResult));
+    }
 
     qCInfo(lcRender) << "Rendering" << total << "frames from" << bounds->projectStart << "to"
                      << bounds->projectEnd << "to" << finalPath << "with" << m_encoder;
@@ -374,14 +381,20 @@ Status RenderRunner::run(const std::atomic<bool>& cancelRequested, const Started
     // Verify the result before it replaces anything: it must exist and have the expected length.
     const QFileInfo part(partPath);
     Result<MediaInfo> written =
-        part.exists() && part.size() > 0
+        part.isFile() && !part.isSymLink() && part.size() > 0
             ? media::probeMedia(partPath)
             : Result<MediaInfo>(makeError(
                   ErrorCode::Io, QStringLiteral("The encoder did not produce a nonempty MP4."),
-                  QStringLiteral("MLT stopped at frame %1 of %2; stop returned %3.")
+                  QStringLiteral("MLT stopped at frame %1 of %2; stop returned %3. "
+                                 "Encoder: %4; output: %5x%6 at %7 fps; audio: %8.")
                       .arg(stoppedPosition)
                       .arg(total)
-                      .arg(stopResult)));
+                      .arg(stopResult)
+                      .arg(m_encoder)
+                      .arg(size.width())
+                      .arg(size.height())
+                      .arg(exportRate.displayName())
+                      .arg(m_settings.includeAudio ? QStringLiteral("on") : QStringLiteral("off"))));
     const auto expectedUs =
         projectSettings.frameRate.framesToMicroseconds(bounds->projectLength()).value_or(0);
     const auto toleranceUs = exportRate.framesToMicroseconds(3).value_or(0) + 50'000;

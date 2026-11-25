@@ -5,7 +5,7 @@
 #include <mlt++/Mlt.h>
 
 #include <algorithm>
-#include <cmath>
+#include <cstdint>
 #include <mutex>
 #include <numeric>
 
@@ -36,17 +36,34 @@ std::unique_ptr<Mlt::Profile> createProfile(int width, int height, const FrameRa
 
 QSize fitPreviewSize(QSize frameSize, QSize maxSize)
 {
+    // Cap even callers that omit a display limit: this size eventually reaches
+    // native decoders, and a malformed media header can report huge dimensions.
+    const QSize decoderLimit(8192, 8192);
+    const QSize limit = maxSize.isEmpty() ? decoderLimit : maxSize.boundedTo(decoderLimit);
     if (frameSize.isEmpty()) {
-        return {2, 2};
+        return QSize(2, 2).boundedTo(limit);
     }
-    if (maxSize.isEmpty() ||
-        (frameSize.width() <= maxSize.width() && frameSize.height() <= maxSize.height())) {
+    if (frameSize.width() <= limit.width() && frameSize.height() <= limit.height()) {
         return frameSize;
     }
-    const double scale = std::min(static_cast<double>(maxSize.width()) / frameSize.width(),
-                                  static_cast<double>(maxSize.height()) / frameSize.height());
-    auto even = [](double v) { return std::max(2, static_cast<int>(std::lround(v / 2.0)) * 2); };
-    return {even(frameSize.width() * scale), even(frameSize.height() * scale)};
+
+    using Wide = std::int64_t;
+    const Wide width = frameSize.width();
+    const Wide height = frameSize.height();
+    const bool widthLimited = Wide(limit.width()) * height <= Wide(limit.height()) * width;
+    const Wide numerator = widthLimited ? limit.width() : limit.height();
+    const Wide denominator = widthLimited ? width : height;
+
+    // Round to a nearby even size without exceeding the caller's limit or
+    // overflowing a signed int. A one-pixel axis is the only odd exception
+    // when downscaling; it cannot be expanded to two without breaking bounds.
+    const auto fitAxis = [numerator, denominator](Wide original, int bound) {
+        const Wide cap = std::min(original, Wide(bound));
+        const Wide evenCap = cap > 1 ? cap - cap % 2 : 1;
+        const Wide rounded = 2 * ((original * numerator + denominator) / (2 * denominator));
+        return static_cast<int>(std::clamp(rounded, std::min(Wide(2), evenCap), evenCap));
+    };
+    return {fitAxis(width, limit.width()), fitAxis(height, limit.height())};
 }
 
 } // namespace ft::engine

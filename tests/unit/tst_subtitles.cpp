@@ -177,6 +177,37 @@ private slots:
         QVERIFY(webvtt::toBytes(*literalAmpersand)->contains("Rock &amp; Roll"));
     }
 
+    void webVttImportBoundsEntityLookaheadAndDecodedLength()
+    {
+        const QByteArray header("WEBVTT\n\n00:00.000 --> 00:01.000\n");
+
+        // A long run of ampersands without semicolons must be rejected
+        // promptly, rather than repeatedly searching the whole line.
+        QVERIFY(!webvtt::fromBytes(header + QByteArray(1024 * 1024, '&')));
+        QVERIFY(!webvtt::fromBytes(header + QByteArray(1024 * 1024, '&') + ';'));
+
+        // Limits apply to decoded text, not to the escaped source length.
+        const QByteArray escaped = QByteArray("&amp;").repeated(kMaxSubtitleTextLength);
+        const auto exactLimit = webvtt::fromBytes(header + escaped);
+        QVERIFY(exactLimit);
+        QCOMPARE(exactLimit->cues.front().text,
+                 QString(kMaxSubtitleTextLength, QLatin1Char('&')));
+        QVERIFY(!webvtt::fromBytes(header + escaped + "&amp;"));
+
+        const auto rawLimit =
+            webvtt::fromBytes(header + QByteArray(kMaxSubtitleTextLength, '&'));
+        QVERIFY(rawLimit);
+        QCOMPARE(rawLimit->cues.front().text,
+                 QString(kMaxSubtitleTextLength, QLatin1Char('&')));
+
+        // Preserve the existing literal-ampersand behavior beyond the
+        // accepted entity lookahead, but reject unknown short entities.
+        const auto distant = webvtt::fromBytes(header + "&123456789012;");
+        QVERIFY(distant);
+        QCOMPARE(distant->cues.front().text, QStringLiteral("&123456789012;"));
+        QVERIFY(!webvtt::fromBytes(header + "&12345678901;"));
+    }
+
     void webVttImportRejectsMarkupSettingsOverlapsAndMalformedInput()
     {
         for (const QByteArray& bytes :

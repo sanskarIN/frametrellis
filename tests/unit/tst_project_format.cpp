@@ -220,6 +220,75 @@ private slots:
         QVERIFY(project_format::loadFromFile(path));
     }
 
+    void invalidProbeMetadataCannotOverwriteSavedProject()
+    {
+        QTemporaryDir dir;
+        QVERIFY(dir.isValid());
+        const QString path = dir.filePath(QStringLiteral("protected.ftproj"));
+        const Project baseline = makeProject(dir.path());
+        QVERIFY(project_format::saveToFile(baseline, path));
+        QFile initial(path);
+        QVERIFY(initial.open(QIODevice::ReadOnly));
+        const QByteArray original = initial.readAll();
+        initial.close();
+
+        const MediaAsset source = *baseline.asset(QStringLiteral("m3"));
+        std::vector<MediaInfo> invalid;
+        MediaInfo info = source.info;
+        info.width = 65537;
+        invalid.push_back(info);
+        info = source.info;
+        info.height = -1;
+        invalid.push_back(info);
+        info = source.info;
+        info.durationUs = -1;
+        invalid.push_back(info);
+        info = source.info;
+        info.fileSize = (std::int64_t{1} << 52) + 1;
+        invalid.push_back(info);
+        info = source.info;
+        info.audioChannels = 65;
+        invalid.push_back(info);
+        info = source.info;
+        info.audioSampleRate = 768001;
+        invalid.push_back(info);
+        info = source.info;
+        info.frameRate = Rational(-25, 1);
+        invalid.push_back(info);
+        info = source.info;
+        info.container = QString(257, QLatin1Char('x'));
+        invalid.push_back(info);
+        info = source.info;
+        info.videoCodec = QString(129, QLatin1Char('x'));
+        invalid.push_back(info);
+        info = source.info;
+        info.audioCodec = QString(129, QLatin1Char('x'));
+        invalid.push_back(info);
+        for (const MediaInfo& badInfo : invalid) {
+            Project changed = baseline;
+            MediaAsset replacement = source;
+            replacement.info = badInfo;
+            QVERIFY(changed.replaceAsset(replacement));
+            const Status rejected = project_format::saveToFile(changed, path);
+            QVERIFY(!rejected);
+            QCOMPARE(rejected.error().code, ErrorCode::InvalidDocument);
+            QVERIFY(!rejected.error().detail.isEmpty());
+            QFile preserved(path);
+            QVERIFY(preserved.open(QIODevice::ReadOnly));
+            QCOMPARE(preserved.readAll(), original);
+        }
+        QVERIFY(project_format::loadFromFile(path));
+    }
+
+    void loadRejectsDirectoryAsProject()
+    {
+        QTemporaryDir dir;
+        QVERIFY(dir.isValid());
+        const auto result = project_format::loadFromFile(dir.path());
+        QVERIFY(!result);
+        QCOMPARE(result.error().code, ErrorCode::InvalidDocument);
+    }
+
     void rejectsOversizedMediaFieldsBeforeCreatingUnreadableProjects()
     {
         Project project = makeProject(QStringLiteral("/media"));

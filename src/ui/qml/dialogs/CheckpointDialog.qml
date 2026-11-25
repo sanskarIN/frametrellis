@@ -48,6 +48,13 @@ FtDialog {
         }
     }
 
+    function compareSelected() {
+        if (!selectedEntry || !selectedEntry.readable)
+            return
+        comparisonDialog.showReport(
+            app.project.compareCheckpoint(history.projectId, selectedEntry.id), selectedEntry.label)
+    }
+
     function requestRestore() {
         if (!selectedEntry || !selectedEntry.readable)
             return
@@ -82,6 +89,8 @@ FtDialog {
                 dialog.close()
         }
     }
+
+    CheckpointCompareDialog { id: comparisonDialog }
 
     ConfirmDialog {
         id: deleteConfirm
@@ -257,6 +266,12 @@ FtDialog {
             destructive: true
             enabled: !!dialog.selectedEntry
             onClicked: dialog.requestDelete()
+        }
+        FtButton {
+            text: qsTr("Compare with current")
+            objectName: "checkpointCompare"
+            enabled: !!dialog.selectedEntry && dialog.selectedEntry.readable === true
+            onClicked: dialog.compareSelected()
         }
         Item { Layout.fillWidth: true }
         FtButton { text: qsTr("Close"); onClicked: dialog.close() }

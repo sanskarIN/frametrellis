@@ -74,8 +74,9 @@ QString ExportController::state() const
 
 bool ExportController::busy() const
 {
-    return m_batchActive || (m_job && !RenderJob::isFinished(m_job->state()) &&
-                             m_job->state() != RenderJob::State::Idle);
+    return m_singleFinishing || m_batchActive ||
+           (m_job && !RenderJob::isFinished(m_job->state()) &&
+            m_job->state() != RenderJob::State::Idle);
 }
 
 double ExportController::progress() const
@@ -538,28 +539,43 @@ bool ExportController::start(const QVariantMap& settings)
     // may be almost a minute old. Protect the latest edits before the render
     // helper starts, including when the editor has never been saved explicitly.
     m_project->autosave();
-    auto job = std::make_unique<RenderJob>(m_helperProgram);
-    connect(job.get(), &RenderJob::stateChanged, this, [this](RenderJob::State state) {
+    // RenderJob::start emits Starting synchronously. Publish ownership first
+    // so observers see the current job and an immediate Cancel reaches it.
+    auto previous = std::move(m_job);
+    m_job = std::make_unique<RenderJob>(m_helperProgram);
+    connect(m_job.get(), &RenderJob::stateChanged, this, [this](RenderJob::State state) {
         if (RenderJob::isFinished(state)) {
             m_tick.stop();
+            m_singleFinishing = true;
             const bool ok = state == RenderJob::State::Succeeded;
-            emit finished(
-                ok,
+            const QString message =
                 ok ? QStringLiteral("Export finished: %1").arg(QFileInfo(outputPath()).fileName())
                 : state == RenderJob::State::Cancelled ? QStringLiteral("Export cancelled.")
-                                                       : errorMessage());
+                                                       : errorMessage();
+            // A finished observer can reset or start the next export. Deliver
+            // terminal notifications only after the RenderJob signal unwinds,
+            // just as the batch controller does for its queued next launch.
+            QTimer::singleShot(0, this, [this, ok, message] {
+                m_singleFinishing = false;
+                emit stateChanged();
+                emit progressChanged();
+                emit finished(ok, message);
+            });
+            return;
         }
         emit stateChanged();
         emit progressChanged();
     });
-    connect(job.get(), &RenderJob::progressChanged, this, &ExportController::progressChanged);
-    const Status started = job->start(m_project->project(), *parsed, m_project->filePath());
+    connect(m_job.get(), &RenderJob::progressChanged, this, &ExportController::progressChanged);
+    const Status started = m_job->start(m_project->project(), *parsed, m_project->filePath());
     if (!started) {
+        m_job = std::move(previous);
         emit finished(false, started.error().message);
         return false;
     }
-    m_job = std::move(job);
-    m_tick.start();
+    if (!m_singleFinishing) {
+        m_tick.start();
+    }
     emit stateChanged();
     emit progressChanged();
     return true;

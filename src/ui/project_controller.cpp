@@ -5,6 +5,7 @@
 #include "core/logging.h"
 #include "core/timecode.h"
 #include "project/project_serializer.h"
+#include "project/timeline_review.h"
 
 #include <QDir>
 #include <QDirIterator>
@@ -301,6 +302,27 @@ bool ProjectController::exportClipListCsv(const QString& pathOrUrl)
         return false;
     }
     emit statusMessage(QStringLiteral("Saved timeline clip list as CSV."));
+    return true;
+}
+
+QVariantMap ProjectController::timelineReview() const
+{
+    const auto report = timeline_review::build(project());
+    if (!report) {
+        return {{QStringLiteral("error"), report.error().toString()}};
+    }
+    return timeline_review::toJson(*report, 200).toVariantMap();
+}
+
+bool ProjectController::exportTimelineReview(const QString& pathOrUrl)
+{
+    const QString path = localPath(pathOrUrl);
+    const Status saved = timeline_review::save(project(), path, m_document->filePath());
+    if (!saved) {
+        reportError(QStringLiteral("Could not export the timeline review"), saved.error());
+        return false;
+    }
+    emit statusMessage(QStringLiteral("Saved timeline review."));
     return true;
 }
 

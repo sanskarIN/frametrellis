@@ -187,10 +187,9 @@ Result<rendering::ExportSettings> ExportController::toSettings(const QVariantMap
     const QString presetId =
         map.value(QStringLiteral("presetId"), QStringLiteral("match")).toString();
     const auto presets = rendering::exportPresets();
-    const auto preset = std::find_if(presets.cbegin(), presets.cend(),
-                                     [&presetId](const rendering::ExportPreset& item) {
-                                         return item.id == presetId;
-                                     });
+    const auto preset = std::find_if(
+        presets.cbegin(), presets.cend(),
+        [&presetId](const rendering::ExportPreset& item) { return item.id == presetId; });
     if (preset == presets.cend()) {
         return makeError(ErrorCode::InvalidArgument, QStringLiteral("Unknown export preset."));
     }
@@ -535,8 +534,7 @@ bool ExportController::start(const QVariantMap& settings)
         emit progressChanged();
     });
     connect(job.get(), &RenderJob::progressChanged, this, &ExportController::progressChanged);
-    const Status started =
-        job->start(m_project->project(), *parsed, m_project->filePath());
+    const Status started = job->start(m_project->project(), *parsed, m_project->filePath());
     if (!started) {
         emit finished(false, started.error().message);
         return false;

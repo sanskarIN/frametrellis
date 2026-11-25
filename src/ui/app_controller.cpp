@@ -37,6 +37,7 @@ AppController::AppController(const Status& engineStatus, const QString& renderHe
     m_theme = settings.value(QStringLiteral("app/theme"), QStringLiteral("dark")).toString();
 
     m_project = std::make_unique<ProjectController>();
+    m_bundles = std::make_unique<ProjectBundleController>(m_project.get());
     m_media = std::make_unique<MediaController>(m_project.get(), m_thumbnails);
     m_playback = std::make_unique<PlaybackController>(m_project.get());
     m_timeline = std::make_unique<TimelineController>(m_project.get(), m_playback.get());
@@ -85,6 +86,7 @@ AppController::AppController(const Status& engineStatus, const QString& renderHe
 AppController::~AppController()
 {
     m_waveforms->shutdown(); // background waveform work stops early
+    m_bundles.reset();
     m_exporter.reset();
     m_subtitles.reset();
     m_timeline.reset();

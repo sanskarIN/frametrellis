@@ -395,7 +395,7 @@ bool ProjectController::writeAutosave(const QString& originalPath)
         // original location from the already-written recovery metadata.
         const QFileInfo existing(autosavePath() + QStringLiteral(".json"));
         QFile previous(existing.absoluteFilePath());
-        constexpr qint64 kMaxMetadataBytes = 64 * 1024;
+        constexpr qint64 kMaxMetadataBytes = 64LL * 1024;
         if (existing.isFile() && !existing.isSymLink() && existing.size() <= kMaxMetadataBytes &&
             previous.open(QIODevice::ReadOnly)) {
             const QByteArray bytes = previous.read(kMaxMetadataBytes + 1);
@@ -444,7 +444,7 @@ void ProjectController::scanAutosaves()
         const QFileInfo metaInfo(path + QStringLiteral(".json"));
         QFile metaFile(metaInfo.absoluteFilePath());
         QJsonObject meta;
-        constexpr qint64 kMaxMetadataBytes = 64 * 1024;
+        constexpr qint64 kMaxMetadataBytes = 64LL * 1024;
         if (metaInfo.isFile() && !metaInfo.isSymLink() && metaInfo.size() <= kMaxMetadataBytes &&
             metaFile.open(QIODevice::ReadOnly)) {
             const QByteArray bytes = metaFile.read(kMaxMetadataBytes + 1);

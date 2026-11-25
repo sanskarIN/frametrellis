@@ -9,6 +9,7 @@
 #include <QDir>
 #include <QFileInfo>
 #include <QGuiApplication>
+#include <QMetaType>
 #include <QSet>
 #include <QStandardPaths>
 #include <QUrl>
@@ -181,16 +182,18 @@ QString ExportController::batchText() const
         .arg(progressText());
 }
 
-rendering::ExportSettings ExportController::toSettings(const QVariantMap& map) const
+Result<rendering::ExportSettings> ExportController::toSettings(const QVariantMap& map) const
 {
-    rendering::ExportSettings s;
     const QString presetId =
         map.value(QStringLiteral("presetId"), QStringLiteral("match")).toString();
-    for (const rendering::ExportPreset& preset : rendering::exportPresets()) {
-        if (preset.id == presetId) {
-            s = rendering::applyPreset(preset, {});
-        }
+    const auto presets = rendering::exportPresets();
+    const auto preset = std::find_if(
+        presets.cbegin(), presets.cend(),
+        [&presetId](const rendering::ExportPreset& item) { return item.id == presetId; });
+    if (preset == presets.cend()) {
+        return makeError(ErrorCode::InvalidArgument, QStringLiteral("Unknown export preset."));
     }
+    rendering::ExportSettings s = rendering::applyPreset(*preset, {});
     s.outputPath = ProjectController::localPath(map.value(QStringLiteral("outputPath")).toString());
     if (map.contains(QStringLiteral("crf"))) {
         // QVariant::toInt() without a conversion check turns malformed quality
@@ -206,6 +209,14 @@ rendering::ExportSettings ExportController::toSettings(const QVariantMap& map) c
         bool valid = false;
         const int bitrate = map.value(QStringLiteral("audioBitrateKbps")).toString().toInt(&valid);
         s.audioBitrateKbps = valid ? bitrate : -1;
+    }
+    // QML checkboxes supply actual bools. QVariant's permissive conversion
+    // treats arbitrary strings as true, which can silently change delivery.
+    for (const auto& key : {QStringLiteral("includeAudio"), QStringLiteral("avoidUpscaling")}) {
+        if (map.contains(key) && map.value(key).metaType().id() != QMetaType::Bool) {
+            return makeError(ErrorCode::InvalidArgument,
+                             QStringLiteral("Export option %1 must be true or false.").arg(key));
+        }
     }
     if (map.contains(QStringLiteral("includeAudio"))) {
         s.includeAudio = map.value(QStringLiteral("includeAudio")).toBool();
@@ -237,14 +248,22 @@ rendering::ExportSettings ExportController::toSettings(const QVariantMap& map) c
 
 QString ExportController::validate(const QVariantMap& settings) const
 {
-    const Status valid = rendering::validateExport(toSettings(settings), m_project->project(),
-                                                   m_project->filePath());
+    const auto parsed = toSettings(settings);
+    if (!parsed) {
+        return parsed.error().message;
+    }
+    const Status valid =
+        rendering::validateExport(*parsed, m_project->project(), m_project->filePath());
     return valid ? QString() : valid.error().message;
 }
 
 QString ExportController::describeOutput(const QVariantMap& settings) const
 {
-    const rendering::ExportSettings s = toSettings(settings);
+    const auto parsed = toSettings(settings);
+    if (!parsed) {
+        return parsed.error().message;
+    }
+    const rendering::ExportSettings& s = *parsed;
     const QSize size = rendering::outputSize(s, m_project->project().settings());
     const Result<FrameRate> rate = rendering::outputFrameRate(s, m_project->project().settings());
     const bool partial = s.rangeStartFrame != 0 || s.rangeEndFrame != -1;
@@ -280,7 +299,11 @@ ExportController::prepareBatch(const QVariantMap& settings, const QStringList& p
         return makeError(ErrorCode::InvalidArgument,
                          QStringLiteral("Choose between two and five distinct export presets."));
     }
-    const rendering::ExportSettings common = toSettings(settings);
+    const auto parsed = toSettings(settings);
+    if (!parsed) {
+        return parsed.error();
+    }
+    const rendering::ExportSettings& common = *parsed;
     const QFileInfo base(common.outputPath);
     if (base.fileName().isEmpty() || !base.isAbsolute() ||
         base.suffix().compare(QLatin1String("mp4"), Qt::CaseInsensitive) != 0 ||
@@ -478,6 +501,17 @@ bool ExportController::start(const QVariantMap& settings)
     if (busy()) {
         return false;
     }
+    const auto parsed = toSettings(settings);
+    if (!parsed) {
+        emit finished(false, parsed.error().message);
+        return false;
+    }
+    if (const Status valid =
+            rendering::validateExport(*parsed, m_project->project(), m_project->filePath());
+        !valid) {
+        emit finished(false, valid.error().message);
+        return false;
+    }
     if (!m_batchJobs.isEmpty()) {
         reset();
     }
@@ -500,8 +534,7 @@ bool ExportController::start(const QVariantMap& settings)
         emit progressChanged();
     });
     connect(job.get(), &RenderJob::progressChanged, this, &ExportController::progressChanged);
-    const Status started =
-        job->start(m_project->project(), toSettings(settings), m_project->filePath());
+    const Status started = job->start(m_project->project(), *parsed, m_project->filePath());
     if (!started) {
         emit finished(false, started.error().message);
         return false;

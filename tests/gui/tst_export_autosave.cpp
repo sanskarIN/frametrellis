@@ -139,6 +139,39 @@ private slots:
         QVERIFY(!exporter.validate(settings).isEmpty());
         settings[QStringLiteral("audioBitrateKbps")] = 192;
         QCOMPARE(exporter.validate(settings), QString());
+
+        // Unknown presets used to silently fall back to default quality.
+        const QVariantMap validSettings = settings;
+        QSignalSpy finished(&exporter, &ui::ExportController::finished);
+        settings[QStringLiteral("presetId")] = QStringLiteral("unknown");
+        QVERIFY(!exporter.validate(settings).isEmpty());
+        QVERIFY(!exporter.start(settings));
+        QCOMPARE(finished.size(), 1);
+        QVERIFY(!finished.last().at(0).toBool());
+        QVERIFY(!exporter.busy());
+
+        // Only true boolean values are accepted, not permissive QVariant
+        // conversions which can silently enable audio or change resolution.
+        for (const QString& key :
+             {QStringLiteral("includeAudio"), QStringLiteral("avoidUpscaling")}) {
+            for (const QVariant& invalid :
+                 {QVariant(QStringLiteral("maybe")), QVariant(QStringLiteral("false")), QVariant(0),
+                  QVariant(1), QVariant()}) {
+                settings = validSettings;
+                settings[key] = invalid;
+                QVERIFY(!exporter.validate(settings).isEmpty());
+                QVERIFY(!exporter.start(settings));
+                QVERIFY(!finished.last().at(0).toBool());
+                QVERIFY(!exporter.busy());
+            }
+            settings = validSettings;
+            settings[key] = false;
+            QCOMPARE(exporter.validate(settings), QString());
+            settings[key] = true;
+            QCOMPARE(exporter.validate(settings), QString());
+        }
+        QCOMPARE(finished.size(), 11);
+        QVERIFY(!QFileInfo::exists(validSettings.value(QStringLiteral("outputPath")).toString()));
     }
 
     void batchPreflightRejectsDuplicatesExistingFilesAndInvalidRanges()
@@ -184,6 +217,12 @@ private slots:
         QVERIFY(!exporter.validateBatch(bad, variants).isEmpty());
         bad = settings;
         bad[QStringLiteral("rangeStartFrame")] = QStringLiteral("25");
+        QVERIFY(!exporter.validateBatch(bad, variants).isEmpty());
+        bad = settings;
+        bad[QStringLiteral("includeAudio")] = QStringLiteral("maybe");
+        QVERIFY(!exporter.validateBatch(bad, variants).isEmpty());
+        bad = settings;
+        bad[QStringLiteral("presetId")] = QStringLiteral("unknown");
         QVERIFY(!exporter.validateBatch(bad, variants).isEmpty());
 
         const QString protectedOutput = m_dir.filePath(QStringLiteral("batch-safe-draft.mp4"));

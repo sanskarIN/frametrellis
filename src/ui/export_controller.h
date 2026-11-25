@@ -88,7 +88,7 @@ signals:
     void finished(bool success, const QString& message);
 
 private:
-    [[nodiscard]] rendering::ExportSettings toSettings(const QVariantMap& map) const;
+    [[nodiscard]] Result<rendering::ExportSettings> toSettings(const QVariantMap& map) const;
     [[nodiscard]] Result<QVector<rendering::ExportSettings>>
     prepareBatch(const QVariantMap& settings, const QStringList& presetIds) const;
     bool startBatchJob();

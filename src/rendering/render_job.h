@@ -51,7 +51,10 @@ public:
     [[nodiscard]] const QString& errorDetail() const { return m_errorDetail; }
     [[nodiscard]] qint64 elapsedMilliseconds() const;
     /// A valid renderer start is distinct from the OS process being launched.
-    [[nodiscard]] bool encodingStarted() const { return m_sawStarted && m_startedTotalMatchesExpected; }
+    [[nodiscard]] bool encodingStarted() const
+    {
+        return m_sawStarted && m_startedTotalMatchesExpected;
+    }
     /// Time since the last strictly advancing frame or valid start event.
     [[nodiscard]] qint64 millisecondsWithoutProgress() const;
     [[nodiscard]] bool finalizing() const;

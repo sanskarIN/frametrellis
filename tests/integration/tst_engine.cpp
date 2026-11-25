@@ -320,8 +320,8 @@ private slots:
         media::ThumbnailCache cache(cacheDir.path());
         const auto info = media::probeMedia(m_media.still);
         QVERIFY(info);
-        for (const QSize size : {QSize(), QSize(0, 32), QSize(-1, 32),
-                                 QSize(32, 8193), QSize(8193, 32)}) {
+        for (const QSize size :
+             {QSize(), QSize(0, 32), QSize(-1, 32), QSize(32, 8193), QSize(8193, 32)}) {
             QVERIFY(cache.thumbnail(m_media.still, *info, size).isNull());
         }
         QVERIFY(cache.thumbnail(cacheDir.path(), *info, QSize(32, 32)).isNull());

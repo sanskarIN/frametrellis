@@ -92,6 +92,25 @@ QString ExportController::progressText() const
     case RenderJob::State::Starting:
         return QStringLiteral("Preparing…");
     case RenderJob::State::Running: {
+        constexpr qint64 kSlowProgressMs = 60'000;
+        const qint64 quiet = m_job->millisecondsWithoutProgress();
+        if (!m_job->encodingStarted()) {
+            return quiet >= kSlowProgressMs
+                       ? QStringLiteral("Still preparing · %1 elapsed · you can cancel")
+                             .arg(elapsed)
+                       : QStringLiteral("Preparing media and encoder · %1 elapsed").arg(elapsed);
+        }
+        if (m_job->finalizing()) {
+            return quiet >= kSlowProgressMs
+                       ? QStringLiteral("Still finalizing · %1 elapsed · you can cancel")
+                             .arg(elapsed)
+                       : QStringLiteral("Finalizing and verifying MP4 · %1 elapsed").arg(elapsed);
+        }
+        if (quiet >= kSlowProgressMs) {
+            return QStringLiteral("%1% · no new frames for %2 · you can cancel")
+                .arg(qRound(m_job->progress() * 100))
+                .arg(formatMillis(quiet));
+        }
         const qint64 remaining = m_job->remainingMilliseconds();
         const double fps = m_job->framesPerSecond();
         return QStringLiteral("%1% · %2 elapsed%3%4")

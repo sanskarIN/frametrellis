@@ -4885,6 +4885,52 @@ private slots:
         QCOMPARE(m_app->project()->undoText(), undoLabel);
     }
 
+    void timelineReviewDialogAndReportsDoNotModifyEditingState()
+    {
+        const Project before = m_app->project()->project();
+        const QString undoLabel = m_app->project()->undoText();
+        const bool dirty = m_app->project()->isModified();
+
+        const QVariantMap report = m_app->project()->timelineReview();
+        QCOMPARE(report.value(QStringLiteral("schemaVersion")).toInt(), 1);
+        const QVariantMap summary = report.value(QStringLiteral("summary")).toMap();
+        QCOMPARE(summary.value(QStringLiteral("clips")).toInt(), before.timeline().clipCount());
+        QCOMPARE(summary.value(QStringLiteral("durationFrames")).toLongLong(),
+                 before.timeline().duration());
+
+        QObject* dialog = m_window->findChild<QObject*>(QStringLiteral("timelineReviewDialog"));
+        QVERIFY(dialog);
+        QVERIFY(QMetaObject::invokeMethod(dialog, "open"));
+        QTRY_VERIFY(dialog->property("visible").toBool());
+        QTRY_VERIFY(dialog->property("validReport").toBool());
+        QObject* findings = dialog->findChild<QObject*>(QStringLiteral("timelineReviewFindings"));
+        QVERIFY(findings);
+        QObject* filter = dialog->findChild<QObject*>(QStringLiteral("timelineReviewFilter"));
+        QVERIFY(filter);
+        QVERIFY(filter->setProperty("currentIndex", 1));
+        QTRY_COMPARE(filter->property("currentIndex").toInt(), 1);
+        QTest::keyClick(m_window, Qt::Key_Escape);
+        QTRY_VERIFY(!dialog->property("visible").toBool());
+
+        const QString json = m_dir.filePath(QStringLiteral("timeline-review.json"));
+        const QString html = m_dir.filePath(QStringLiteral("timeline-review.html"));
+        QVERIFY(m_app->project()->exportTimelineReview(json));
+        QVERIFY(m_app->project()->exportTimelineReview(html));
+        QFile jsonFile(json);
+        QVERIFY(jsonFile.open(QIODevice::ReadOnly));
+        const QByteArray jsonBytes = jsonFile.readAll();
+        QVERIFY(jsonBytes.contains("\"schemaVersion\": 1"));
+        QVERIFY(!jsonBytes.contains(m_media.front().toUtf8()));
+        QFile htmlFile(html);
+        QVERIFY(htmlFile.open(QIODevice::ReadOnly));
+        const QByteArray htmlBytes = htmlFile.readAll();
+        QVERIFY(htmlBytes.startsWith("<!doctype html>"));
+        QVERIFY(!htmlBytes.contains(m_media.front().toUtf8()));
+        QCOMPARE(m_app->project()->project(), before);
+        QCOMPARE(m_app->project()->isModified(), dirty);
+        QCOMPARE(m_app->project()->undoText(), undoLabel);
+    }
+
     void saveAndReopenRoundTrip()
     {
         const QString file = m_dir.filePath(QStringLiteral("gui-project.ftproj"));

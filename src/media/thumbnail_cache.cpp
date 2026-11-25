@@ -3,6 +3,8 @@
 #include "media/thumbnail_cache.h"
 
 #include "core/logging.h"
+#include "engine/mlt_profile.h"
+#include "project/project_settings.h"
 #include "media/media_probe.h"
 
 #include <QCryptographicHash>
@@ -10,6 +12,7 @@
 #include <QDir>
 #include <QDirIterator>
 #include <QFileInfo>
+#include <QImageReader>
 #include <QSaveFile>
 #include <QStandardPaths>
 
@@ -44,22 +47,48 @@ QString ThumbnailCache::cacheFile(const QString& filePath, QSize maxSize) const
 QImage ThumbnailCache::thumbnail(const QString& filePath, const MediaInfo& info,
                                  QSize maxSize) const
 {
-    if (!info.hasVideo || !QFileInfo::exists(filePath)) {
+    const QFileInfo source(filePath);
+    if (!info.hasVideo || info.width <= 0 || info.height <= 0 ||
+        (info.kind == MediaKind::Video && info.durationUs < 0) || !source.isFile() ||
+        maxSize.isEmpty() || maxSize.width() > kMaxFrameDimension ||
+        maxSize.height() > kMaxFrameDimension) {
         return {};
     }
+    const QSize expected = engine::fitPreviewSize(QSize(info.width, info.height), maxSize);
+    const auto fits = [&expected](QSize size) {
+        return !size.isEmpty() && size.width() <= expected.width() &&
+               size.height() <= expected.height();
+    };
     const QString cached = cacheFile(filePath, maxSize);
-    QImage image;
-    if (image.load(cached)) {
-        return image;
+    const QFileInfo entry(cached);
+    // A cache file is disposable, not trusted media. Inspect PNG dimensions
+    // before decoding and never follow a cache symlink or open a special file.
+    if (entry.isFile() && !entry.isSymLink()) {
+        QImageReader reader(cached, QByteArrayLiteral("png"));
+        if (fits(reader.size())) {
+            const QImage image = reader.read();
+            if (!image.isNull() && fits(image.size())) {
+                return image;
+            }
+        }
     }
     Result<QImage> rendered = renderThumbnail(filePath, info, maxSize);
     if (!rendered) {
         qCInfo(lcMedia) << "No thumbnail for" << filePath << rendered.error().toString();
         return {};
     }
-    QSaveFile file(cached);
-    if (file.open(QIODevice::WriteOnly) && rendered->save(&file, "PNG")) {
-        file.commit();
+    if (rendered->isNull() || !fits(rendered->size())) {
+        return {};
+    }
+    // Do not publish under an old key if the media changed during rendering,
+    // or replace a nonregular cache entry.
+    const QFileInfo destination(cached);
+    if (cacheFile(filePath, maxSize) == cached && !destination.isSymLink() &&
+        (!destination.exists() || destination.isFile())) {
+        QSaveFile file(cached);
+        if (file.open(QIODevice::WriteOnly) && rendered->save(&file, "PNG")) {
+            file.commit();
+        }
     }
     return *rendered;
 }

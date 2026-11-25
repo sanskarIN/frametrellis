@@ -141,15 +141,15 @@ private slots:
         Project previous = Project::createNew(QStringLiteral("Replacements"), {});
         const auto oldMedia =
             asset(QStringLiteral("old"), dir.filePath(QStringLiteral("old.png")), MediaKind::Image);
-        const auto kept =
-            asset(QStringLiteral("kept"), dir.filePath(QStringLiteral("kept.png")), MediaKind::Image);
-        const auto fresh =
-            asset(QStringLiteral("fresh"), dir.filePath(QStringLiteral("fresh.png")), MediaKind::Image);
+        const auto kept = asset(QStringLiteral("kept"), dir.filePath(QStringLiteral("kept.png")),
+                                MediaKind::Image);
+        const auto fresh = asset(QStringLiteral("fresh"), dir.filePath(QStringLiteral("fresh.png")),
+                                 MediaKind::Image);
         QVERIFY(previous.addAsset(oldMedia));
         QVERIFY(previous.addAsset(kept));
         const Id track = previous.timeline().tracks()[0].id;
-        QVERIFY(previous.timeline().insertClip(track, clip(QStringLiteral("removed"), oldMedia.id, 0, 10),
-                                               previous.sourceLookup()));
+        QVERIFY(previous.timeline().insertClip(
+            track, clip(QStringLiteral("removed"), oldMedia.id, 0, 10), previous.sourceLookup()));
         QVERIFY(previous.timeline().insertClip(track, clip(QStringLiteral("kept"), kept.id, 10, 10),
                                                previous.sourceLookup()));
         Project current = previous;
@@ -280,8 +280,7 @@ private slots:
         QTemporaryDir dir;
         QVERIFY(dir.isValid());
         Project previous = Project::createNew(QStringLiteral("Automation"), {});
-        const auto source =
-            asset(QStringLiteral("av"), dir.filePath(QStringLiteral("av.mp4")));
+        const auto source = asset(QStringLiteral("av"), dir.filePath(QStringLiteral("av.mp4")));
         QVERIFY(previous.addAsset(source));
         const Id track = previous.timeline().tracks()[0].id;
         const Id clipId = QStringLiteral("animated");
@@ -326,8 +325,8 @@ private slots:
         QTemporaryDir dir;
         QVERIFY(dir.isValid());
         Project previous = Project::createNew(QStringLiteral("Track order"), {});
-        const auto source = asset(QStringLiteral("source"),
-                                  dir.filePath(QStringLiteral("source.mp4")));
+        const auto source =
+            asset(QStringLiteral("source"), dir.filePath(QStringLiteral("source.mp4")));
         QVERIFY(previous.addAsset(source));
         const Id first = previous.timeline().tracks()[0].id;
         const Id second = previous.timeline().tracks()[1].id;
@@ -361,14 +360,14 @@ private slots:
         QTemporaryDir dir;
         QVERIFY(dir.isValid());
         Project previous = Project::createNew(QStringLiteral("Large comparison"), {});
-        const auto source =
-            asset(QStringLiteral("still"), dir.filePath(QStringLiteral("still.png")), MediaKind::Image);
+        const auto source = asset(QStringLiteral("still"),
+                                  dir.filePath(QStringLiteral("still.png")), MediaKind::Image);
         QVERIFY(previous.addAsset(source));
         auto tracks = previous.timeline().tracks();
         constexpr int count = kMaxComparisonDetails + 200;
         for (int i = 0; i < count; ++i) {
-            tracks[0].clips.push_back(clip(QStringLiteral("clip-%1").arg(i, 4, 10, QLatin1Char('0')),
-                                           source.id, i, 1));
+            tracks[0].clips.push_back(
+                clip(QStringLiteral("clip-%1").arg(i, 4, 10, QLatin1Char('0')), source.id, i, 1));
         }
         previous.timeline().restoreTracks(tracks);
         Project current = previous;

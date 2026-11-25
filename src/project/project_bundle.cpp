@@ -8,6 +8,7 @@
 #include <QDir>
 #include <QFile>
 #include <QFileInfo>
+#include <QHash>
 #include <QJsonArray>
 #include <QJsonDocument>
 #include <QJsonObject>
@@ -470,8 +471,11 @@ Result<Verification> verify(const QString& directory, const Cancel& cancelled)
     }
     // Validate all entries before opening any referenced file.
     QSet<QString> paths;
-    QSet<Id> ids;
+    QHash<Id, QString> ids;
     for (const auto& value : files) {
+        if (stopped(cancelled)) {
+            return cancellation();
+        }
         const auto entry = value.toObject();
         const QString path = entry.value(QStringLiteral("path")).toString();
         const Id id = entry.value(QStringLiteral("assetId")).toString();
@@ -482,7 +486,7 @@ Result<Verification> verify(const QString& directory, const Cancel& cancelled)
             return makeError(ErrorCode::InvalidDocument, QStringLiteral("Invalid bundle media entry."));
         }
         paths.insert(path);
-        ids.insert(id);
+        ids.insert(id, path);
     }
     const auto project = manifest.value(QStringLiteral("project")).toObject();
     const auto projectSize = byteCount(project.value(QStringLiteral("bytes")));
@@ -514,6 +518,42 @@ Result<Verification> verify(const QString& directory, const Cancel& cancelled)
         return projectCheck.error();
     }
     result.projectMatches = *projectCheck;
+    if (result.projectMatches) {
+        // A matching original project must describe precisely the same media
+        // identities and paths as the manifest. Reject omitted/swapped records.
+        const auto original = readBounded(dir.filePath(QLatin1String(kProjectFile)),
+                                          project_format::kMaxDocumentBytes);
+        if (!original) {
+            return original.error();
+        }
+        const QByteArray expected = project.value(QStringLiteral("sha256")).toString().toLatin1();
+        if (QCryptographicHash::hash(*original, QCryptographicHash::Sha256).toHex() != expected) {
+            return makeError(ErrorCode::Conflict,
+                             QStringLiteral("Project changed during bundle verification."));
+        }
+        const auto body = QJsonDocument::fromJson(*original)
+                              .object()
+                              .value(QStringLiteral("project"))
+                              .toObject();
+        const auto assets = body.value(QStringLiteral("media")).toArray();
+        if (body.value(QStringLiteral("id")).toString() !=
+                manifest.value(QStringLiteral("projectId")).toString() ||
+            assets.size() != ids.size()) {
+            return makeError(ErrorCode::InvalidDocument,
+                             QStringLiteral("Manifest does not match the original project."));
+        }
+        QSet<Id> seen;
+        for (const auto& value : assets) {
+            const auto asset = value.toObject();
+            const Id id = asset.value(QStringLiteral("id")).toString();
+            if (!ids.contains(id) || seen.contains(id) ||
+                ids.value(id) != asset.value(QStringLiteral("path")).toString()) {
+                return makeError(ErrorCode::InvalidDocument,
+                                 QStringLiteral("Manifest media identities do not match project."));
+            }
+            seen.insert(id);
+        }
+    }
     for (const auto& value : files) {
         if (stopped(cancelled)) {
             return cancellation();

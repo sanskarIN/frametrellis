@@ -28,8 +28,7 @@ constexpr qint64 kMaxFileBytes = project_format::kMaxDocumentBytes + kMaxHeaderB
 
 bool validLabel(const QString& label)
 {
-    if (label.isEmpty() || label.size() > kMaxCheckpointLabelLength ||
-        label.trimmed() != label) {
+    if (label.isEmpty() || label.size() > kMaxCheckpointLabelLength || label.trimmed() != label) {
         return false;
     }
     return std::none_of(label.cbegin(), label.cend(), [](QChar c) {
@@ -40,9 +39,8 @@ bool validLabel(const QString& label)
 
 bool validOriginalPath(const QString& path)
 {
-    return path.isEmpty() ||
-           (path.size() <= kMaxMediaPathLength && !path.contains(QChar(QChar::Null)) &&
-            QFileInfo(path).isAbsolute());
+    return path.isEmpty() || (path.size() <= kMaxMediaPathLength &&
+                              !path.contains(QChar(QChar::Null)) && QFileInfo(path).isAbsolute());
 }
 
 Status checkDirectory(const QString& path, bool create)
@@ -62,8 +60,7 @@ Status checkDirectory(const QString& path, bool create)
 
 bool validDigest(const QByteArray& digest)
 {
-    return digest.size() == 64 &&
-           std::all_of(digest.cbegin(), digest.cend(), [](char c) {
+    return digest.size() == 64 && std::all_of(digest.cbegin(), digest.cend(), [](char c) {
                return (c >= '0' && c <= '9') || (c >= 'a' && c <= 'f');
            });
 }
@@ -108,9 +105,8 @@ Result<Entry> readHeader(QFile& file, const Id& expectedProject, const Id& expec
     entry.projectId = header.value(QStringLiteral("projectId")).toString();
     entry.label = header.value(QStringLiteral("label")).toString();
     entry.projectName = header.value(QStringLiteral("projectName")).toString();
-    entry.createdAt =
-        QDateTime::fromString(header.value(QStringLiteral("createdAtUtc")).toString(),
-                              Qt::ISODateWithMs);
+    entry.createdAt = QDateTime::fromString(header.value(QStringLiteral("createdAtUtc")).toString(),
+                                            Qt::ISODateWithMs);
     const QJsonValue originalPath = header.value(QStringLiteral("originalPath"));
     if (!originalPath.isString()) {
         return invalidHeader(QStringLiteral("Invalid original project path field."));
@@ -186,7 +182,8 @@ Result<QString> Store::projectDirectory(const Id& projectId, bool create) const
 Result<QString> Store::checkpointPath(const Id& projectId, const Id& checkpointId) const
 {
     if (!isValidId(checkpointId)) {
-        return makeError(ErrorCode::InvalidArgument, QStringLiteral("Invalid checkpoint identity."));
+        return makeError(ErrorCode::InvalidArgument,
+                         QStringLiteral("Invalid checkpoint identity."));
     }
     const auto directory = projectDirectory(projectId, false);
     if (!directory) {
@@ -221,11 +218,11 @@ Result<History> Store::list(const Id& projectId) const
             continue;
         }
         QFile file(info.absoluteFilePath());
-        const auto header = file.open(QIODevice::ReadOnly)
-                                ? readHeader(file, projectId, id)
-                                : Result<Entry>(makeError(ErrorCode::Io,
-                                                          QStringLiteral("Cannot read checkpoint."),
-                                                          file.errorString()));
+        const auto header =
+            file.open(QIODevice::ReadOnly)
+                ? readHeader(file, projectId, id)
+                : Result<Entry>(makeError(ErrorCode::Io, QStringLiteral("Cannot read checkpoint."),
+                                          file.errorString()));
         if (header) {
             history.entries.push_back(*header);
         } else {
@@ -286,8 +283,8 @@ Result<Entry> Store::create(const Project& project, const QString& label,
     if (!history) {
         return history.error();
     }
-    if (history->truncated || history->entries.size() >=
-                                  static_cast<size_t>(kMaxCheckpointsPerProject)) {
+    if (history->truncated ||
+        history->entries.size() >= static_cast<size_t>(kMaxCheckpointsPerProject)) {
         return makeError(
             ErrorCode::OutOfRange,
             QStringLiteral("This project has reached the checkpoint limit. Remove an unwanted "
@@ -306,7 +303,8 @@ Result<Entry> Store::create(const Project& project, const QString& label,
     const QFileInfo destination(path);
     if (destination.exists() || destination.isSymLink() || project.assetByPath(path) ||
         (!originalPath.isEmpty() && canonicalMediaKey(path) == canonicalMediaKey(originalPath))) {
-        return makeError(ErrorCode::Conflict, QStringLiteral("Checkpoint destination is occupied."));
+        return makeError(ErrorCode::Conflict,
+                         QStringLiteral("Checkpoint destination is occupied."));
     }
 
     const QByteArray header = encodeHeader(entry);
@@ -369,8 +367,9 @@ Result<Project> Store::restore(const Id& projectId, const Id& checkpointId) cons
                          QStringLiteral("The checkpoint project payload is too large."));
     }
     if (payloadDigest(payload) != header->payloadSha256) {
-        return makeError(ErrorCode::InvalidDocument,
-                         QStringLiteral("The checkpoint project payload failed its integrity check."));
+        return makeError(
+            ErrorCode::InvalidDocument,
+            QStringLiteral("The checkpoint project payload failed its integrity check."));
     }
     auto project = project_format::fromBytes(payload);
     if (!project) {

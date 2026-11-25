@@ -375,7 +375,7 @@ QJsonObject toJson(const Report& report, int detailLimit)
         {QStringLiteral("summary"), summaryJson(report)},
         {QStringLiteral("tracks"), tracks},
         {QStringLiteral("findings"), details},
-        {QStringLiteral("omittedFindings"), report.findingCount - details.size()},
+        {QStringLiteral("omittedFindings"), report.findingCount - static_cast<int>(details.size())},
     };
 }
 

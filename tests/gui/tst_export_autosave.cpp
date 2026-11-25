@@ -456,6 +456,73 @@ private slots:
         QVERIFY(!project.isModified());
     }
 
+    void singleExportCanCancelDuringStartingAndRetryFromFinished()
+    {
+        ProjectSettings profile;
+        profile.width = 320;
+        profile.height = 180;
+        profile.frameRate = FrameRate::integer(25);
+        Project base = Project::createNew(QStringLiteral("Early export cancellation"), profile);
+        const auto asset = media::createAsset(testing::makeStill(
+            m_dir.path(), QStringLiteral("early-cancel.png"), Qt::green, QSize(320, 180)));
+        QVERIFY(asset);
+        QVERIFY(base.addAsset(*asset));
+        Clip clip;
+        clip.id = createId();
+        clip.assetId = asset->id;
+        clip.duration = 40;
+        QVERIFY(
+            base.timeline().insertClip(base.timeline().tracks()[0].id, clip, base.sourceLookup()));
+        const QString path = m_dir.filePath(QStringLiteral("early-cancel.ftproj"));
+        QVERIFY(project_format::saveToFile(base, path));
+        ui::ProjectController project;
+        QVERIFY(project.openProject(path));
+        const Project opened = project.project();
+        ui::ExportController exporter(&project, QStringLiteral(FT_CANCEL_RENDER_HELPER));
+        QVariantMap settings{
+            {QStringLiteral("presetId"), QStringLiteral("match")},
+            {QStringLiteral("outputPath"), m_dir.filePath(QStringLiteral("early-first.mp4"))},
+            {QStringLiteral("includeAudio"), false}};
+        QSignalSpy finished(&exporter, &ui::ExportController::finished);
+        int startingCount = 0;
+        bool allStartingStatesBusy = true;
+        connect(&exporter, &ui::ExportController::stateChanged, &exporter, [&] {
+            if (exporter.state() == QStringLiteral("starting")) {
+                ++startingCount;
+                allStartingStatesBusy = allStartingStatesBusy && exporter.busy();
+                exporter.cancel();
+            }
+        });
+
+        bool retried = false;
+        bool retryStarted = false;
+        connect(&exporter, &ui::ExportController::finished, &exporter, [&](bool, const QString&) {
+            if (!retried) {
+                retried = true;
+                exporter.reset();
+                settings[QStringLiteral("outputPath")] =
+                    m_dir.filePath(QStringLiteral("early-retry.mp4"));
+                retryStarted = exporter.start(settings);
+            }
+        });
+        QVERIFY(exporter.start(settings));
+        QTRY_COMPARE_WITH_TIMEOUT(finished.size(), 2, 15'000);
+        QVERIFY(retried);
+        QVERIFY(retryStarted);
+        QCOMPARE(startingCount, 2);
+        QVERIFY(allStartingStatesBusy);
+        for (const auto& completion : finished) {
+            QVERIFY(!completion.at(0).toBool());
+            QCOMPARE(completion.at(1).toString(), QStringLiteral("Export cancelled."));
+        }
+        QCOMPARE(exporter.state(), QStringLiteral("cancelled"));
+        QVERIFY(!exporter.busy());
+        QVERIFY(!QFileInfo::exists(m_dir.filePath(QStringLiteral("early-first.mp4"))));
+        QVERIFY(!QFileInfo::exists(m_dir.filePath(QStringLiteral("early-retry.mp4"))));
+        QCOMPARE(project.project(), opened);
+        QVERIFY(!project.isModified());
+    }
+
     void cleanupTestCase() { engine::MltRuntime::shutdown(); }
 };
 

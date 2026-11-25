@@ -4,6 +4,7 @@
 
 #include "core/logging.h"
 #include "core/timecode.h"
+#include "project/project_checkpoints.h"
 #include "project/project_serializer.h"
 
 #include <QDir>
@@ -196,6 +197,92 @@ bool ProjectController::renameProject(const QString& newName)
         return false;
     }
     emit statusMessage(QStringLiteral("Renamed project to %1.").arg(name));
+    return true;
+}
+
+QString ProjectController::checkpointDirectory()
+{
+    const QString root = QStandardPaths::writableLocation(QStandardPaths::AppDataLocation);
+    return root.isEmpty() ? QString() : QDir(root).filePath(QStringLiteral("checkpoints"));
+}
+
+QVariantMap ProjectController::checkpointHistory() const
+{
+    const auto history = checkpoints::Store(checkpointDirectory()).list(project().id());
+    if (!history) {
+        return {{QStringLiteral("error"), history.error().toString()}};
+    }
+    QVariantList entries;
+    for (const checkpoints::Entry& entry : history->entries) {
+        entries.append(QVariantMap{
+            {QStringLiteral("id"), entry.id},
+            {QStringLiteral("label"), entry.label},
+            {QStringLiteral("projectName"), entry.projectName},
+            {QStringLiteral("originalPath"), entry.originalPath},
+            {QStringLiteral("createdAt"), entry.createdAt.toUTC().toString(Qt::ISODateWithMs)},
+            {QStringLiteral("displayDate"), QLocale().toString(entry.createdAt.toLocalTime(),
+                                                               QLocale::ShortFormat)},
+            {QStringLiteral("bytes"), entry.bytes},
+            {QStringLiteral("readable"), entry.readable},
+            {QStringLiteral("error"), entry.error},
+        });
+    }
+    return {{QStringLiteral("projectId"), project().id()},
+            {QStringLiteral("entries"), entries},
+            {QStringLiteral("limit"), checkpoints::kMaxCheckpointsPerProject},
+            {QStringLiteral("truncated"), history->truncated}};
+}
+
+bool ProjectController::createCheckpoint(const QString& label)
+{
+    const auto saved =
+        checkpoints::Store(checkpointDirectory()).create(project(), label, m_document->filePath());
+    if (!saved) {
+        reportError(QStringLiteral("Could not create checkpoint"), saved.error());
+        return false;
+    }
+    emit statusMessage(QStringLiteral("Created checkpoint: %1.").arg(saved->label));
+    return true;
+}
+
+bool ProjectController::restoreCheckpoint(const QString& projectId, const QString& checkpointId)
+{
+    // The confirmation dialog may have been open while the project was
+    // replaced. Never apply a stale checkpoint selection to a different ID.
+    if (projectId != project().id()) {
+        emit errorOccurred(QStringLiteral("Could not open checkpoint"),
+                           QStringLiteral("The current project has changed."));
+        return false;
+    }
+    auto restored = checkpoints::Store(checkpointDirectory()).restore(projectId, checkpointId);
+    if (!restored) {
+        reportError(QStringLiteral("Could not open checkpoint"), restored.error());
+        return false;
+    }
+    auto document = std::make_unique<ProjectDocument>(std::move(restored).value());
+    document->refreshMediaStatus();
+    document->markModified();
+    adopt(std::move(document));
+    // Preserve the restored state on a second crash. The immutable checkpoint
+    // remains available even if the normal recovery autosave cannot be written.
+    autosave();
+    emit statusMessage(QStringLiteral("Opened checkpoint as unsaved work. Save As to keep it."));
+    return true;
+}
+
+bool ProjectController::removeCheckpoint(const QString& projectId, const QString& checkpointId)
+{
+    if (projectId != project().id()) {
+        emit errorOccurred(QStringLiteral("Could not remove checkpoint"),
+                           QStringLiteral("The current project has changed."));
+        return false;
+    }
+    const Status removed = checkpoints::Store(checkpointDirectory()).remove(projectId, checkpointId);
+    if (!removed) {
+        reportError(QStringLiteral("Could not remove checkpoint"), removed.error());
+        return false;
+    }
+    emit statusMessage(QStringLiteral("Removed checkpoint."));
     return true;
 }
 

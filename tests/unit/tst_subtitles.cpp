@@ -190,15 +190,12 @@ private slots:
         const QByteArray escaped = QByteArray("&amp;").repeated(kMaxSubtitleTextLength);
         const auto exactLimit = webvtt::fromBytes(header + escaped);
         QVERIFY(exactLimit);
-        QCOMPARE(exactLimit->cues.front().text,
-                 QString(kMaxSubtitleTextLength, QLatin1Char('&')));
+        QCOMPARE(exactLimit->cues.front().text, QString(kMaxSubtitleTextLength, QLatin1Char('&')));
         QVERIFY(!webvtt::fromBytes(header + escaped + "&amp;"));
 
-        const auto rawLimit =
-            webvtt::fromBytes(header + QByteArray(kMaxSubtitleTextLength, '&'));
+        const auto rawLimit = webvtt::fromBytes(header + QByteArray(kMaxSubtitleTextLength, '&'));
         QVERIFY(rawLimit);
-        QCOMPARE(rawLimit->cues.front().text,
-                 QString(kMaxSubtitleTextLength, QLatin1Char('&')));
+        QCOMPARE(rawLimit->cues.front().text, QString(kMaxSubtitleTextLength, QLatin1Char('&')));
 
         // Preserve the existing literal-ampersand behavior beyond the
         // accepted entity lookahead, but reject unknown short entities.

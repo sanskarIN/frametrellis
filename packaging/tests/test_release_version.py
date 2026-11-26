@@ -19,6 +19,7 @@ from release_version import (  # noqa: E402
     require_v15_source_build_assets,
     require_v151_source_build_assets,
     require_v152_source_build_assets,
+    require_v153_source_build_assets,
     resolve_release_version,
 )
 
@@ -171,6 +172,27 @@ class ReleaseVersionTests(unittest.TestCase):
             capture_output=True, text=True, check=False,
         )
         self.assertNotEqual(incompatible.returncode, 0)
+
+    def test_v153_requires_explicit_exact_stable_scope(self):
+        require_v153_source_build_assets(resolve_release_version("v1.5.3", "1.5.3"))
+        for tag in ("v1.5.2", "v1.5.3-rc.1", "v1.5.4", "v1.6.0"):
+            version = tag[1:].split("-")[0]
+            with self.subTest(tag=tag), self.assertRaises(ValueError):
+                require_v153_source_build_assets(resolve_release_version(tag, version))
+        for flag in ("--windows-only-assets", "--v152-source-build-assets"):
+            with self.subTest(flag=flag):
+                rejected = subprocess.run(
+                    [sys.executable, str(SOURCE), "--tag", "v1.5.3",
+                     "--project-version", "1.5.3", flag, "--v153-source-build-assets"],
+                    capture_output=True, text=True, check=False,
+                )
+                self.assertNotEqual(rejected.returncode, 0)
+        accepted = subprocess.run(
+            [sys.executable, str(SOURCE), "--tag", "v1.5.3",
+             "--project-version", "1.5.3", "--v153-source-build-assets"],
+            capture_output=True, text=True, check=True,
+        )
+        self.assertIn("package_version=1.5.3", accepted.stdout)
 
     def test_source_build_cli_requires_explicit_scope(self):
         accepted = subprocess.run(

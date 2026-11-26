@@ -5,28 +5,21 @@ GitHub release description. Unreleased changes are collected in [unreleased.md](
 
 ## Next maintenance candidate — preparation only
 
-**v1.5.2 is proposed but not tagged, packaged under that version or published.**
-See the [candidate notes](v1.5.2.md),
-[preflight/physical-QA gate](v1.5.2-preflight.md), and
-[release tracker #317](https://github.com/sanskarIN/frametrellis/issues/317).
-The source project still reports v1.5.1 until the separately reviewed
-v1.5.2 version bump. Green CI and draft notes are not owner release approval.
+**v1.5.3 is targeted for 26 November 2026, not yet approved or published.**
+See [candidate notes](v1.5.3.md) and [preflight](v1.5.3-preflight.md).
 
 ## Latest published stable release
 
-**[FrameTrellis v1.5.1](https://github.com/sanskarIN/frametrellis/releases/tag/v1.5.1)**
-was published on **20 November 2026** from
-[commit `bb491caa`](https://github.com/sanskarIN/frametrellis/commit/bb491caada9b037c82f07c4c40b575e05ce3e0f2).
-It has five public assets: the unsigned Windows x64 installer, portable ZIP,
-SPDX SBOM, corresponding third-party source archive and SHA256SUMS.txt.
-Linux and macOS remain supported from source, not by production AppImage or
-notarized DMG assets. See the [published maintenance notes](v1.5.1.md)
-and the [physical QA still outstanding](v1.5.1-preflight.md).
-The v1.5.1 release and tag must not be modified by post-release development.
+**[FrameTrellis v1.5.2](https://github.com/sanskarIN/frametrellis/releases/tag/v1.5.2)**
+was published on **24 November 2026** with five public Windows x64 assets:
+installer, portable ZIP, SPDX SBOM, corresponding third-party sources and
+SHA256SUMS.txt. Linux and macOS remain source builds. Do not modify the
+published release or tag during preparation for v1.5.3.
 
 | Version | Notes |
 |---|---|
-| 1.5.2 | [v1.5.2.md](v1.5.2.md) — **candidate notes only; not published** |
+| 1.5.3 | [v1.5.3.md](v1.5.3.md) — candidate, not approved |
+| 1.5.2 | [v1.5.2.md](v1.5.2.md) — published stable 24 November 2026 |
 | 1.5.1 | [v1.5.1.md](v1.5.1.md) — published stable 20 November 2026 |
 | 1.5.0 | [v1.5.0.md](v1.5.0.md) — published featured stable 16 November 2026 |
 | 1.4.0 | [v1.4.0.md](v1.4.0.md) — published stable 2 November 2026 |

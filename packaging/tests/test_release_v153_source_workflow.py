@@ -1,5 +1,6 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 """Protect the exact v1.5.3 source-build publication route."""
+import re
 import unittest
 from pathlib import Path
 
@@ -53,6 +54,17 @@ class V153ReleaseSafetyTests(unittest.TestCase):
             "SHA256SUMS.txt",
         ):
             self.assertIn(name, source)
+
+    def test_notes_cannot_authorize_publication(self):
+        notes = self.read("docs/releases/v1.5.3.md")
+        self.assertNotIn("FrameTrellis-1.5.3-SOURCE-BUILD-OWNER-APPROVED", notes)
+        self.assertNotIn("FrameTrellis-1.5.3-OWNER-APPROVED", notes)
+        cmake = self.read("CMakeLists.txt")
+        match = re.search(r"project\(FrameTrellis\s+VERSION\s+(\d+\.\d+\.\d+)", cmake)
+        self.assertIsNotNone(match)
+        version = tuple(map(int, match.group(1).split(".")))
+        if version < (1, 5, 3):
+            self.assertIn("NOT PUBLISHED", notes.upper())
 
     def test_preparation_and_website_routing(self):
         prepare = self.read(".github/workflows/release.yml")

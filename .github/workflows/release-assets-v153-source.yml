@@ -130,6 +130,9 @@ jobs:
         run: |
           set -euo pipefail
           python3 packaging/verify_release_assets.py --version 1.5.3 --directory prepared/release
+          # Fail before any public asset is uploaded if the final verifier cannot
+          # accept this version or disagrees with the offline inventory.
+          PYTHONPATH=packaging python3 -c 'from pathlib import Path; from verify_published_windows_v15 import expected_names; import sys; sys.exit(0 if expected_names("1.5.3") == {p.name for p in Path("prepared/release").iterdir()} else 1)'
           (cd prepared/release && sha256sum --check SHA256SUMS.txt)
           test -s prepared/release-notes.md
           python3 -c 'import pathlib,sys; source=pathlib.Path("docs/releases/v1.5.3.md").read_bytes(); result=pathlib.Path("prepared/release-notes.md").read_bytes(); sys.exit(0 if source and result.startswith(source) else 1)'

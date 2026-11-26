@@ -40,6 +40,7 @@ class V153ReleaseSafetyTests(unittest.TestCase):
         source = self.read(".github/workflows/release-assets-v153-source.yml")
         for token in (
             "packaging/verify_release_assets.py --version 1.5.3",
+            'expected_names("1.5.3")',
             "sha256sum --check SHA256SUMS.txt",
             "result.startswith(source)",
             '[[ "$existing" == "0" ]]',

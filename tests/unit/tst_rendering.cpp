@@ -253,6 +253,97 @@ private slots:
         QVERIFY(!QFileInfo::exists(from));
     }
 
+    void temporaryOutputReservationNeverOverwritesExistingFiles()
+    {
+        const QString path = m_dir.filePath(QStringLiteral("reserved.part.mp4"));
+        QVERIFY(reserveRenderedFile(path));
+        QVERIFY(QFileInfo(path).isFile());
+        QCOMPARE(QFileInfo(path).size(), qint64{0});
+        QFile reserved(path);
+        QVERIFY(reserved.open(QIODevice::WriteOnly));
+        QCOMPARE(reserved.write("keep"), qint64{4});
+        reserved.close();
+        const Status duplicate = reserveRenderedFile(path);
+        QVERIFY(!duplicate);
+        QCOMPARE(duplicate.error().code, ErrorCode::Conflict);
+        QVERIFY(reserved.open(QIODevice::ReadOnly));
+        QCOMPARE(reserved.readAll(), QByteArray("keep"));
+        reserved.close();
+        QVERIFY(!reserveRenderedFile(QStringLiteral("relative.part.mp4")));
+        QVERIFY(!reserveRenderedFile(m_dir.path()));
+        QVERIFY(!reserveRenderedFile(m_dir.filePath(QStringLiteral("absent/sub.part.mp4"))));
+    }
+
+    void publicationRejectsEmptyMissingAndCrossDirectoryOutputs()
+    {
+        const QString part = m_dir.filePath(QStringLiteral("empty.part.mp4"));
+        const QString final = m_dir.filePath(QStringLiteral("preserved.mp4"));
+        QFile existing(final);
+        QVERIFY(existing.open(QIODevice::WriteOnly));
+        QCOMPARE(existing.write("previous"), qint64{8});
+        existing.close();
+        QVERIFY(reserveRenderedFile(part));
+        QVERIFY(!publishRenderedFile(part, final, true));
+        QVERIFY(QFile::remove(part));
+        QVERIFY(!publishRenderedFile(part, final, true));
+
+        QVERIFY(reserveRenderedFile(part));
+        QFile file(part);
+        QVERIFY(file.open(QIODevice::WriteOnly));
+        QCOMPARE(file.write("new"), qint64{3});
+        file.close();
+        QVERIFY(!publishRenderedFile(part, part, true));
+        QTemporaryDir elsewhere;
+        QVERIFY(elsewhere.isValid());
+        QVERIFY(!publishRenderedFile(part, elsewhere.filePath(QStringLiteral("out.mp4")), true));
+        QVERIFY(QFileInfo(part).isFile());
+        QVERIFY(existing.open(QIODevice::ReadOnly));
+        QCOMPARE(existing.readAll(), QByteArray("previous"));
+        existing.close();
+        QVERIFY(publishRenderedFile(part, final, true));
+        QVERIFY(existing.open(QIODevice::ReadOnly));
+        QCOMPARE(existing.readAll(), QByteArray("new"));
+    }
+
+    void refusesSymlinkedTemporaryAndFinalOutputPaths()
+    {
+#ifndef Q_OS_WIN
+        const QString target = m_dir.filePath(QStringLiteral("absent-target.mp4"));
+        const QString link = m_dir.filePath(QStringLiteral("dangling.part.mp4"));
+        QVERIFY(QFile::link(target, link));
+        QVERIFY(QFileInfo(link).isSymLink());
+        QVERIFY(!QFileInfo::exists(target));
+        QVERIFY(!reserveRenderedFile(link));
+        QVERIFY(!QFileInfo::exists(target));
+        QVERIFY(QFileInfo(link).isSymLink());
+
+        const QString real = m_dir.filePath(QStringLiteral("real.part.mp4"));
+        QVERIFY(reserveRenderedFile(real));
+        QFile file(real);
+        QVERIFY(file.open(QIODevice::WriteOnly));
+        QCOMPARE(file.write("new"), qint64{3});
+        file.close();
+        QVERIFY(!publishRenderedFile(link, real, true));
+        QVERIFY(!publishRenderedFile(real, link, true));
+        QVERIFY(QFileInfo(link).isSymLink());
+        QVERIFY(QFileInfo(real).isFile());
+
+        const QString finalLink = m_dir.filePath(QStringLiteral("linked-output.mp4"));
+        QVERIFY(QFile::link(m_mediaPath, finalLink));
+        ExportSettings settings = settingsFor(QStringLiteral("linked-output.mp4"));
+        const Status invalid = validateExport(settings, projectWithClip());
+        QVERIFY(!invalid);
+        QCOMPARE(invalid.error().code, ErrorCode::Conflict);
+        QVERIFY(!publishRenderedFile(real, finalLink, true));
+        QFile media(m_mediaPath);
+        QVERIFY(media.open(QIODevice::ReadOnly));
+        QCOMPARE(media.readAll(), QByteArray("placeholder"));
+        QVERIFY(QFileInfo(finalLink).isSymLink());
+#else
+        QSKIP("POSIX symbolic-link tests require no Windows link privileges.");
+#endif
+    }
+
     void exportFpsSupportsExactRatesAndRejectsInvalidValues()
     {
         const Project project = projectWithClip();

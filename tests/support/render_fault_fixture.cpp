@@ -35,6 +35,18 @@ int main(int argc, char** argv)
         file << "unfinished synthetic output";
     }
 
+    // Simulate a collision detected before the helper could claim the path.
+    // A wrong token must not grant ownership either.
+    const std::string name = output.stem().string();
+    if (name == "unowned-collision") {
+        return 42;
+    }
+    const std::string claimedToken = name == "wrong-reservation" ? "wrong-token" : token;
+    std::printf("@ft {\"event\":\"reserved\",\"token\":\"%s\"}\n", claimedToken.c_str());
+    if (name == "wrong-reservation") {
+        std::fflush(stdout);
+        return 42;
+    }
     std::fputs("@ft {\"event\":\"started\",\"encoder\":\"failure-fixture\",\"total\":100}\n",
                stdout);
     std::fflush(stdout);

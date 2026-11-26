@@ -12,9 +12,9 @@ remain unchanged. See [v1.5.2 release notes](v1.5.2.md).
   rendering or batch preflight ([#346](https://github.com/sanskarIN/frametrellis/pull/346)).
 - Merged: isolated v1.5.3 five-file release infrastructure and explicit
   owner-controlled publication policy ([#351](https://github.com/sanskarIN/frametrellis/pull/351)).
-- Proposed: temporary output ownership, publication protection and progress
+- Merged: temporary output ownership, publication protection and progress
   diagnostics ([#350](https://github.com/sanskarIN/frametrellis/pull/350)).
-  Include only after integration and exact-main qualification.
+  Exact-main release qualification remains outstanding.
 
 See [candidate notes](v1.5.3.md), [preflight](v1.5.3-preflight.md) and the
 [owner runbook](v1.5.3-owner-release-runbook.md).

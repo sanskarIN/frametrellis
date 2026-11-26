@@ -390,6 +390,10 @@ int main(int argc, char** argv)
                 emitEvent({{QStringLiteral("event"), QStringLiteral("progress")},
                            {QStringLiteral("frame"), static_cast<double>(p.frame)},
                            {QStringLiteral("total"), static_cast<double>(p.total)}});
+            },
+            [&renderToken] {
+                emitEvent({{QStringLiteral("event"), QStringLiteral("reserved")},
+                           {QStringLiteral("token"), renderToken}});
             });
     }
     engine::MltRuntime::shutdown();

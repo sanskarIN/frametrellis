@@ -70,6 +70,45 @@ Succeeded, Failed, Cancelled ─► Starting (retry)
 7. Atomically replaces the destination (`rename` / `MoveFileExW`). An existing file is never
    touched unless the export succeeded.
 
+### Export reliability and diagnostics
+
+The renderer exclusively reserves its private temporary output before creating the
+avformat consumer. Existing files, directories and dangling symbolic links cannot
+be used as temporary output. The publication step refuses missing, empty or
+symbolic-link partials, nonregular destinations and paths in different directories.
+These checks protect against accidental collisions; they are not a sandbox against
+another process deliberately modifying files in the output directory.
+
+The helper reports a reservation event immediately after exclusive creation, before
+constructing the encoder. The editor only removes a failed job's regular partial
+file after receiving a reservation with that job's exact token. If the helper
+refuses a collision, sends the wrong token, or exits before reporting ownership,
+the editor leaves the file alone. A crash between creation and acknowledgement may
+leave an orphaned partial file; preservation is safer than deleting an unclaimed file.
+
+The editor distinguishes the OS process starting from a valid renderer start
+message. When all output frames have been reported but the helper has not exited,
+the dialog indicates finalization and verification instead of implying that the
+file is ready. After 60 seconds without an advancing frame or a valid start, the
+progress text describes the delay and offers cancellation. Duplicate progress
+messages do not restart that timer. This is informational: slow media and long
+encodes are not automatically killed. The existing cancellation watchdog remains
+responsible for a helper that refuses to stop.
+
+The single-export controller owns the active job before it emits its initial
+Starting state. An immediate Cancel therefore reaches the current job, including
+before the process has a writable stdin pipe. Terminal notifications are deferred
+until the job's signal stack unwinds, so a completion handler can reset or retry
+without destroying an executing RenderJob. A pending terminal notification keeps
+the controller busy until it is delivered.
+
+Failure diagnostics include the last accepted frame count, elapsed time, encoder,
+valid-start and completion status, together with the existing bounded stderr tail.
+An empty encoder output additionally reports the selected canvas, FPS and audio
+option. These diagnostics help investigate startup/encoder faults without claiming
+that all native failures have been resolved.
+
+
 Cancellation: the job writes `cancel` to the helper's stdin (the helper also stops when stdin is
 closed, for example because the editor crashed, and on SIGINT/SIGTERM). The helper stops the
 consumer and deletes the partial file. If it does not exit within the grace period it is killed.
@@ -90,6 +129,7 @@ One JSON object per line on stdout, each prefixed with `@ft ` so that unrelated 
 libraries cannot be mistaken for an event:
 
 ```
+@ft {"event":"reserved","token":"<render-token>"}
 @ft {"event":"started","encoder":"libx264","total":250}
 @ft {"event":"progress","frame":120,"total":250}
 @ft {"event":"finished","output":"/path/out.mp4"}

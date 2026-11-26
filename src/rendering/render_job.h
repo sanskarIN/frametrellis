@@ -50,6 +50,14 @@ public:
     [[nodiscard]] const QString& errorMessage() const { return m_errorMessage; }
     [[nodiscard]] const QString& errorDetail() const { return m_errorDetail; }
     [[nodiscard]] qint64 elapsedMilliseconds() const;
+    /// A valid renderer start is distinct from the OS process being launched.
+    [[nodiscard]] bool encodingStarted() const
+    {
+        return m_sawStarted && m_startedTotalMatchesExpected;
+    }
+    /// Time since the last strictly advancing frame or valid start event.
+    [[nodiscard]] qint64 millisecondsWithoutProgress() const;
+    [[nodiscard]] bool finalizing() const;
     /// Average completed frames/second since the export started (zero until measurable).
     [[nodiscard]] double framesPerSecond() const;
     /// Estimated remaining time, or -1 while unknown.
@@ -75,12 +83,15 @@ private:
 
     QString m_helperProgram;
     QString m_partialOutputPath;
+    QString m_renderToken;
+    bool m_ownsPartialOutput = false;
     State m_state = State::Idle;
     ExportSettings m_settings;
     std::unique_ptr<QProcess> m_process;
     std::unique_ptr<QTemporaryDir> m_snapshotDir;
     QTimer m_killTimer;
     QElapsedTimer m_elapsed;
+    QElapsedTimer m_lastAdvance;
     qint64 m_finalElapsed = -1;
     QByteArray m_buffer;
     QByteArray m_stderrTail; // bounded recent renderer diagnostics for failed exports

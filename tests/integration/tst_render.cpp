@@ -408,6 +408,35 @@ private slots:
         QVERIFY(partFiles().isEmpty());
     }
 
+    void editorDoesNotRemoveUnclaimedPartialOutput()
+    {
+        const Project original = project(25);
+        for (const QString& mode :
+             {QStringLiteral("unowned-collision"), QStringLiteral("wrong-reservation")}) {
+            ExportSettings settings;
+            settings.outputPath = m_dir.filePath(mode + QStringLiteral(".mp4"));
+            settings.speedPreset = QStringLiteral("ultrafast");
+            {
+                RenderJob job(QStringLiteral(FT_FAKE_RENDER_HELPER));
+                QSignalSpy finished(&job, &RenderJob::finished);
+                QVERIFY(job.start(original, settings));
+                QVERIFY(finished.count() > 0 || finished.wait(15'000));
+                QCOMPARE(job.state(), RenderJob::State::Failed);
+                QCOMPARE(partFiles().size(), 1);
+            }
+            // Destruction must not attempt to clean up an unclaimed path either.
+            const QStringList leftovers = partFiles();
+            QCOMPARE(leftovers.size(), 1);
+            QVERIFY(leftovers.front().startsWith(QLatin1Char('.') + mode));
+            QFile untouched(m_dir.filePath(leftovers.front()));
+            QVERIFY(untouched.open(QIODevice::ReadOnly));
+            QCOMPARE(untouched.readAll(), QByteArrayLiteral("unfinished synthetic output"));
+            untouched.close();
+            QVERIFY(untouched.remove());
+        }
+        QVERIFY(partFiles().isEmpty());
+    }
+
     void helperZeroExitCannotClaimSuccessWithoutOutput()
     {
         const Project original = project(25);
@@ -703,6 +732,83 @@ private slots:
         QVERIFY(finished.count() > 0 || finished.wait(15'000));
         QCOMPARE(job.state(), RenderJob::State::Cancelled);
         QVERIFY(!QFile::exists(settings.outputPath));
+        QVERIFY(partFiles().isEmpty());
+    }
+
+    void repeatedProgressDoesNotHideAQuietRender()
+    {
+        RenderJob job(QStringLiteral(FT_CANCEL_RENDER_HELPER));
+        QSignalSpy finished(&job, &RenderJob::finished);
+        ExportSettings settings;
+        settings.outputPath = m_dir.filePath(QStringLiteral("quiet-progress.mp4"));
+        QVERIFY(job.start(project(25), settings));
+        QTRY_VERIFY_WITH_TIMEOUT(job.encodingStarted(), 5000);
+        QTRY_COMPARE_WITH_TIMEOUT(job.framesDone(), FrameCount{10}, 5000);
+        QVERIFY(!job.finalizing());
+        QTRY_VERIFY_WITH_TIMEOUT(job.millisecondsWithoutProgress() >= 200, 5000);
+        QCOMPARE(job.framesDone(), FrameCount{10});
+        QCOMPARE(job.state(), RenderJob::State::Running);
+        job.cancel();
+        QVERIFY(finished.count() > 0 || finished.wait(15'000));
+        QCOMPARE(job.state(), RenderJob::State::Cancelled);
+        QCOMPARE(job.millisecondsWithoutProgress(), qint64{0});
+        QVERIFY(!QFile::exists(settings.outputPath));
+        QVERIFY(partFiles().isEmpty());
+
+        finished.clear();
+        settings.outputPath = m_dir.filePath(QStringLiteral("quiet-finalizing.mp4"));
+        QVERIFY(job.start(project(25), settings));
+        QTRY_VERIFY_WITH_TIMEOUT(job.finalizing(), 5000);
+        QCOMPARE(job.framesDone(), FrameCount{40});
+        QCOMPARE(job.state(), RenderJob::State::Running);
+        QVERIFY(!QFile::exists(settings.outputPath));
+        job.cancel();
+        QVERIFY(finished.count() > 0 || finished.wait(15'000));
+        QCOMPARE(job.state(), RenderJob::State::Cancelled);
+        QVERIFY(!job.finalizing());
+        QVERIFY(partFiles().isEmpty());
+    }
+
+    void helperPreservesOccupiedTemporaryOutput()
+    {
+        const QString snapshot = m_dir.filePath(QStringLiteral("collision.ftproj"));
+        const QString output = m_dir.filePath(QStringLiteral("collision.mp4"));
+        const QString token(32, QLatin1Char('a'));
+        const QString part = m_dir.filePath(QStringLiteral(".collision.%1.part.mp4").arg(token));
+        QVERIFY(project_format::saveToFile(project(25), snapshot));
+        QFile existing(part);
+        QVERIFY(existing.open(QIODevice::WriteOnly));
+        QCOMPARE(existing.write("keep"), qint64{4});
+        existing.close();
+        QProcess helper;
+        helper.start(QStringLiteral(FT_RENDER_HELPER),
+                     {QStringLiteral("--project"), snapshot, QStringLiteral("--output"), output,
+                      QStringLiteral("--render-token"), token});
+        QVERIFY(helper.waitForStarted(10'000));
+        QVERIFY(helper.waitForFinished(30'000));
+        QCOMPARE(helper.exitCode(), int(protocol::Failure));
+        QVERIFY(helper.readAllStandardOutput().contains("temporary export file already exists"));
+        QVERIFY(existing.open(QIODevice::ReadOnly));
+        QCOMPARE(existing.readAll(), QByteArray("keep"));
+        existing.close();
+        QVERIFY(!QFileInfo::exists(output));
+        QVERIFY(existing.remove());
+
+#ifndef Q_OS_WIN
+        // A broken link has no existing target, but still occupies the name.
+        const QString absent = m_dir.filePath(QStringLiteral("never-created.mp4"));
+        QVERIFY(QFile::link(absent, part));
+        QVERIFY(QFileInfo(part).isSymLink());
+        helper.start(QStringLiteral(FT_RENDER_HELPER),
+                     {QStringLiteral("--project"), snapshot, QStringLiteral("--output"), output,
+                      QStringLiteral("--render-token"), token});
+        QVERIFY(helper.waitForStarted(10'000));
+        QVERIFY(helper.waitForFinished(30'000));
+        QCOMPARE(helper.exitCode(), int(protocol::Failure));
+        QVERIFY(!QFileInfo::exists(absent));
+        QVERIFY(QFileInfo(part).isSymLink());
+        QVERIFY(QFile::remove(part));
+#endif
         QVERIFY(partFiles().isEmpty());
     }
 
@@ -1030,8 +1136,9 @@ private slots:
         settings.avoidUpscaling = true;
         settings.speedPreset = QStringLiteral("veryfast");
         QVERIFY(job.start(project(25), settings));
-        QVERIFY(finished.wait(60'000));
-        QCOMPARE(job.state(), RenderJob::State::Succeeded);
+        QVERIFY(finished.count() > 0 || finished.wait(60'000));
+        QVERIFY2(job.state() == RenderJob::State::Succeeded,
+                 qPrintable(job.errorMessage() + job.errorDetail()));
         const Result<MediaInfo> video = media::probeMedia(settings.outputPath);
         QVERIFY(video);
         QCOMPARE(video->width, 160);

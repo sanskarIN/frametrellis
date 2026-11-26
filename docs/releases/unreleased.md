@@ -1,33 +1,31 @@
 # Development history and unreleased changes
 
-**Latest stable: [FrameTrellis v1.5.1](https://github.com/sanskarIN/frametrellis/releases/tag/v1.5.1), published on 20 November 2026.**
-Its public Windows x64 five-file asset set and Linux/macOS source-build
-scope are described in [the published v1.5.1 notes](v1.5.1.md).
-The original v1.5.1 tag and assets are immutable.
+**Latest stable: [FrameTrellis v1.5.2](https://github.com/sanskarIN/frametrellis/releases/tag/v1.5.2), published on 24 November 2026.**
+Its five public Windows x64 files and Linux/macOS source-build distribution
+remain unchanged. See [v1.5.2 release notes](v1.5.2.md).
 
-## Post-v1.5.1 development — proposed v1.5.2 maintenance
+## Post-v1.5.2 development — proposed v1.5.3 maintenance
 
-- Merged, *not in the published v1.5.1 binaries*: exact rational
-  comparisons and wide timebase conversion [#310](https://github.com/sanskarIN/frametrellis/pull/310)
-  / [#312](https://github.com/sanskarIN/frametrellis/pull/312).
-- Merged: export FPS input validation, renderer lifecycle validation and
-  false-success protection [#308](https://github.com/sanskarIN/frametrellis/pull/308),
-  [#309](https://github.com/sanskarIN/frametrellis/pull/309) and
-  [#313](https://github.com/sanskarIN/frametrellis/pull/313).
-- Merged: export-path text-field synchronization [#311](https://github.com/sanskarIN/frametrellis/pull/311);
-  stricter SMPTE drop-frame parsing [#314](https://github.com/sanskarIN/frametrellis/pull/314);
-  playback-loop CI regression reliability [#316](https://github.com/sanskarIN/frametrellis/pull/316).
-- Merged, after all 16 latest-head PR checks passed: exact export-path
-  validation [#315](https://github.com/sanskarIN/frametrellis/pull/315).
-- Proposed, **not yet merged**: long-video independent MP4 verification
-  [#319](https://github.com/sanskarIN/frametrellis/pull/319),
-  pending its full latest-head CI gate.
+- Merged: bounded WebVTT entity decoding and decoded subtitle length
+  ([#341](https://github.com/sanskarIN/frametrellis/pull/341)).
+- Merged: strict preset IDs and boolean export settings validation before
+  rendering or batch preflight ([#346](https://github.com/sanskarIN/frametrellis/pull/346)).
+- Merged: isolated v1.5.3 five-file release infrastructure and explicit
+  owner-controlled publication policy ([#351](https://github.com/sanskarIN/frametrellis/pull/351)).
+- Merged: temporary output ownership, publication protection and progress
+  diagnostics ([#350](https://github.com/sanskarIN/frametrellis/pull/350)).
+  Exact-main release qualification remains outstanding.
 
-See the [v1.5.2 candidate notes](v1.5.2.md), the
-[release preflight](v1.5.2-preflight.md), and [tracker #317](https://github.com/sanskarIN/frametrellis/issues/317).
-No v1.5.2 version bump, release/tag, production installer or publication
-approval follows from these notes. The native Windows long-export and
-Windows 11 ARM intermittent issues remain open for real-device investigation.
+See [candidate notes](v1.5.3.md), [preflight](v1.5.3-preflight.md) and the
+[owner runbook](v1.5.3-owner-release-runbook.md).
+Native long-export and Windows ARM startup risks still require physical evidence.
+The release date, staged version and PR checks do not grant publication approval.
+
+## Historic v1.5.2 maintenance
+
+See [v1.5.2.md](v1.5.2.md) for the published scope, including rational
+timebase and SMPTE parsing corrections, export lifecycle and settings
+validation, and additional reliability regression coverage.
 
 ## Historic v1.5.1 maintenance
 

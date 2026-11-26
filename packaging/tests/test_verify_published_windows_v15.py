@@ -31,7 +31,7 @@ class PublishedWindowsV15Tests(unittest.TestCase):
         self.assertEqual(len(verify(self.assets, self.root, "1.5.0")), 5)
 
     def test_unsupported_version_cannot_silently_change(self):
-        for version in ("1.4.0", "1.5.3", "1.5.2-rc.1", "v1.5.2", "../1.5.2"):
+        for version in ("1.4.0", "1.5.4", "1.6.0", "1.5.3-rc.1", "v1.5.3", "../1.5.3"):
             with self.subTest(version=version), self.assertRaisesRegex(
                 ValueError, "supports only"
             ):
@@ -65,6 +65,47 @@ class PublishedWindowsV15Tests(unittest.TestCase):
             ("state", "processing"),
             ("size", 0),
             ("name", "FrameTrellis-1.5.1-windows-x64.zip"),
+        ):
+            changed = [dict(x) for x in candidate]
+            changed[0][field] = value
+            with self.subTest(field=field), self.assertRaises(ValueError):
+                verify(changed, self.root, version)
+
+    def test_v153_requires_exact_public_assets_and_digests(self):
+        version = "1.5.3"
+        names = {
+            "FrameTrellis-1.5.3-windows-x64-setup.exe",
+            "FrameTrellis-1.5.3-windows-x64.zip",
+            "FrameTrellis-1.5.3-windows-x64.spdx.json",
+            "FrameTrellis-1.5.3-windows-x64-third-party-sources.tar",
+            "SHA256SUMS.txt",
+        }
+        self.assertEqual(expected_names(version), names)
+        candidate = []
+        for name in sorted(names):
+            data = b"v153 fixture/" + name.encode("utf-8")
+            (self.root / name).write_bytes(data)
+            candidate.append({
+                "name": name, "size": len(data), "state": "uploaded",
+                "digest": "sha256:" + hashlib.sha256(data).hexdigest(),
+            })
+        self.assertEqual(set(verify(candidate, self.root, version)), names)
+        for previous in ("1.5.0", "1.5.1", "1.5.2"):
+            with self.subTest(previous=previous), self.assertRaises(ValueError):
+                verify(candidate, self.root, previous)
+        for changed in (
+            candidate[:-1],
+            candidate + [dict(candidate[0])],
+            candidate + [{"name": "FrameTrellis-1.5.3-linux-x86_64.AppImage"}],
+        ):
+            with self.subTest(count=len(changed)), self.assertRaises(ValueError):
+                verify(changed, self.root, version)
+        for field, value in (
+            ("digest", None),
+            ("digest", "sha256:" + "0" * 64),
+            ("state", "processing"),
+            ("size", 0),
+            ("name", "FrameTrellis-1.5.2-windows-x64.zip"),
         ):
             changed = [dict(x) for x in candidate]
             changed[0][field] = value

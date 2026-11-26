@@ -23,6 +23,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { escapeHtml, renderMarkdown } from './markdown.mjs';
 import { checkDownloadLink } from './tools/download-links.mjs';
+import { validateSourceBuildRelease } from './tools/release-assets.mjs';
 
 const webDir = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(webDir, '..');
@@ -304,6 +305,14 @@ function readRelease() {
     }
     if (!data || typeof data.tag_name !== 'string' || !Array.isArray(data.assets) || data.draft) {
         return null; // no published release yet
+    }
+    // A publication can be visible before its uploader finishes. Fail the build
+    // rather than replace the existing website with a partial maintenance release.
+    try {
+        validateSourceBuildRelease(data, REPO_URL);
+    } catch (error) {
+        errors.push(error.message);
+        return null;
     }
     const find = (suffix) => data.assets.find((a) => typeof a.name === 'string' && a.name.endsWith(suffix));
     const release = {

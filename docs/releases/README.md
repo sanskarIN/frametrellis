@@ -6,7 +6,8 @@ GitHub release description. Unreleased changes are collected in [unreleased.md](
 ## Next maintenance candidate — preparation only
 
 **v1.5.3 is targeted for 26 November 2026, not yet approved or published.**
-See [candidate notes](v1.5.3.md) and [preflight](v1.5.3-preflight.md).
+See [candidate notes](v1.5.3.md), [preflight](v1.5.3-preflight.md), and the
+[owner release runbook](v1.5.3-owner-release-runbook.md).
 
 ## Latest published stable release
 

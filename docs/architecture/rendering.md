@@ -79,6 +79,13 @@ symbolic-link partials, nonregular destinations and paths in different directori
 These checks protect against accidental collisions; they are not a sandbox against
 another process deliberately modifying files in the output directory.
 
+The helper reports a reservation event immediately after exclusive creation, before
+constructing the encoder. The editor only removes a failed job's regular partial
+file after receiving a reservation with that job's exact token. If the helper
+refuses a collision, sends the wrong token, or exits before reporting ownership,
+the editor leaves the file alone. A crash between creation and acknowledgement may
+leave an orphaned partial file; preservation is safer than deleting an unclaimed file.
+
 The editor distinguishes the OS process starting from a valid renderer start
 message. When all output frames have been reported but the helper has not exited,
 the dialog indicates finalization and verification instead of implying that the
@@ -122,6 +129,7 @@ One JSON object per line on stdout, each prefixed with `@ft ` so that unrelated 
 libraries cannot be mistaken for an event:
 
 ```
+@ft {"event":"reserved","token":"<render-token>"}
 @ft {"event":"started","encoder":"libx264","total":250}
 @ft {"event":"progress","frame":120,"total":250}
 @ft {"event":"finished","output":"/path/out.mp4"}

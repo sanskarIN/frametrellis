@@ -31,13 +31,15 @@ public:
     };
     using ProgressCallback = std::function<void(const Progress&)>;
     using StartedCallback = std::function<void(const QString& encoder, FrameCount total)>;
+    using ReservedCallback = std::function<void()>;
 
     RenderRunner(Project project, ExportSettings settings, QString projectFilePath = {},
                  QString temporaryToken = {});
 
     /// Blocks until the render finishes, fails or is cancelled through the flag.
+    /// reserved is called only after exclusive creation of the temporary output.
     Status run(const std::atomic<bool>& cancelRequested, const StartedCallback& started = {},
-               const ProgressCallback& progress = {});
+               const ProgressCallback& progress = {}, const ReservedCallback& reserved = {});
 
     [[nodiscard]] const QString& encoder() const { return m_encoder; }
 

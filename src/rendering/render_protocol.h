@@ -15,6 +15,7 @@
 /// The render helper reports progress as JSON objects on stdout, one per line, each prefixed with
 /// "@ft " so that unrelated output from libraries can never be mistaken for an event.
 ///
+///   @ft {"event":"reserved","token":"<render-token>"}
 ///   @ft {"event":"started","encoder":"libx264","total":250}
 ///   @ft {"event":"progress","frame":120,"total":250}
 ///   @ft {"event":"finished","output":"/path/out.mp4"}

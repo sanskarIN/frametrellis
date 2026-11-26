@@ -134,7 +134,7 @@ RenderRunner::RenderRunner(Project project, ExportSettings settings, QString pro
 {}
 
 Status RenderRunner::run(const std::atomic<bool>& cancelRequested, const StartedCallback& started,
-                         const ProgressCallback& progress)
+                         const ProgressCallback& progress, const ReservedCallback& reserved)
 {
     if (!engine::MltRuntime::isInitialized()) {
         return makeError(ErrorCode::Engine, QStringLiteral("The media engine is not initialised."));
@@ -250,8 +250,11 @@ Status RenderRunner::run(const std::atomic<bool>& cancelRequested, const Started
     const QString partPath = temporaryOutputPath(finalPath, m_temporaryToken);
     // Reserve the private output exclusively, including against a dangling link.
     // FFmpeg then writes only to the empty file owned by this render attempt.
-    if (const Status reserved = reserveRenderedFile(partPath); !reserved) {
-        return reserved;
+    if (const Status reservation = reserveRenderedFile(partPath); !reservation) {
+        return reservation;
+    }
+    if (reserved) {
+        reserved();
     }
     const QByteArray partEncoded = partPath.toUtf8();
     // Keep the consumer alive only while the encoder is running. On Windows its

@@ -83,6 +83,8 @@ private:
 
     QString m_helperProgram;
     QString m_partialOutputPath;
+    QString m_renderToken;
+    bool m_ownsPartialOutput = false;
     State m_state = State::Idle;
     ExportSettings m_settings;
     std::unique_ptr<QProcess> m_process;

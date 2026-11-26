@@ -71,8 +71,14 @@ RenderJob::~RenderJob()
 
 void RenderJob::removeOwnedPartialOutput()
 {
-    if (!m_partialOutputPath.isEmpty() && QFileInfo::exists(m_partialOutputPath) &&
-        !QFile::remove(m_partialOutputPath)) {
+    // A random filename alone does not prove ownership. The helper may have
+    // refused an existing file at that exact path before it could reserve it.
+    if (!m_ownsPartialOutput) {
+        return;
+    }
+    m_ownsPartialOutput = false;
+    const QFileInfo partial(m_partialOutputPath);
+    if (partial.isFile() && !partial.isSymLink() && !QFile::remove(m_partialOutputPath)) {
         qCWarning(lcRender) << "Could not remove this export's partial output:"
                             << m_partialOutputPath;
     }
@@ -140,6 +146,8 @@ Status RenderJob::start(const Project& project, const ExportSettings& settings,
     m_snapshotDir = std::move(snapshotDir);
     m_settings = settings;
     const QString token = QUuid::createUuid().toString(QUuid::Id128);
+    m_renderToken = token;
+    m_ownsPartialOutput = false;
     const QFileInfo outputInfo(settings.outputPath);
     m_partialOutputPath =
         QDir(outputInfo.absolutePath())
@@ -337,7 +345,14 @@ void RenderJob::onReadyRead()
 void RenderJob::handleEvent(const QJsonObject& event)
 {
     const QString type = event.value(QLatin1String("event")).toString();
-    if (type == QLatin1String("started")) {
+    if (type == QLatin1String("reserved")) {
+        if (!m_renderToken.isEmpty() &&
+            event.value(QLatin1String("token")).toString() == m_renderToken) {
+            m_ownsPartialOutput = true;
+        } else {
+            qCWarning(lcRender) << "Ignored renderer reservation with unexpected token";
+        }
+    } else if (type == QLatin1String("started")) {
         const auto total = protocol::frameCount(event.value(QLatin1String("total")));
         if (!total || *total == 0 || m_sawStarted) {
             qCWarning(lcRender) << "Ignored invalid or duplicate renderer started event";

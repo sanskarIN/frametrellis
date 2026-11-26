@@ -408,6 +408,35 @@ private slots:
         QVERIFY(partFiles().isEmpty());
     }
 
+    void editorDoesNotRemoveUnclaimedPartialOutput()
+    {
+        const Project original = project(25);
+        for (const QString& mode :
+             {QStringLiteral("unowned-collision"), QStringLiteral("wrong-reservation")}) {
+            ExportSettings settings;
+            settings.outputPath = m_dir.filePath(mode + QStringLiteral(".mp4"));
+            settings.speedPreset = QStringLiteral("ultrafast");
+            {
+                RenderJob job(QStringLiteral(FT_FAKE_RENDER_HELPER));
+                QSignalSpy finished(&job, &RenderJob::finished);
+                QVERIFY(job.start(original, settings));
+                QVERIFY(finished.count() > 0 || finished.wait(15'000));
+                QCOMPARE(job.state(), RenderJob::State::Failed);
+                QCOMPARE(partFiles().size(), 1);
+            }
+            // Destruction must not attempt to clean up an unclaimed path either.
+            const QStringList leftovers = partFiles();
+            QCOMPARE(leftovers.size(), 1);
+            QVERIFY(leftovers.front().startsWith(QLatin1Char('.') + mode));
+            QFile untouched(m_dir.filePath(leftovers.front()));
+            QVERIFY(untouched.open(QIODevice::ReadOnly));
+            QCOMPARE(untouched.readAll(), QByteArrayLiteral("unfinished synthetic output"));
+            untouched.close();
+            QVERIFY(untouched.remove());
+        }
+        QVERIFY(partFiles().isEmpty());
+    }
+
     void helperZeroExitCannotClaimSuccessWithoutOutput()
     {
         const Project original = project(25);

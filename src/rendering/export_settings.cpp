@@ -263,6 +263,10 @@ Status validateExport(const ExportSettings& settings, const Project& project,
         return makeError(ErrorCode::InvalidArgument,
                          QStringLiteral("The output file name must end in .mp4."));
     }
+    if (output.isSymLink()) {
+        return makeError(ErrorCode::Conflict,
+                         QStringLiteral("Choose a regular output filename, not a symbolic link."));
+    }
     if (settings.protectExistingOutput && output.exists()) {
         return makeError(ErrorCode::Conflict,
                          QStringLiteral("Batch output already exists. Choose another filename."));

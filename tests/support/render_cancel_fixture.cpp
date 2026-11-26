@@ -16,12 +16,16 @@ int main(int argc, char** argv)
     bool ignoreCancel = false;
     bool unexpectedCancel = false;
     bool errorAfterCancel = false;
+    bool quietProgress = false;
+    bool finalizing = false;
     for (int i = 1; i + 1 < argc; ++i) {
         if (std::strcmp(argv[i], "--output") == 0) {
             exitWithFailure = std::strstr(argv[i + 1], "fail-after-cancel") != nullptr;
             ignoreCancel = std::strstr(argv[i + 1], "hang-after-cancel") != nullptr;
             unexpectedCancel = std::strstr(argv[i + 1], "unexpected-cancel") != nullptr;
             errorAfterCancel = std::strstr(argv[i + 1], "error-after-cancel") != nullptr;
+            quietProgress = std::strstr(argv[i + 1], "quiet-progress") != nullptr;
+            finalizing = std::strstr(argv[i + 1], "quiet-finalizing") != nullptr;
             break;
         }
     }
@@ -30,6 +34,20 @@ int main(int argc, char** argv)
         std::puts(R"(@ft {"event":"started","encoder":"cancel-fixture","total":40})");
         std::fflush(stdout);
         return 3;
+    }
+    if (quietProgress || finalizing) {
+        std::puts(R"(@ft {"event":"started","encoder":"cancel-fixture","total":40})");
+        if (finalizing) {
+            std::puts(R"(@ft {"event":"progress","frame":40,"total":40})");
+            std::fflush(stdout);
+        } else {
+            // Duplicate progress events must not reset the no-advance timer.
+            for (int i = 0; i < 12; ++i) {
+                std::puts(R"(@ft {"event":"progress","frame":10,"total":40})");
+                std::fflush(stdout);
+                std::this_thread::sleep_for(std::chrono::milliseconds(40));
+            }
+        }
     }
     char command[32]{};
     if (!std::fgets(command, sizeof(command), stdin)) {

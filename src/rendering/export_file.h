@@ -8,6 +8,10 @@
 
 namespace ft::rendering {
 
+/// Atomically reserve a new empty temporary output. Never follow an existing
+/// file, directory or dangling symbolic link at the requested path.
+Status reserveRenderedFile(const QString& partPath);
+
 /// Publish a complete, verified temporary file to its final destination.
 /// When replaceExisting is false, atomically refuse to replace an existing
 /// output even when another process creates it during the render.

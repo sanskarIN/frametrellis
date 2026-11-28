@@ -73,6 +73,14 @@ public:
     Q_INVOKABLE bool saveAs(const QString& pathOrUrl);
     /// Rename project metadata (not its disk filename) as an undoable edit.
     Q_INVOKABLE bool renameProject(const QString& newName);
+    /// Manual immutable snapshots for the current project's stable ID.
+    Q_INVOKABLE QVariantMap checkpointHistory() const;
+    Q_INVOKABLE bool createCheckpoint(const QString& label);
+    Q_INVOKABLE QVariantMap compareCheckpoint(const QString& projectId,
+                                              const QString& checkpointId) const;
+    /// Opens a checkpoint as unsaved work. The caller guards current unsaved edits.
+    Q_INVOKABLE bool restoreCheckpoint(const QString& projectId, const QString& checkpointId);
+    Q_INVOKABLE bool removeCheckpoint(const QString& projectId, const QString& checkpointId);
     /// Atomically write a read-only CSV report of timeline clips; does not alter undo or save
     /// state.
     Q_INVOKABLE bool exportClipListCsv(const QString& pathOrUrl);
@@ -91,6 +99,7 @@ public:
 
     static QString localPath(const QString& pathOrUrl);
     static QString autosaveDirectory();
+    static QString checkpointDirectory();
 
 signals:
     void documentReplaced();

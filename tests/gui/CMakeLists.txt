@@ -31,6 +31,10 @@ set_tests_properties(tst_frame_view PROPERTIES
 ft_add_test(tst_thumbnail_request SOURCES tst_thumbnail_request.cpp LIBS ft_ui LABELS gui)
 set_tests_properties(tst_thumbnail_request PROPERTIES TIMEOUT 30)
 
+# Manual version history preserves the original file and opens restored work unsaved.
+ft_add_test(tst_checkpoint_controller SOURCES tst_checkpoint_controller.cpp LIBS ft_ui LABELS gui)
+set_tests_properties(tst_checkpoint_controller PROPERTIES TIMEOUT 60)
+
 # A recovered unsaved edit must survive another crash before the user saves it.
 ft_add_test(tst_recovery SOURCES tst_recovery.cpp LIBS ft_ui LABELS gui)
 set_tests_properties(tst_recovery PROPERTIES TIMEOUT 60)

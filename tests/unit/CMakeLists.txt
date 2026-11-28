@@ -11,6 +11,8 @@ ft_add_test(tst_transform_keyframes SOURCES tst_transform_keyframes.cpp LIBS ft_
 ft_add_test(tst_subtitles SOURCES tst_subtitles.cpp LIBS ft_editing LABELS unit)
 ft_add_test(tst_timeline SOURCES tst_timeline.cpp LIBS ft_timeline LABELS unit)
 ft_add_test(tst_project_format SOURCES tst_project_format.cpp LIBS ft_project LABELS unit)
+ft_add_test(tst_project_checkpoints SOURCES tst_project_checkpoints.cpp LIBS ft_project LABELS unit)
+ft_add_test(tst_project_diff SOURCES tst_project_diff.cpp LIBS ft_project LABELS unit)
 ft_add_test(tst_editing SOURCES tst_editing.cpp LIBS ft_editing LABELS unit)
 ft_add_test(tst_markers SOURCES tst_markers.cpp LIBS ft_editing LABELS unit)
 ft_add_test(tst_marker_chapters SOURCES tst_marker_chapters.cpp LIBS ft_project LABELS unit)

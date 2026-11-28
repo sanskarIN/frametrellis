@@ -481,6 +481,55 @@ private slots:
         QCOMPARE(projectController->undoText(), undoBefore);
     }
 
+    void checkpointDialogCreatesNamedVersionWithoutChangingCurrentProject()
+    {
+        auto* controller = m_app->project();
+        const Project before = controller->project();
+        const QString undoLabel = controller->undoText();
+        const bool dirty = controller->isModified();
+        const QString path = controller->filePath();
+
+        QObject* dialog = m_window->findChild<QObject*>(QStringLiteral("checkpointDialog"));
+        QVERIFY(dialog);
+        QVERIFY(QMetaObject::invokeMethod(dialog, "open"));
+        QTRY_VERIFY(dialog->property("visible").toBool());
+        QTRY_VERIFY(dialog->property("validHistory").toBool());
+        QQuickItem* field = findItem(m_window->contentItem(), QStringLiteral("checkpointName"));
+        QVERIFY(field);
+        const QString label = QStringLiteral("GUI checkpoint — %1").arg(createId());
+        QVERIFY(field->setProperty("text", label));
+        QVERIFY(QMetaObject::invokeMethod(dialog, "createVersion"));
+
+        const QVariantMap history = controller->checkpointHistory();
+        const QVariantList entries = history.value(QStringLiteral("entries")).toList();
+        Id checkpoint;
+        for (const QVariant& value : entries) {
+            const QVariantMap entry = value.toMap();
+            if (entry.value(QStringLiteral("label")).toString() == label) {
+                checkpoint = entry.value(QStringLiteral("id")).toString();
+                break;
+            }
+        }
+        QVERIFY(isValidId(checkpoint));
+        QVERIFY(QMetaObject::invokeMethod(dialog, "compareSelected"));
+        QObject* comparison =
+            dialog->findChild<QObject*>(QStringLiteral("checkpointCompareDialog"));
+        QVERIFY(comparison);
+        QTRY_VERIFY(comparison->property("visible").toBool());
+        QTRY_VERIFY(comparison->property("validComparison").toBool());
+        QTest::keyClick(m_window, Qt::Key_Escape);
+        QTRY_VERIFY(!comparison->property("visible").toBool());
+        QTRY_VERIFY(dialog->property("visible").toBool());
+        QTest::keyClick(m_window, Qt::Key_Escape);
+        QTRY_VERIFY(!dialog->property("visible").toBool());
+        QVERIFY(controller->removeCheckpoint(before.id(), checkpoint));
+
+        QCOMPARE(controller->project(), before);
+        QCOMPARE(controller->undoText(), undoLabel);
+        QCOMPARE(controller->isModified(), dirty);
+        QCOMPARE(controller->filePath(), path);
+    }
+
     void escapeClearsSelectionWithoutDeletingOrUndo()
     {
         const Id clipId = track(0).clips.front().id;

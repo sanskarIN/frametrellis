@@ -16,12 +16,14 @@ on:
       - "docs/releases/v1.5.1.md"
       - "docs/releases/v1.5.2.md"
       - "docs/releases/v1.5.3.md"
+      - "docs/releases/v1.5.4.md"
       - ".github/workflows/release.yml"
       - ".github/workflows/release-assets.yml"
       - ".github/workflows/release-assets-v15-source.yml"
       - ".github/workflows/release-assets-v151-source.yml"
       - ".github/workflows/release-assets-v152-source.yml"
       - ".github/workflows/release-assets-v153-source.yml"
+      - ".github/workflows/release-assets-v154-source.yml"
   workflow_dispatch:
 
 permissions:
@@ -65,6 +67,8 @@ jobs:
             policy="--v152-source-build-assets"
           elif [[ "$project" == "1.5.3" ]]; then
             policy="--v153-source-build-assets"
+          elif [[ "$project" == "1.5.4" ]]; then
+            policy="--v154-source-build-assets"
           fi
           if ! python3 packaging/release_version.py --tag "$tag" \
                  --project-version "$project" "$policy" >> "$GITHUB_OUTPUT"; then
@@ -183,7 +187,7 @@ jobs:
           { cat "docs/releases/v${VERSION%%-*}.md"; echo; cat release-assets.md; } > release-notes.md
           cat release-notes.md
       - name: Independently verify offline stable candidate before artifact upload
-        if: env.RELEASE_VERSION == '1.5.2' || env.RELEASE_VERSION == '1.5.3'
+        if: env.RELEASE_VERSION == '1.5.2' || env.RELEASE_VERSION == '1.5.3' || env.RELEASE_VERSION == '1.5.4'
         run: |
           set -euo pipefail
           python3 packaging/verify_release_assets.py --version "$VERSION" --directory release

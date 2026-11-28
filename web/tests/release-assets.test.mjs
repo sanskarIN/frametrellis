@@ -5,7 +5,7 @@ import { validateSourceBuildRelease } from '../tools/release-assets.mjs';
 
 const repo = 'https://github.com/sanskarIN/frametrellis';
 
-function fixture(tag = 'v1.5.3') {
+function fixture(tag = 'v1.5.4') {
     const names = [
         `FrameTrellis-${tag.slice(1)}-windows-x64-setup.exe`,
         `FrameTrellis-${tag.slice(1)}-windows-x64.zip`,
@@ -23,7 +23,7 @@ function fixture(tag = 'v1.5.3') {
 }
 
 test('complete exact stable five-file inventory is accepted in any order', () => {
-    for (const tag of ['v1.5.0', 'v1.5.1', 'v1.5.2', 'v1.5.3']) {
+    for (const tag of ['v1.5.0', 'v1.5.1', 'v1.5.2', 'v1.5.3', 'v1.5.4']) {
         const data = fixture(tag);
         data.assets.reverse();
         assert.doesNotThrow(() => validateSourceBuildRelease(data, repo));
@@ -42,7 +42,7 @@ test('duplicate, foreign, mixed-version and extra assets cannot certify a stable
     for (const mutate of [
         (a) => { a[1] = { ...a[0] }; },
         (a) => { a[0].name = 'FrameTrellis-1.5.2-windows-x64-setup.exe'; },
-        (a) => { a[0].name = 'FrameTrellis-1.5.3-linux-x86_64.AppImage'; },
+        (a) => { a[0].name = 'FrameTrellis-1.5.4-linux-x86_64.AppImage'; },
         (a) => { a.push({ ...a[0] }); },
     ]) {
         const data = fixture();

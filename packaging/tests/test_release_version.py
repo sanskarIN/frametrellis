@@ -20,6 +20,7 @@ from release_version import (  # noqa: E402
     require_v151_source_build_assets,
     require_v152_source_build_assets,
     require_v153_source_build_assets,
+    require_v154_source_build_assets,
     resolve_release_version,
 )
 
@@ -193,6 +194,29 @@ class ReleaseVersionTests(unittest.TestCase):
             capture_output=True, text=True, check=True,
         )
         self.assertIn("package_version=1.5.3", accepted.stdout)
+
+    def test_v154_has_separate_exact_scope(self):
+        require_v154_source_build_assets(resolve_release_version("v1.5.4", "1.5.4"))
+        for tag, version in (
+            ("v1.5.3", "1.5.3"),
+            ("v1.5.4-rc.1", "1.5.4"),
+            ("v1.6.0", "1.6.0"),
+        ):
+            with self.subTest(tag=tag), self.assertRaises(ValueError):
+                require_v154_source_build_assets(resolve_release_version(tag, version))
+        accepted = subprocess.run(
+            [sys.executable, str(SOURCE), "--tag", "v1.5.4",
+             "--project-version", "1.5.4", "--v154-source-build-assets"],
+            capture_output=True, text=True, check=True,
+        )
+        self.assertIn("package_version=1.5.4", accepted.stdout)
+        rejected = subprocess.run(
+            [sys.executable, str(SOURCE), "--tag", "v1.5.4",
+             "--project-version", "1.5.4", "--v153-source-build-assets",
+             "--v154-source-build-assets"],
+            capture_output=True, text=True, check=False,
+        )
+        self.assertNotEqual(rejected.returncode, 0)
 
     def test_source_build_cli_requires_explicit_scope(self):
         accepted = subprocess.run(

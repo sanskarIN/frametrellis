@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Validate the explicitly supported five-file stable distribution before Pages deploys.
 // This checks GitHub's metadata, not the actual bytes or owner approval.
-const SOURCE_BUILD_TAGS = new Set(['v1.5.0', 'v1.5.1', 'v1.5.2', 'v1.5.3']);
+const SOURCE_BUILD_TAGS = new Set(['v1.5.0', 'v1.5.1', 'v1.5.2', 'v1.5.3', 'v1.5.4']);
 const SUFFIXES = [
     'windows-x64-setup.exe',
     'windows-x64.zip',

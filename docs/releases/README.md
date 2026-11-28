@@ -5,21 +5,19 @@ GitHub release description. Unreleased changes are collected in [unreleased.md](
 
 ## Next maintenance candidate — preparation only
 
-**v1.5.3 is targeted for 26 November 2026, not yet approved or published.**
-See [candidate notes](v1.5.3.md), [preflight](v1.5.3-preflight.md), and the
-[owner release runbook](v1.5.3-owner-release-runbook.md).
+**v1.5.4 is targeted for 28 November 2026; publication requires separate approval.**
+See [candidate notes](v1.5.4.md) and [qualification checklist](v1.5.4-preflight.md).
 
 ## Latest published stable release
 
-**[FrameTrellis v1.5.2](https://github.com/sanskarIN/frametrellis/releases/tag/v1.5.2)**
-was published on **24 November 2026** with five public Windows x64 assets:
-installer, portable ZIP, SPDX SBOM, corresponding third-party sources and
-SHA256SUMS.txt. Linux and macOS remain source builds. Do not modify the
-published release or tag during preparation for v1.5.3.
+**[FrameTrellis v1.5.3](https://github.com/sanskarIN/frametrellis/releases/tag/v1.5.3)**
+was published on **26 November 2026** with all five Windows x64 assets.
+Linux and macOS remain source builds. Do not modify the existing tag or assets.
 
 | Version | Notes |
 |---|---|
-| 1.5.3 | [v1.5.3.md](v1.5.3.md) — candidate, not approved |
+| 1.5.4 | [v1.5.4.md](v1.5.4.md) — candidate |
+| 1.5.3 | [v1.5.3.md](v1.5.3.md) — published stable 26 November 2026 |
 | 1.5.2 | [v1.5.2.md](v1.5.2.md) — published stable 24 November 2026 |
 | 1.5.1 | [v1.5.1.md](v1.5.1.md) — published stable 20 November 2026 |
 | 1.5.0 | [v1.5.0.md](v1.5.0.md) — published featured stable 16 November 2026 |

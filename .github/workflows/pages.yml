@@ -16,6 +16,7 @@ on:
       - "Attach approved v1.5.1 Windows assets (source builds on Linux and macOS)"
       - "Attach approved v1.5.2 Windows assets (source builds on Linux and macOS)"
       - "Attach approved v1.5.3 Windows assets (source builds on Linux and macOS)"
+      - "Attach approved v1.5.4 Windows assets (source builds on Linux and macOS)"
     types: [completed]
   push:
     branches: [main]

@@ -1,25 +1,24 @@
 # Development history and unreleased changes
 
-**Latest stable: [FrameTrellis v1.5.2](https://github.com/sanskarIN/frametrellis/releases/tag/v1.5.2), published on 24 November 2026.**
-Its five public Windows x64 files and Linux/macOS source-build distribution
-remain unchanged. See [v1.5.2 release notes](v1.5.2.md).
+**Latest stable: [FrameTrellis v1.5.3](https://github.com/sanskarIN/frametrellis/releases/tag/v1.5.3), published on 26 November 2026.**
+All five Windows x64 files are attached; Linux/macOS remain source builds.
 
-## Post-v1.5.2 development — proposed v1.5.3 maintenance
+## Post-v1.5.3 development — v1.5.4 maintenance candidate
 
-- Merged: bounded WebVTT entity decoding and decoded subtitle length
-  ([#341](https://github.com/sanskarIN/frametrellis/pull/341)).
-- Merged: strict preset IDs and boolean export settings validation before
-  rendering or batch preflight ([#346](https://github.com/sanskarIN/frametrellis/pull/346)).
-- Merged: isolated v1.5.3 five-file release infrastructure and explicit
-  owner-controlled publication policy ([#351](https://github.com/sanskarIN/frametrellis/pull/351)).
-- Merged: temporary output ownership, publication protection and progress
-  diagnostics ([#350](https://github.com/sanskarIN/frametrellis/pull/350)).
-  Exact-main release qualification remains outstanding.
+- Merged: protect valid saved projects from invalid probe metadata (#342).
+- Merged: cap native preview sizes with overflow-safe integer scaling (#345).
+- Merged: validate and repair thumbnail cache entries (#343).
+- Pending independent qualification: additional recovery preservation (#344).
+- Larger review, checkpoint and portable-project features (#347–349) remain
+  outside this patch release's scope.
 
-See [candidate notes](v1.5.3.md), [preflight](v1.5.3-preflight.md) and the
-[owner runbook](v1.5.3-owner-release-runbook.md).
-Native long-export and Windows ARM startup risks still require physical evidence.
-The release date, staged version and PR checks do not grant publication approval.
+See [candidate notes](v1.5.4.md) and [preflight](v1.5.4-preflight.md).
+Exact-main CI, physical QA and owner approval remain separate gates.
+
+## Historic v1.5.3 maintenance
+
+See [v1.5.3.md](v1.5.3.md) for export lifecycle and diagnostics, bounded
+subtitle decoding and strict export settings validation.
 
 ## Historic v1.5.2 maintenance
 

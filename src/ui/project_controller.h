@@ -76,6 +76,10 @@ public:
     /// Atomically write a read-only CSV report of timeline clips; does not alter undo or save
     /// state.
     Q_INVOKABLE bool exportClipListCsv(const QString& pathOrUrl);
+    /// Read-only structural timeline review, limited to 200 rows for the dialog.
+    Q_INVOKABLE QVariantMap timelineReview() const;
+    /// Export the same review as JSON or self-contained HTML.
+    Q_INVOKABLE bool exportTimelineReview(const QString& pathOrUrl);
     Q_INVOKABLE void undo();
     Q_INVOKABLE void redo();
     Q_INVOKABLE void clearRecentProjects();

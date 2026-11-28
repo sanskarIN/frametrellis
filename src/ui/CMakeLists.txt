@@ -38,6 +38,7 @@ qt_add_qml_module(ft_ui
         qml/dialogs/ShortcutsDialog.qml
         qml/dialogs/SubtitleDialog.qml
         qml/dialogs/TitleDialog.qml
+        qml/dialogs/TimelineReviewDialog.qml
         qml/dialogs/WelcomeOverlay.qml
         qml/panels/ClipItem.qml
         qml/panels/InspectorPanel.qml

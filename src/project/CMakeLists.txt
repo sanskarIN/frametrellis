@@ -8,5 +8,6 @@ add_library(ft_project STATIC
     project_serializer.cpp project_serializer.h
     project_settings.cpp project_settings.h
     subtitles.cpp subtitles.h
+    timeline_review.cpp timeline_review.h
 )
 target_link_libraries(ft_project PUBLIC ft_timeline PRIVATE ft_compile_options)

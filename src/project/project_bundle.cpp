@@ -269,11 +269,10 @@ Result<Plan> plan(const Project& project, Options options, const Cancel& cancell
         const QDateTime actual = info.lastModified();
         // Old projects persisted only seconds. Match the media-audit policy:
         // compare exact milliseconds whenever the stored value has them.
-        const bool timeChanged =
-            imported.isValid() &&
-            (imported.time().msec() == 0
-                 ? actual.toSecsSinceEpoch() != imported.toSecsSinceEpoch()
-                 : actual.toMSecsSinceEpoch() != imported.toMSecsSinceEpoch());
+        const bool timeChanged = imported.isValid() &&
+                                 (imported.time().msec() == 0
+                                      ? actual.toSecsSinceEpoch() != imported.toSecsSinceEpoch()
+                                      : actual.toMSecsSinceEpoch() != imported.toMSecsSinceEpoch());
         if (sizeChanged || timeChanged) {
             return makeError(ErrorCode::Conflict,
                              QStringLiteral("Source media changed since import. Relink it first."),

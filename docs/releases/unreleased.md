@@ -8,7 +8,7 @@ All five Windows x64 files are attached; Linux/macOS remain source builds.
 - Merged: protect valid saved projects from invalid probe metadata (#342).
 - Merged: cap native preview sizes with overflow-safe integer scaling (#345).
 - Merged: validate and repair thumbnail cache entries (#343).
-- Pending independent qualification: additional recovery preservation (#344).
+- Merged: preserve renamed recovery backups on project or metadata commit failure (#344).
 - Larger review, checkpoint and portable-project features (#347–349) remain
   outside this patch release's scope.
 

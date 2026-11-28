@@ -7,6 +7,7 @@
 #include "engine/mlt_runtime.h"
 #include "engine/timeline_graph.h"
 #include "media/media_probe.h"
+#include "media/thumbnail_cache.h"
 #include "media/waveform.h"
 #include "media_fixtures.h"
 
@@ -274,6 +275,60 @@ private slots:
         Result<MediaInfo> toneInfo = media::probeMedia(m_media.tone);
         QVERIFY(toneInfo);
         QVERIFY(!media::renderThumbnail(m_media.tone, *toneInfo, QSize(32, 32)));
+    }
+
+    void thumbnailCacheRepairsOversizedAndCorruptEntries()
+    {
+        QTemporaryDir cacheDir;
+        QVERIFY(cacheDir.isValid());
+        media::ThumbnailCache cache(cacheDir.path());
+        const auto info = media::probeMedia(m_media.still);
+        QVERIFY(info);
+        const QSize limit(32, 32);
+        const QImage original = cache.thumbnail(m_media.still, *info, limit);
+        QVERIFY(!original.isNull());
+        QVERIFY(original.width() <= limit.width());
+        QVERIFY(original.height() <= limit.height());
+
+        const QDir dir(cacheDir.path());
+        const QStringList entries = dir.entryList({QStringLiteral("*.png")}, QDir::Files);
+        QCOMPARE(entries.size(), 1);
+        const QString path = dir.filePath(entries.front());
+        QImage oversized(128, 128, QImage::Format_RGB32);
+        oversized.fill(Qt::red);
+        QVERIFY(oversized.save(path, "PNG"));
+
+        const QImage repaired = cache.thumbnail(m_media.still, *info, limit);
+        QVERIFY(!repaired.isNull());
+        QCOMPARE(repaired.size(), original.size());
+        QCOMPARE(QImage(path).size(), original.size());
+
+        QFile corrupt(path);
+        QVERIFY(corrupt.open(QIODevice::WriteOnly | QIODevice::Truncate));
+        QVERIFY(corrupt.write("invalid PNG") > 0);
+        corrupt.close();
+        const QImage regenerated = cache.thumbnail(m_media.still, *info, limit);
+        QVERIFY(!regenerated.isNull());
+        QCOMPARE(regenerated.size(), original.size());
+        QCOMPARE(QImage(path).size(), original.size());
+    }
+
+    void thumbnailCacheRejectsInvalidRequests()
+    {
+        QTemporaryDir cacheDir;
+        QVERIFY(cacheDir.isValid());
+        media::ThumbnailCache cache(cacheDir.path());
+        const auto info = media::probeMedia(m_media.still);
+        QVERIFY(info);
+        for (const QSize size :
+             {QSize(), QSize(0, 32), QSize(-1, 32), QSize(32, 8193), QSize(8193, 32)}) {
+            QVERIFY(cache.thumbnail(m_media.still, *info, size).isNull());
+        }
+        QVERIFY(cache.thumbnail(cacheDir.path(), *info, QSize(32, 32)).isNull());
+        MediaInfo invalid = *info;
+        invalid.width = 0;
+        QVERIFY(cache.thumbnail(m_media.still, invalid, QSize(32, 32)).isNull());
+        QVERIFY(QDir(cacheDir.path()).entryList(QDir::Files).isEmpty());
     }
 
     void thumbnailRejectsNegativeDurationWithoutTouchingNativeDecoder()

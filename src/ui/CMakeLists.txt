@@ -38,6 +38,7 @@ qt_add_qml_module(ft_ui
         qml/dialogs/ShortcutsDialog.qml
         qml/dialogs/SubtitleDialog.qml
         qml/dialogs/TitleDialog.qml
+        qml/dialogs/ProjectBundleDialog.qml
         qml/dialogs/WelcomeOverlay.qml
         qml/panels/ClipItem.qml
         qml/panels/InspectorPanel.qml
@@ -56,6 +57,7 @@ qt_add_qml_module(ft_ui
         media_controller.cpp media_controller.h
         playback_controller.cpp playback_controller.h
         project_controller.cpp project_controller.h
+        project_bundle_controller.cpp project_bundle_controller.h
         thumbnail_provider.cpp thumbnail_provider.h
         waveform_provider.cpp waveform_provider.h
         timeline_controller.cpp timeline_controller.h

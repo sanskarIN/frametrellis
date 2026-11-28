@@ -7,6 +7,7 @@ upgrading: projects using newer v2–v6 formats may not open in the older v1.3.1
 - [Installing FrameTrellis](installation.md)
 - [The workspace](#the-workspace)
 - [Projects](#projects)
+- [Portable project bundles (development)](portable-bundles.md)
 - [Importing media](#importing-media)
 - [Editing on the timeline](#editing-on-the-timeline)
 - [Batch editing and clip attributes](batch-editing.md)

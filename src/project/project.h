@@ -45,6 +45,10 @@ public:
     [[nodiscard]] const QDateTime& created() const { return m_created; }
     void setCreated(const QDateTime& created) { m_created = created; }
 
+    /// Portable copies prefer project-relative primary paths for contained media.
+    [[nodiscard]] bool relativeMediaPaths() const { return m_relativeMediaPaths; }
+    void setRelativeMediaPaths(bool enabled) { m_relativeMediaPaths = enabled; }
+
     [[nodiscard]] const ProjectSettings& settings() const { return m_settings; }
     Status setSettings(const ProjectSettings& settings);
 
@@ -86,6 +90,7 @@ private:
     Id m_id;
     QString m_name;
     QDateTime m_created;
+    bool m_relativeMediaPaths = false;
     ProjectSettings m_settings;
     std::vector<MediaAsset> m_media;
     std::vector<TimelineMarker> m_markers;

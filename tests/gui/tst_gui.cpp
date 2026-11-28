@@ -4885,6 +4885,26 @@ private slots:
         QCOMPARE(m_app->project()->undoText(), undoLabel);
     }
 
+    void portableBundleDialogCanOpenAndCloseWithoutChangingProject()
+    {
+        const Project before = m_app->project()->project();
+        const bool dirty = m_app->project()->isModified();
+        const QString undoLabel = m_app->project()->undoText();
+        QObject* dialog = m_window->findChild<QObject*>(QStringLiteral("projectBundleDialog"));
+        QVERIFY(dialog);
+        QVERIFY(QMetaObject::invokeMethod(dialog, "open"));
+        QTRY_VERIFY(dialog->property("visible").toBool());
+        QTRY_VERIFY(m_window->property("dialogOpen").toBool());
+        QQuickItem* name = findItem(m_window->contentItem(), QStringLiteral("projectBundleName"));
+        QVERIFY(name);
+        QCOMPARE(name->property("text").toString(), QStringLiteral("FrameTrellis-bundle"));
+        QTest::keyClick(m_window, Qt::Key_Escape);
+        QTRY_VERIFY(!dialog->property("visible").toBool());
+        QCOMPARE(m_app->project()->project(), before);
+        QCOMPARE(m_app->project()->isModified(), dirty);
+        QCOMPARE(m_app->project()->undoText(), undoLabel);
+    }
+
     void saveAndReopenRoundTrip()
     {
         const QString file = m_dir.filePath(QStringLiteral("gui-project.ftproj"));

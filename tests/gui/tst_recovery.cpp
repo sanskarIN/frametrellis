@@ -62,6 +62,39 @@ private slots:
         QVERIFY(QFile::remove(renamed));
     }
 
+    void renamedBackupSurvivesFailedMetadataCommit()
+    {
+        const Project lostEdit = Project::createNew(QStringLiteral("Recovery metadata"), {});
+        const QString autosaveDir = ui::ProjectController::autosaveDirectory();
+        QVERIFY(QDir().mkpath(autosaveDir));
+        const QDir dir(autosaveDir);
+        const QString canonical = dir.filePath(lostEdit.id() + QStringLiteral(".ftproj"));
+        const QString renamed = dir.filePath(lostEdit.id() + QStringLiteral("-renamed.ftproj"));
+        const QString original = m_dir.filePath(QStringLiteral("metadata-original.ftproj"));
+        QVERIFY(project_format::saveToFile(lostEdit, renamed));
+        QFile meta(renamed + QStringLiteral(".json"));
+        QVERIFY(meta.open(QIODevice::WriteOnly));
+        QVERIFY(meta.write(QJsonDocument(QJsonObject{{QStringLiteral("originalPath"), original}})
+                               .toJson()) > 0);
+        meta.close();
+        const QString blocked = canonical + QStringLiteral(".json");
+        QVERIFY(QDir().mkpath(blocked));
+
+        ui::ProjectController controller;
+        QCOMPARE(controller.recovery().value(QStringLiteral("autosavePath")).toString(), renamed);
+        QVERIFY(controller.recoverAutosave());
+        QVERIFY(controller.isModified());
+        QVERIFY(QFileInfo(canonical).isFile());
+        QVERIFY(QFileInfo(renamed).isFile());
+        QVERIFY(QFileInfo(renamed + QStringLiteral(".json")).isFile());
+        QVERIFY(project_format::loadFromFile(renamed));
+
+        QVERIFY(QDir().rmdir(blocked));
+        QVERIFY(controller.saveAs(original));
+        QVERIFY(QFile::remove(renamed));
+        QVERIFY(QFile::remove(renamed + QStringLiteral(".json")));
+    }
+
     void renamedBackupKeepsOriginalPathAfterSuccessfulRecovery()
     {
         const Project lostEdit = Project::createNew(QStringLiteral("Recover location"), {});

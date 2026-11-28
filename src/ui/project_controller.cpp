@@ -411,10 +411,17 @@ bool ProjectController::writeAutosave(const QString& originalPath)
         {QStringLiteral("originalPath"), sourcePath},
         {QStringLiteral("name"), project().name()},
         {QStringLiteral("savedAt"), QDateTime::currentDateTimeUtc().toString(Qt::ISODate)}};
-    QSaveFile file(autosavePath() + QStringLiteral(".json"));
-    if (file.open(QIODevice::WriteOnly)) {
-        file.write(QJsonDocument(meta).toJson());
-        file.commit();
+    const QString metadataPath = autosavePath() + QStringLiteral(".json");
+    const QFileInfo metadataInfo(metadataPath);
+    if (metadataInfo.isSymLink() || (metadataInfo.exists() && !metadataInfo.isFile())) {
+        qCWarning(lcUi) << "Invalid autosave metadata destination";
+        return false;
+    }
+    const QByteArray bytes = QJsonDocument(meta).toJson();
+    QSaveFile file(metadataPath);
+    if (!file.open(QIODevice::WriteOnly) || file.write(bytes) != bytes.size() || !file.commit()) {
+        qCWarning(lcUi) << "Autosave metadata could not be committed:" << file.errorString();
+        return false;
     }
     qCDebug(lcUi) << "Autosaved to" << autosavePath();
     return true;
